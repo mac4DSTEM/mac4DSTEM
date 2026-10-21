@@ -34,12 +34,32 @@ final class StrainFrameTests: XCTestCase {
 
     // MARK: - Known answers
 
+    /// A raw field pushed through the app's presentation path (`StrainMap.presented(in:)`, which calls CuboStrain's
+    /// `StrainFrame.rotate`): every position fitted, no masking.
+    private func rotate(exx: [Float], eyy: [Float], exy: [Float], theta: [Float],
+                        rotationRad: Float, transposed: Bool)
+        -> (exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
+        let n = exx.count
+        let zeros = [Float](repeating: 0, count: n)
+        let map = StrainMap(
+            width: n, height: 1, exx: exx, eyy: eyy, exy: exy, theta: theta,
+            mask: [Bool](repeating: true, count: n),
+            localG1x: zeros, localG1y: zeros, localG2x: zeros, localG2y: zeros, localResidualPixels: zeros,
+            refG1: (x: 0, y: 0), refG2: (x: 0, y: 0), referencePositionCount: 0, indexedFraction: 1,
+            diagnostics: StrainFitDiagnostics(
+                automaticBasis: true, referenceMaskApplied: false, basisObservationCount: 0, basisSupportCount: 0,
+                basisSupportFraction: 0, basisResidualPixels: 0, basisConditionNumber: 1, indexingTolerancePixels: 0,
+                localResidualMedianPixels: 0, referenceCandidateCount: 0, referenceRejectedCount: 0))
+        let presented = map.presented(in: .scan(rotationRad: rotationRad, transposed: transposed))
+        return (presented.exx, presented.eyy, presented.exy, presented.theta)
+    }
+
     /// Uniaxial tension along detector-x under a 90° R–Q rotation lands on
     /// scan-y: a detector vector along x maps to scan (0, 1), so the tension
     /// axis is the map's vertical. εxx and εyy swap; this is the literal
     /// misread the open-item describes.
     func testNinetyDegreeRotationMovesTensionBetweenAxes() {
-        let rotated = StrainFrameRotation.rotate(
+        let rotated = rotate(
             exx: [0.02], eyy: [0], exy: [0], theta: [0.003],
             rotationRad: .pi / 2, transposed: false
         )
@@ -53,7 +73,7 @@ final class StrainFrameTests: XCTestCase {
     /// Pure shear changes sign under a 90° rotation — the open-item's second
     /// clause ("changes the sign convention of the shear").
     func testPureShearChangesSignUnderNinetyDegrees() {
-        let rotated = StrainFrameRotation.rotate(
+        let rotated = rotate(
             exx: [0], eyy: [0], exy: [0.01], theta: [0],
             rotationRad: .pi / 2, transposed: false
         )
@@ -66,7 +86,7 @@ final class StrainFrameTests: XCTestCase {
     /// shear is unchanged, and the lattice-rotation pseudo-scalar NEGATES
     /// (py4DSTEM's `flip_theta`).
     func testTransposeSwapsNormalComponentsAndNegatesTheta() {
-        let rotated = StrainFrameRotation.rotate(
+        let rotated = rotate(
             exx: [0.02], eyy: [-0.01], exy: [0.005], theta: [0.003],
             rotationRad: 0, transposed: true
         )
@@ -80,7 +100,7 @@ final class StrainFrameTests: XCTestCase {
     /// becomes pure normal strain. The 90° cases have sc = 0 and are BLIND to
     /// the sign of the 2sc·εxy term — this is the known answer that pins it.
     func testFortyFiveDegreeRotationTurnsShearIntoNormalStrain() {
-        let rotated = StrainFrameRotation.rotate(
+        let rotated = rotate(
             exx: [0], eyy: [0], exy: [0.01], theta: [0],
             rotationRad: .pi / 4, transposed: false
         )
@@ -92,7 +112,7 @@ final class StrainFrameTests: XCTestCase {
     /// A 180° rotation is −I: the tensor is invariant. This is why the iDPC
     /// contrast-flip control can never corrupt a strain map.
     func testOneEightyDegreeRotationIsTheIdentityOnTheTensor() {
-        let rotated = StrainFrameRotation.rotate(
+        let rotated = rotate(
             exx: [0.02], eyy: [-0.01], exy: [0.005], theta: [0.003],
             rotationRad: .pi, transposed: false
         )
@@ -134,7 +154,7 @@ final class StrainFrameTests: XCTestCase {
     /// vectors themselves (braggvectors.py:528–545) before the strain fit;
     /// this app rotates the fitted tensor at presentation. The two must be
     /// the same operation: refit from vectors transformed by v' = R(θ)·F·v
-    /// and compare against `StrainFrameRotation.rotate` of the raw fit.
+    /// and compare against the presented (CuboStrain `StrainFrame.rotate`) raw fit.
     func testRotatingInputVectorsEqualsRotatingTheOutputTensor() throws {
         for (angleDeg, transposed) in [
             (Float(30), false), (Float(90), false), (Float(-37.2), false),
@@ -402,7 +422,7 @@ final class StrainFrameTests: XCTestCase {
         var peaks = [unstrained, unstrained, tension,
                      unstrained, unstrained, sheared]
         if let dropPosition { peaks[dropPosition] = [] }
-        return StrainMapping.compute(
+        return StrainMapper.compute(
             bragg: BraggVectors(scanWidth: 3, scanHeight: 2, peaks: peaks),
             originX: origin.x, originY: origin.y,
             minNumPeaks: 5

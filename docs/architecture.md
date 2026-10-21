@@ -150,7 +150,7 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
 9. **Export / persist.** `Support/ResultExport.swift` writes PNG, CSV of
    Bragg peaks, and py4DSTEM/EMD-compatible HDF5
    (`Core/Data/BraggVectorEMDWriter.swift`: the API, the publish and the attribute names; `SessionSidecarReading`, `SessionSidecarWriting`,
-   `CalibratedDataCubeWriter`, `HDF5WritePrimitives` and `HDF5WriteLibrary` beside it). Sidecar-rewriting entry points
+   `CalibratedDataCubeWriter` beside it, all over FormatoKit's `HDF5NewFile`, `HDF5WriteSession` and `EMDDatacubeWriter`). Sidecar-rewriting entry points
    call `gates.sidecarRewriteRefusal()` first (`Session/SessionGates.swift`);
    provenance is composed once per fact, snapshotted at compute time, not
    read live off current calibration.
@@ -342,8 +342,8 @@ quietly stopped checking something looks like a passing gate.
 
 ## HDF5 notes
 
-FormatoKit's readers (`HDF5Reader`, used by `H5Reader` and the sidecar reader) and the app's session writer and shims
-(`HDF5LibraryCandidates`, one candidate list) `dlopen` `libhdf5.dylib` and the writer binds every
+Every HDF5 access in the app is FormatoKit's (`HDF5Reader`, `HDF5SlabReader` and `walk` for `H5Reader` and the sidecar reader;
+`HDF5NewFile`, `HDF5WriteSession` and `EMDDatacubeWriter` for the sidecar and exports): the kit `dlopen`s `libhdf5.dylib` once and binds every
 symbol via `dlsym`, searching `FORMATO_HDF5_PATH` (harnesses), the host's `Frameworks/libhdf5.dylib`, FormatoKit's copy in the app's
 `Contents/Frameworks/FormatoLibHDF5.framework` (`FormatoHDF5Library.bundledLibraryPath`; with FormatoLibSZ and FormatoLibAEC, embedded and signed
 with the app's identity by Xcode since FormatoKit 0.4.0), then dyld's bare-name lookup. The libraries

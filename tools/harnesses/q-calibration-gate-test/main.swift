@@ -25,6 +25,7 @@
 
 import CuboCore
 import Foundation
+import DiffractoGeometry   // QCalibrationShellCheck is DiffractoKit's LinearScaleShellCheck
 
 /// The ordinary (untrimmed) plane surface of one map, evaluated everywhere; `included` leaves the other positions out of the fit.
 /// CuboKit's `OriginFit.fit` (the app's former `fitOrigin` was this call on both maps).

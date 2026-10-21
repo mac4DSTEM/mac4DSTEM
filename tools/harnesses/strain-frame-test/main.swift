@@ -1,8 +1,8 @@
 //
 //  tools/harnesses/strain-frame-test — v2 S8's Gate B fixture.
 //
-//  Claim under test: `StrainFrameRotation.rotate` (Core/Analysis/
-//  StrainFrame.swift) expresses a detector-frame strain tensor field in the
+//  Claim under test: the strain-frame rotation (CuboStrain's `StrainFrame.rotate`, which Core/Analysis/
+//  StrainFrame.swift's `presented(in:)` calls in Double, the harness adapter `StrainFrameRotation` below in Float) expresses a detector-frame strain tensor field in the
 //  scan frame exactly as py4DSTEM does — by the calibrated-vector transform
 //  v_scan = R(θ)·F·v_det — so the app may rotate the FITTED tensor at
 //  presentation instead of refitting from rotated vectors.
@@ -11,7 +11,7 @@
 //    A. py4DSTEM itself: golden.json is produced by the vendored
 //       `get_rotated_strain_map` (reference.py, which also source-locks the
 //       conventions and cross-checks against an independent numpy transform).
-//    B. The refit: `StrainMapping.compute` on vectors rotated the way
+//    B. The refit: `StrainMapper.compute` on vectors rotated the way
 //       py4DSTEM rotates calibrated vectors must equal rotating the raw fit's
 //       output — the ground truth the presentation shortcut stands on.
 //    C. Known answers a reader can verify by hand (90° swap, 45° shear).
@@ -21,6 +21,18 @@
 //
 
 import Foundation
+import CuboStrain
+
+/// The harness's Float adapter over the kit's Double `StrainFrame.rotate`, the call `StrainMap.presented(in:)` makes.
+enum StrainFrameRotation {
+    static func rotate(exx: [Float], eyy: [Float], exy: [Float], theta: [Float],
+                       rotationRad: Float, transposed: Bool) -> (exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
+        func wide(_ values: [Float]) -> [Double] { values.map(Double.init) }
+        let r = StrainFrame.rotate(exx: wide(exx), eyy: wide(eyy), exy: wide(exy), theta: wide(theta),
+                                   rotation: Double(rotationRad), transposed: transposed)
+        return (r.exx.map(Float.init), r.eyy.map(Float.init), r.exy.map(Float.init), r.theta.map(Float.init))
+    }
+}
 
 @main
 enum Harness {
@@ -92,7 +104,7 @@ enum Harness {
 
     /// 12×9 scan over a heterogeneously strained lattice. The local
     /// least-squares fits are EXACTLY rotation-equivariant, but the reference
-    /// (py4DSTEM `get_reference_g1g2`, ported in StrainMapping) is a
+    /// (py4DSTEM `get_reference_g1g2`, ported in StrainMapper) is a
     /// component-wise MEDIAN, which is rotation-equivariant only when one
     /// lattice holds a strict majority — so the equivalence fixture makes the
     /// unstrained lattice the majority (5 of 9 rows), pinning the median to
@@ -144,11 +156,11 @@ enum Harness {
     static func refitCase(angleDeg: Float, transposed: Bool) {
         let origin = (x: Float(64), y: Float(64))
         let theta = angleDeg * .pi / 180
-        guard let raw = StrainMapping.compute(
+        guard let raw = StrainMapper.compute(
             bragg: syntheticVectors(rotateBy: nil, transposed: false),
             originX: origin.x, originY: origin.y
         ) else { return fail("raw fit failed at \(angleDeg)°") }
-        guard let refit = StrainMapping.compute(
+        guard let refit = StrainMapper.compute(
             bragg: syntheticVectors(rotateBy: theta, transposed: transposed),
             originX: origin.x, originY: origin.y
         ) else { return fail("rotated-input fit failed at \(angleDeg)°") }
@@ -231,10 +243,10 @@ enum Harness {
         do {
             let origin = (x: Float(64), y: Float(64))
             let theta: Float = 30 * .pi / 180
-            guard let raw = StrainMapping.compute(
+            guard let raw = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: nil, transposed: false),
                 originX: origin.x, originY: origin.y
-            ), let refit = StrainMapping.compute(
+            ), let refit = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: theta, transposed: true),
                 originX: origin.x, originY: origin.y
             ) else { fail("NC2 fixture failed"); return exitNow() }
@@ -256,10 +268,10 @@ enum Harness {
         // negated lattice rotation; keeping θ unchanged must disagree.
         do {
             let origin = (x: Float(64), y: Float(64))
-            guard let raw = StrainMapping.compute(
+            guard let raw = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: nil, transposed: false),
                 originX: origin.x, originY: origin.y
-            ), let refit = StrainMapping.compute(
+            ), let refit = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: 0, transposed: true),
                 originX: origin.x, originY: origin.y
             ) else { fail("NC3 fixture failed"); return exitNow() }
@@ -279,7 +291,7 @@ enum Harness {
         // pass under an identity 'rotation' too.
         do {
             let origin = (x: Float(64), y: Float(64))
-            guard let raw = StrainMapping.compute(
+            guard let raw = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: nil, transposed: false),
                 originX: origin.x, originY: origin.y
             ) else { fail("NC4 fixture failed"); return exitNow() }
@@ -295,7 +307,7 @@ enum Harness {
                   "NC4 dead: the fixture is too isotropic to distinguish frames")
         }
 
-        // NC5 — the majority-reference premise (StrainMapping's port of
+        // NC5 — the majority-reference premise (StrainMapper's port of
         // py4DSTEM get_reference_g1g2, the component-median lines). On a
         // majority-FREE mixture the median reference is not rotation-
         // equivariant, so refit-from-rotated-vectors is a slightly different
@@ -309,11 +321,11 @@ enum Harness {
         do {
             let origin = (x: Float(64), y: Float(64))
             let theta: Float = 37.2 * .pi / 180
-            guard let raw = StrainMapping.compute(
+            guard let raw = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: nil, transposed: false,
                                         majorityReference: false),
                 originX: origin.x, originY: origin.y
-            ), let refit = StrainMapping.compute(
+            ), let refit = StrainMapper.compute(
                 bragg: syntheticVectors(rotateBy: theta, transposed: false,
                                         majorityReference: false),
                 originX: origin.x, originY: origin.y

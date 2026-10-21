@@ -19,14 +19,12 @@
 //  py4DSTEM's (qx, qy) has x as the row axis — translated here, nowhere else.
 //
 //  Steps (1)-(4) are CuboKit's (CuboBragg 0.6.0, Float32 `BraggPrecision.single`);
-//  `DiskDetector` below maps the app's controls onto it. The full-scan pass reads
-//  bounded scan-row tiles, then parallelizes each tile with one detector per worker. multicorr is
+//  `DiskDetector` below maps the app's controls onto it. The full-scan pass is the kit's (`BraggDisks.detectAll`, CuboKit 0.7.0: bounded scan-row tiles, every core on a tile's patterns; `TiledDiskDetection.swift`). multicorr is
 //  ~10× slower than poly per pattern — poly is the interactive default,
 //  multicorr the strain-analysis choice.
 //
 
 import Foundation
-import Metal
 import CuboBragg
 import CuboVirtual
 
@@ -786,7 +784,7 @@ package nonisolated struct BraggVectors: Sendable {
 /// the maxima, the filter cascade and both subpixel refinements. This type keeps the app's vocabulary (`DiskDetectionParams`,
 /// x = column, Float peaks, `DiskDetectionPatternDiagnostics`) and the learned detector's two entries (`correlation`,
 /// `refine`). The kit's detector is `Sendable` and keeps one scratch per concurrent caller, so one `DiskDetector` may serve
-/// several threads; the full-scan pass still makes one per worker, as before.
+/// several threads; the full-scan pass is the kit's own and does not use this facade.
 ///
 /// Precision: Float32 (`BraggPrecision.single`, as the former in-app detector computed) on a detector size vDSP's DFT
 /// supports and at `corrPower` of 0.5 or more; otherwise the kit's Double path. Phase correlation (`corrPower` near 0) is
@@ -801,22 +799,26 @@ package nonisolated final class DiskDetector {
 
     private let detector: BraggDetector
     private let qx: Int, qy: Int          // detector dims
-    private let singleSupported: Bool
+
+    /// The kit's kernel image for the app's probe kernel; nil when the kernel is not on the detector's own grid (the kit's
+    /// detector needs it) or is refused. The full-scan pass and the facade both build it here.
+    package static func kitKernel(_ kernel: ProbeKernel) -> CuboVirtual.DetectorImage? {
+        guard kernel.px == kernel.qx, kernel.py == kernel.qy else { return nil }
+        return try? CuboVirtual.DetectorImage(
+            detectorRows: kernel.qy, detectorColumns: kernel.qx,
+            values: kernel.kernel.map(Double.init), path: .cpu)
+    }
 
     package init?(kernel: ProbeKernel) {
-        guard kernel.px == kernel.qx, kernel.py == kernel.qy,
-              let image = try? CuboVirtual.DetectorImage(
-                detectorRows: kernel.qy, detectorColumns: kernel.qx,
-                values: kernel.kernel.map(Double.init), path: .cpu),
-              let detector = try? BraggDetector(kernel: image) else { return nil }
+        guard let image = Self.kitKernel(kernel), let detector = try? BraggDetector(kernel: image) else { return nil }
         self.detector = detector
         self.qx = kernel.qx; self.qy = kernel.qy
-        singleSupported = BraggDetector.supportsSinglePrecision(detectorRows: kernel.qy, detectorColumns: kernel.qx)
     }
 
     /// The kit's options for these controls: the app's variants on (neighbour-median fill, multicorr peaks left in
-    /// correlation order), every field from `params`.
-    private func options(_ params: DiskDetectionParams) -> BraggDiskOptions {
+    /// correlation order), every field from `params`. The same options serve the single-pattern facade below and the
+    /// full-scan pass (`DiskDetection.detectAll(data:)`, `BraggDisks.detectAll`).
+    package static func kitOptions(_ params: DiskDetectionParams, qy: Int, qx: Int) -> BraggDiskOptions {
         var o = BraggDiskOptions.mac4DSTEM
         o.correlationPower = Double(params.corrPower)
         o.patternSigma = Double(params.sigmaDP)
@@ -838,8 +840,13 @@ package nonisolated final class DiskDetector {
         o.minimumPeakSpacing = Double(params.minPeakSpacing)
         o.edgeBoundary = params.edgeBoundary
         o.maximumPeaks = params.maxNumPeaks
-        o.precision = singleSupported && params.corrPower >= 0.5 ? .single : .double
+        o.precision = BraggDetector.supportsSinglePrecision(detectorRows: qy, detectorColumns: qx) && params.corrPower >= 0.5
+            ? .single : .double
         return o
+    }
+
+    private func options(_ params: DiskDetectionParams) -> BraggDiskOptions {
+        Self.kitOptions(params, qy: qy, qx: qx)
     }
 
     // MARK: Detection (one pattern)
@@ -1020,99 +1027,4 @@ package nonisolated final class DiskDetector {
         return kept.map(\.peak)
     }
 
-}
-
-// MARK: - Full-scan detection
-
-package enum DiskDetection {
-
-    /// Detect disks at every scan position, parallelized over scan rows.
-    /// `cube` is the resident float32 cube [ry][rx][qy][qx]; progress is
-    /// reported in [0, 1] from worker threads.
-    package nonisolated static func detectAll(cube: MTLBuffer,
-                          descriptor d: DatasetDescriptor,
-                          kernel: ProbeKernel,
-                          params: DiskDetectionParams,
-                          cancellation: AnalysisCancellationToken? = nil,
-                          progress: (@Sendable (Double) -> Void)? = nil) -> BraggVectors? {
-        guard cancellation?.isCancelled != true else { return nil }
-        let context = DiskDetectionContext(
-            qy: d.qy, qx: d.qx, probeRadius: kernel.probeRadius
-        )
-        guard !params.validationIssues(in: context).contains(where: {
-            $0.severity == .error
-        }) else { return nil }
-        let base = cube.contents().bindMemory(to: Float.self,
-                                              capacity: d.ry * d.rx * d.qy * d.qx)
-        let patPix = d.qy * d.qx
-        let rowPix = d.rx * patPix
-
-        // One result slot per scan position; rows are disjoint, so workers
-        // never touch the same slot. The buffer is captured via a wrapper to
-        // sidestep Sendable checking on the raw pointer (read-only access).
-        struct Slots: @unchecked Sendable {
-            package let ptr: UnsafeMutablePointer<[BraggPeak]>
-            package let cubeBase: UnsafePointer<Float>
-        }
-        var results = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
-        let rowsDone = NSLock()
-        var doneCount = 0
-        var failedCount = 0
-        // Progress counts PATTERNS, not scan rows: a tile of a few rows on a
-        // wide scan moves the bar in ~8 % steps if counted that way. One lock
-        // take per pattern costs nothing next to a
-        // correlation. The CALLBACK is rate-limited to one per 0.1 % of the
-        // scan (at most ~1,000 per run), because the app's progress closure
-        // hops to the main actor per call and a tick per pattern at ~3,000
-        // patterns/s would flood exactly the runloop P1 just freed.
-        let patternCount = d.ry * d.rx
-        var lastBucket = -1
-
-        let ok = results.withUnsafeMutableBufferPointer { buf -> Bool in
-            let slots = Slots(ptr: buf.baseAddress!, cubeBase: base)
-            // One detector (FFT plan + padded scratch) per WORKER, rows strided
-            // across workers — not one per row, which churned multi-MB
-            // allocations on large scans. `failed` is guarded by the lock.
-            var failed = false
-            let workers = max(1, min(ProcessInfo.processInfo.activeProcessorCount, d.ry))
-            DispatchQueue.concurrentPerform(iterations: workers) { w in
-                guard cancellation?.isCancelled != true else { return }
-                guard let det = DiskDetector(kernel: kernel) else {
-                    rowsDone.lock(); failed = true; rowsDone.unlock(); return
-                }
-                for ry in stride(from: w, to: d.ry, by: workers) {
-                    if cancellation?.isCancelled == true { break }
-                    for rx in 0..<d.rx {
-                        if cancellation?.isCancelled == true { break }
-                        let pat = slots.cubeBase + ry * rowPix + rx * patPix
-                        let result = det.detectWithDiagnostics(pattern: pat, params: params)
-                        slots.ptr[ry * d.rx + rx] = result.peaks
-                        let failedHere = result.diagnostics.detectionFailure != nil
-                        if failedHere { rowsDone.lock(); failedCount += 1; rowsDone.unlock() }
-                        if let progress {
-                            rowsDone.lock()
-                            doneCount += 1
-                            let bucket = doneCount * 1000 / patternCount
-                            let tick = bucket != lastBucket
-                            if tick { lastBucket = bucket }
-                            let f = Double(doneCount) / Double(patternCount)
-                            rowsDone.unlock()
-                            if tick { progress(f) }
-                        }
-                    }
-                    if cancellation?.isCancelled == true { break }
-                }
-            }
-            rowsDone.lock(); let bad = failed; rowsDone.unlock()
-            return !bad && cancellation?.isCancelled != true
-        }
-        guard ok else { return nil }
-        return BraggVectors(
-            scanWidth: d.rx, scanHeight: d.ry, peaks: results,
-            detectionProvenance: params.provenance(
-                kernel: kernel, qy: d.qy, qx: d.qx
-            ),
-            failedPatternCount: failedCount
-        )
-    }
 }

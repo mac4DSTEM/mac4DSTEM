@@ -111,7 +111,7 @@ final class ParallaxKitSwitchTests: XCTestCase {
         XCTAssertEqual(all.values.last, 1)
     }
 
-    // MARK: - Alignment stays on the app's Float path (CuboKit 0.6.0's Double shifter is 4.7x slower)
+    // MARK: - Alignment: the app's level logic over CuboParallax's shifter and correlation estimate (CuboKit 0.7.0)
 
     private struct AlignmentFixture: Decodable {
         struct Level: Decodable { let bin: Int; let group: [Double]; let total: [Double]; let aligned: [Double]? }
@@ -131,11 +131,11 @@ final class ParallaxKitSwitchTests: XCTestCase {
         }
     }
 
-    /// The app's Float alignment against what CuboKit 0.6.0's `ParallaxFourierShifter` (Double) gives inside the same level logic, on a
-    /// textured stack shifted by a known linear field: integer peaks (factor 1) exactly, factor 8 within 2e-4 px (measured 8.2e-5, the
-    /// Float matrix-DFT refinement), the aligned image within 5e-5 (measured 8e-6). This is the guard for the day the kit's shifter is
-    /// fast enough to take over (`ParallaxAlignment.swift`, "delete at CuboKit 0.7"). Mutation: flip a shift sign or the running-average
-    /// weights -> red.
+    /// The app's alignment levels against what `ParallaxFourierShifter` (Double) gives inside the same level logic (the fixture, made
+    /// with the kit at 0.6.0), on a textured stack shifted by a known linear field: integer peaks (factor 1) within 1e-6, factor 8
+    /// within 2e-4 px, the aligned image within 5e-5. Since 0.7.0 the level logic calls the kit's `shiftedSingle` (this 40 x 40 stack is a
+    /// size vDSP takes), `correlationShift` and `shifting`, so this pins the Float32 shifter and the app's Float storage against the
+    /// Double reference. Mutation: flip a shift sign or the running-average weights -> red.
     func testTheFloatAlignmentAgreesWithTheKitShifterOnAKnownField() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appendingPathComponent("Fixtures/Parallax/kit-alignment-synthetic.json")

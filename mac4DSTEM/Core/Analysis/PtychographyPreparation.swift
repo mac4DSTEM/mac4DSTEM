@@ -121,7 +121,7 @@ extension PtychographyPreparer {
             )
             return (probe.real.map { Float($0) }, probe.imaginary.map { Float($0) })
         } catch {
-            throw SingleslicePtychography.ReconstructionError.invalidInput(
+            throw PtychographyReconstructor.ReconstructionError.invalidInput(
                 "the calibrated probe aperture is empty"
             )
         }
@@ -148,7 +148,7 @@ package nonisolated enum PtychographyPreparer {
               aberrations.isValid,
               options.probeRolloffMrad.isFinite, options.probeRolloffMrad >= 0,
               options.maxResidentBytes > 0 else {
-            throw SingleslicePtychography.ReconstructionError.invalidInput(
+            throw PtychographyReconstructor.ReconstructionError.invalidInput(
                 "dataset, probe radius, aberrations, rolloff, or memory limit is invalid"
             )
         }
@@ -156,14 +156,14 @@ package nonisolated enum PtychographyPreparer {
         let patternCount = descriptor.ry * descriptor.rx
         let detectorCount = descriptor.qy * descriptor.qx
         guard patternCount <= Int.max / detectorCount else {
-            throw SingleslicePtychography.ReconstructionError.invalidInput(
+            throw PtychographyReconstructor.ReconstructionError.invalidInput(
                 "amplitude dimensions overflow"
             )
         }
         let amplitudeCount = patternCount * detectorCount
         let amplitudeBytes = amplitudeCount * MemoryLayout<Float>.stride
         guard amplitudeBytes <= options.maxResidentBytes else {
-            throw SingleslicePtychography.ReconstructionError.memoryLimit(
+            throw PtychographyReconstructor.ReconstructionError.memoryLimit(
                 bytes: amplitudeBytes, limit: options.maxResidentBytes
             )
         }
@@ -175,7 +175,7 @@ package nonisolated enum PtychographyPreparer {
                 view, yRange: scanRow..<(scanRow + 1)
             )
             guard tile.pixels.count == descriptor.rx * detectorCount else {
-                throw SingleslicePtychography.ReconstructionError.invalidInput(
+                throw PtychographyReconstructor.ReconstructionError.invalidInput(
                     "the data source returned an inconsistent scan row"
                 )
             }
@@ -207,7 +207,7 @@ package nonisolated enum PtychographyPreparer {
                             + tile.pixels[sourceBase + row1 * descriptor.qx + column1]
                                 * rowFraction * columnFraction
                         guard value.isFinite else {
-                            throw SingleslicePtychography.ReconstructionError.invalidInput(
+                            throw PtychographyReconstructor.ReconstructionError.invalidInput(
                                 "a diffraction intensity is non-finite"
                             )
                         }
@@ -222,7 +222,7 @@ package nonisolated enum PtychographyPreparer {
         }
         let meanIntensity = totalIntensity / Double(patternCount)
         guard meanIntensity.isFinite, meanIntensity > 0 else {
-            throw SingleslicePtychography.ReconstructionError.invalidInput(
+            throw PtychographyReconstructor.ReconstructionError.invalidInput(
                 "mean diffraction intensity is zero"
             )
         }
@@ -324,10 +324,10 @@ package nonisolated enum PtychographyPreparer {
         // starts at zero. A no-op when the rotation is zero.
         let columnShift = min(columnsAngstrom.min() ?? 0, 0)
         let rowShift = min(rowsAngstrom.min() ?? 0, 0)
-        var positions = [PtychographyPosition]()
+        var positions = [PtychographyScanPosition]()
         positions.reserveCapacity(patternCount)
         for index in 0..<patternCount {
-            positions.append(PtychographyPosition(
+            positions.append(PtychographyScanPosition(
                 row: Float((rowsAngstrom[index] - rowShift) / rowSampling) + topPadding,
                 column: Float((columnsAngstrom[index] - columnShift) / columnSampling)
                     + leftPadding
@@ -347,13 +347,13 @@ package nonisolated enum PtychographyPreparer {
         let residentBytes = amplitudeBytes
             + (objectCount * 2 + detectorCount * 4) * MemoryLayout<Float>.stride
         guard residentBytes <= options.maxResidentBytes else {
-            throw SingleslicePtychography.ReconstructionError.memoryLimit(
+            throw PtychographyReconstructor.ReconstructionError.memoryLimit(
                 bytes: residentBytes, limit: options.maxResidentBytes
             )
         }
 
         guard let fft = FFT2D(nx: descriptor.qx, ny: descriptor.qy) else {
-            throw SingleslicePtychography.ReconstructionError.fftUnavailable
+            throw PtychographyReconstructor.ReconstructionError.fftUnavailable
         }
         let wavelength = calibration.wavelengthAngstrom
         let cutoff = Double(probeRadiusPixels) * qSampling * wavelength
@@ -407,7 +407,7 @@ package nonisolated enum PtychographyPreparer {
         _ cancellation: AnalysisCancellationToken?
     ) throws {
         if cancellation?.isCancelled == true {
-            throw SingleslicePtychography.ReconstructionError.cancelled
+            throw PtychographyReconstructor.ReconstructionError.cancelled
         }
     }
 }

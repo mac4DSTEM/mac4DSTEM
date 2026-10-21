@@ -3,16 +3,12 @@
 //  Immutable coarse-to-fine alignment levels from py4DSTEM
 //  Parallax.reconstruct, including factor-8 matrix-DFT refinement.
 //
-//  delete at CuboKit 0.7: CuboParallax 0.6.0 has the Fourier shift (`ParallaxFourierShifter`), the spectrum-level estimate
-//  (`correlationShift`) and the matrix-DFT peak this file and MatrixDFTCorrelation.swift carry, and agrees with them (factor 1
-//  exactly, factor 8 to 8.2e-5 px; ParallaxKitSwitchTests), but its Double 2-D FFT is about 5x slower than ImagoCore's Float FFT2D:
-//  the whole 5-level alignment of 121 bright-field images on a 160 x 160 stack took 0.58 s here and 2.71 s through the shifter
-//  (2026-10-21, one core; a 1.9 ms shift against 0.4 ms). Ask of the kit: a faster Double FFT (vDSP-backed) or a Float shifter.
+//  The Fourier shifts and the correlation peak (integer, or py4DSTEM's matrix-DFT refinement) are CuboParallax's
+//  (`ParallaxFourierShifter`, 0.7.0); this file keeps the level logic: groups, the running reference, the k-vector fit.
 //
 
-import Accelerate
+import CuboParallax
 import Foundation
-import ImagoCore
 
 package nonisolated struct ParallaxScanShift: Equatable, Sendable {
     /// Shift along the first / scan-row axis.
@@ -339,7 +335,8 @@ package nonisolated enum ParallaxAligner {
         }
 
         let stackBytes = preprocessing.stackByteCount
-        let fftWorkBytes = planeCount * MemoryLayout<Float>.stride * 12
+        // The Double reference and group spectra and the kit's transform scratch.
+        let fftWorkBytes = planeCount * MemoryLayout<Double>.stride * 12
         // The input (level 1: the preprocessed stack; after: the prior level's stack AND masks, which stay alive while this
         // level is built) + the new stack and masks. Level 2+ was counted as 3S while 4S was live (review d2, 2026-10-02).
         let (outputStacks, overflow0) = stackBytes.multipliedReportingOverflow(by: 2)
@@ -352,8 +349,9 @@ package nonisolated enum ParallaxAligner {
         guard peakBytes <= options.maxWorkingBytes else {
             throw AlignmentError.memoryLimit(bytes: peakBytes, limit: options.maxWorkingBytes)
         }
-        guard let fft = FFT2D(nx: preprocessing.stackWidth,
-                              ny: preprocessing.stackHeight) else {
+        guard let shifter = try? ParallaxFourierShifter(
+            rows: preprocessing.stackHeight, columns: preprocessing.stackWidth
+        ) else {
             throw AlignmentError.fftUnavailable
         }
 
@@ -362,9 +360,9 @@ package nonisolated enum ParallaxAligner {
         let priorShifts = previous?.totalShifts ?? [ParallaxScanShift](
             repeating: ParallaxScanShift(row: 0, column: 0), count: count
         )
-        var referenceRe = previous?.alignedBF ?? preprocessing.incoherentBF
-        var referenceIm = [Float](repeating: 0, count: planeCount)
-        fft.transform(re: &referenceRe, im: &referenceIm, forward: true)
+        var reference = try kitCall {
+            try shifter.spectrum(of: (previous?.alignedBF ?? preprocessing.incoherentBF).map { Double($0) })
+        }
         var rawShifts = [ParallaxScanShift](
             repeating: ParallaxScanShift(row: 0, column: 0), count: count
         )
@@ -375,41 +373,40 @@ package nonisolated enum ParallaxAligner {
 
         for (groupNumber, group) in levelGroups.enumerated() {
             try checkCancellation(cancellation)
-            var groupRe = [Float](repeating: 0, count: planeCount)
+            var groupMean = [Double](repeating: 0, count: planeCount)
             for member in group.memberIndices {
                 let source = member * planeCount
                 for pixel in 0..<planeCount {
-                    groupRe[pixel] += inputStack[source + pixel]
+                    groupMean[pixel] += Double(inputStack[source + pixel])
                 }
             }
-            let inverseCount = 1 / Float(group.memberIndices.count)
-            var scale = inverseCount
-            vDSP_vsmul(groupRe, 1, &scale, &groupRe, 1,
-                       vDSP_Length(planeCount))
-            var groupIm = [Float](repeating: 0, count: planeCount)
-            fft.transform(re: &groupRe, im: &groupIm, forward: true)
+            let inverseCount = 1 / Double(group.memberIndices.count)
+            for pixel in 0..<planeCount { groupMean[pixel] *= inverseCount }
+            var moving = try kitCall { try shifter.spectrum(of: groupMean) }
 
-            let shift = correlationShift(
-                referenceRe: referenceRe, referenceIm: referenceIm,
-                movingRe: groupRe, movingIm: groupIm, fft: fft,
-                upsampleFactor: options.upsampleFactor
-            )
+            // A flat correlation carries no shift: zero, as this level has always read it (the kit refuses it).
+            let estimate: ParallaxShift
+            do {
+                estimate = try shifter.correlationShift(
+                    reference: reference, moving: moving, upsampleFactor: options.upsampleFactor
+                )
+            } catch ParallaxAlignmentError.degenerateCorrelation {
+                estimate = ParallaxShift(row: 0, column: 0)
+            } catch {
+                throw Self.mapped(error)
+            }
+            let shift = ParallaxScanShift(row: Float(estimate.row), column: Float(estimate.column))
             groupShifts.append(shift)
             for member in group.memberIndices { rawShifts[member] = shift }
 
             if options.runningAverage {
-                applyShiftOperator(
-                    re: &groupRe, im: &groupIm,
-                    rowShift: shift.row, columnShift: shift.column,
-                    width: preprocessing.stackWidth, height: preprocessing.stackHeight
-                )
-                let previousWeight = Float(groupNumber) / Float(groupNumber + 1)
-                let newWeight = 1 / Float(groupNumber + 1)
+                moving = try kitCall { try shifter.shifting(moving, by: estimate) }
+                let previousWeight = Double(groupNumber) / Double(groupNumber + 1)
+                let newWeight = 1 / Double(groupNumber + 1)
                 for pixel in 0..<planeCount {
-                    referenceRe[pixel] = referenceRe[pixel] * previousWeight
-                        + groupRe[pixel] * newWeight
-                    referenceIm[pixel] = referenceIm[pixel] * previousWeight
-                        + groupIm[pixel] * newWeight
+                    reference.real[pixel] = reference.real[pixel] * previousWeight + moving.real[pixel] * newWeight
+                    reference.imaginary[pixel] = reference.imaginary[pixel] * previousWeight
+                        + moving.imaginary[pixel] * newWeight
                 }
             }
             completedUnits += 1
@@ -440,18 +437,14 @@ package nonisolated enum ParallaxAligner {
         for bf in 0..<count {
             try checkCancellation(cancellation)
             let source = bf * planeCount
-            let shiftedImage = fourierShift(
+            let shiftedImage = try fourierShift(
                 Array(inputStack[source..<(source + planeCount)]),
-                shift: incrementalShifts[bf], fft: fft,
-                width: preprocessing.stackWidth, height: preprocessing.stackHeight
+                shift: incrementalShifts[bf], shifter: shifter
             )
             let mask = inputMasks.map {
                 Array($0[source..<(source + planeCount)])
             } ?? baseMask
-            let shiftedMask = fourierShift(
-                mask, shift: incrementalShifts[bf], fft: fft,
-                width: preprocessing.stackWidth, height: preprocessing.stackHeight
-            )
+            let shiftedMask = try fourierShift(mask, shift: incrementalShifts[bf], shifter: shifter)
             shiftedStack.replaceSubrange(source..<(source + planeCount), with: shiftedImage)
             shiftedMasks.replaceSubrange(source..<(source + planeCount), with: shiftedMask)
             completedUnits += 1
@@ -539,45 +532,6 @@ package nonisolated enum ParallaxAligner {
         package let column: Int
     }
 
-    private static func correlationShift(
-        referenceRe: [Float], referenceIm: [Float],
-        movingRe: [Float], movingIm: [Float], fft: FFT2D,
-        upsampleFactor: Int
-    ) -> ParallaxScanShift {
-        var correlationRe = [Float](repeating: 0, count: referenceRe.count)
-        var correlationIm = [Float](repeating: 0, count: referenceRe.count)
-        for index in referenceRe.indices {
-            // reference * conjugate(moving)
-            correlationRe[index] = referenceRe[index] * movingRe[index]
-                + referenceIm[index] * movingIm[index]
-            correlationIm[index] = referenceIm[index] * movingRe[index]
-                - referenceRe[index] * movingIm[index]
-        }
-        if upsampleFactor > 2 {
-            let peak = MatrixDFTCorrelation.refinedPeak(
-                correlationRe: correlationRe, correlationIm: correlationIm,
-                width: fft.nx, height: fft.ny, fft: fft,
-                upsampleFactor: upsampleFactor
-            )
-            return ParallaxScanShift(
-                row: wrappedShift(value: peak.row, size: fft.ny),
-                column: wrappedShift(value: peak.column, size: fft.nx)
-            )
-        }
-        fft.transform(re: &correlationRe, im: &correlationIm,
-                      forward: false, scaleInverse: true)
-        var peak = 0
-        for index in 1..<correlationRe.count where correlationRe[index] > correlationRe[peak] {
-            peak = index
-        }
-        let row = peak / fft.nx
-        let column = peak % fft.nx
-        return ParallaxScanShift(
-            row: wrappedShift(index: row, size: fft.ny),
-            column: wrappedShift(index: column, size: fft.nx)
-        )
-    }
-
     private static func fitDefaultShiftBasis(
         reciprocalVectors: [ParallaxVector], rawShifts: [ParallaxScanShift]
     ) throws -> [ParallaxScanShift] {
@@ -610,35 +564,28 @@ package nonisolated enum ParallaxAligner {
         }
     }
 
+    /// A periodic Fourier translation of one real image: the kit's Float32 shifter where vDSP takes the size, else its Double one.
     private static func fourierShift(
-        _ input: [Float], shift: ParallaxScanShift, fft: FFT2D,
-        width: Int, height: Int
-    ) -> [Float] {
-        var re = input
-        var im = [Float](repeating: 0, count: input.count)
-        fft.transform(re: &re, im: &im, forward: true)
-        applyShiftOperator(re: &re, im: &im,
-                           rowShift: shift.row, columnShift: shift.column,
-                           width: width, height: height)
-        fft.transform(re: &re, im: &im, forward: false, scaleInverse: true)
-        return re
+        _ image: [Float], shift: ParallaxScanShift, shifter: ParallaxFourierShifter
+    ) throws -> [Float] {
+        let by = ParallaxShift(row: Double(shift.row), column: Double(shift.column))
+        return try kitCall {
+            if shifter.supportsSingle { return try shifter.shiftedSingle(image, by: by) }
+            return try shifter.shifted(image.map { Double($0) }, by: by).map { Float($0) }
+        }
     }
 
-    private static func applyShiftOperator(
-        re: inout [Float], im: inout [Float],
-        rowShift: Float, columnShift: Float, width: Int, height: Int
-    ) {
-        for rowFrequency in 0..<height {
-            let fy = FFT2D.fftfreq(rowFrequency, height)
-            for columnFrequency in 0..<width {
-                let fx = FFT2D.fftfreq(columnFrequency, width)
-                let index = rowFrequency * width + columnFrequency
-                let angle = -2 * Float.pi * (fy * rowShift + fx * columnShift)
-                let cosine = cos(angle), sine = sin(angle)
-                let oldRe = re[index], oldIm = im[index]
-                re[index] = oldRe * cosine - oldIm * sine
-                im[index] = oldRe * sine + oldIm * cosine
-            }
+    private static func kitCall<T>(_ body: () throws -> T) throws -> T {
+        do { return try body() } catch { throw mapped(error) }
+    }
+
+    private static func mapped(_ error: Error) -> Error {
+        switch error {
+        case is CancellationError: return AlignmentError.cancelled
+        case ParallaxAlignmentError.invalidDimensions: return AlignmentError.fftUnavailable
+        case let kit as ParallaxAlignmentError:
+            return AlignmentError.invalidInput("the shift arithmetic refused the stack (\(kit))")
+        default: return error
         }
     }
 
@@ -677,23 +624,8 @@ package nonisolated enum ParallaxAligner {
         return output
     }
 
-    private static func wrappedShift(index: Int, size: Int) -> Float {
-        let half = Float(size) / 2
-        return positiveModulo(Float(index) + half, Float(size)) - half
-    }
-
-    private static func wrappedShift(value: Float, size: Int) -> Float {
-        let half = Float(size) / 2
-        return positiveModulo(value + half, Float(size)) - half
-    }
-
     private static func positiveModulo(_ value: Int, _ modulus: Int) -> Int {
         let remainder = value % modulus
-        return remainder >= 0 ? remainder : remainder + modulus
-    }
-
-    private static func positiveModulo(_ value: Float, _ modulus: Float) -> Float {
-        let remainder = value.truncatingRemainder(dividingBy: modulus)
         return remainder >= 0 ? remainder : remainder + modulus
     }
 

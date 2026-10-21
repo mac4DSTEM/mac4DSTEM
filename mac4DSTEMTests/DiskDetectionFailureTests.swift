@@ -5,9 +5,22 @@
 //
 
 import XCTest
-import Metal
 import DSTEMCore
 @testable import mac4DSTEM
+
+/// A cube held in memory, for a full scan without a file.
+private actor CubeFixtureSource: FourDDataSource {
+    let descriptor: DatasetDescriptor
+    let cube: [Float]
+    init(descriptor: DatasetDescriptor, cube: [Float]) { self.descriptor = descriptor; self.cube = cube }
+    func discoverPrimaryDataset() throws -> DatasetDescriptor { descriptor }
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] { view.pattern(fromFullCube: cube, ry: ry, rx: rx) }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] { view.scanRow(fromFullCube: cube, ry: ry) }
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile { view.scanTile(fromFullCube: cube, yRange: yRange) }
+    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    func pixelCalibration() -> PixelCalibration? { nil }
+}
 
 final class DiskDetectionFailureTests: XCTestCase {
     private let q = 64
@@ -42,14 +55,14 @@ final class DiskDetectionFailureTests: XCTestCase {
 
     /// A clean full scan reports no failed position; vectors with failed positions make the scan summary warn first, naming the
     /// count, and the warning is not there for a clean run. Mutation: drop `failedPositionCount` from `warnings` -> red.
-    func testAFullScanCountsFailedPositionsAndTheSummaryWarns() throws {
-        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+    func testAFullScanCountsFailedPositionsAndTheSummaryWarns() async throws {
         let good = DiskKitFixture.pattern(q: q, seed: 2)
         let cube = good + good
-        let buffer = try XCTUnwrap(device.makeBuffer(bytes: cube, length: cube.count * 4, options: .storageModeShared))
         let descriptor = DatasetDescriptor(filePath: "t", datasetPath: "t", shape: [1, 2, q, q], dtypeDescription: "float32", chunkShape: nil)
+        let data = FourDArray(reader: CubeFixtureSource(descriptor: descriptor, cube: cube), descriptor: descriptor)
         let kernel = try DiskKitFixture.kernel(q: q)
-        let vectors = try XCTUnwrap(DiskDetection.detectAll(cube: buffer, descriptor: descriptor, kernel: kernel, params: params()))
+        let scanned = try await DiskDetection.detectAll(data: data, descriptor: descriptor, kernel: kernel, params: params())
+        let vectors = try XCTUnwrap(scanned)
         XCTAssertEqual(vectors.failedPatternCount, 0)
         let clean = DiskDetectionScanSummary(vectors: vectors, maximumPeaks: 70, parameters: params())
         XCTAssertEqual(clean.failedPositionCount, 0)

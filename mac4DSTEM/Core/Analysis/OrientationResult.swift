@@ -143,103 +143,51 @@ package nonisolated struct OrientationMap {
         set { results[y * width + x] = newValue }
     }
 
-    /// The Euler angles at a scan position, formatted for a read-out, or nil
-    /// when the position is outside the map or carries no match.
-    ///
-    /// In Core rather than in `AppState` because it is a pure function of the
-    /// map and a coordinate, so it can be tested directly — and because the
-    /// bounds check and the `templateIndex >= 0` check are the interesting
-    /// part: an unindexed position has an `euler` of (0, 0, 0), which would
-    /// render as a perfectly plausible "0.0°, 0.0°, 0.0°".
+    // The read-out arithmetic (Euler text, reliability gate, matched fraction, the scalar planes and the IPF-Z bytes with
+    // the low-reliability mask) is DiffractoKit's `OrientationMapAnalysis` since 0.8.1; these members wrap it in the app's
+    // image types. An unmatched position (`templateIndex < 0`) is never given a number.
+
+    /// The Euler angles at a scan position, formatted for a read-out, or nil when the position is outside the map or
+    /// carries no match (an unindexed position has an `euler` of (0, 0, 0), which would otherwise read as a plausible
+    /// "0.0°, 0.0°, 0.0°").
     package func eulerText(x: Int, y: Int) -> String? {
-        guard x >= 0, x < width, y >= 0, y < height else { return nil }
-        let result = self[x, y]
-        guard result.templateIndex >= 0 else { return nil }
-        let degrees = result.euler.degrees
-        return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+        OrientationMapAnalysis.eulerText(results: results, width: width, height: height, x: x, y: y)
     }
 
-    package var reliabilityImage: FloatImage {
-        FloatImage(width: width, height: height, pixels: results.map { $0.reliability })
-    }
+    private func plane(_ pixels: [Float]) -> FloatImage { FloatImage(width: width, height: height, pixels: pixels) }
 
-    package var scoreImage: FloatImage {
-        FloatImage(width: width, height: height, pixels: results.map { $0.score })
-    }
-
-    /// In-plane rotation angle at each position, in [0, 1) (radians / 2π) —
-    /// suitable for a cyclic colormap.
-    package var inPlaneAngleImage: FloatImage {
-        let twoPi = Float(2 * Double.pi)
-        return FloatImage(width: width, height: height,
-                          pixels: results.map { $0.inPlaneAngle / twoPi })
-    }
-
-    /// Cyclic φ₁ and φ₂ are wrapped to [0,1); middle Φ spans [0,π].
-    package var phi1Image: FloatImage { cyclicEulerImage { $0.euler.phi1 } }
-    package var phi2Image: FloatImage { cyclicEulerImage { $0.euler.phi2 } }
-    package var PhiImage: FloatImage {
-        let pi = Float.pi
-        return FloatImage(width: width, height: height,
-                          pixels: results.map { max(0, min(1, $0.euler.Phi / pi)) })
-    }
-
+    package var reliabilityImage: FloatImage { plane(OrientationMapAnalysis.reliabilityPlane(results)) }
+    package var scoreImage: FloatImage { plane(OrientationMapAnalysis.scorePlane(results)) }
+    /// In-plane rotation angle at each position, in [0, 1) (radians / 2π), for a cyclic colormap.
+    package var inPlaneAngleImage: FloatImage { plane(OrientationMapAnalysis.inPlaneAnglePlane(results)) }
+    /// Cyclic φ₁ and φ₂ are wrapped to [0,1); middle Φ spans [0,1] (Φ / π).
+    package var phi1Image: FloatImage { plane(OrientationMapAnalysis.phi1Plane(results)) }
+    package var phi2Image: FloatImage { plane(OrientationMapAnalysis.phi2Plane(results)) }
+    package var PhiImage: FloatImage { plane(OrientationMapAnalysis.PhiPlane(results)) }
     package var symmetryDisorientationImage: FloatImage {
-        FloatImage(width: width, height: height,
-                   pixels: results.map { $0.symmetryDisorientationRad })
+        plane(OrientationMapAnalysis.symmetryDisorientationPlane(results))
     }
 
     /// Symmetry-specific inverse-pole-figure color for sample Z (beam).
     package var ipfZImage: RGBAImage { ipfZImage(maskingReliabilityBelow: nil) }
 
-    /// The reliability value below which the given fraction of MATCHED
-    /// positions falls (0.1 → the 10th percentile). Nil when nothing matched.
-    /// v2.5 step 6 (plan §3 item 2): the default confidence gate for the IPF map.
+    /// The reliability value below which the given fraction of MATCHED positions falls (0.1 gives the 10th percentile).
+    /// Nil when nothing matched. The default confidence gate for the IPF map.
     package func reliabilityThreshold(percentile fraction: Float) -> Float? {
-        let matched = results.filter { $0.templateIndex >= 0 }.map(\.reliability).sorted()
-        guard !matched.isEmpty else { return nil }
-        let index = Int((Float(matched.count - 1) * max(0, min(1, fraction))).rounded())
-        return matched[index]
+        OrientationMapAnalysis.reliabilityThreshold(results: results, percentile: fraction)
     }
 
     /// Fraction of matched positions at or above `threshold`; nil when nothing matched.
     package func fractionOfMatchedPositions(withReliabilityAtLeast threshold: Float) -> Float? {
-        let matched = results.filter { $0.templateIndex >= 0 }
-        guard !matched.isEmpty else { return nil }
-        return Float(matched.filter { $0.reliability >= threshold }.count) / Float(matched.count)
+        OrientationMapAnalysis.fractionOfMatched(results: results, reliabilityAtLeast: threshold)
     }
 
-    /// IPF-Z with every position whose reliability falls below `threshold`
-    /// drawn neutral grey instead of a saturated orientation colour — a
-    /// low-confidence match must not read as a textured polycrystal
-    /// (v2.5 step 6, plan §3 item 2). Unmatched positions stay black.
+    /// IPF-Z with every matched position whose reliability falls below `threshold` drawn neutral grey instead of a
+    /// saturated orientation colour (a low-confidence match must not read as a textured polycrystal). Unmatched positions
+    /// stay black. The colour key is the map's `symmetry`.
     package func ipfZImage(maskingReliabilityBelow threshold: Float?) -> RGBAImage {
-        var rgba = [UInt8]()
-        rgba.reserveCapacity(results.count * 4)
-        for result in results {
-            let direction = result.templateIndex >= 0
-                ? result.euler.py4DSTEMOrientationMatrix.columns.2
-                : SIMD3(0.0, 0.0, 0.0)
-            let masked = threshold.map { result.templateIndex >= 0 && result.reliability < $0 } ?? false
-            let rgb: SIMD3<Float> = masked
-                ? SIMD3<Float>(repeating: 0.38)
-                : result.templateIndex >= 0
-                    ? symmetry.ipfColor(direction: direction)
-                    : SIMD3<Float>(repeating: 0)
-            rgba.append(UInt8((max(0, min(1, rgb.x)) * 255).rounded()))
-            rgba.append(UInt8((max(0, min(1, rgb.y)) * 255).rounded()))
-            rgba.append(UInt8((max(0, min(1, rgb.z)) * 255).rounded()))
-            rgba.append(255)
-        }
-        return RGBAImage(width: width, height: height, rgba: rgba)
-    }
-
-    private func cyclicEulerImage(_ angle: (OrientationResult) -> Float) -> FloatImage {
-        let twoPi = 2 * Float.pi
-        return FloatImage(width: width, height: height, pixels: results.map {
-            var value = angle($0).truncatingRemainder(dividingBy: twoPi)
-            if value < 0 { value += twoPi }
-            return value / twoPi
-        })
+        RGBAImage(width: width, height: height,
+                  rgba: OrientationMapAnalysis.ipfZRGBA(results: results, maskingReliabilityBelow: threshold,
+                                                        color: { symmetry.ipfColor(direction: $0) }))
     }
 }

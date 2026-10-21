@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoGeometry   // QCalibrationShellCheck is DiffractoKit's LinearScaleShellCheck
 @testable import mac4DSTEM
 
 /// Lane Q (v4.1 Slot 1, 2026-09-30), the Q calibration's shell-ratio badge.

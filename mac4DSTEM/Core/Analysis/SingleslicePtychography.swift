@@ -1,17 +1,15 @@
 //
 //  SingleslicePtychography.swift
-//  First CPU reference engine: py4DSTEM single-slice complex-object
-//  gradient-descent forward/Fourier/adjoint operators, full-batch semantics.
+//  py4DSTEM single-slice complex-object gradient descent, full-batch: the app's facade over CuboPtycho.
 //
-//  delete at CuboKit 0.7: CuboPtycho 0.6.0's SingleslicePtychography has every option this engine has (constrainObjectAmplitude
-//  included) and agrees with it to 3.4e-6 (PtychographyKitSwitchTests), but is Double (4.2x slower measured, 2x the memory) and has no
-//  cancellation or progress. Misfit asked of the kit: a Float path (shift ramps computed once per position) with isCancelled/progress.
+//  The engine is CuboPtycho's (0.7.0); this file keeps the app's Float input/options/result types and the adapter.
 //
 
+import CuboPtycho
 import Foundation
 import ImagoCore
 
-package nonisolated struct PtychographyPosition: Equatable, Sendable {
+package nonisolated struct PtychographyScanPosition: Equatable, Sendable {
     package let row: Float
     package let column: Float
 
@@ -44,7 +42,7 @@ package nonisolated struct SingleslicePtychographyInput: Sendable {
     package let detectorWidth: Int
     /// Corner-centered measured amplitudes `[position,row,column]`.
     package let amplitudes: [Float]
-    package let positions: [PtychographyPosition]
+    package let positions: [PtychographyScanPosition]
     package let objectSamplingRowAngstrom: Double
     package let objectSamplingColumnAngstrom: Double
     package let initialObject: PtychographyComplexArray
@@ -55,7 +53,7 @@ package nonisolated struct SingleslicePtychographyInput: Sendable {
     package let probeAberrations: PtychographyProbeAberrations
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
+    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyScanPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
         self.scanHeight = scanHeight
         self.scanWidth = scanWidth
         self.detectorHeight = detectorHeight
@@ -93,7 +91,7 @@ package nonisolated struct SingleslicePtychographyOptions: Equatable, Sendable {
 package nonisolated struct SingleslicePtychographyResult: Sendable {
     package let object: PtychographyComplexArray
     package let probe: PtychographyComplexArray
-    package let positions: [PtychographyPosition]
+    package let positions: [PtychographyScanPosition]
     package let errorHistory: [Float]
     package let objectSamplingRowAngstrom: Double
     package let objectSamplingColumnAngstrom: Double
@@ -170,7 +168,7 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
+    package nonisolated init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyScanPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
         self.object = object
         self.probe = probe
         self.positions = positions
@@ -182,7 +180,7 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
     }
 }
 
-package nonisolated enum SingleslicePtychography {
+package nonisolated enum PtychographyReconstructor {
     package enum ReconstructionError: LocalizedError, Equatable {
         case invalidInput(String)
         case invalidOptions(String)
@@ -206,59 +204,11 @@ package nonisolated enum SingleslicePtychography {
         }
     }
 
-    /// Fixed geometry portion of the forward operator. A fractional probe
-    /// shift is separable in row/column frequency, so cache compact complex
-    /// ramps once instead of evaluating sin/cos for every pixel and iteration.
-    private struct FractionalShiftPlan {
-        package let rowReal: [Float]
-        package let rowImaginary: [Float]
-        package let columnReal: [Float]
-        package let columnImaginary: [Float]
-        package let height: Int
-        package let width: Int
 
-        package init(input: SingleslicePtychographyInput) {
-            height = input.detectorHeight
-            width = input.detectorWidth
-            let patternCount = input.scanHeight * input.scanWidth
-            var rowReal = [Float](repeating: 0, count: patternCount * height)
-            var rowImaginary = [Float](repeating: 0, count: patternCount * height)
-            var columnReal = [Float](repeating: 0, count: patternCount * width)
-            var columnImaginary = [Float](repeating: 0, count: patternCount * width)
-            for pattern in 0..<patternCount {
-                let position = input.positions[pattern]
-                let centerRow = Int(Double(position.row).rounded(.toNearestOrEven))
-                let centerColumn = Int(Double(position.column).rounded(.toNearestOrEven))
-                let fractionalRow = position.row - Float(centerRow)
-                let fractionalColumn = position.column - Float(centerColumn)
-                for row in 0..<height {
-                    let phase = -2 * Float.pi
-                        * FFT2D.fftfreq(row, height) * fractionalRow
-                    rowReal[pattern * height + row] = cos(phase)
-                    rowImaginary[pattern * height + row] = sin(phase)
-                }
-                for column in 0..<width {
-                    let phase = -2 * Float.pi
-                        * FFT2D.fftfreq(column, width) * fractionalColumn
-                    columnReal[pattern * width + column] = cos(phase)
-                    columnImaginary[pattern * width + column] = sin(phase)
-                }
-            }
-            self.rowReal = rowReal
-            self.rowImaginary = rowImaginary
-            self.columnReal = columnReal
-            self.columnImaginary = columnImaginary
-        }
-
-        package func factor(pattern: Int, row: Int, column: Int) -> (real: Float, imaginary: Float) {
-            let rowIndex = pattern * height + row
-            let columnIndex = pattern * width + column
-            let rr = rowReal[rowIndex], ri = rowImaginary[rowIndex]
-            let cr = columnReal[columnIndex], ci = columnImaginary[columnIndex]
-            return (rr * cr - ri * ci, ri * cr + rr * ci)
-        }
-    }
-
+    /// The reconstruction is CuboPtycho's `SingleslicePtychography`: Float32 on vDSP's DFT where the detector size allows it
+    /// (`reconstructSingle`, no position correction, as before), otherwise the kit's Double path (about twice the memory, so the
+    /// working-set check is repeated for it). The app keeps its Float façade (input, options, result, error text) and the
+    /// cancellation token and progress fraction the UI is wired to.
     package static func reconstruct(
         input: SingleslicePtychographyInput,
         options: SingleslicePtychographyOptions = .init(),
@@ -300,336 +250,89 @@ package nonisolated enum SingleslicePtychography {
                 "iterations/step, normalization, or constraint parameters are invalid"
             )
         }
+        // Float32 working set of the kit's single path: the caller's stack plus the kit's transposed copy of it, the object and probe
+        // buffers. The Double fallback holds the Float stack, a Double copy of it and the kit's Double copy: five Float-widths a value.
         let floatBytes = MemoryLayout<Float>.stride
-        var workingBytes = (
-            input.amplitudes.count + objectCount * 7 + probeCount * 12
-        ) * floatBytes
-        let shiftValuesPerPattern = (input.detectorHeight + input.detectorWidth) * 2
-        guard patternCount <= Int.max / max(1, shiftValuesPerPattern),
-              patternCount * shiftValuesPerPattern <= (Int.max - workingBytes) / floatBytes
-        else { throw ReconstructionError.invalidOptions("shift-plan dimensions overflow") }
-        workingBytes += patternCount * shiftValuesPerPattern * floatBytes
+        let workingBytes = (input.amplitudes.count * 2 + objectCount * 7 + probeCount * 12) * floatBytes
+        let fallbackBytes = (input.amplitudes.count * 5 + objectCount * 14 + probeCount * 24) * floatBytes
         guard workingBytes <= options.maxWorkingBytes else {
-            throw ReconstructionError.memoryLimit(
-                bytes: workingBytes, limit: options.maxWorkingBytes
-            )
+            throw ReconstructionError.memoryLimit(bytes: workingBytes, limit: options.maxWorkingBytes)
         }
-        guard let fft = FFT2D(nx: input.detectorWidth, ny: input.detectorHeight) else {
-            throw ReconstructionError.fftUnavailable
-        }
-        try checkCancellation(cancellation)
-        let shiftPlan = FractionalShiftPlan(input: input)
-
-        let measuredIntensity = input.amplitudes.reduce(0.0) {
-            $0 + Double($1 * $1)
-        }
+        let measuredIntensity = input.amplitudes.reduce(0.0) { $0 + Double($1 * $1) }
         guard measuredIntensity.isFinite, measuredIntensity > 0 else {
             throw ReconstructionError.invalidInput("measured diffraction intensity is zero")
         }
-        var objectReal = input.initialObject.real
-        var objectImaginary = input.initialObject.imaginary
-        var probeReal = input.initialProbe.real
-        var probeImaginary = input.initialProbe.imaginary
-        var errors = [Float]()
-        errors.reserveCapacity(options.iterations)
-        let rowOffsets = frequencyIndices(input.detectorHeight)
-        let columnOffsets = frequencyIndices(input.detectorWidth)
-        // Pattern-local arrays have fixed shapes. Reuse them across every scan
-        // position and iteration instead of allocating/zeroing 7–9 arrays per
-        // diffraction pattern. Every element is overwritten before it is read.
-        var shiftedProbeReal = [Float](repeating: 0, count: probeCount)
-        var shiftedProbeImaginary = [Float](repeating: 0, count: probeCount)
-        var patchReal = [Float](repeating: 0, count: probeCount)
-        var patchImaginary = [Float](repeating: 0, count: probeCount)
-        var fourierReal = [Float](repeating: 0, count: probeCount)
-        var fourierImaginary = [Float](repeating: 0, count: probeCount)
-        var objectIndices = [Int](repeating: 0, count: probeCount)
+        if cancellation?.isCancelled == true { throw ReconstructionError.cancelled }
 
-        for iteration in 0..<options.iterations {
-            try checkCancellation(cancellation)
-            var objectNumeratorReal = [Float](repeating: 0, count: objectCount)
-            var objectNumeratorImaginary = [Float](repeating: 0, count: objectCount)
-            var probeNormalization = [Float](repeating: 0, count: objectCount)
-            var probeNumeratorReal = [Float](repeating: 0, count: probeCount)
-            var probeNumeratorImaginary = [Float](repeating: 0, count: probeCount)
-            var objectNormalization = [Float](repeating: 0, count: probeCount)
-            var probeSpectrumReal = probeReal
-            var probeSpectrumImaginary = probeImaginary
-            fft.transform(
-                re: &probeSpectrumReal, im: &probeSpectrumImaginary, forward: true
-            )
-            var iterationError: Double = 0
-
-            for pattern in 0..<patternCount {
-                if pattern & 7 == 0 { try checkCancellation(cancellation) }
-                let position = input.positions[pattern]
-                let centerRow = Int(Double(position.row).rounded(.toNearestOrEven))
-                let centerColumn = Int(Double(position.column).rounded(.toNearestOrEven))
-                for row in 0..<input.detectorHeight {
-                    for column in 0..<input.detectorWidth {
-                        let factor = shiftPlan.factor(
-                            pattern: pattern, row: row, column: column
-                        )
-                        let index = row * input.detectorWidth + column
-                        let oldReal = probeSpectrumReal[index]
-                        let oldImaginary = probeSpectrumImaginary[index]
-                        shiftedProbeReal[index] = oldReal * factor.real
-                            - oldImaginary * factor.imaginary
-                        shiftedProbeImaginary[index] = oldReal * factor.imaginary
-                            + oldImaginary * factor.real
-                    }
-                }
-                fft.transform(
-                    re: &shiftedProbeReal, im: &shiftedProbeImaginary,
-                    forward: false
-                )
-                for row in 0..<input.detectorHeight {
-                    let objectRow = wrapped(
-                        centerRow + rowOffsets[row], count: input.initialObject.height
-                    )
-                    for column in 0..<input.detectorWidth {
-                        let objectColumn = wrapped(
-                            centerColumn + columnOffsets[column],
-                            count: input.initialObject.width
-                        )
-                        let index = row * input.detectorWidth + column
-                        let objectIndex = objectRow * input.initialObject.width + objectColumn
-                        objectIndices[index] = objectIndex
-                        let objReal = objectReal[objectIndex]
-                        let objImaginary = objectImaginary[objectIndex]
-                        patchReal[index] = objReal
-                        patchImaginary[index] = objImaginary
-                        let pReal = shiftedProbeReal[index]
-                        let pImaginary = shiftedProbeImaginary[index]
-                        fourierReal[index] = pReal * objReal - pImaginary * objImaginary
-                        fourierImaginary[index] = pReal * objImaginary + pImaginary * objReal
-                    }
-                }
-                let amplitudeBase = pattern * probeCount
-                fft.transform(
-                    re: &fourierReal, im: &fourierImaginary, forward: true
-                )
-                for index in 0..<probeCount {
-                    let magnitude = hypot(fourierReal[index], fourierImaginary[index])
-                    let measured = input.amplitudes[amplitudeBase + index]
-                    let residual = Double(measured - magnitude)
-                    iterationError += residual * residual
-                    let projectedReal: Float
-                    let projectedImaginary: Float
-                    if magnitude > 0 {
-                        projectedReal = measured * fourierReal[index] / magnitude
-                        projectedImaginary = measured * fourierImaginary[index] / magnitude
-                    } else {
-                        projectedReal = measured
-                        projectedImaginary = 0
-                    }
-                    fourierReal[index] = projectedReal - fourierReal[index]
-                    fourierImaginary[index] = projectedImaginary
-                        - fourierImaginary[index]
-                }
-                fft.transform(
-                    re: &fourierReal, im: &fourierImaginary, forward: false
-                )
-                for index in 0..<probeCount {
-                    let objectIndex = objectIndices[index]
-                    let pReal = shiftedProbeReal[index]
-                    let pImaginary = shiftedProbeImaginary[index]
-                    let exitReal = fourierReal[index]
-                    let exitImaginary = fourierImaginary[index]
-                    objectNumeratorReal[objectIndex] += pReal * exitReal
-                        + pImaginary * exitImaginary
-                    objectNumeratorImaginary[objectIndex] += pReal * exitImaginary
-                        - pImaginary * exitReal
-                    probeNormalization[objectIndex] += pReal * pReal
-                        + pImaginary * pImaginary
-                    let objReal = patchReal[index], objImaginary = patchImaginary[index]
-                    probeNumeratorReal[index] += objReal * exitReal
-                        + objImaginary * exitImaginary
-                    probeNumeratorImaginary[index] += objReal * exitImaginary
-                        - objImaginary * exitReal
-                    objectNormalization[index] += objReal * objReal
-                        + objImaginary * objImaginary
-                }
-            }
-
-            let maximumProbeNormalization = probeNormalization.max() ?? 0
-            let maximumObjectNormalization = objectNormalization.max() ?? 0
-            for index in 0..<objectCount {
-                let inverse = normalizationInverse(
-                    local: probeNormalization[index], maximum: maximumProbeNormalization,
-                    minimum: options.normalizationMinimum
-                )
-                objectReal[index] += options.stepSize
-                    * objectNumeratorReal[index] * inverse
-                objectImaginary[index] += options.stepSize
-                    * objectNumeratorImaginary[index] * inverse
-            }
-            if !options.fixProbe {
-                for index in 0..<probeCount {
-                    let inverse = normalizationInverse(
-                        local: objectNormalization[index],
-                        maximum: maximumObjectNormalization,
-                        minimum: options.normalizationMinimum
-                    )
-                    probeReal[index] += options.stepSize
-                        * probeNumeratorReal[index] * inverse
-                    probeImaginary[index] += options.stepSize
-                        * probeNumeratorImaginary[index] * inverse
-                }
-            }
-            if options.constrainObjectAmplitude || options.purePhaseObject {
-                constrainObject(
-                    real: &objectReal, imaginary: &objectImaginary,
-                    purePhase: options.purePhaseObject
-                )
-            }
-            if !options.fixProbe {
-                if options.fixProbeCenterOfMass {
-                    try centerProbe(
-                        real: &probeReal, imaginary: &probeImaginary,
-                        width: input.detectorWidth, height: input.detectorHeight,
-                        fft: fft
-                    )
-                }
-                if options.constrainProbeAmplitude {
-                    constrainProbeAmplitude(
-                        real: &probeReal, imaginary: &probeImaginary,
-                        width: input.detectorWidth, height: input.detectorHeight,
-                        relativeRadius: options.probeAmplitudeRelativeRadius,
-                        relativeWidth: options.probeAmplitudeRelativeWidth
-                    )
-                }
-            }
-            errors.append(Float(iterationError / measuredIntensity))
-            progress?(Double(iteration + 1) / Double(options.iterations))
+        let positions = input.positions.map {
+            PtychographyPosition(row: Double($0.row), column: Double($0.column))
         }
-        try checkCancellation(cancellation)
+        let object = try kitArray(input.initialObject)
+        let probe = try kitArray(input.initialProbe)
+        let isCancelled: () -> Bool = { cancellation?.isCancelled == true }
+        let kitProgress: (Int, Int) -> Void = { completed, total in progress?(Double(completed) / Double(total)) }
+        let kit: SingleslicePtychography.Result
+        do {
+            do {
+                kit = try SingleslicePtychography.reconstructSingle(
+                    amplitudes: input.amplitudes, positions: positions, object: object, probe: probe,
+                    iterations: options.iterations, stepSize: Double(options.stepSize),
+                    normalizationMinimum: Double(options.normalizationMinimum), fixProbe: options.fixProbe,
+                    purePhaseObject: options.purePhaseObject, constrainObjectAmplitude: options.constrainObjectAmplitude,
+                    fixProbeCenterOfMass: options.fixProbeCenterOfMass,
+                    constrainProbeAmplitude: options.constrainProbeAmplitude,
+                    probeAmplitudeRelativeRadius: Double(options.probeAmplitudeRelativeRadius),
+                    probeAmplitudeRelativeWidth: Double(options.probeAmplitudeRelativeWidth),
+                    isCancelled: isCancelled, progress: kitProgress
+                )
+            } catch PtychographyError.invalidInput {
+                // The input was validated above, so this is a detector size vDSP's DFT does not take (2^n x {1, 3, 5, 15}, >= 16):
+                // the kit's Double path, about twice the memory.
+                guard fallbackBytes <= options.maxWorkingBytes else {
+                    throw ReconstructionError.memoryLimit(bytes: fallbackBytes, limit: options.maxWorkingBytes)
+                }
+                kit = try SingleslicePtychography.reconstruct(
+                    amplitudes: input.amplitudes.map { Double($0) }, positions: positions, object: object, probe: probe,
+                    iterations: options.iterations, stepSize: Double(options.stepSize),
+                    normalizationMinimum: Double(options.normalizationMinimum), fixProbe: options.fixProbe,
+                    purePhaseObject: options.purePhaseObject, constrainObjectAmplitude: options.constrainObjectAmplitude,
+                    fixProbeCenterOfMass: options.fixProbeCenterOfMass,
+                    constrainProbeAmplitude: options.constrainProbeAmplitude,
+                    probeAmplitudeRelativeRadius: Double(options.probeAmplitudeRelativeRadius),
+                    probeAmplitudeRelativeWidth: Double(options.probeAmplitudeRelativeWidth),
+                    isCancelled: isCancelled, progress: kitProgress
+                )
+            }
+        } catch is CancellationError {
+            throw ReconstructionError.cancelled
+        } catch PtychographyError.invalidInput {
+            throw ReconstructionError.invalidInput("array shapes, values, or sampling are inconsistent")
+        }
+        if cancellation?.isCancelled == true { throw ReconstructionError.cancelled }
         return SingleslicePtychographyResult(
-            object: PtychographyComplexArray(
-                width: input.initialObject.width, height: input.initialObject.height,
-                real: objectReal, imaginary: objectImaginary
-            ),
-            probe: PtychographyComplexArray(
-                width: input.detectorWidth, height: input.detectorHeight,
-                real: probeReal, imaginary: probeImaginary
-            ),
-            positions: input.positions, errorHistory: errors,
+            object: appArray(kit.object), probe: appArray(kit.probe),
+            positions: input.positions, errorHistory: kit.errors.map { Float($0) },
             objectSamplingRowAngstrom: input.objectSamplingRowAngstrom,
             objectSamplingColumnAngstrom: input.objectSamplingColumnAngstrom,
             options: options, probeAberrations: input.probeAberrations
         )
     }
 
-    private static func constrainObject(
-        real: inout [Float], imaginary: inout [Float], purePhase: Bool
-    ) {
-        for index in real.indices {
-            let amplitude = hypot(real[index], imaginary[index])
-            guard amplitude > 0 else {
-                real[index] = purePhase ? 1 : 0
-                imaginary[index] = 0
-                continue
-            }
-            let constrained = purePhase ? Float(1) : min(amplitude, 1)
-            let scale = constrained / amplitude
-            real[index] *= scale
-            imaginary[index] *= scale
+    private static func kitArray(_ array: PtychographyComplexArray) throws -> PtychographyArray {
+        do {
+            return try PtychographyArray(
+                rows: array.height, columns: array.width,
+                real: array.real.map { Double($0) }, imaginary: array.imaginary.map { Double($0) }
+            )
+        } catch {
+            throw ReconstructionError.invalidInput("array shapes, values, or sampling are inconsistent")
         }
     }
 
-    private static func centerProbe(
-        real: inout [Float], imaginary: inout [Float], width: Int, height: Int,
-        fft: FFT2D
-    ) throws {
-        var intensity: Double = 0
-        var weightedRow: Double = 0, weightedColumn: Double = 0
-        for row in 0..<height {
-            let rowCoordinate = Double(FFT2D.fftfreq(row, height) * Float(height))
-            for column in 0..<width {
-                let index = row * width + column
-                let value = Double(real[index] * real[index]
-                    + imaginary[index] * imaginary[index])
-                intensity += value
-                weightedRow += rowCoordinate * value
-                weightedColumn += Double(
-                    FFT2D.fftfreq(column, width) * Float(width)
-                ) * value
-            }
-        }
-        guard intensity > 0, intensity.isFinite else { return }
-        let shiftRow = Float(-weightedRow / intensity)
-        let shiftColumn = Float(-weightedColumn / intensity)
-        fft.transform(re: &real, im: &imaginary, forward: true)
-        for row in 0..<height {
-            let frequencyRow = FFT2D.fftfreq(row, height)
-            for column in 0..<width {
-                let frequencyColumn = FFT2D.fftfreq(column, width)
-                let phase = -2 * Float.pi * (
-                    frequencyRow * shiftRow + frequencyColumn * shiftColumn
-                )
-                let cosine = cos(phase), sine = sin(phase)
-                let index = row * width + column
-                let oldReal = real[index], oldImaginary = imaginary[index]
-                real[index] = oldReal * cosine - oldImaginary * sine
-                imaginary[index] = oldReal * sine + oldImaginary * cosine
-            }
-        }
-        fft.transform(re: &real, im: &imaginary, forward: false)
-    }
-
-    private static func constrainProbeAmplitude(
-        real: inout [Float], imaginary: inout [Float], width: Int, height: Int,
-        relativeRadius: Float, relativeWidth: Float
-    ) {
-        let originalIntensity = zip(real, imaginary).reduce(0.0) {
-            $0 + Double($1.0 * $1.0 + $1.1 * $1.1)
-        }
-        let sigma = sqrt(Double.pi) / Double(relativeWidth)
-        var updatedIntensity: Double = 0
-        for row in 0..<height {
-            let y = Double(FFT2D.fftfreq(row, height))
-            for column in 0..<width {
-                let x = Double(FFT2D.fftfreq(column, width))
-                let radius = hypot(y, x) - Double(relativeRadius)
-                let denominator = 1 - radius * radius
-                let mask = 0.5 * (1 - erf(sigma * radius / denominator))
-                let index = row * width + column
-                real[index] *= Float(mask)
-                imaginary[index] *= Float(mask)
-                updatedIntensity += Double(
-                    real[index] * real[index] + imaginary[index] * imaginary[index]
-                )
-            }
-        }
-        guard originalIntensity > 0, updatedIntensity > 0 else { return }
-        let scale = Float(sqrt(originalIntensity / updatedIntensity))
-        for index in real.indices {
-            real[index] *= scale
-            imaginary[index] *= scale
-        }
-    }
-
-    private static func normalizationInverse(
-        local: Float, maximum: Float, minimum: Float
-    ) -> Float {
-        1 / sqrt(
-            1e-16 + pow((1 - minimum) * local, 2)
-                + pow(minimum * maximum, 2)
+    private static func appArray(_ array: PtychographyArray) -> PtychographyComplexArray {
+        PtychographyComplexArray(
+            width: array.columns, height: array.rows,
+            real: array.real.map { Float($0) }, imaginary: array.imaginary.map { Float($0) }
         )
-    }
-
-    private static func frequencyIndices(_ count: Int) -> [Int] {
-        (0..<count).map { $0 <= (count - 1) / 2 ? $0 : $0 - count }
-    }
-
-    private static func wrapped(_ value: Int, count: Int) -> Int {
-        let remainder = value % count
-        return remainder >= 0 ? remainder : remainder + count
-    }
-
-    private static func checkCancellation(
-        _ cancellation: AnalysisCancellationToken?
-    ) throws {
-        if cancellation?.isCancelled == true { throw ReconstructionError.cancelled }
     }
 }

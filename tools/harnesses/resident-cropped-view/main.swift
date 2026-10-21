@@ -267,16 +267,22 @@ let sd = try await VirtualDetector.tiledDiffraction(data: streamData, descriptor
                                                     region: region, maximumTileRows: 2)
 expectIdentical(rd.pixels, sd.pixels, "cropped selected-area diffraction")
 
+let copiesAfterBound = await residentData.residentTileCopies
+guard copiesAfterBound == copiesBeforeBound else {
+    fail("the cropped resident diffraction copied \(copiesAfterBound - copiesBeforeBound) tile(s)")
+}
+pass("cropped resident diffraction made zero staging copies; the statistics one copy per tile (\(tileCount))")
+
+// CuboKit 0.7.0: the per-position origin is CuboKit's (through CuboCubeSource), one tile copy per tile.
+let copiesBeforeOrigins = await residentData.residentTileCopies
 let ro = try await VirtualDetector.tiledMeasuredOrigins(data: residentData, descriptor: d,
                                                         probeRadius: 1.5, maximumTileRows: 2)
+guard await residentData.residentTileCopies - copiesBeforeOrigins == tileCount else {
+    fail("the cropped resident origins did not copy one tile per tile (\(tileCount))")
+}
 let so = try await VirtualDetector.tiledMeasuredOrigins(data: streamData, descriptor: d,
                                                         probeRadius: 1.5, maximumTileRows: 2)
 expectIdentical(ro, so, "cropped measured origins")
-let copiesAfterBound = await residentData.residentTileCopies
-guard copiesAfterBound == copiesBeforeBound else {
-    fail("the cropped resident diffraction and origins copied \(copiesAfterBound - copiesBeforeBound) tile(s)")
-}
-pass("cropped resident diffraction and origins made zero staging copies; the statistics one copy per tile (\(tileCount))")
 
 let copiesBeforeCoM = await residentData.residentTileCopies
 let rc = try await VirtualDetector.tiledCenterOfMass(data: residentData, descriptor: d,

@@ -7,7 +7,8 @@
 //  `syntheticParallax()` (7 x 7 detector, 24 x 24 scan, 40 x 40 padded stack) after the app's Float alignment at factor 8, which the
 //  switches did not touch. The fixture is NOT the demo cube: the commit messages' "demo cube" runs were not kept.
 //
-//  The current code reproduces every array bit for bit (the commits claimed 0 differing values). To regenerate on purpose, run
+//  Since the alignment moved onto the kit (CuboKit 0.7.0, Float shifter, Double correlation) the arrays agree within 5e-5 of each
+//  array's largest magnitude (measured worst 1.6e-5, on the probe shifts; Float32 arithmetic, D12), no longer bit for bit. To regenerate on purpose, run
 //  `TEST_RUNNER_PARALLAX_GOLDEN_OUT=<path> xcodebuild test ... -only-testing:mac4DSTEMTests/ParallaxGoldenTests/testWriteGoldenOutputs`
 //  and commit the file in its own commit with the reason.
 //
@@ -102,7 +103,7 @@ final class ParallaxGoldenTests: XCTestCase {
         try data.write(to: URL(fileURLWithPath: path))
     }
 
-    /// Bit-equal to the app's former outputs: position-correction offsets, scores and image; the stored transfer function and phase
+    /// Within 5e-5 (of the largest value) of the app's former outputs: position-correction offsets, scores and image; the stored transfer function and phase
     /// surfaces; the depth planes. Mutation: the py4DSTEM (Double, step floor) variant in the position loop, a sign flip in the
     /// transfer function, or the depth list reordered -> red.
     func testTheKitStagesReproduceTheFormerAppOutputsBitForBit() throws {
@@ -112,8 +113,9 @@ final class ParallaxGoldenTests: XCTestCase {
         for (name, values) in actual.sorted(by: { $0.key < $1.key }) {
             let expected = try XCTUnwrap(stored[name], name)
             XCTAssertEqual(values.count, expected.count, name)
-            let differing = zip(values, expected).filter { Double($0) != $1 }.count
-            XCTAssertEqual(differing, 0, "\(name): \(differing) of \(values.count) values differ")
+            let scale = expected.map { abs($0) }.max() ?? 0
+            let worst = zip(values, expected).map { abs(Double($0) - $1) }.max() ?? 0
+            XCTAssertLessThanOrEqual(worst, 5e-5 * scale + 1e-12, "\(name): worst |difference| \(worst) against a range of \(scale)")
             XCTAssertTrue(values.contains { $0 != 0 }, "\(name) is all zero: the fixture would pin nothing")
         }
     }

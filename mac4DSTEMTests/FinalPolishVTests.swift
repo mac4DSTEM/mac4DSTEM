@@ -99,7 +99,7 @@ final class FinalPolishVTests: XCTestCase {
 
     // MARK: The writer
 
-    /// Mutation: delete the `writeScalarAttribute(AcceleratingVoltage.attributeName …)` line in
+    /// Mutation: delete the `header.attributes[AcceleratingVoltage.attributeName]` line in
     /// `writeCalibratedDataCubeFile` -> the reader finds nil, not 300.5; a writer that rounds (`.rounded()`) -> 300 or 301.
     /// A non-integer kV on purpose: integer-only fixtures let a rounding writer pass (the refuter's survivor R2).
     func testTheWriterStampsTheVoltageAsARootAttributeThatReadsBack() async throws {

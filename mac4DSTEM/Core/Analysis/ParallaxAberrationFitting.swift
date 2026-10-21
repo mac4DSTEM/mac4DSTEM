@@ -148,6 +148,7 @@ package nonisolated func parallaxKitReason(_ error: Error) -> String {
         case .invalidInput: return "the dimensions, orders or sampling are inconsistent"
         case .degenerateData: return "an image has no positive weight, or the geometry is singular"
         case .nonfiniteValues: return "an input or a result is NaN or infinite"
+        case .stackTooLarge: return "the bright-field stack would not fit in the memory allowed"
         }
     }
     if let error = error as? CuboParallax.ParallaxAlignmentError {

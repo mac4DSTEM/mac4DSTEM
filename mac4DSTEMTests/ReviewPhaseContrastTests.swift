@@ -98,7 +98,7 @@ final class ReviewPhaseContrastTests: XCTestCase {
     /// unchanged. Mutation it catches: `inputBytesCounted` returning the preprocessed stack for every level (HEAD's 3S).
     func testAlignmentLevelTwoCountsThePriorItReads() throws {
         let pre = preprocessing()
-        let s = pre.stackByteCount, fft = pre.stackHeight * pre.stackWidth * MemoryLayout<Float>.stride * 12
+        let s = pre.stackByteCount, fft = pre.stackHeight * pre.stackWidth * MemoryLayout<Double>.stride * 12
         XCTAssertGreaterThanOrEqual(ParallaxAligner.defaultBinSchedule(detectorIndices: pre.detectorIndices).count, 2)
         var options = ParallaxAlignmentOptions()
         options.maxWorkingBytes = 3 * s + fft
@@ -116,7 +116,7 @@ final class ReviewPhaseContrastTests: XCTestCase {
     /// nothing (the level's input counted twice), or `phaseContrastHeldBytes` dropping either product.
     func testTheAppCountsEveryHeldStackOnceDuringAlignment() throws {
         let pre = preprocessing()
-        let s = pre.stackByteCount, fft = pre.stackHeight * pre.stackWidth * MemoryLayout<Float>.stride * 12
+        let s = pre.stackByteCount, fft = pre.stackHeight * pre.stackWidth * MemoryLayout<Double>.stride * 12
         let level1 = try ParallaxAligner.alignNextLevel(preprocessing: pre)
         let state = AppState()
         XCTAssertFalse(state.residency.isResident, "the premise: a streamed cube")
@@ -156,7 +156,7 @@ final class ReviewPhaseContrastTests: XCTestCase {
         XCTAssertFalse(state.releaseParallaxProductsForPreview().releasedPreview, "nothing left to release")
     }
 
-    /// A source whose patterns are all zero: the preview's run fails on "no positive finite signal", after the release.
+    /// A source whose patterns are all zero: the preview's run fails on "no positive weight", after the release.
     private actor ZeroSource: FourDDataSource {
         nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
         func discoverPrimaryDataset() throws -> DatasetDescriptor { DemoFourDDataSource.descriptor }
@@ -200,7 +200,7 @@ final class ReviewPhaseContrastTests: XCTestCase {
         state.phaseContrast.parallaxPreprocess = pre
         state.phaseContrast.parallaxAlignment = try ParallaxAligner.alignNextLevel(preprocessing: pre)
         await state.prepareParallaxPreview()
-        XCTAssertTrue(state.statusText.contains("no positive finite signal"), "the run started and failed: \(state.statusText)")
+        XCTAssertTrue(state.statusText.contains("no positive weight"), "the run started and failed: \(state.statusText)")
         XCTAssertNil(state.phaseContrast.parallaxPreprocess)
         XCTAssertNil(state.phaseContrast.parallaxAlignment)
         XCTAssertEqual(state.phaseContrastHeldBytes, 0)

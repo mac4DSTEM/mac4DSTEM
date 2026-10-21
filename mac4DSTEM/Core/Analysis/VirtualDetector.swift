@@ -3,10 +3,11 @@
 //  Role: The Analysis-layer wrapper for virtual-detector imaging. It turns a
 //        high-level intent (a preset, a dragged annulus, or any py4DSTEM
 //        detector geometry) into a CuboKit reduction (C1/C2, 2026-10-15:
-//        virtual images, mean and max patterns, centre of mass) and hands back
-//        a `FloatImage`. What stays here is the app's: the real-space region
-//        and selected-area diffraction, the per-position origin measurement
-//        (C3), the presets and the Metal one-shot dispatches the harnesses use.
+//        virtual images, mean and max patterns, centre of mass; CuboKit 0.7.0:
+//        the per-position origin) and hands back a `FloatImage`. What stays here
+//        is the app's: the real-space region and the selected-area diffraction
+//        (a Metal sum over the resident cube; the kit's weighted pattern is CPU
+//        only) and the presets.
 //
 //  Detector convention, py4DSTEM make_detector (the kit's DetectorMask):
 //  circle r² < rOut²; annulus rIn² < r² < rOut².
@@ -381,7 +382,7 @@ package nonisolated enum VirtualDetector {
     /// Scan rows per tile. The caller's number when it gives one; otherwise the smaller of the app's budget, which
     /// sizes from the READ extent of a binned or cropped view (`FourDArray.scanTileRows`), and the kit's `.automatic`
     /// 64 MiB, a function of the shape alone.
-    private static func kitTiling(data: FourDArray, descriptor d: DatasetDescriptor, maximumRows: Int?) async throws -> ScanTiling {
+    package static func kitTiling(data: FourDArray, descriptor d: DatasetDescriptor, maximumRows: Int?) async throws -> ScanTiling {
         let budget = await data.scanTileRows(maximumRows: maximumRows)
         guard maximumRows == nil else { return .rows(budget) }
         let shape = try CubeShape(scanRows: d.ry, scanColumns: d.rx, detectorRows: d.qy, detectorColumns: d.qx)
@@ -470,7 +471,10 @@ package nonisolated enum VirtualDetector {
         return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: sum)
     }
 
-    /// Bounded origin measurement after a probe radius has been established.
+    /// Per-position origin measurement after a probe radius has been established: CuboVirtual's iterated-window estimator
+    /// (`OriginMeasurement.measure(estimator: .iteratedWindow)`, CuboKit 0.7.0), on the Metal path (`cubo_measure_origin`) and, on a
+    /// Mac without a Metal device, the CPU one (they agree within relative 1e-5). Returns interleaved [x0, y0] per scan
+    /// position, x the detector column and y the detector row, as the former kernel did.
     package static func tiledMeasuredOrigins(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
@@ -480,35 +484,33 @@ package nonisolated enum VirtualDetector {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> [Float] {
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let tiling = try await kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows)
+        let map = try await measureIteratedWindow(source, radius: probeRadius, scale: rscale, tiling: tiling, progress: progress)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
         var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
-        }
-        var source = TileGPUSource(data: data, descriptor: d,
-                                   cube: await data.resident(for: d))
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else {
-                source.cancel(); throw CancellationError()
-            }
-            let bound = try await source.binding(
-                for: range,
-                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil,
-                label: "measureOrigins tile rows \(range.lowerBound)..<\(range.upperBound)"
-            )
-            let params = OriginParams(
-                ry: UInt32(range.count), rx: UInt32(d.rx),
-                qy: UInt32(d.qy), qx: UInt32(d.qx),
-                r: probeRadius, rscale: rscale
-            )
-            let measured = try MetalEngine.shared.measureOrigins(
-                cube: bound.buffer, cubeOffset: bound.offset, params: params
-            )
-            output.replaceSubrange(range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2,
-                                   with: measured)
-            progress?(Double(range.upperBound) / Double(d.ry))
+        for i in 0..<d.ry * d.rx {
+            output[2 * i] = Float(map.column.values[i])
+            output[2 * i + 1] = Float(map.row.values[i])
         }
         return output
+    }
+
+    /// The iterated-window origin map of `source`: Metal, else CPU when the Mac has no Metal device.
+    package static func measureIteratedWindow(
+        _ source: some CubeSource, radius: Float, scale: Float, tiling: ScanTiling,
+        progress: (@Sendable (Double) -> Void)? = nil
+    ) async throws -> OriginMap {
+        do {
+            return try await OriginMeasurement.measure(
+                of: source, radius: Double(radius), radiusScale: Double(scale),
+                estimator: .iteratedWindow(), path: .metal, tiling: tiling, progress: progress)
+        } catch CuboVirtualError.noMetalDevice {
+            return try await OriginMeasurement.measure(
+                of: source, radius: Double(radius), radiusScale: Double(scale),
+                estimator: .iteratedWindow(), path: .cpu, tiling: tiling, progress: progress)
+        }
     }
 
     /// Bounded centre-of-mass SHIFT: `CenterOfMass.measure` (py4DSTEM's definition in Double: negative intensities count,

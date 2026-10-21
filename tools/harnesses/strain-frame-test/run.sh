@@ -1,6 +1,6 @@
 #!/bin/zsh
 # v2 S8 (docs/v2-release.md §8): the strain presentation-frame fixture.
-# Pins StrainFrameRotation against three arbiters: the vendored py4DSTEM
+# Pins the strain frame rotation (CuboStrain StrainFrame.rotate) against three arbiters: the vendored py4DSTEM
 # get_rotated_strain_map (golden.json from reference.py), a refit from
 # vectors transformed the way py4DSTEM transforms calibrated vectors, and
 # hand-checkable known answers. Sources come from tools/lib/sources.manifest

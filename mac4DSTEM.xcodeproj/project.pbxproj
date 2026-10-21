@@ -84,7 +84,6 @@
 				Core/Analysis/TiledDiskDetection.swift,
 				Core/Analysis/VirtualDetector.swift,
 				Core/Compute/AnalysisCancellationToken.swift,
-				Core/Compute/MatrixDFTCorrelation.swift,
 				Core/Compute/MetalEngine.swift,
 				"Core/Compute/MTLTexture+Float.swift",
 				Core/Crystal/CIFModelImport.swift,
@@ -111,9 +110,6 @@
 				Core/Data/FourDDataSource.swift,
 				Core/Data/GMSFourDRegistration.swift,
 				Core/Data/H5Reader.swift,
-				Core/Data/HDF5LibraryCandidates.swift,
-				Core/Data/HDF5WriteLibrary.swift,
-				Core/Data/HDF5WritePrimitives.swift,
 				Core/Data/LoadConfiguration.swift,
 				Core/Data/LoadSpecification.swift,
 				Core/Data/ResidentCube.swift,
@@ -890,7 +886,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.7.1;
+				version = 0.8.1;
 			};
 		};
 		30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */ = {
@@ -898,7 +894,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/CuboKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.6.0;
+				version = 0.7.0;
 			};
 		};
 		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {
@@ -906,7 +902,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/FormatoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.7.0;
+				version = 0.8.0;
 			};
 		};
 		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {
@@ -914,7 +910,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.4.0;
+				version = 0.5.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

@@ -1,5 +1,5 @@
-import Darwin
 import Foundation
+import FormatoCore
 import FormatoHDF5
 import SpectroCore
 import CuboCore
@@ -8,8 +8,7 @@ import CuboCore
 //  CalibratedDataCubeWriter.swift
 //  Role: the Preprocess export: a real-space crop, optional scan stride and integer detector bin streamed into a canonical
 //        float32 py4DSTEM DataCube, bounded by `tileRows`, with the hot-pixel filter, the calibration re-expressed in the file's
-//        frame and the derivation and replay stamps. FormatoKit 0.7.0 has an EMD datacube writer (`EMDDatacubeWriter`); this one stays on
-//        `HDF5WriteLibrary` until the writers move together with the sidecar writes (open-items, FormatoKit). Split out of BraggVectorEMDWriter.swift (2026-10-20).
+//        frame and the derivation and replay stamps. The file is FormatoKit's `EMDDatacubeWriter`; the reduction, the hot-pixel step and the calibration re-reference stay here. Split out of BraggVectorEMDWriter.swift (2026-10-20).
 //
 
 nonisolated extension BraggVectorEMDWriter {
@@ -119,20 +118,8 @@ nonisolated extension BraggVectorEMDWriter {
         )
 
         try checkCancellation(cancellation)
-        let fm = FileManager.default
-        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
-        var published = false
-        defer {
-            // try? OK: best-effort scratch cleanup on the way
-            // out — on the failure path the primary error is already
-            // in flight, and a leftover .tmp in the system-provided scratch
-            // directory harms nothing the error did not already report.
-            if !published { try? fm.removeItem(at: temporary) }
-            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
-        }
-        let h5 = try HDF5Serial.run { try HDF5WriteLibrary.load() }   // H5open is an API call too
         try await writeCalibratedDataCubeFile(
-            at: temporary, source: source, view: view,
+            to: destination, sourcePath: descriptor.filePath, source: source, view: view,
             calibration: try transformedCalibration(calibration, descriptor: descriptor,
                                                     options: options),
             options: options, outputShape: summary.shape,
@@ -143,16 +130,8 @@ nonisolated extension BraggVectorEMDWriter {
             hotPixelMask: hotPixels.map { $0[0] * outQX + $0[1] },
             replayRecord: replayRecord,
             acceleratingVoltageKV: acceleratingVoltageKV,
-            cancellation: cancellation, progress: progress, hdf5: h5
+            cancellation: cancellation, progress: progress
         )
-        try checkCancellation(cancellation)
-        let renamed = temporary.path.withCString { sourcePath in
-            destination.path.withCString { targetPath in Darwin.rename(sourcePath, targetPath) }
-        }
-        guard renamed == 0 else {
-            throw WriterError.publishFailed(String(cString: strerror(errno)))
-        }
-        published = true
         return summary
     }
 
@@ -283,8 +262,11 @@ nonisolated extension BraggVectorEMDWriter {
         return output
     }
 
+    /// Streams the reduced tiles into a kit `EMDDatacubeWriter` (the file is built under a scratch name and published by atomic rename,
+    /// so a failed or cancelled export leaves the destination as it was; no HDF5 handle or lock is held across a read of the source).
     static func writeCalibratedDataCubeFile(
-        at url: URL,
+        to destination: URL,
+        sourcePath: String,
         source: any FourDDataSource,
         view: LoadView,
         calibration: PixelCalibration,
@@ -295,30 +277,8 @@ nonisolated extension BraggVectorEMDWriter {
         replayRecord: SessionReplayRecord?,
         acceleratingVoltageKV: Double?,
         cancellation: AnalysisCancellationToken?,
-        progress: (@Sendable (Double) -> Void)?,
-        hdf5 h5: HDF5WriteLibrary
+        progress: (@Sendable (Double) -> Void)?
     ) async throws {
-        // The setup below creates handles the tile loop uses, so it cannot be
-        // one closure under `HDF5Serial.run`; the lock is taken explicitly
-        // here and released before the loop's first `await` on the source.
-        // Every handle is closed under the lock again at exit.
-        HDF5Serial.acquire()
-        var setupLocked = true
-        defer { if setupLocked { HDF5Serial.release() } }
-        let fileID = url.path.withCString {
-            h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw WriterError.hdf5("creating the calibrated datacube") }
-        defer { HDF5Serial.run { _ = h5.h5fclose(fileID) } }
-
-        try writeStringAttribute("emd_group_type", value: "file", on: fileID, hdf5: h5)
-        try writeScalarAttribute("version_major", value: Int32(1), type: h5.nativeInt,
-                                 on: fileID, hdf5: h5)
-        try writeScalarAttribute("version_minor", value: Int32(0), type: h5.nativeInt,
-                                 on: fileID, hdf5: h5)
-        try writeStringAttribute("UUID", value: UUID().uuidString, on: fileID, hdf5: h5)
-        try writeStringAttribute("authoring_program", value: "mac4DSTEM", on: fileID, hdf5: h5)
-        try writeStringAttribute("authoring_user", value: "", on: fileID, hdf5: h5)
         // The accelerating voltage, in kV, as the file-root attribute `AcceleratingVoltage` names — the one
         // spelling mac4DSTEM's opener reads back (`AppState.activate`), so a reopened export is not "Not set".
         // Absence is absence: a usable value (finite, > 0) is written, never a placeholder (owner 2026-10-01, 1a).
@@ -327,122 +287,59 @@ nonisolated extension BraggVectorEMDWriter {
         // functions take eV (`electron_wavelength_angstrom(E_eV)`). This attribute is app-level, ignored by
         // `py4DSTEM.read` (emdfile `read.py` names the root attributes it uses: emd_group_type, version_*, UUID);
         // our reader takes kV or eV (> 1000) alike.
+        var header = EMDFileHeader(authoringProgram: "mac4DSTEM", authoringUser: "", uuid: UUID().uuidString)
         if let acceleratingVoltageKV, acceleratingVoltageKV.isFinite, acceleratingVoltageKV > 0 {
-            try writeScalarAttribute(AcceleratingVoltage.attributeName, value: acceleratingVoltageKV,
-                                     type: h5.nativeDouble, on: fileID, hdf5: h5)
+            header.attributes[AcceleratingVoltage.attributeName] = .real(acceleratingVoltageKV)
         }
-
-        let root = try createGroup("datacube_root", in: fileID, hdf5: h5)
-        defer { HDF5Serial.run { _ = h5.h5gclose(root) } }
-        try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
         // Provenance the reduced file carries about itself (v2 S10): where its
         // pixels came from, and the recipe of the analyses run on this data —
         // the recipe already re-expressed in THIS file's frame by the caller
         // (`ReplayRecordFrameMap`), never the view's, so no reader has to know
         // a frame this file cannot describe. py4DSTEM ignores both attributes.
         // Absence is absence: a session with no recipe stamps nothing.
-        if let derivation, let json = derivation.jsonString {
-            try writeStringAttribute(derivationAttribute, value: json, on: root, hdf5: h5)
-        }
+        var rootAttributes: [String: HDF5AttributeValue] = [:]
+        if let derivation, let json = derivation.jsonString { rootAttributes[derivationAttribute] = .text(json) }
         if let replayRecord, !replayRecord.isEmpty, let json = replayRecord.jsonString {
-            try writeStringAttribute(replayRecordAttribute, value: json, on: root, hdf5: h5)
+            rootAttributes[replayRecordAttribute] = .text(json)
         }
-        let cube = try createGroup("datacube", in: root, hdf5: h5)
-        defer { HDF5Serial.run { _ = h5.h5gclose(cube) } }
-        try writeNodeAttributes(groupType: "array", pythonClass: "DataCube", on: cube, hdf5: h5)
-
-        let dimensions = outputShape.map(hsize_t.init)
-        let fileSpace = dimensions.withUnsafeBufferPointer {
-            h5.h5screateSimple(4, $0.baseAddress, nil)
+        let layout = EMDDatacubeLayout(
+            shape: outputShape, header: header, calibration: emdCalibration(calibration), booleanStorage: .uint8,
+            rootAttributes: rootAttributes)
+        let writer: EMDDatacubeWriter
+        do {
+            writer = try EMDDatacubeWriter(destination: destination, layout: layout, sourcePath: sourcePath)
+        } catch {
+            throw writeFailure("creating the calibrated datacube", error)
         }
-        guard fileSpace >= 0 else { throw WriterError.hdf5("creating the datacube dataspace") }
-        defer { HDF5Serial.run { _ = h5.h5sclose(fileSpace) } }
-        let creation = h5.h5pcreate(h5.datasetCreatePropertyClass)
-        guard creation >= 0 else { throw WriterError.hdf5("creating the chunk property list") }
-        defer { HDF5Serial.run { _ = h5.h5pclose(creation) } }
-        let chunk = [hsize_t(1), hsize_t(1), dimensions[2], dimensions[3]]
-        guard chunk.withUnsafeBufferPointer({
-            h5.h5psetChunk(creation, 4, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("configuring datacube chunks") }
-        let dataset = "data".withCString {
-            h5.h5dcreate2(cube, $0, h5.nativeFloat, fileSpace, h5DefaultProperty,
-                          creation, h5DefaultProperty)
-        }
-        guard dataset >= 0 else { throw WriterError.hdf5("creating the datacube dataset") }
-        defer { HDF5Serial.run { _ = h5.h5dclose(dataset) } }
-        try writeStringAttribute("units", value: "pixel intensity", on: dataset, hdf5: h5)
-
-        let rStep = calibration.rSize ?? 1
-        let qStep = calibration.qSize ?? 1
-        let rUnits = calibration.rUnits ?? "pixels"
-        let qUnits = calibration.qUnits ?? "pixels"
-        func linearDimension(count: Int, step: Double) -> [Double] {
-            count > 1 ? [0, step] : [0]
-        }
-        try writeDoubleVectorDataset("dim0", values: linearDimension(count: outputShape[0], step: rStep), name: "Rx",
-                                     units: rUnits, in: cube, hdf5: h5)
-        try writeDoubleVectorDataset("dim1", values: linearDimension(count: outputShape[1], step: rStep), name: "Ry",
-                                     units: rUnits, in: cube, hdf5: h5)
-        try writeDoubleVectorDataset("dim2", values: linearDimension(count: outputShape[2], step: qStep), name: "Qx",
-                                     units: qUnits, in: cube, hdf5: h5)
-        try writeDoubleVectorDataset("dim3", values: linearDimension(count: outputShape[3], step: qStep), name: "Qy",
-                                     units: qUnits, in: cube, hdf5: h5)
-        try writeCalibration(calibration, targetPath: "/datacube", in: root, hdf5: h5)
-        HDF5Serial.release()
-        setupLocked = false
-
-        let outQY = outputShape[2], outQX = outputShape[3]
-        let yPositions = options.scanYPositions
-        // With the hot-pixel filter on, the mean pass took the first half of
-        // the progress bar.
-        let progressBase = options.hotPixelThreshold == nil ? 0.0 : 0.5
-        var outRow = 0
-        while outRow < yPositions.count {
-            try checkCancellation(cancellation)
-            // A stride of 1 reads `tileRows` contiguous scan rows at once, as
-            // before; a thinned scan reads the rows it keeps one at a time.
-            let rowsInTile = options.scanStride == 1
-                ? min(options.tileRows, yPositions.count - outRow) : 1
-            let sourceY = yPositions[outRow]
-            let sourceTile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + rowsInTile))
-            try checkCancellation(cancellation)
-            let output = try reducedTile(sourceTile, localRows: rowsInTile, view: view,
-                                     options: options, outQY: outQY, outQX: outQX,
-                                     hotPixelMask: hotPixelMask)
-            let endY = outRow + rowsInTile
-
-            // One tile's write is one operation under the lock; the read of
-            // the next tile from the source actor happens outside it.
-            do {
-                HDF5Serial.acquire(); defer { HDF5Serial.release() }
-                let targetSpace = h5.h5dgetSpace(dataset)
-                guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
-                defer { _ = h5.h5sclose(targetSpace) }
-                let start = [hsize_t(outRow), 0, 0, 0]
-                let count = [hsize_t(rowsInTile), hsize_t(outputShape[1]),
-                             hsize_t(outQY), hsize_t(outQX)]
-                let selected = start.withUnsafeBufferPointer { starts in
-                    count.withUnsafeBufferPointer { counts in
-                        h5.h5sselectHyperslab(targetSpace, h5SelectSet, starts.baseAddress,
-                                              nil, counts.baseAddress, nil)
-                    }
-                }
-                guard selected >= 0 else { throw WriterError.hdf5("selecting the output tile") }
-                let memorySpace = count.withUnsafeBufferPointer {
-                    h5.h5screateSimple(4, $0.baseAddress, nil)
-                }
-                guard memorySpace >= 0 else { throw WriterError.hdf5("creating the output tile dataspace") }
-                let wrote = output.withUnsafeBytes {
-                    h5.h5dwrite(dataset, h5.nativeFloat, memorySpace, targetSpace,
-                                h5DefaultProperty, $0.baseAddress)
-                }
-                _ = h5.h5sclose(memorySpace)
-                guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
+        do {
+            let yPositions = options.scanYPositions
+            let outQY = outputShape[2], outQX = outputShape[3]
+            // With the hot-pixel filter on, the mean pass took the first half of
+            // the progress bar.
+            let progressBase = options.hotPixelThreshold == nil ? 0.0 : 0.5
+            var outRow = 0
+            while outRow < yPositions.count {
+                try checkCancellation(cancellation)
+                // A stride of 1 reads `tileRows` contiguous scan rows at once, as
+                // before; a thinned scan reads the rows it keeps one at a time.
+                let rowsInTile = options.scanStride == 1
+                    ? min(options.tileRows, yPositions.count - outRow) : 1
+                let sourceY = yPositions[outRow]
+                let sourceTile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + rowsInTile))
+                try checkCancellation(cancellation)
+                let output = try reducedTile(sourceTile, localRows: rowsInTile, view: view,
+                                             options: options, outQY: outQY, outQX: outQX,
+                                             hotPixelMask: hotPixelMask)
+                try writer.write(rows: rowsInTile, values: output)
+                outRow += rowsInTile
+                progress?(progressBase + (1 - progressBase) * Double(outRow) / Double(yPositions.count))
             }
-            outRow = endY
-            progress?(progressBase + (1 - progressBase) * Double(outRow) / Double(yPositions.count))
+            try checkCancellation(cancellation)
+            try writer.publish()
+        } catch {
+            writer.cancel()
+            throw writeFailure("writing the calibrated datacube", error)
         }
-        try checkCancellation(cancellation)
         progress?(1)
     }
 

@@ -8,15 +8,14 @@ released kits (exact pins in `Package.swift`). What is live: `docs/status.md`. E
 
 | Owner | Holds |
 |---|---|
-| **App** (`mac4DSTEM/`) | rooms and SwiftUI, `AppState`, Metal image view and the Metal kernels the kits lack (selected-area sum, per-position origin), lineage/replay/marks, session sidecar writes, calibration orchestration, precipitates, Materials Project fetch glue, 4D x spectroscopy correlation |
-| **CuboKit 0.6.0** | virtual imaging, CoM and origins (`OriginFit`, Friedel, beamstop), probe size, disk detection (`CuboBragg`), strain (`CuboStrain`), DPC/iDPC (`CuboPhase`), parallax aberration/depth/position correction, ptychography probe, PCA/k-means, hot-pixel mask, calibration re-reference |
-| **DiffractoKit 0.7.1** | cells, CIF, symmetry, structure factors, ring and ellipse fit, vector matching and phase mapping, Euler/orientation symmetry, ACOM library and matcher, Materials Project decode |
-| **FormatoKit 0.7.0** | HDF5 reader and libhdf5 frameworks, sidecar reads and the peak-grid EMD read, DM4/DM3 (not the 4D gather), MIB, EMPAD, Velox EMD |
+| **App** (`mac4DSTEM/`) | rooms and SwiftUI, `AppState`, Metal image view and the Metal kernel the kits lack (selected-area sum), lineage/replay/marks, session sidecar writes, calibration orchestration, precipitates, Materials Project fetch glue, 4D x spectroscopy correlation |
+| **CuboKit 0.7.0** | virtual imaging, CoM and origins (`OriginFit`, Friedel, beamstop), probe size, disk detection (`CuboBragg`), strain (`CuboStrain`), DPC/iDPC (`CuboPhase`), parallax aberration/depth/position correction, ptychography probe, PCA/k-means, hot-pixel mask, calibration re-reference |
+| **DiffractoKit 0.8.1** | cells, CIF, symmetry, structure factors, ring and ellipse fit, vector matching and phase mapping, Euler/orientation symmetry, ACOM library and matcher, Materials Project decode |
+| **FormatoKit 0.8.0** | HDF5 reader and libhdf5 frameworks, sidecar reads and the peak-grid EMD read, DM4/DM3 (not the 4D gather), MIB, EMPAD, Velox EMD |
 | **SpectroKit 0.7.1** | EDX fit, quantification, proposer and Auto ID, spectrum image, mask transport and pools |
-| **ImagoKit 0.4.0** | `FFT2D`, `FFT1D` (ACOM) |
+| **ImagoKit 0.5.0** | `FFT2D`, `FFT1D` (ACOM) |
 
-Kept in the app on purpose, each marked `delete at <Kit> <version>`: `SingleslicePtychography`, `ParallaxAlignment` with
-`MatrixDFTCorrelation`, `H5Reader`'s `HDF5LegacyProbe`, `DM4Reader`, the sidecar writer, header-less MIB. The kit asks that end
+Kept in the app on purpose: the learned detector (training and refine, ADR 071), session lineage and marks records, the `small_datacube` rank-3 reshape in `DM4Reader`, header-less MIB, and thin Float façades over the kits. The kit asks that end
 them are in `docs/open-items.md` "Kit asks"; the owner tags kit releases and the app re-pins once per kit minor.
 
 ## Study items mac4DSTEM must deliver (`../ROADMAP.md`)

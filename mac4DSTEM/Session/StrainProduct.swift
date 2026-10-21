@@ -106,7 +106,7 @@ package final class StrainProduct {
     /// (the `DatasetResidency` callback shape).
     @ObservationIgnored package var onPresentationChange: (() -> Void)?
 
-    /// The manual basis exactly as `StrainMapping.compute` takes it, or nil
+    /// The manual basis exactly as `StrainMapper.compute` takes it, or nil
     /// when the automatic (consensus) basis should re-derive.
     package var manualInitialBasis: (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? {
         basisMode == .manual ? (g1: (x: g1X, y: g1Y), g2: (x: g2X, y: g2Y)) : nil

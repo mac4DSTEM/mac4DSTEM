@@ -545,7 +545,7 @@
 
     ],
     "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
-    "readError" : "readFailed(\"pattern at ry 0, rx 0\")",
+    "readError" : "datasetOpenFailed(\"/a/data\")",
     "shape" : [
       2,
       2,

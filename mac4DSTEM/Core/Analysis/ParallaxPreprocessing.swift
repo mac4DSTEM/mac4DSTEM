@@ -1,9 +1,11 @@
 //
 //  ParallaxPreprocessing.swift
-//  Source-locked foundation for py4DSTEM Parallax.preprocess. This slice
-//  intentionally stops before cross-correlation and iterative reconstruction.
+//  The app's parallax preprocessing: the calibration the physical numbers need, the options and the result types, and the
+//  streamed stack builder, which is CuboParallax's `ParallaxPreprocessing.prepare(source:)` (0.7.0) over the app's cube.
 //
 
+import CuboCore
+import CuboParallax
 import Foundation
 
 package nonisolated struct ParallaxDetectorIndex: Equatable, Sendable {
@@ -289,16 +291,9 @@ package nonisolated enum ParallaxPreprocessor {
         }
     }
 
+    /// py4DSTEM `electron_wavelength_angstrom`: the kit's, NaN for an energy it refuses.
     package static func electronWavelengthAngstrom(energyEV: Double) -> Double {
-        // Exact constants/form used by py4DSTEM electron_wavelength_angstrom.
-        let mass = 9.109383e-31
-        let charge = 1.602177e-19
-        let lightSpeed = 299_792_458.0
-        let planck = 6.62607e-34
-        return planck
-            / sqrt(2 * mass * charge * energyEV)
-            / sqrt(1 + charge * energyEV / (2 * mass * lightSpeed * lightSpeed))
-            * 1e10
+        (try? ParallaxPreprocessing.electronWavelength(energyEV: energyEV)) ?? .nan
     }
 
     package static func run(
@@ -327,193 +322,54 @@ package nonisolated enum ParallaxPreprocessor {
         }
         try checkCancellation(cancellation)
 
-        let detectorCount = descriptor.qy * descriptor.qx
-        let scanCount = descriptor.ry * descriptor.rx
-        let tileRows = resolvedTileRows(view: view, requested: options.tileRows)
-
-        // Pass 1: py4DSTEM `dp_mean = intensities.mean((0,1))`.
-        var detectorMean = [Float](repeating: 0, count: detectorCount)
-        var processedRows = 0
-        for lower in stride(from: 0, to: descriptor.ry, by: tileRows) {
-            try checkCancellation(cancellation)
-            let upper = min(descriptor.ry, lower + tileRows)
-            let tile = try await source.readScanTile(view, yRange: lower..<upper)
-            try validate(tile: tile, descriptor: descriptor, range: lower..<upper)
-            for localY in 0..<tile.rowCount {
-                try checkCancellation(cancellation)
-                for x in 0..<descriptor.rx {
-                    let base = (localY * descriptor.rx + x) * detectorCount
-                    for q in 0..<detectorCount {
-                        detectorMean[q] += tile.pixels[base + q]
-                    }
-                }
-                processedRows += 1
-                progress?(Double(processedRows) / Double(descriptor.ry * 2))
-            }
-        }
-        let inverseScanCount = 1 / Float(scanCount)
-        detectorMean = detectorMean.map { $0 * inverseScanCount }
-        guard let maximum = detectorMean.filter(\.isFinite).max(), maximum > 0 else {
-            throw PreprocessError.invalidData("the mean diffraction pattern has no positive finite signal")
-        }
-        let threshold = maximum * options.thresholdIntensity
-        let detectorMask = detectorMean.map { $0.isFinite && $0 >= threshold }
-        var indices = [ParallaxDetectorIndex]()
-        for qx in 0..<descriptor.qy {
-            for qy in 0..<descriptor.qx where detectorMask[qx * descriptor.qx + qy] {
-                indices.append(ParallaxDetectorIndex(qx: qx, qy: qy))
-            }
-        }
-        guard !indices.isEmpty else {
-            throw PreprocessError.invalidData("the bright-field threshold selected no detector pixels")
-        }
-
-        let meanQX = Double(indices.reduce(0) { $0 + $1.qx }) / Double(indices.count)
-        let meanQY = Double(indices.reduce(0) { $0 + $1.qy }) / Double(indices.count)
-        let reciprocalVectors = indices.map {
-            ParallaxVector(
-                qx: Float((Double($0.qx) - meanQX)
-                          * calibration.reciprocalSamplingInvAngstrom),
-                qy: Float((Double($0.qy) - meanQY)
-                          * calibration.reciprocalSamplingInvAngstrom)
+        // The view's cube through the kit's source adapter (a fresh `FourDArray`: nothing resident, no cache to skip), the
+        // tile rows sized at the READ extent below, both stacks kept (alignment reads the blended one, the subpixel KDE the
+        // unwindowed one).
+        let cube = try CuboCubeSource(FourDArray(reader: source, view: view), descriptor: descriptor, cancellation: cancellation)
+        let sampling = calibration.reciprocalSamplingInvAngstrom
+        let kit: ParallaxStreamedPreprocessingResult
+        do {
+            kit = try await ParallaxPreprocessing.prepare(
+                source: cube,
+                reciprocalSampling: ParallaxShift(row: sampling, column: sampling), energyEV: calibration.energyEV,
+                threshold: Double(options.thresholdIntensity), edgeBlend: Double(options.edgeBlend),
+                paddingRows: options.paddingY, paddingColumns: options.paddingX,
+                retention: .unwindowed,
+                tiling: .rows(resolvedTileRows(view: view, requested: options.tileRows)),
+                maximumStackBytes: options.maxStackBytes,
+                progress: progress, isCancelled: { cancellation?.isCancelled == true }
             )
-        }
-        // DEVIATION from py4DSTEM `Parallax._probe_angles = _kxy * _wavelength`
-        // (parallax.py:478), which is RADIANS: we store MILLIRADIANS
-        // (× wavelengthAngstrom × 1_000) so `maximumProbeAngleMrad` (:170) and the
-        // preprocessing summary read straight in mrad. Every science consumer
-        // divides by 1_000 back to radians first — ParallaxDepthSectioning.swift
-        // (the `angles` handed to the kit's section), ParallaxAberrationFitting.swift
-        // (`radians`, for the fit and the gradient basis) and the alignment-free
-        // consumers of `maximumProbeAngleMrad`. The parity
-        // fixture matches with the same × 1e3
-        // (tools/harnesses/parallax-preprocessing-test/reference.py:68).
-        let probeAngles = reciprocalVectors.map {
-            ParallaxVector(
-                qx: $0.qx * Float(calibration.wavelengthAngstrom * 1_000),
-                qy: $0.qy * Float(calibration.wavelengthAngstrom * 1_000)
+        } catch is CancellationError {
+            throw PreprocessError.cancelled
+        } catch ParallaxError.stackTooLarge(let bytes, let limit) {
+            throw PreprocessError.stackTooLarge(bytes: bytes, limit: limit)
+        } catch ParallaxError.degenerateData {
+            throw PreprocessError.invalidData(
+                "the bright-field threshold selected no detector pixels, or a selected virtual-BF image, the mean pattern or the edge window has no positive weight"
             )
-        }
-
-        let edgeY = edgeWindowAxis(count: descriptor.ry, blend: options.edgeBlend)
-        let edgeX = edgeWindowAxis(count: descriptor.rx, blend: options.edgeBlend)
-        var edgeWindow = [Float](repeating: 0, count: scanCount)
-        for y in 0..<descriptor.ry {
-            for x in 0..<descriptor.rx {
-                edgeWindow[y * descriptor.rx + x] = edgeY[y] * edgeX[x]
-            }
-        }
-        let windowSum = edgeWindow.reduce(0, +)
-        guard windowSum.isFinite, windowSum > 0 else {
-            throw PreprocessError.invalidData("the real-space edge window is empty")
-        }
-
-        let stackHeight = descriptor.ry + options.paddingY
-        let stackWidth = descriptor.rx + options.paddingX
-        let planeCount = try checkedProduct(stackHeight, stackWidth)
-        let stackCount = try checkedProduct(planeCount, indices.count)
-        let stackBytes = try checkedProduct(stackCount, MemoryLayout<Float>.stride)
-        let residentStackBytes = try checkedProduct(stackBytes, 2)
-        guard residentStackBytes <= options.maxStackBytes else {
-            throw PreprocessError.stackTooLarge(
-                bytes: residentStackBytes, limit: options.maxStackBytes
-            )
-        }
-
-        // Both source products are retained: alignment consumes the blended
-        // stack while py4DSTEM's subpixel KDE consumes the unwindowed stack.
-        // The input 4D cube remains tiled rather than resident.
-        var stack = [Float](repeating: 1, count: stackCount)
-        var unshiftedStack = [Float](repeating: 1, count: stackCount)
-        var weightedSums = [Float](repeating: 0, count: indices.count)
-        let top = options.paddingY / 2
-        let left = options.paddingX / 2
-        processedRows = 0
-        for lower in stride(from: 0, to: descriptor.ry, by: tileRows) {
-            try checkCancellation(cancellation)
-            let upper = min(descriptor.ry, lower + tileRows)
-            let tile = try await source.readScanTile(view, yRange: lower..<upper)
-            try validate(tile: tile, descriptor: descriptor, range: lower..<upper)
-            for localY in 0..<tile.rowCount {
-                try checkCancellation(cancellation)
-                let globalY = lower + localY
-                for x in 0..<descriptor.rx {
-                    let sourceBase = (localY * descriptor.rx + x) * detectorCount
-                    let scanIndex = globalY * descriptor.rx + x
-                    let window = edgeWindow[scanIndex]
-                    let stackPixel = (top + globalY) * stackWidth + left + x
-                    for (bf, index) in indices.enumerated() {
-                        let raw = tile.pixels[sourceBase + index.qx * descriptor.qx + index.qy]
-                        guard raw.isFinite else {
-                            throw PreprocessError.invalidData("a selected bright-field pixel is non-finite")
-                        }
-                        let offset = bf * planeCount + stackPixel
-                        stack[offset] = raw
-                        unshiftedStack[offset] = raw
-                        weightedSums[bf] += raw * window
-                    }
-                }
-                processedRows += 1
-                progress?(0.5 + Double(processedRows) / Double(descriptor.ry * 2))
-            }
+        } catch ParallaxError.nonfiniteValues {
+            throw PreprocessError.invalidData("a selected bright-field pixel is non-finite")
+        } catch ParallaxError.invalidInput {
+            throw PreprocessError.invalidData("the stack dimensions or the calibrated sampling are invalid")
         }
         try checkCancellation(cancellation)
-
-        for bf in 0..<indices.count {
-            let weight = weightedSums[bf] / windowSum
-            guard weight.isFinite, weight > 0 else {
-                throw PreprocessError.invalidData("a selected virtual-BF image has zero weighted intensity")
-            }
-            let plane = bf * planeCount
-            for y in 0..<descriptor.ry {
-                for x in 0..<descriptor.rx {
-                    let window = edgeWindow[y * descriptor.rx + x]
-                    let offset = plane + (top + y) * stackWidth + left + x
-                    unshiftedStack[offset] /= weight
-                    stack[offset] = 1 - window + window * unshiftedStack[offset]
-                }
-            }
+        // The kit's vectors are the Float values the old code stored, widened to Double.
+        func vector(_ shift: ParallaxShift) -> ParallaxVector {
+            ParallaxVector(qx: Float(shift.row), qy: Float(shift.column))
         }
-        try checkCancellation(cancellation)
-
-        let stackMean = Self.stackMean(stack)
-        guard stackMean.isFinite, stackMean > 0 else {
-            throw PreprocessError.invalidData("the normalized stack mean is not positive")
-        }
-        var incoherent = [Float](repeating: stackMean, count: planeCount)
-        var errorSum: Double = 0
-        for y in 0..<descriptor.ry {
-            for x in 0..<descriptor.rx {
-                let window = edgeWindow[y * descriptor.rx + x]
-                let pixel = (top + y) * stackWidth + left + x
-                var average: Float = 0
-                for bf in 0..<indices.count {
-                    average += stack[bf * planeCount + pixel]
-                }
-                average /= Float(indices.count)
-                let reference = stackMean * (1 - window) + average * window
-                incoherent[pixel] = reference
-                for bf in 0..<indices.count {
-                    errorSum += Double(abs(stack[bf * planeCount + pixel] - reference) * window)
-                }
-            }
-        }
-        let initialError = Float(
-            errorSum / Double(windowSum * Float(indices.count)) / Double(stackMean)
-        )
-
-        try checkCancellation(cancellation)
-        progress?(1)
         return ParallaxPreprocessResult(
             scanHeight: descriptor.ry, scanWidth: descriptor.rx,
             detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
-            stackHeight: stackHeight, stackWidth: stackWidth,
+            stackHeight: kit.rows, stackWidth: kit.columns,
             calibration: calibration, thresholdIntensity: options.thresholdIntensity,
-            detectorMask: detectorMask, detectorIndices: indices,
-            reciprocalVectors: reciprocalVectors, probeAnglesMrad: probeAngles,
-            edgeWindow: edgeWindow, normalizedStack: stack,
-            unshiftedStack: unshiftedStack,
-            incoherentBF: incoherent, initialError: initialError
+            detectorMask: kit.detectorMask,
+            detectorIndices: kit.detectorIndices.map { ParallaxDetectorIndex(qx: $0[0], qy: $0[1]) },
+            reciprocalVectors: kit.reciprocalVectors.map(vector),
+            // MILLIradians (kit: reciprocal vector x wavelength x 1000), where py4DSTEM's `_probe_angles` is radians: every
+            // science consumer divides by 1000 first (ParallaxDepthSectioning, ParallaxAberrationFitting).
+            probeAnglesMrad: kit.probeAnglesMrad.map(vector),
+            edgeWindow: kit.window, normalizedStack: kit.stack, unshiftedStack: kit.unshiftedStack,
+            incoherentBF: kit.incoherentImage, initialError: kit.initialError
         )
     }
 
@@ -531,15 +387,6 @@ package nonisolated enum ParallaxPreprocessor {
         var total = 0.0
         for value in stack { total += Double(value) }
         return Float(total / Double(stack.count))
-    }
-
-    private static func edgeWindowAxis(count: Int, blend: Float) -> [Float] {
-        (0..<count).map { index in
-            let coordinate = -1 + (Float(index) + 0.5) * 2 / Float(count)
-            let ramp = min(max((1 - abs(coordinate)) * Float(count) / blend / 2, 0), 1)
-            let sine = sin(ramp * .pi / 2)
-            return sine * sine
-        }
     }
 
     /// Rows per streamed tile: 64 MiB tiles at the READ extent, not the view's.
@@ -563,27 +410,9 @@ package nonisolated enum ParallaxPreprocessor {
         return max(1, min(descriptor.ry, 64 * 1_024 * 1_024 / max(1, rowBytes)))
     }
 
-    private static func validate(
-        tile: FourDScanTile, descriptor: DatasetDescriptor, range: Range<Int>
-    ) throws {
-        let expected = range.count * descriptor.rx * descriptor.qy * descriptor.qx
-        guard tile.yRange == range, tile.scanWidth == descriptor.rx,
-              tile.detectorHeight == descriptor.qy,
-              tile.detectorWidth == descriptor.qx,
-              tile.pixels.count == expected else {
-            throw PreprocessError.invalidData("the data source returned an inconsistent scan tile")
-        }
-    }
-
     private static func checkCancellation(
         _ cancellation: AnalysisCancellationToken?
     ) throws {
         if cancellation?.isCancelled == true { throw PreprocessError.cancelled }
-    }
-
-    private static func checkedProduct(_ lhs: Int, _ rhs: Int) throws -> Int {
-        let (value, overflow) = lhs.multipliedReportingOverflow(by: rhs)
-        if overflow { throw PreprocessError.invalidData("the requested stack dimensions overflow") }
-        return value
     }
 }

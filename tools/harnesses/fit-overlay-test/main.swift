@@ -131,7 +131,7 @@ let strainPeaks = (0..<positionCount).map { index -> [BraggPeak] in
 }
 let strainVectors = BraggVectors(scanWidth: scanW, scanHeight: scanH, peaks: strainPeaks)
 let calibratedStrain = strainVectors.calibrated(with: strainCal, referenceOrigin: strainRef)
-guard let strainMap = StrainMapping.compute(
+guard let strainMap = StrainMapper.compute(
     bragg: calibratedStrain, originX: strainRef.x, originY: strainRef.y
 ) else { fail("strain solver rejected the synthetic lattice") }
 guard strainMap.mask[5], !strainMap.mask[11] else {

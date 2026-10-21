@@ -1,3 +1,5 @@
+import CuboCore
+import CuboVirtual
 import Foundation
 import Metal
 
@@ -133,18 +135,22 @@ for test in fixture.cases {
 
 let fieldSource = SyntheticDataSource(descriptor: d, cube: cube)
 let fieldData = FourDArray(reader: fieldSource, descriptor: d)
-let residentOrigins = try MetalEngine.shared.measureOrigins(
-    cube: cubeBuffer,
-    params: OriginParams(ry: UInt32(d.ry), rx: UInt32(d.rx),
-                         qy: UInt32(d.qy), qx: UInt32(d.qx),
-                         r: 1.5, rscale: 1.2)
-)
+// The kit's CPU path of the same estimator is the reference for the tiled Metal one (they agree within relative 1e-5; the
+// tolerance here is 1e-4 px on this fixture), and a forced one-row tiling gives the same origins as the whole cube.
+let kitCPUOrigins: [Float] = try await {
+    let memory = try MemoryCube(shape: try CubeShape([d.ry, d.rx, d.qy, d.qx]), values: cube)
+    let map = try await OriginMeasurement.measure(of: memory, radius: 1.5, radiusScale: 1.2,
+                                                  estimator: .iteratedWindow(), path: .cpu)
+    var out = [Float](repeating: 0, count: d.ry * d.rx * 2)
+    for i in 0..<(d.ry * d.rx) { out[2 * i] = Float(map.column.values[i]); out[2 * i + 1] = Float(map.row.values[i]) }
+    return out
+}()
 let tiledOrigins = try await VirtualDetector.tiledMeasuredOrigins(
     data: fieldData, descriptor: d, probeRadius: 1.5,
     maximumTileRows: 1
 )
-compare(tiledOrigins, expected: residentOrigins,
-        caseName: "origin_measurement", path: "forced 1-row tiles")
+compare(tiledOrigins, expected: kitCPUOrigins,
+        caseName: "origin_measurement", path: "forced 1-row tiles, Metal vs the kit's CPU path", tolerance: 1e-4)
 
 // Origin measurement against a KNOWN centre (Gate D 2026-09-05). The beam is
 // a smooth blob the size of WS2's — plateau ~2 px, soft 1 px edge — centred
@@ -173,15 +179,10 @@ do {
             }
         }
     }
-    guard let beamBuffer = MetalEngine.shared.device.makeBuffer(
-        bytes: beamCube, length: beamCube.count * MemoryLayout<Float>.stride,
-        options: .storageModeShared
-    ) else { fail("could not allocate the synthetic beam cube") }
-    let measured = try MetalEngine.shared.measureOrigins(
-        cube: beamBuffer,
-        params: OriginParams(ry: 1, rx: UInt32(centres.count), qy: UInt32(q), qx: UInt32(q),
-                             r: 1.86, rscale: 1.2)
-    )
+    let beamMemory = try MemoryCube(shape: try CubeShape([1, centres.count, q, q]), values: beamCube)
+    let beamMap = try await VirtualDetector.measureIteratedWindow(beamMemory, radius: 1.86, scale: 1.2, tiling: .automatic)
+    var measured = [Float](repeating: 0, count: 2 * centres.count)
+    for i in 0..<centres.count { measured[2 * i] = Float(beamMap.column.values[i]); measured[2 * i + 1] = Float(beamMap.row.values[i]) }
     var worstOffset = 0.0
     for (position, centre) in centres.enumerated() {
         let dx = Double(measured[2 * position]) - centre.x
@@ -274,18 +275,23 @@ diskParams.minPeakSpacing = 0
 // clamped to one internally and is now rejected by the public contract.
 diskParams.edgeBoundary = 1
 diskParams.maxNumPeaks = 8
-guard let residentDisks = DiskDetection.detectAll(
-    cube: cubeBuffer, descriptor: d, kernel: diskKernel, params: diskParams
-) else { fail("resident disk detection failed") }
+// The reference: the single-pattern facade over every scan position, one at a time (the full scan is the kit's
+// `BraggDisks.detectAll` since CuboKit 0.7.0; the per-pattern detector is the same).
+guard let referenceDetector = DiskDetector(kernel: diskKernel) else { fail("could not build the disk detector") }
+let residentPeaks: [[BraggPeak]] = (0..<scanCount).map { k in
+    cube.withUnsafeBufferPointer {
+        referenceDetector.detect(pattern: $0.baseAddress! + k * detectorPixels, params: diskParams)
+    }
+}
 guard let tiledDisks = try await DiskDetection.detectAll(
     data: fieldData, descriptor: d, kernel: diskKernel, params: diskParams,
     maximumTileRows: 1
 ) else { fail("tiled disk detection failed") }
-guard residentDisks.peaks.count == tiledDisks.peaks.count else {
-    fail("tiled disk position count differs from resident path")
+guard residentPeaks.count == tiledDisks.peaks.count else {
+    fail("tiled disk position count differs from the per-pattern path")
 }
-for scan in residentDisks.peaks.indices {
-    let expected = residentDisks.peaks[scan]
+for scan in residentPeaks.indices {
+    let expected = residentPeaks[scan]
     let actual = tiledDisks.peaks[scan]
     guard expected.count == actual.count else {
         fail("tiled disk peak count differs at scan index \(scan)")
@@ -298,7 +304,7 @@ for scan in residentDisks.peaks.indices {
         }
     }
 }
-print("PASS: disk_detection [forced 1-row tiles] exact resident parity")
+print("PASS: disk_detection [forced 1-row tiles] exact per-pattern parity")
 
 let cancelledSource = SyntheticDataSource(descriptor: d, cube: cube)
 let cancelledData = FourDArray(reader: cancelledSource, descriptor: d)

@@ -1,8 +1,9 @@
 //
 //  OriginCalibration.swift
 //  Role: The origin-calibration workflow (py4DSTEM: get_probe_size,
-//        get_origin, fit_origin). The GPU kernel does the per-pattern work
-//        (OriginMeasure.metal; the max and mean patterns are CuboKit's); this file holds the
+//        get_origin, fit_origin). The per-pattern work is CuboKit's
+//        (`OriginMeasurement`'s iterated-window estimator, Metal or CPU; the max and mean
+//        patterns are CuboKit's too); this file holds the
 //        small CPU-side pieces — probe-size estimation on the mean pattern
 //        and the smooth 2D fit of the measured origin maps — plus the
 //        orchestration that ties them into a `Calibration`.
@@ -15,7 +16,6 @@ import CuboCore
 import struct CuboBragg.BraggDetector   // the neighbour-median fill
 import CuboVirtual   // FriedelOrigin and BeamstopMask are the kit's (CuboKit 0.2.0, 2026-10-16); CuboKit also exports ProbeKernel, which the app's own type of that name still shadows here
 import Foundation
-import Metal
 
 package enum OriginFitFunction: String, CaseIterable, Identifiable {
     case constant = "Constant"
@@ -295,15 +295,6 @@ package nonisolated enum OriginCalibration {
             keptResidual: Float(fit.keptResidual), fullScanResidual: Float(fit.fullScanResidual))
     }
 
-    private nonisolated static func median(_ values: [Float]) -> Float {
-        guard !values.isEmpty else { return .nan }
-        let sorted = values.sorted()
-        let middle = sorted.count / 2
-        return sorted.count.isMultiple(of: 2)
-            ? (sorted[middle - 1] + sorted[middle]) / 2
-            : sorted[middle]
-    }
-
     // MARK: - Workflow
 
     /// Out-of-core origin calibration: tiled statistics establish the probe
@@ -407,40 +398,11 @@ package nonisolated enum OriginCalibration {
 
     // MARK: - Window sensitivity (C14, lane Q 2026-09-30)
 
-    /// The refine window's two readings, in probe radii: the shipped one and a
-    /// wide one. 2.5 is the S14-D registration's far end
-    /// (`../_archive/mac4DSTEM/docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`): wide enough to
-    /// clear a ring outside the core (k ≈ 2 already does on the ringed fixtures),
-    /// not so wide that a compact cube's scatter enters.
-    package nonisolated static let shippedWindowScale: Float = 1.2
-    package nonisolated static let wideWindowScale: Float = 2.5
-    package nonisolated static let windowSensitivitySampleLimit = 200
-
-    /// The sample is one Metal buffer of `count × qy × qx` floats on EVERY
-    /// origin calibration: 52 MB at 256², 3.4 GB at 2048² with 200 positions
-    /// (refuter, 2026-09-30). Bounded here so a large detector gets fewer
-    /// positions, never a larger buffer.
-    package nonisolated static let windowSensitivitySampleBudgetBytes = 256 << 20
-
-    /// Scan indices of the strided sample: every n-th position, n the smallest
-    /// step that keeps the count at or under `limit` — and, when `patternBytes`
-    /// is given, under `budgetBytes / patternBytes` (at least one position).
-    /// Pure, so both bounds are testable without a dataset.
-    package nonisolated static func windowSensitivitySampleIndices(
-        total: Int, limit: Int = windowSensitivitySampleLimit,
-        patternBytes: Int = 0, budgetBytes: Int = windowSensitivitySampleBudgetBytes
-    ) -> [Int] {
-        guard total > 0, limit > 0 else { return [] }
-        let byBytes = patternBytes > 0 ? max(1, budgetBytes / patternBytes) : limit
-        let bound = min(limit, byBytes)
-        let step = (total + bound - 1) / bound
-        return Array(stride(from: 0, to: total, by: step))
-    }
-
     /// Median distance (detector pixels) between the origin the refine step
     /// finds at the caller's window (`shippedScale`, 1.2 in the app) and at a
     /// wide one (k = 2.5), over a strided sample of at most 200 scan positions
-    /// bounded by `windowSensitivitySampleBudgetBytes`. **A quantity, not a
+    /// bounded by 256 MB of gathered patterns: CuboVirtual's
+    /// `OriginMeasurement.windowSensitivity` (CuboKit 0.7.0, Metal path). **A quantity, not a
     /// verdict** — nothing gates on it (owner, ADR 050: no fixed window ships).
     ///
     /// Why it exists: the refine is an iterated centre of mass inside a window
@@ -448,51 +410,25 @@ package nonisolated enum OriginCalibration {
     /// bullseye) that window cuts the ring, the true centre is an unstable fixed
     /// point, and the answer walks — 3.87 px between k = 1.2 and 2 on
     /// bullseye_sim, against ≤ 0.03 px on six compact cubes
-    /// (`s14d-origin-refine-gateD-2026-09-30.md`, §10). Compact probes do not
+    /// (`../_archive/mac4DSTEM/docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`, §10). Compact probes do not
     /// care which window they get; ringed ones do, and this reads which kind the
-    /// scan is without choosing a window for it.
-    ///
-    /// Both readings come from the same GPU kernel on the same gathered
-    /// patterns, so the only difference between them is the window.
+    /// scan is without choosing a window for it. nil when it cannot be measured.
     package nonisolated static func windowSensitivityPixels(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         probeRadius: Float,
-        shippedScale: Float = shippedWindowScale
+        shippedScale: Float = 1.2
     ) async throws -> Float? {
-        let patternPixels = d.qy * d.qx
-        let indices = windowSensitivitySampleIndices(
-            total: d.ry * d.rx, patternBytes: patternPixels * MemoryLayout<Float>.stride)
-        guard !indices.isEmpty, probeRadius.isFinite, probeRadius > 0,
-              shippedScale.isFinite, shippedScale > 0 else { return nil }
-        var gathered = [Float]()
-        gathered.reserveCapacity(indices.count * patternPixels)
-        for index in indices {
-            let pattern = try await data.pattern(ry: index / d.rx, rx: index % d.rx)
-            gathered.append(contentsOf: pattern.pixels)
+        let source = try CuboCubeSource(data, descriptor: d)
+        let value: Double?
+        do {
+            value = try await OriginMeasurement.windowSensitivity(
+                of: source, radius: Double(probeRadius), shippedScale: Double(shippedScale), path: .metal)
+        } catch CuboVirtualError.noMetalDevice {
+            value = try await OriginMeasurement.windowSensitivity(
+                of: source, radius: Double(probeRadius), shippedScale: Double(shippedScale), path: .cpu)
         }
-        let engine = MetalEngine.shared
-        guard let buffer = engine.device.makeBuffer(
-            bytes: gathered, length: gathered.count * MemoryLayout<Float>.stride,
-            options: .storageModeShared
-        ) else { return nil }
-        func measure(_ scale: Float) throws -> [Float] {
-            try engine.measureOrigins(
-                cube: buffer,
-                params: OriginParams(ry: 1, rx: UInt32(indices.count),
-                                     qy: UInt32(d.qy), qx: UInt32(d.qx),
-                                     r: probeRadius, rscale: scale))
-        }
-        let shipped = try measure(shippedScale)
-        let wide = try measure(wideWindowScale)
-        var distances: [Float] = []
-        distances.reserveCapacity(indices.count)
-        for i in 0..<indices.count {
-            let dx = wide[2 * i] - shipped[2 * i], dy = wide[2 * i + 1] - shipped[2 * i + 1]
-            let distance = (dx * dx + dy * dy).squareRoot()
-            if distance.isFinite { distances.append(distance) }
-        }
-        return distances.isEmpty ? nil : median(distances)
+        return value.map { Float($0) }
     }
 
     /// Per-position origins by Friedel self-correlation (py4DSTEM

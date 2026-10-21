@@ -3,7 +3,8 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// C14 (lane Q, 2026-09-30): `OriginCalibration.windowSensitivityPixels`, the
+/// C14 (lane Q, 2026-09-30): `OriginCalibration.windowSensitivityPixels` (CuboKit's `OriginMeasurement.windowSensitivity` since 0.7.0;
+/// the strided, byte-bounded sample is the kit's and tested there), the
 /// median distance between the origin the refine step finds at its shipped
 /// window (k = 1.2) and at a wide one (k = 2.5), on a strided sample.
 ///
@@ -49,37 +50,6 @@ final class OriginWindowSensitivityTests: XCTestCase {
         let direct = try XCTUnwrap(directRun)
         XCTAssertEqual(reported, direct, accuracy: 1e-6)
         XCTAssertGreaterThan(reported, 1)
-    }
-
-    /// The sample is strided and bounded: ≤ 200 positions whatever the scan, and
-    /// every position of a small one. Break it by flooring the step
-    /// (`total / limit`), which admits 201 positions at 10 201.
-    func testTheSampleIsStridedAndNeverExceedsTheLimit() {
-        for total in [10_000, 10_201, 29_241, 201, 200, 199] {
-            let indices = OriginCalibration.windowSensitivitySampleIndices(total: total)
-            XCTAssertLessThanOrEqual(indices.count, 200, "total \(total) gave \(indices.count)")
-            XCTAssertEqual(indices.first, 0)
-            XCTAssertLessThan(indices.last ?? total, total)
-        }
-        XCTAssertEqual(OriginCalibration.windowSensitivitySampleIndices(total: 10_000).count, 200)
-        XCTAssertEqual(OriginCalibration.windowSensitivitySampleIndices(total: 7), Array(0..<7))
-        XCTAssertEqual(OriginCalibration.windowSensitivitySampleIndices(total: 0), [])
-    }
-
-    /// The sample is one Metal buffer on every origin calibration; a 2048² float
-    /// detector is 16 MB a pattern, so 200 positions would be 3.4 GB (refuter,
-    /// 2026-09-30). The byte budget must cut the count, never grow the buffer.
-    func testTheSampleIsBoundedByBytesOnALargeDetector() {
-        let patternBytes = 2048 * 2048 * MemoryLayout<Float>.stride
-        let indices = OriginCalibration.windowSensitivitySampleIndices(
-            total: 10_000, patternBytes: patternBytes)
-        XCTAssertEqual(indices.count, OriginCalibration.windowSensitivitySampleBudgetBytes / patternBytes)
-        XCTAssertLessThanOrEqual(indices.count * patternBytes,
-                                 OriginCalibration.windowSensitivitySampleBudgetBytes)
-        XCTAssertGreaterThanOrEqual(indices.count, 1)
-        // A small detector keeps the position limit.
-        XCTAssertEqual(OriginCalibration.windowSensitivitySampleIndices(
-            total: 10_000, patternBytes: 64 * 64 * 4).count, 200)
     }
 
     // MARK: - Fixtures

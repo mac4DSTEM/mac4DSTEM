@@ -49,6 +49,6 @@ final class PhaseContrastResidentBudgetTests: XCTestCase {
         XCTAssertTrue(PhaseContrastMemoryBudget.isMemoryRefusal(ParallaxSubpixelReconstructor.ReconstructionError.memoryLimit(bytes: 1, limit: 1)))
         XCTAssertTrue(PhaseContrastMemoryBudget.isMemoryRefusal(ParallaxDepthSectioner.DepthError.memoryLimit(bytes: 1, limit: 1)))
         XCTAssertTrue(PhaseContrastMemoryBudget.isMemoryRefusal(ParallaxAberrationCorrector.CorrectionError.memoryLimit(bytes: 1, limit: 1)))
-        XCTAssertTrue(PhaseContrastMemoryBudget.isMemoryRefusal(SingleslicePtychography.ReconstructionError.memoryLimit(bytes: 1, limit: 1)))
+        XCTAssertTrue(PhaseContrastMemoryBudget.isMemoryRefusal(PtychographyReconstructor.ReconstructionError.memoryLimit(bytes: 1, limit: 1)))
     }
 }

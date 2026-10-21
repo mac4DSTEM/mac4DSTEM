@@ -107,8 +107,8 @@ MAC4DSTEM_ISOLATION_FLAGS=(
 # SPECTROKIT_BUNDLE is the EDX tables' resource bundle (SpectroKit_SpectroEDX.bundle): a harness that reads
 # QuantificationTables copies it beside its binary (Bundle.module looks there and traps otherwise).
 # libhdf5 is not in the prelinked objects (FormatoKit 0.4.0 ships it as three framework binary targets, which an object build does not link):
-# the reader harnesses point FORMATO_HDF5_PATH (read by FormatoKit's own loaders and, since 2026-10-20, by the app's H5Reader, BraggVectorEMDWriter and shims through the same
-# candidate list, HDF5LibraryCandidates) at FormatoLibHDF5.framework from tools/lib/hdf5-dir.sh; MAC4DSTEM_HDF5_PATH is no longer read by the app (two harness mains read it themselves).
+# the harnesses that read or write HDF5 point FORMATO_HDF5_PATH (read by FormatoKit's loaders, the one libhdf5 loader of the process:
+# the app has no loader of its own) at FormatoLibHDF5.framework from tools/lib/hdf5-dir.sh; MAC4DSTEM_HDF5_PATH is no longer read by the app (two harness mains read it themselves).
 spectrokit_module() {
   local repo=$1
   local ck="$repo/.build/checkouts/SpectroKit" fck="$repo/.build/checkouts/FormatoKit" scratch="$repo/.build/spectrokit-tools"
@@ -254,7 +254,6 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/FormatoArrayFloat32.swift"
-          "$core/Data/HDF5LibraryCandidates.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/DM4Reader.swift"
           "$core/Data/VendorRawReaders.swift"
@@ -297,7 +296,6 @@ mac4dstem_sources() {
         mac4dstem_sources "$repo" cube
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
           "$core/Analysis/TiledDiskDetection.swift"
@@ -332,7 +330,6 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/MetalEngine.swift"
-          "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
           "$core/Analysis/OrientationResult.swift"
@@ -365,7 +362,7 @@ mac4dstem_sources() {
         ;;
       detection)
         # The CPU disk-detection chain (no Metal engine): the kernel, the
-        # matrix-DFT correlation and the detector. Strain, export and the
+        # Bragg scan and the detector. Strain, export and the
         # parallax chain build on it. Added in C2 (2026-09-07) when the
         # remaining 46 harnesses adopted this file.
         kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboBragg   # ProbeKernel is CuboVirtual's (2026-10-16); DiskDetector is a facade over CuboBragg (CuboKit 0.6.0)
@@ -376,7 +373,6 @@ mac4dstem_sources() {
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
         )
@@ -428,11 +424,13 @@ mac4dstem_sources() {
         # The aberration fit, CTF correction, depth sectioning, KDE deposition and the Fourier shift are CuboKit's CuboParallax (0.4.0, 2026-10-20).
         kit_module "$repo" CuboKit CuboParallax
         want+=("${KIT_FLAGS[@]}")
+        # ParallaxPreprocessing is CuboParallax's streamed `prepare` over the app's cube (CuboCubeSource, FourDArray): the `cube` group (2026-10-21).
         mac4dstem_sources "$repo" calibration
+        want+=("${MAC4DSTEM_SOURCES[@]}")
+        mac4dstem_sources "$repo" cube
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ParallaxPreprocessing.swift"
           "$core/Analysis/ParallaxAlignment.swift"
           "$core/Analysis/ParallaxAberrationFitting.swift"
@@ -451,14 +449,15 @@ mac4dstem_sources() {
         # position cases crop.
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
-        # The initial probe is CuboPtycho's PtychographyProbe.build (CuboKit 0.6.0, 2026-10-21).
-        kit_module "$repo" CuboKit CuboCore CuboPtycho
+        # The engine is CuboPtycho's `SingleslicePtychography` (0.7.0); ParallaxPreprocessing needs the cube group (CuboParallax, CuboCubeSource).
+        kit_module "$repo" CuboKit CuboCore CuboPtycho CuboParallax
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
+        want+=("${MAC4DSTEM_SOURCES[@]}")
+        mac4dstem_sources "$repo" cube
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Data/DemoFourDDataSource.swift"
           "$core/Analysis/ParallaxPreprocessing.swift"
           "$core/Analysis/SingleslicePtychography.swift"
@@ -548,15 +547,12 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/FormatoArrayFloat32.swift"
-          "$core/Data/HDF5LibraryCandidates.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
           "$core/Data/SessionSidecarReading.swift"
           "$core/Data/SessionSidecarWriting.swift"
           "$core/Data/CalibratedDataCubeWriter.swift"
-          "$core/Data/HDF5WritePrimitives.swift"
-          "$core/Data/HDF5WriteLibrary.swift"
         )
         ;;
       *)

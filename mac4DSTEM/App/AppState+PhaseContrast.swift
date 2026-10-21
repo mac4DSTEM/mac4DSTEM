@@ -463,7 +463,7 @@ extension AppState {
                 }
             }
             let result = try await Task.detached(priority: .userInitiated) {
-                try SingleslicePtychography.reconstruct(
+                try PtychographyReconstructor.reconstruct(
                     input: input, options: options, cancellation: token,
                     progress: reconstructProgress
                 )
@@ -479,7 +479,7 @@ extension AppState {
                 result.probeAberrations.defocusAngstrom,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
-        } catch SingleslicePtychography.ReconstructionError.cancelled {
+        } catch PtychographyReconstructor.ReconstructionError.cancelled {
             guard isCurrentOperation(token) else { return }
             statusText = "Single-slice ptychography cancelled; prior result retained"
         } catch {
@@ -645,7 +645,7 @@ extension PhaseContrastMemoryBudget {
         if case ParallaxSubpixelReconstructor.ReconstructionError.memoryLimit = error { return true }
         if case ParallaxDepthSectioner.DepthError.memoryLimit = error { return true }
         if case ParallaxAberrationCorrector.CorrectionError.memoryLimit = error { return true }
-        if case SingleslicePtychography.ReconstructionError.memoryLimit = error { return true }
+        if case PtychographyReconstructor.ReconstructionError.memoryLimit = error { return true }
         return false
     }
 

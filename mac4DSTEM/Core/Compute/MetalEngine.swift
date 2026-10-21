@@ -35,25 +35,6 @@ package nonisolated struct CubeDims {
     }
 }
 
-package nonisolated struct OriginParams {
-    package var ry: UInt32
-    package var rx: UInt32
-    package var qy: UInt32
-    package var qx: UInt32
-    package var r: Float         // probe radius estimate (px)
-    package var rscale: Float    // CoM window = max(r * rscale, r + 1.5 px); see OriginMeasure.metal
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, r: Float, rscale: Float) {
-        self.ry = ry
-        self.rx = rx
-        self.qy = qy
-        self.qx = qx
-        self.r = r
-        self.rscale = rscale
-    }
-}
-
 package enum MetalError: LocalizedError {
     case noDevice
     case noLibrary
@@ -98,7 +79,6 @@ package nonisolated final class MetalEngine {
     // rather than computing without it; a `try?` here only defers that
     // named refusal from init time to first use.
     package let virtualDiffractionPSO: MTLComputePipelineState?
-    package let measureOriginPSO: MTLComputePipelineState?
 
     private init() {
         guard let dev = MTLCreateSystemDefaultDevice() else {
@@ -133,7 +113,6 @@ package nonisolated final class MetalEngine {
             return try? dev.makeComputePipelineState(function: fn)
         }
         self.virtualDiffractionPSO = compute("virtualDiffraction")
-        self.measureOriginPSO = compute("measureOrigin")
 
         print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
     }
@@ -177,26 +156,6 @@ package nonisolated final class MetalEngine {
             enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
         }
         return arrayFromBuffer(out, count: n)
-    }
-
-    // MARK: Dispatch — Origin measurement (calibration)
-
-    /// Measure the (000)-beam position of every pattern: coarse brightest-blob
-    /// search at the probe-radius scale, then windowed CoM refinement
-    /// (py4DSTEM get_origin). Returns interleaved [x0, y0] per scan position.
-    package func measureOrigins(cube: MTLBuffer, cubeOffset: Int = 0,
-                        params: OriginParams) throws -> [Float] {
-        guard let pso = measureOriginPSO else { throw MetalError.functionMissing("measureOrigin") }
-        let n = Int(params.ry) * Int(params.rx)
-        let out = try makeOutputBuffer(floats: n * 2, label: "measureOrigin")
-        var p = params
-        try run(pso, name: "measureOrigin",
-                width: Int(params.rx), height: Int(params.ry)) { enc in
-            enc.setBuffer(cube, offset: cubeOffset, index: 0)
-            enc.setBuffer(out, offset: 0, index: 1)
-            enc.setBytes(&p, length: MemoryLayout<OriginParams>.stride, index: 2)
-        }
-        return arrayFromBuffer(out, count: n * 2)
     }
 
     // MARK: Helpers

@@ -416,6 +416,7 @@ let streamDiffraction = try await VirtualDetector.tiledDiffraction(
 )
 expectIdentical(residentDiffraction.pixels, streamDiffraction.pixels,
                 "selected-area diffraction")
+let copiesAfterDiffraction = await residentData.residentTileCopies
 
 let residentOrigins = try await VirtualDetector.tiledMeasuredOrigins(
     data: residentData, descriptor: d, probeRadius: 2.0, maximumTileRows: 2
@@ -425,8 +426,14 @@ let streamOrigins = try await VirtualDetector.tiledMeasuredOrigins(
 )
 expectIdentical(residentOrigins, streamOrigins, "measured origins")
 
+// CuboKit 0.7.0: the per-position origin is CuboKit's too (the iterated-window estimator through CuboCubeSource), so it
+// copies one tile per tile like the statistics; only the selected-area diffraction still binds the resident buffer.
+let copiesAfterOrigins = await residentData.residentTileCopies
+guard copiesAfterOrigins - copiesAfterDiffraction == 4 else {
+    fail("the CuboKit origins copied \(copiesAfterOrigins - copiesAfterDiffraction) tile(s) out of the resident cube, expected one per tile (4)")
+}
 // C2 (2026-10-15): the centre of mass is CuboKit's too, so it copies one tile per tile like the statistics.
-let copiesAfterOthers = await residentData.residentTileCopies
+let copiesAfterOthers = copiesAfterOrigins
 let residentCoM = try await VirtualDetector.tiledCenterOfMass(
     data: residentData, descriptor: d, center: (5, 4), maximumTileRows: 2
 )
@@ -445,16 +452,16 @@ expectIdentical(residentCoM, streamCoM, "centre of mass")
 // "bound the cube in place" from "copied every tile out and back again" — a
 // silently reintroduced staging copy passes every comparison in this file.
 // This is the assertion that fails when the copy comes back.
-let copiesAfterReducers = copiesAfterOthers
+let copiesAfterReducers = copiesAfterDiffraction
 guard copiesAfterReducers == copiesBeforeReducers else {
     fail("""
-         the tiled reducers that bind the buffer (diffraction, origins) copied \(copiesAfterReducers - copiesBeforeReducers) \
-         tile(s) out of the resident cube. They must bind the cube's buffer at \
+         the tiled reducer that binds the buffer (selected-area diffraction) copied \(copiesAfterReducers - copiesBeforeReducers) \
+         tile(s) out of the resident cube. It must bind the cube's buffer at \
          each tile's byte offset instead — that copy is ~0.375 x working set of \
          pure staging waste and v2 S18 removed it.
          """)
 }
-pass("resident Metal reducers (diffraction, origins) made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
+pass("resident Metal reducer (selected-area diffraction) made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
 
 // MARK: - Browsing patterns comes out of the resident cube too (v2 S18)
 

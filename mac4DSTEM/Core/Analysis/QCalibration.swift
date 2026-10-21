@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import DiffractoGeometry
 
 /// What the estimator's second shell measured, when one could be read.
 ///
@@ -26,22 +27,9 @@ import Foundation
 /// samples are exactly the case where the first shell goes missing and the
 /// second is read as the first — so the state is reported rather than folded
 /// into "fine" (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §3.2).
-package nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
-    /// The two innermost distinct shells, as measured, beside what the crystal
-    /// predicts. `positions` is how many scan positions contributed an r₂ —
-    /// carried because a median over 3 positions and one over 100 000 are not
-    /// the same claim, and nothing else in the estimate says which it was.
-    case measured(observedRatio: Double, expectedRatio: Double, positions: Int)
-    case notSelfChecked(String)
+package typealias QCalibrationShellCheck = LinearScaleShellCheck
 
-    /// Relative disagreement with the crystal, or nil when nothing was checked.
-    /// **No threshold is applied to this anywhere** — see the type's note.
-    package var mismatch: Double? {
-        guard case .measured(let observed, let expected, _) = self,
-              expected != 0 else { return nil }
-        return abs(observed / expected - 1)
-    }
-
+extension LinearScaleShellCheck {
     /// The one phrase every surface uses when the assignment was never
     /// checked — the Q readiness row, Prepare's "Q shell check" row — or nil
     /// when a ratio was measured (its numbers are shown instead, unjudged).
@@ -146,18 +134,17 @@ package nonisolated enum KnownCrystalQCalibration {
     // rates on real data, not one dataset under synthetic perturbation, and a
     // placement rule stated on the statistic it will actually gate.
 
-    /// Estimate Q scale from the median innermost non-central reflection at
-    /// each scan position. The per-position statistic avoids dense patterns
-    /// dominating the fit; median/MAD make isolated detection failures benign.
+    /// Estimate Q scale from the median innermost non-central reflection at each scan position: the radii of each
+    /// position's peaks from `origin` go to DiffractoKit's `LinearScale.estimate` (the same-shell cluster mean per
+    /// position, median over positions, MAD and the second-shell ratio; the arithmetic moved there in 0.8.0).
+    /// The per-position statistic avoids dense patterns dominating the fit; median/MAD make isolated detection
+    /// failures benign.
     ///
-    /// `secondShellRadiusInvAngstrom` and `probeRadiusPixels` are **not
-    /// optional-with-a-default on purpose**: a caller that cannot supply them
-    /// gets an estimate whose checks silently did not run, and this repo's
-    /// documented failure mode is exactly a check that was believed to have
-    /// happened. Pass nil explicitly and the estimate says `.notSelfChecked`.
+    /// `secondShellRadiusInvAngstrom` is **not optional-with-a-default on purpose**: a caller that cannot supply it
+    /// gets an estimate whose check silently did not run. Pass nil explicitly and the estimate says `.notSelfChecked`.
+    /// `probeRadiusPixels` is kept in the signature for the callers; no check reads it (see note 4 above).
     ///
-    /// **This function refuses nothing.** It reports what it measured; see
-    /// `QCalibrationShellCheck`.
+    /// **This function refuses nothing.** It reports what it measured; see `QCalibrationShellCheck`.
     package static func estimate(
         bragg: BraggVectors,
         origin: (x: Float, y: Float),
@@ -166,113 +153,28 @@ package nonisolated enum KnownCrystalQCalibration {
         probeRadiusPixels: Double?,
         minimumRadiusPixels: Float = 2
     ) -> QCalibrationEstimate? {
-        guard referenceRadiusInvAngstrom.isFinite,
-              referenceRadiusInvAngstrom > 0 else { return nil }
-
-        // The expected ratio, and from it the separation that makes r₂ a
-        // DIFFERENT shell rather than another equivalent of the same one.
-        let expectedRatio = secondShellRadiusInvAngstrom.flatMap { second -> Double? in
-            let ratio = second / referenceRadiusInvAngstrom
-            return ratio.isFinite && ratio > 1 ? ratio : nil
-        }
-        // Half the gap the crystal itself predicts. DERIVED, not chosen: at
-        // this separation `sim_Au` reads 1.14814 against an expected 1.15470
-        // with 99.7% of positions still contributing, where the design's
-        // unseparated version read 1.02048 — a shell compared against itself,
-        // because several symmetry equivalents of one |g| are excited at once.
-        let separation = expectedRatio.map { ($0 - 1) / 2 }
-
-        // THE SAME-SHELL CLUSTER, not the minimum (Gate D 2026-09-05,
-        // ../_archive/mac4DSTEM/docs/q-calibration-design.md §8). The innermost shell is excited as
-        // k symmetry equivalents at once, each measured with radial noise σ;
-        // the smallest of k is biased low by c_k·σ (c_6 = 1.27), and the
-        // median across positions kept that bias, so the scale read HIGH by
-        // 2.1 % on polycrystal_2D_WS2 and 2.4 % on sim_Au — both within 8 % of
-        // the value the order statistic predicts from the measured k and σ.
-        // The Gate B refuter then showed the WS₂ spread is mostly a 0.26 px
-        // ORIGIN-FIT offset (the minimum is the same spoke at 99 % of
-        // positions), which a symmetric set of equivalents cancels in the
-        // mean: the cluster reads 18.902 px against 18.901 from the
-        // independent 11-20 shell. The band is the model's derived
-        // separation capped at 8 % (fcc 200/111 sits 15.5 % out; hcp Mg's
-        // own derived separation is 3.3 %, and the cap does not widen it).
-        // Known limit, recorded in `open-items.md`: on a single crystal with
-        // a real per-position asymmetry between Friedel pairs (sim_Au, 2.4 %)
-        // the band truncates clusters and the mean is not shown to be truth.
-        let sameShellBand = min(0.08, separation ?? 0.08)
-        func shellMean(from radii: ArraySlice<Double>) -> (mean: Double, count: Int)? {
-            guard let first = radii.first else { return nil }
-            let cluster = radii.prefix { $0 <= first * (1 + sameShellBand) }
-            return (cluster.reduce(0, +) / Double(cluster.count), cluster.count)
-        }
-        var firstRadii: [Double] = []
-        var secondRadii: [Double] = []
-        var equivalentsPerPosition: [Double] = []
-        firstRadii.reserveCapacity(bragg.peaks.count)
-        for peaks in bragg.peaks {
-            let radii = peaks.compactMap { peak -> Double? in
+        // Float32 radii as the detector measured them, widened exactly; the kit drops non-finite ones and those at or
+        // below the minimum (the beam itself).
+        let radii = bragg.peaks.map { peaks in
+            peaks.map { peak -> Double in
                 let dx = peak.x - origin.x
                 let dy = peak.y - origin.y
-                let radius = (dx * dx + dy * dy).squareRoot()
-                return radius.isFinite && radius > minimumRadiusPixels ? Double(radius) : nil
-            }.sorted()
-            guard let first = shellMean(from: radii[...]) else { continue }
-            firstRadii.append(first.mean)
-            equivalentsPerPosition.append(Double(first.count))
-            if let separation,
-               let secondIndex = radii.firstIndex(where: { $0 > first.mean * (1 + separation) }),
-               let second = shellMean(from: radii[secondIndex...]) {
-                secondRadii.append(second.mean)
+                return Double((dx * dx + dy * dy).squareRoot())
             }
         }
-        guard !firstRadii.isEmpty else { return nil }
-        let observed = median(firstRadii)
-        guard observed.isFinite, observed > 0 else { return nil }
-        let mad = median(firstRadii.map { abs($0 - observed) })
-
-        // --- The shell-ratio measurement (design §3.2, as repaired) ------
-        //
-        // STATED ASYMMETRY: r₂ is SELECTED as at least (1 + separation) times
-        // r₁, so the measured ratio is bounded below by construction. The
-        // original comment here claimed that made a too-small ratio
-        // undetectable; Gate B refuted that too — the floor is (1+e)/2 while
-        // the interesting comparisons sit near e, so a low-side window exists
-        // and is crystal-dependent (for silicon it spans 19% low to 3% low).
-        // The bound is real; the conclusion drawn from it was not.
-        let secondObserved = secondRadii.isEmpty ? nil : median(secondRadii)
-        let shellCheck: QCalibrationShellCheck
-        if let expectedRatio, let secondObserved, secondObserved.isFinite {
-            shellCheck = .measured(
-                observedRatio: secondObserved / observed,
-                expectedRatio: expectedRatio,
-                positions: secondRadii.count
-            )
-        } else if expectedRatio == nil {
-            shellCheck = .notSelfChecked("this crystal has only one allowed shell within range")
-        } else {
-            // Short on purpose: it is the tail of a readiness-row sentence. What it
-            // means — the innermost detected peak is ASSUMED to be the innermost
-            // allowed reflection — is the "Q shell check" row's help text.
-            shellCheck = .notSelfChecked("only one shell is detectable")
-        }
-
-        return QCalibrationEstimate(
-            invAngstromPerPixel: referenceRadiusInvAngstrom / observed,
-            observedRadiusPixels: observed,
+        guard let scale = LinearScale.estimate(
+            radiiPerPosition: radii,
             referenceRadiusInvAngstrom: referenceRadiusInvAngstrom,
-            medianAbsoluteDeviationPixels: mad,
-            sampleCount: firstRadii.count,
-            secondShellRadiusPixels: secondObserved,
-            shellCheck: shellCheck,
-            sameShellPeaksPerPosition: median(equivalentsPerPosition)
-        )
-    }
-
-    private static func median(_ values: [Double]) -> Double {
-        let sorted = values.sorted()
-        let middle = sorted.count / 2
-        return sorted.count.isMultiple(of: 2)
-            ? (sorted[middle - 1] + sorted[middle]) / 2
-            : sorted[middle]
+            secondShellRadiusInvAngstrom: secondShellRadiusInvAngstrom,
+            minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+        return QCalibrationEstimate(
+            invAngstromPerPixel: scale.invAngstromPerPixel,
+            observedRadiusPixels: scale.observedRadiusPixels,
+            referenceRadiusInvAngstrom: scale.referenceRadiusInvAngstrom,
+            medianAbsoluteDeviationPixels: scale.medianAbsoluteDeviationPixels,
+            sampleCount: scale.sampleCount,
+            secondShellRadiusPixels: scale.secondShellRadiusPixels,
+            shellCheck: scale.shellCheck,
+            sameShellPeaksPerPosition: scale.sameShellPeaksPerPosition)
     }
 }

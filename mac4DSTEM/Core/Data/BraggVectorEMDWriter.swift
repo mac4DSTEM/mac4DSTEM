@@ -1,5 +1,5 @@
-import Darwin
 import Foundation
+import FormatoCore
 import FormatoHDF5
 import SpectroCore
 
@@ -69,7 +69,6 @@ package nonisolated enum BraggVectorEMDWriter {
         /// The hot-pixel filter met a NaN or infinite pixel (or threshold); CuboCore's filter refuses them.
         case hotPixelFilterNeedsFinitePixels
         case libraryUnavailable(String)
-        case symbolMissing(String)
         case hdf5(String)
         case publishFailed(String)
         /// The file's minimum-reader marker demands a schema newer than this
@@ -97,8 +96,6 @@ package nonisolated enum BraggVectorEMDWriter {
                 return "Cannot write or load the sidecar: \(detail)"
             case .libraryUnavailable(let detail):
                 return "Could not load the bundled HDF5 library: \(detail)"
-            case .symbolMissing(let name):
-                return "The HDF5 library is missing required symbol \(name)."
             case .hdf5(let operation):
                 // Not "export failed": the same case is raised on the sidecar
                 // *read* path, where the 2026-08-18 restore failure reported an
@@ -119,17 +116,46 @@ package nonisolated enum BraggVectorEMDWriter {
         }
     }
 
-    /// An `.hdf5` error carrying the reason HDF5 recorded, not only the
-    /// operation that failed. Used on the sidecar **read** path, where a bare
-    /// "HDF5 export failed while opening the session sidecar" was the whole
-    /// evidence available for the 2026-08-18 restore failure (S1) — it could
-    /// not distinguish a sandbox denial from a lock, a truncated file or a
-    /// wrong path. Call only immediately after the failing HDF5 call.
-    static func hdf5Failure(
-        _ operation: String, _ h5: HDF5WriteLibrary
-    ) -> WriterError {
-        guard let stack = h5.currentErrorStack() else { return .hdf5(operation) }
-        return .hdf5("\(operation) — HDF5 reported: \(stack)")
+    /// What a kit write (`HDF5NewFile.write`, `EMDDatacubeWriter`) threw, as this writer's error: the app's own errors and a cancel pass
+    /// through, a refusal to replace the source or a failed publish is `publishFailed`, the rest `hdf5` with the reason the kit gives
+    /// (libhdf5's, or the system's), so a failure is never only "it failed" (S1, 2026-08-18).
+    static func writeFailure(_ operation: String, _ error: Error) -> Error {
+        switch error {
+        case is WriterError: return error
+        case is FormatoCancelled: return WriterError.cancelled
+        case HDF5FileError.library(let detail): return WriterError.libraryUnavailable(detail)
+        case HDF5FileError.destinationIsSource: return WriterError.publishFailed("Choose a different file: the source is never changed.")
+        case HDF5FileError.cannotWrite(let what, let detail) where what == "publishing the file":
+            return WriterError.publishFailed(detail)
+        default: return WriterError.hdf5("\(operation) — HDF5 reported: \(error.localizedDescription)")
+        }
+    }
+
+    // try? OK: serializing a [String: String] that
+    // `isValidJSONObject` just accepted cannot fail; the guard is belt and
+    // braces around an unreachable branch, and nil means "write no
+    // provenance attribute", which reads back as an absent one.
+    static func encodeProvenance(_ values: [String: String]) -> String? {
+        guard !values.isEmpty,
+              JSONSerialization.isValidJSONObject(values),
+              let data = try? JSONSerialization.data(
+                withJSONObject: values, options: [.sortedKeys]
+              ) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    // try? accepted with a stated limit: a malformed
+    // provenance attribute decodes as EMPTY — visibly absent labels, which a
+    // reader can see and question. This is the opposite shape from the
+    // specification/recipe attributes above, where absent has a load-bearing
+    // meaning ("full extent" / "no recipe") and malformed must therefore
+    // refuse (`WriterError.malformedAttribute`); absent provenance asserts
+    // nothing.
+    static func decodeProvenance(_ value: String?) -> [String: String] {
+        guard let value, let data = value.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let dictionary = object as? [String: String] else { return [:] }
+        return dictionary
     }
 
     /// Publish several related scalar fields as sibling EMD RealSlice nodes in
@@ -160,55 +186,24 @@ package nonisolated enum BraggVectorEMDWriter {
             throw WriterError.invalidDimensions("bundle field kinds must be unique")
         }
         try checkCancellation(cancellation)
-        let fm = FileManager.default
-        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
-        var published = false
-        defer {
-            // try? OK: best-effort scratch cleanup on the way
-            // out — on the failure path the primary error is already
-            // in flight, and a leftover .tmp in the system-provided scratch
-            // directory harms nothing the error did not already report.
-            if !published { try? fm.removeItem(at: temporary) }
-            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
-        }
-        let h5 = try HDF5WriteLibrary.load()
-        let file = temporary.path.withCString {
-            h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
-        }
-        guard file >= 0 else { throw WriterError.hdf5("creating the bundle file") }
         do {
-            defer { _ = h5.h5fclose(file) }
-            try writeStringAttribute("emd_group_type", value: "file", on: file, hdf5: h5)
-            try writeScalarAttribute("version_major", value: Int32(1), type: h5.nativeInt,
-                                     on: file, hdf5: h5)
-            try writeScalarAttribute("version_minor", value: Int32(0), type: h5.nativeInt,
-                                     on: file, hdf5: h5)
-            try writeStringAttribute("authoring_program", value: "mac4DSTEM", on: file, hdf5: h5)
-            let root = try createGroup("scientific_bundle_root", in: file, hdf5: h5)
-            defer { _ = h5.h5gclose(root) }
-            try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
-            try writeStringAttribute("mac4dstem_bundle_schema", value: "1", on: root, hdf5: h5)
-            try writeStringAttribute("mac4dstem_bundle_fields",
-                                     value: maps.map(\.kind).joined(separator: "\n"),
-                                     on: root, hdf5: h5)
-            try writeCalibration(calibration, targetPath: nil, in: root, hdf5: h5)
-            for map in maps {
+            try HDF5NewFile.write(to: destination, sourcePath: sourcePath) { session in
+                try session.writeEMDFileHeader(EMDFileHeader(authoringProgram: "mac4DSTEM", authoringUser: nil, uuid: nil))
+                try session.createEMDRoot("scientific_bundle_root", attributes: [
+                    "mac4dstem_bundle_schema": .text("1"),
+                    "mac4dstem_bundle_fields": .text(maps.map(\.kind).joined(separator: "\n")),
+                ])
+                try session.writeEMDCalibration(emdCalibration(calibration), inRoot: "/scientific_bundle_root", booleanStorage: .uint8)
+                for map in maps {
+                    try checkCancellation(cancellation)
+                    try session.writeEMDScalarMap(scalarEMDMap(map, nodeName: resultNodeName(forKind: map.kind), calibration: calibration),
+                                                  inRoot: "/scientific_bundle_root")
+                }
                 try checkCancellation(cancellation)
-                try writeResultMap(
-                    map, nodeName: resultNodeName(forKind: map.kind),
-                    calibration: calibration, in: root,
-                    cancellation: cancellation, progress: nil, hdf5: h5
-                )
             }
+        } catch {
+            throw writeFailure("writing the scientific bundle", error)
         }
-        try checkCancellation(cancellation)
-        let status = temporary.path.withCString { source in
-            destination.path.withCString { target in Darwin.rename(source, target) }
-        }
-        guard status == 0 else {
-            throw WriterError.publishFailed(String(cString: strerror(errno)))
-        }
-        published = true
     }
 
     /// Stable discoverable companion path used for automatic reload.
@@ -457,75 +452,25 @@ package nonisolated enum BraggVectorEMDWriter {
         progress: (@Sendable (Double) -> Void)?
     ) throws {
         try checkCancellation(cancellation)
-
-        let fm = FileManager.default
-        let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
-        var published = false
-        defer {
-            // try? OK: best-effort scratch cleanup on the way
-            // out — on the failure path the primary error is already
-            // in flight, and a leftover .tmp in the system-provided scratch
-            // directory harms nothing the error did not already report.
-            if !published { try? fm.removeItem(at: temporary) }
-            if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
+        // The kit builds the file under a scratch name (the item-replacement folder, so the sandbox allows it and the rename stays on the
+        // destination's volume) and publishes it atomically over the destination: a cancel or a failure leaves the original as it was.
+        do {
+            try HDF5NewFile.write(to: destination) { session in
+                try writeFile(
+                    into: session, vectors: vectors, map: map, rgbaMap: rgbaMap,
+                    qWidth: qWidth, qHeight: qHeight,
+                    calibration: calibration, preserving: existing, removingKind: removingKind,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    diskCentreLabelsJSON: diskCentreLabelsJSON, supportedSchema: supportedSchema,
+                    cancellation: cancellation, progress: progress
+                )
+            }
+        } catch {
+            throw writeFailure("writing the session sidecar", error)
         }
-
-        let hdf5 = try HDF5WriteLibrary.load()
-        try writeFile(
-            at: temporary, vectors: vectors, map: map, rgbaMap: rgbaMap,
-            qWidth: qWidth, qHeight: qHeight,
-            calibration: calibration, preserving: existing, removingKind: removingKind,
-            loadSpecification: loadSpecification,
-            replayRecord: replayRecord,
-            diskCentreLabelsJSON: diskCentreLabelsJSON,
-            supportedSchema: supportedSchema,
-            cancellation: cancellation,
-            progress: progress, hdf5: hdf5
-        )
-        try checkCancellation(cancellation)
-
-        let renameStatus = temporary.path.withCString { source in
-            destination.path.withCString { target in Darwin.rename(source, target) }
-        }
-        guard renameStatus == 0 else {
-            throw WriterError.publishFailed(String(cString: strerror(errno)))
-        }
-        published = true
     }
 
     static func checkCancellation(_ token: AnalysisCancellationToken?) throws {
         if token?.isCancelled == true { throw WriterError.cancelled }
-    }
-
-    /// A scratch URL to build a file in before publishing it onto `destination`.
-    ///
-    /// **Deliberately not a sibling of `destination`.** Every write path used to
-    /// build `.<name>.<uuid>.tmp` in the destination's own directory. Under the
-    /// app sandbox `NSSavePanel` grants access to *the file the user chose*, not
-    /// to arbitrary new siblings in that folder, so creating the scratch file was
-    /// denied and HDF5 failed with "creating the temporary file" — reported by
-    /// the release owner 2026-08-05, and it blocked export outright.
-    ///
-    /// `.itemReplacementDirectory` is the system-sanctioned answer: it is
-    /// writable under the sandbox and is guaranteed to be on the **same volume**
-    /// as `destination`, so the `rename(2)` publish stays atomic. Falls back to a
-    /// sibling only if the system cannot provide one, which preserves the old
-    /// behaviour rather than failing outright on an unusual volume.
-    static func temporaryPublishURL(
-        for destination: URL
-    ) -> (url: URL, scratchDirectory: URL?) {
-        let name = ".\(destination.lastPathComponent).\(UUID().uuidString).tmp"
-        let fm = FileManager.default
-        if let directory = try? fm.url(
-            for: .itemReplacementDirectory, in: .userDomainMask,
-            appropriateFor: destination, create: true
-        ) {
-            return (directory.appendingPathComponent(name, isDirectory: false), directory)
-        }
-        return (
-            destination.deletingLastPathComponent()
-                .appendingPathComponent(name, isDirectory: false),
-            nil
-        )
     }
 }

@@ -23,7 +23,7 @@ final class CuboStrainSwitchTests: XCTestCase {
     }
 
     private func compute(_ v: BraggVectors) throws -> StrainMap {
-        try XCTUnwrap(StrainMapping.compute(bragg: v, originX: origin.x, originY: origin.y, minNumPeaks: 5))
+        try XCTUnwrap(StrainMapper.compute(bragg: v, originX: origin.x, originY: origin.y, minNumPeaks: 5))
     }
 
     /// Mutation: pass NaN / inf peaks to the kit unfiltered - the kit refuses the whole population and no basis is found.
@@ -38,7 +38,7 @@ final class CuboStrainSwitchTests: XCTestCase {
         XCTAssertEqual(dirty.indexedFraction, 1)
     }
 
-    /// Mutation: drop the division by the largest weight in `fitLattice` - a weight of 1e11 trips the kit's 1e10 guard,
+    /// Mutation: drop the division by the position's largest intensity in `StrainMapper.compute` - an intensity of 1e11 trips the kit's 1e10 guard,
     /// every position is refused, and indexedFraction is 0.
     func testAWeightAboveTheKitsGuardStillIndexesAndGivesTheSameStrain() throws {
         let light = try compute(vectors(weight: 1))
@@ -49,6 +49,16 @@ final class CuboStrainSwitchTests: XCTestCase {
             XCTAssertEqual(heavy.exx[i], light.exx[i], accuracy: 1e-5)
             XCTAssertEqual(heavy.eyy[i], light.eyy[i], accuracy: 1e-5)
         }
+    }
+
+    /// A reference region holding no fitted position has nothing to take the reference from: nil (the kit's
+    /// `emptyReference`), not a map against an invented lattice.
+    func testAReferenceRegionWithoutFittedPositionsGivesNoMap() {
+        let v = vectors()
+        XCTAssertNil(StrainMapper.compute(bragg: v, originX: origin.x, originY: origin.y, minNumPeaks: 5,
+                                          referenceMask: [Bool](repeating: false, count: 6)))
+        XCTAssertNotNil(StrainMapper.compute(bragg: v, originX: origin.x, originY: origin.y, minNumPeaks: 5,
+                                             referenceMask: [true, false, false, false, false, false]))
     }
 
     /// iDPC refuses a non-finite CoM field by name (the kit's refusal, as DPC.IDPCError), never an image.

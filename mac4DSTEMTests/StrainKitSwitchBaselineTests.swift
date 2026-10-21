@@ -63,8 +63,8 @@ final class StrainKitSwitchBaselineTests: XCTestCase {
         let n = v.scanWidth * v.scanHeight
         var mask = [Bool](repeating: false, count: n)
         for y in 0..<6 { for x in 0..<8 { mask[y * v.scanWidth + x] = true } }
-        let auto = try XCTUnwrap(StrainMapping.compute(bragg: v, originX: Self.origin.x, originY: Self.origin.y, minNumPeaks: 5))
-        let masked = try XCTUnwrap(StrainMapping.compute(bragg: v, originX: Self.origin.x, originY: Self.origin.y, minNumPeaks: 5,
+        let auto = try XCTUnwrap(StrainMapper.compute(bragg: v, originX: Self.origin.x, originY: Self.origin.y, minNumPeaks: 5))
+        let masked = try XCTUnwrap(StrainMapper.compute(bragg: v, originX: Self.origin.x, originY: Self.origin.y, minNumPeaks: 5,
                                                           referenceMask: mask))
         let snaps = ["auto": Self.snapshot(auto), "masked": Self.snapshot(masked)]
         if !FileManager.default.fileExists(atPath: Self.baselineURL.path) {

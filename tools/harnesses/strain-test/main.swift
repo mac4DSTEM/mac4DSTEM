@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoGeometry   // QCalibrationShellCheck is DiffractoKit's LinearScaleShellCheck
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -24,7 +25,7 @@ let vectors = BraggVectors(
     peaks: [reference, reference, strained, strained]
 )
 
-guard let whole = StrainMapping.compute(
+guard let whole = StrainMapper.compute(
     bragg: vectors, originX: origin.x, originY: origin.y
 ) else { fail("whole-scan reference failed") }
 guard whole.referencePositionCount == 4,
@@ -34,7 +35,7 @@ guard whole.referencePositionCount == 4,
 }
 print("PASS: whole-scan component-median reference")
 
-guard let selected = StrainMapping.compute(
+guard let selected = StrainMapper.compute(
     bragg: vectors, originX: origin.x, originY: origin.y,
     referenceMask: [true, true, false, false]
 ) else { fail("selected reference failed") }
@@ -46,7 +47,7 @@ guard selected.referencePositionCount == 2,
 }
 print("PASS: selected unstrained reference region")
 
-guard let manual = StrainMapping.compute(
+guard let manual = StrainMapper.compute(
     bragg: vectors, originX: origin.x, originY: origin.y,
     referenceMask: [true, true, false, false],
     initialBasis: (g1: (x: 10, y: 0), g2: (x: 0, y: 10))
@@ -55,13 +56,13 @@ guard abs(manual.exx[2] - 0.1) < 1e-6,
       abs(manual.eyy[2] + 0.1) < 1e-6 else {
     fail("manual reciprocal basis changed the expected strain")
 }
-guard StrainMapping.compute(
+guard StrainMapper.compute(
     bragg: vectors, originX: origin.x, originY: origin.y,
     initialBasis: (g1: (x: 10, y: 0), g2: (x: 20, y: 0))
 ) == nil else { fail("collinear manual reciprocal basis should fail") }
 print("PASS: manual reciprocal basis and collinearity validation")
 
-guard StrainMapping.compute(
+guard StrainMapper.compute(
     bragg: vectors, originX: origin.x, originY: origin.y,
     referenceMask: [false, false, false, false]
 ) == nil else { fail("empty reference region should fail") }
@@ -101,7 +102,7 @@ let robustVectors = BraggVectors(
     scanWidth: robustWidth, scanHeight: robustHeight, peaks: robustPeaks
 )
 let robustReference = (0..<(robustWidth * robustHeight)).map { $0 < robustWidth }
-guard let robust = StrainMapping.compute(
+guard let robust = StrainMapper.compute(
     bragg: robustVectors, originX: origin.x, originY: origin.y,
     referenceMask: robustReference
 ) else { fail("consensus strain fit rejected a supported lattice") }
@@ -120,7 +121,7 @@ guard robust.width == robustWidth, robust.height == robustHeight,
 }
 print("PASS: non-square consensus basis, local outliers, and robust reference")
 
-guard StrainMapping.compute(
+guard StrainMapper.compute(
     bragg: robustVectors, originX: origin.x, originY: origin.y,
     initialBasis: (g1: (x: 10, y: 0), g2: (x: 10, y: 0.5))
 ) == nil else { fail("ill-conditioned manual basis should be rejected") }
@@ -139,7 +140,7 @@ let incoherent = BraggVectors(
         }
     }
 )
-guard StrainMapping.compute(
+guard StrainMapper.compute(
     bragg: incoherent, originX: origin.x, originY: origin.y
 ) == nil else { fail("weak incoherent lattice consensus should be rejected") }
 print("PASS: weak lattice consensus rejected")

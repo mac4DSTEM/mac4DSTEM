@@ -172,8 +172,8 @@ final class FFT2DArbitraryLengthTests: XCTestCase {
 
     func testUnscaledInverseKeepsTheVDSPConvention() throws {
         // `scaleInverse: false` must return N·x, exactly as vDSP's unnormalized
-        // inverse does on the radix-2 path — MatrixDFTCorrelation and the
-        // ptychography code rely on the two paths agreeing.
+        // inverse does on the radix-2 path — the other callers of `FFT2D`
+        // rely on the two paths agreeing.
         let nx = 250, ny = 6
         let fft = try XCTUnwrap(FFT2D(nx: nx, ny: ny))
         let (originalRe, originalIm) = grid(nx: nx, ny: ny, seed: 5)

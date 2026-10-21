@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import DiffractoCore
+import DiffractoGeometry   // QCalibrationShellCheck is DiffractoKit's LinearScaleShellCheck
 @testable import mac4DSTEM
 
 /// Backlog #46. `calibrateQFromCrystal` derived a Q pixel size from an origin

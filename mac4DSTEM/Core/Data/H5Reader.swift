@@ -70,9 +70,9 @@ package actor H5Reader: FourDDataSource {
     private var lastDatasetPath: String?
     private var lastDatasetShape: [Int]?
     private var lastStoredRank: Int?
-    /// Stored shapes by dataset path, read from the file on first use: a slab read checks its view against the FILE's dims, and one
-    /// `HDF5Reader` call opens the file, so the dims are not asked for again on the streaming hot path.
-    private var storedShapes: [String: [Int]] = [:]
+    /// One `HDF5SlabReader` per dataset read so far: the file and dataset stay open across the many single-pattern reads, and its
+    /// `shape` is the FILE's dims that a slab read checks its view against (released with the actor).
+    private var slabReaders: [String: HDF5SlabReader] = [:]
     package static let candidatePaths: [String] = [
         "/dm_dataset_root/dm_dataset/data",
         "/4DSTEM_experiment/data/datacubes/datacube_0/data",
@@ -117,7 +117,7 @@ package actor H5Reader: FourDDataSource {
         // the fast canonical probes, then ask HDF5 itself which links are 3D/
         // 4D datasets. This avoids baking a particular py4DSTEM root name into
         // interoperability while keeping deterministic preference for `data`.
-        let candidates = allLinkPaths().sorted {
+        let candidates = try allLinkPaths().sorted {
             let lhsData = $0.hasSuffix("/data") ? 0 : 1
             let rhsData = $1.hasSuffix("/data") ? 0 : 1
             if lhsData != rhsData { return lhsData < rhsData }
@@ -237,36 +237,18 @@ package actor H5Reader: FourDDataSource {
         return chosen
     }
 
-    /// Every link of the file below the root, as absolute paths, in the order `H5Lvisit2` gave them: links in name order, a group entered
-    /// the first time it is reached by any hard link (object identity, so an alias or a cycle is listed and not entered again) and a
-    /// soft or external link listed and not followed. Capped at 100 000 entries and depth 64, as the former collector was.
-    // delete at FormatoKit <next>: link types and object identity in HDF5Reader (`descendants` follows every link and keeps no identity, so it walks an alias or
-    // a soft link to a group again and throws at a cycle: tools/harnesses/datacube-discovery-test h1 and i3 pin the walk below; kit ask)
-    private func allLinkPaths() -> [String] {
-        let cap = 100_000
-        var found: [String] = []
-        var entered = Set<Data>()
-        if let root = HDF5LegacyProbe.linkInfo(filePath: filePath, paths: ["/"])["/"], case .hard(let identity?) = root {
-            entered.insert(identity)
+    /// Every link of the file below the root, as absolute paths, in the order `HDF5Reader.walk` gives them: parents before members, a
+    /// group entered the first time it is reached by any hard link (object identity, so an alias or a cycle is listed and not entered
+    /// again) and a soft or external link listed and not followed. A file the walk cannot read lists nothing (discovery then ends in its
+    /// named "no dataset" error); one over the kit's object cap is an error, not a silently shortened list.
+    private func allLinkPaths() throws -> [String] {
+        do {
+            return try reader.walk().map(\.path)
+        } catch HDF5FileError.limitExceeded(let detail) {
+            throw H5Error.readFailed("link walk: \(detail)")
+        } catch {
+            return []
         }
-        func visit(_ group: String, depth: Int) {
-            guard depth < 64, let names = try? reader.children(of: group) else { return }
-            let paths = names.map { (group == "/" ? "" : group) + "/" + $0 }
-            let info = HDF5LegacyProbe.linkInfo(filePath: filePath, paths: paths)
-            for path in paths {
-                guard found.count < cap else { return }
-                found.append(path)
-                guard (try? reader.kind(of: path)) == .group else { continue }
-                switch info[path] {
-                case .soft?: continue
-                case .hard(let identity?)?: guard entered.insert(identity).inserted else { continue }
-                default: break    // identity unavailable: the depth cap alone bounds the walk
-                }
-                visit(path, depth: depth + 1)
-            }
-        }
-        visit("/", depth: 0)
-        return found
     }
 
     // MARK: Probe images (FourDDataSource)
@@ -283,7 +265,7 @@ package actor H5Reader: FourDDataSource {
     package func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate] {
         let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName + "/"
         var found: [ProbeCandidate] = []
-        for path in allLinkPaths() where !path.hasPrefix(sidecarRoot) {
+        for path in try allLinkPaths() where !path.hasPrefix(sidecarRoot) {
             let components = path.split(separator: "/").map(String.init)
             guard let last = components.last else { continue }
             let parent = components.count >= 2 ? components[components.count - 2] : ""
@@ -347,7 +329,6 @@ package actor H5Reader: FourDDataSource {
         }
         let rank = info.shape.count
         guard rank == 3 || rank == 4 else { throw H5Error.unsupportedRank(rank) }
-        noteStored(path, info)
 
         var shape = info.shape
         if rank == 3 {
@@ -469,27 +450,24 @@ package actor H5Reader: FourDDataSource {
         return (start, count)
     }
 
-    private func noteStored(_ path: String, _ info: HDF5DatasetInfo) {
-        storedShapes[path] = info.shape
-    }
-
     private func read(
         _ view: LoadView, scanY: Range<Int>, scanX: Range<Int>, label: String
     ) throws -> [Float] {
         let path = view.source.datasetPath
-        let dims: [Int]
-        if let cached = storedShapes[path] {
-            dims = cached
+        let slabReader: HDF5SlabReader
+        if let cached = slabReaders[path] {
+            slabReader = cached
         } else {
-            guard let info = try? reader.datasetInfo(path) else { throw H5Error.datasetOpenFailed(path) }
-            noteStored(path, info)
-            dims = info.shape
+            guard let opened = try? HDF5SlabReader(url: URL(fileURLWithPath: filePath), path: path) else { throw H5Error.datasetOpenFailed(path) }
+            slabReaders[path] = opened
+            slabReader = opened
         }
-        let slab = try hyperslab(view, dims: dims, scanY: scanY, scanX: scanX)
+        let slab = try hyperslab(view, dims: slabReader.shape, scanY: scanY, scanX: scanX)
         let buffer: [Float]
         do {
-            guard let floats = try reader.readDataset(path, start: slab.start, count: slab.count, maximumBytes: Int.max)
-                .float32Values() else { throw H5Error.readFailed(label) }
+            guard let floats = try slabReader.read(start: slab.start, count: slab.count).float32Values() else {
+                throw H5Error.readFailed(label)
+            }
             buffer = floats
         } catch {
             throw H5Error.readFailed(label)
@@ -658,9 +636,7 @@ package actor H5Reader: FourDDataSource {
         case .integers(let values)? where values.count == 1: return values[0] != 0
         case .real(let value)?: return value.isFinite ? value.rounded(.towardZero) != 0 : nil
         case .reals(let values)? where values.count == 1: return values[0].isFinite ? values[0].rounded(.towardZero) != 0 : nil
-        default:
-            // An h5py bool attribute is an enum, which `HDF5Reader.attribute` refuses by name.
-            return HDF5LegacyProbe.integerAttribute(filePath: filePath, path: cal, name: "QR_flip").map { $0 != 0 }
+        default: return nil    // an h5py bool attribute arrives as .integer since FormatoKit 0.8.0
         }
     }
 
@@ -721,109 +697,6 @@ package actor H5Reader: FourDDataSource {
         case .reals(let values)? where values.count == 1: return values[0]
         case .integers(let values)? where values.count == 1: return Double(values[0])
         default: return nil
-        }
-    }
-}
-
-/// What `HDF5Reader` still does not read, through the library it already loaded (`dlopen` of the kit's candidates, in the kit's order,
-/// returns the image the kit maps and never a second copy: `HDF5SingleLibraryTests`): the link type and object identity of a link
-/// (the walk for datacubes and probes), and an ATTRIBUTE that is h5py's bool enum, converted by libhdf5 to a native int
-/// (`HDF5Reader.attribute` refuses an enum by name; `readBooleans` reads datasets only).
-// delete at FormatoKit <next>: link types and object identity, and an enum/bool attribute read, in HDF5Reader (kit asks)
-nonisolated enum HDF5LegacyProbe {
-    private typealias Open = @convention(c) () -> herr_t
-    private typealias SetAuto = @convention(c) (hid_t, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
-    private typealias FileOpen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t
-    private typealias ByName = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
-    private typealias Handle = @convention(c) (hid_t) -> hid_t
-    private typealias Close = @convention(c) (hid_t) -> herr_t
-    private typealias Points = @convention(c) (hid_t) -> Int64
-    private typealias AttributeRead = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
-
-    private static func library() -> UnsafeMutableRawPointer? {
-        for path in HDF5LibraryCandidates.paths { if let handle = dlopen(path, RTLD_NOW | RTLD_LOCAL) { return handle } }
-        return nil
-    }
-
-
-    /// Opens the file read-only and calls `body` with the library and the file, under `HDF5Serial`.
-    private static func withFile<T>(_ filePath: String, _ body: (UnsafeMutableRawPointer, hid_t) -> T?) -> T? {
-        HDF5Serial.run {
-            guard let lib = library(), let open = dlsym(lib, "H5open"), let setAuto = dlsym(lib, "H5Eset_auto2"),
-                  let fileOpen = dlsym(lib, "H5Fopen"), let fileClose = dlsym(lib, "H5Fclose") else { return nil }
-            _ = unsafeBitCast(open, to: Open.self)()
-            _ = unsafeBitCast(setAuto, to: SetAuto.self)(0, nil, nil)
-            let file = filePath.withCString { unsafeBitCast(fileOpen, to: FileOpen.self)($0, 0, 0) }
-            guard file >= 0 else { return nil }
-            defer { _ = unsafeBitCast(fileClose, to: Close.self)(file) }
-            return body(lib, file)
-        }
-    }
-
-    enum LinkInfo: Sendable {
-        case soft
-        /// A hard link; `identity` is the object's file number and token (`H5Oget_info_by_name3`), nil if the library cannot say.
-        case hard(identity: Data?)
-    }
-
-    /// The link type (`H5Lget_info2`, the first field of its result) and, for a hard link, the object identity of each of `paths`.
-    
-    static func linkInfo(filePath: String, paths: [String]) -> [String: LinkInfo] {
-        withFile(filePath) { lib, file in
-            typealias LinkGet = @convention(c) (hid_t, UnsafePointer<CChar>?, UnsafeMutableRawPointer?, hid_t) -> herr_t
-            typealias ObjectGet = @convention(c) (hid_t, UnsafePointer<CChar>?, UnsafeMutableRawPointer?, UInt32, hid_t) -> herr_t
-            guard let linkGet = dlsym(lib, "H5Lget_info2").map({ unsafeBitCast($0, to: LinkGet.self) }) else { return nil }
-            let objectGet = dlsym(lib, "H5Oget_info_by_name3").map { unsafeBitCast($0, to: ObjectGet.self) }
-            var out: [String: LinkInfo] = [:]
-            for path in paths {
-                var link = [UInt8](repeating: 0, count: 256)
-                let status = path.withCString { name in link.withUnsafeMutableBytes { linkGet(file, name, $0.baseAddress, 0) } }
-                guard status >= 0 else { continue }
-                if link.withUnsafeBytes({ $0.loadUnaligned(as: Int32.self) }) != 0 { out[path] = .soft; continue }
-                var identity: Data?
-                if let objectGet {
-                    var object = [UInt8](repeating: 0, count: 256)
-                    // H5O_INFO_BASIC (1): the file number (8 bytes) and the token (16), in either order, are the first 24 bytes.
-                    let got = path.withCString { name in object.withUnsafeMutableBytes { objectGet(file, name, $0.baseAddress, 1, 0) } }
-                    if got >= 0 { identity = Data(object[0..<24]) }
-                }
-                out[path] = .hard(identity: identity)
-            }
-            return out
-        } ?? [:]
-    }
-
-    /// The one element of attribute `name` on the object at `path`, converted by libhdf5 to a native int (32-bit); nil when absent, not
-    /// one element, or not convertible. Opens the file read-only under `HDF5Serial`.
-    static func integerAttribute(filePath: String, path: String, name: String) -> Int? {
-        HDF5Serial.run {
-            func symbol<T>(_ lib: UnsafeMutableRawPointer, _ name: String, as type: T.Type) -> T? { dlsym(lib, name).map { unsafeBitCast($0, to: type) } }
-            guard let lib = library(), let open = symbol(lib, "H5open", as: Open.self), let setAuto = symbol(lib, "H5Eset_auto2", as: SetAuto.self),
-                  let fileOpen = symbol(lib, "H5Fopen", as: FileOpen.self), let fileClose = symbol(lib, "H5Fclose", as: Close.self),
-                  let nativeInt = dlsym(lib, "H5T_NATIVE_INT_g")?.assumingMemoryBound(to: hid_t.self).pointee,
-                  let points = symbol(lib, "H5Sget_simple_extent_npoints", as: Points.self), let spaceClose = symbol(lib, "H5Sclose", as: Close.self),
-                  let objectOpen = symbol(lib, "H5Oopen", as: ByName.self), let objectClose = symbol(lib, "H5Oclose", as: Close.self),
-                  let attributeOpen = symbol(lib, "H5Aopen", as: ByName.self), let attributeClose = symbol(lib, "H5Aclose", as: Close.self),
-                  let attributeSpace = symbol(lib, "H5Aget_space", as: Handle.self),
-                  let attributeRead = symbol(lib, "H5Aread", as: AttributeRead.self) else { return nil }
-            _ = open()
-            _ = setAuto(0, nil, nil)
-            let file = filePath.withCString { fileOpen($0, 0, 0) }
-            guard file >= 0 else { return nil }
-            defer { _ = fileClose(file) }
-            let object = path.withCString { objectOpen(file, $0, 0) }
-            guard object >= 0 else { return nil }
-            defer { _ = objectClose(object) }
-            let handle = name.withCString { attributeOpen(object, $0, 0) }
-            guard handle >= 0 else { return nil }
-            defer { _ = attributeClose(handle) }
-            let space = attributeSpace(handle)
-            guard space >= 0 else { return nil }
-            defer { _ = spaceClose(space) }
-            guard points(space) == 1 else { return nil }
-            var value: Int32 = 0
-            let status = withUnsafeMutableBytes(of: &value) { attributeRead(handle, nativeInt, $0.baseAddress) }
-            return status >= 0 ? Int(value) : nil
         }
     }
 }

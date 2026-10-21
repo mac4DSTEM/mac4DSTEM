@@ -75,6 +75,8 @@
 //  docs/open-items.md.
 //
 
+import CuboCore
+import CuboVirtual
 import Foundation
 import Metal
 
@@ -94,7 +96,7 @@ import Metal
 /// (Gate B, 2026-08-19). They are different quantities with different causes.
 /// The discriminating experiment, run twice independently: make the coarse step
 /// translation-equivariant by striding the block scan by 1 instead of by `bin`
-/// (`OriginMeasure.metal:47,49`). P4's deviation collapses from 0.6094227 px to
+/// (the former kernel's coarse loop, `Shaders/OriginMeasure.metal`, deleted with CuboKit 0.7.0). P4's deviation collapses from 0.6094227 px to
 /// **9.536743e-07 px** — float noise — which confirms the coarse grid as the
 /// cause and rules out the un-iterated CoM as an independent contributor to
 /// *this* number. The same experiment leaves the ABSOLUTE error (see
@@ -117,7 +119,7 @@ let P4_KNOWN_BOUND: Float = 0.001
 /// **MEASURED, NOT CHOSEN.** 2026-08-19, Apple M3 / macOS 27: worst deviation
 /// **0.3367424 px** at scan position 0, where the kernel reported (y 15.337,
 /// x 16.663) for a disk the fixture centred at (y 15, x 17). Same root cause as
-/// P4 — the coarse grid in `Shaders/OriginMeasure.metal` is pinned to the
+/// P4 — the coarse grid of the former `Shaders/OriginMeasure.metal` (CuboKit's `cubo_measure_origin` is the same algorithm) is pinned to the
 /// detector origin, so the CoM window is seeded off-centre.
 ///
 /// 0.40 is that plus headroom, and deliberately well under 1 px: a constant-bias
@@ -230,7 +232,7 @@ func describe(_ peak: BraggPeak) -> String {
         try await residentTileOffset(root: root)
         try await metamorphicProperties(root: root)
         try await originAbsoluteAccuracy(root: root)
-        try originTranslationEquivariance()
+        try await originTranslationEquivariance()
 
         if failures.isEmpty {
             // The count is DATA-DEPENDENT, not a coverage invariant: a peak-count
@@ -833,11 +835,24 @@ func describe(_ peak: BraggPeak) -> String {
         }
     }
 
+    /// The app's per-position origin (CuboKit's iterated-window estimator, Metal) on an in-memory cube, interleaved
+    /// [x0, y0] per scan position (x the detector column).
+    static func kitOrigins(_ pixels: [Float], ry: Int, rx: Int, qy: Int, qx: Int, radius: Float, scale: Float) async throws -> [Float] {
+        let cube = try MemoryCube(shape: try CubeShape([ry, rx, qy, qx]), values: pixels)
+        let map = try await VirtualDetector.measureIteratedWindow(cube, radius: radius, scale: scale, tiling: .automatic)
+        var out = [Float](repeating: 0, count: ry * rx * 2)
+        for i in 0..<(ry * rx) {
+            out[2 * i] = Float(map.column.values[i])
+            out[2 * i + 1] = Float(map.row.values[i])
+        }
+        return out
+    }
+
     // MARK: The absolute origin check — a bias P4 cannot see
 
     /// **Why this exists: P4 compares two measurements to each other, so any
     /// CONSTANT error cancels.** Gate B demonstrated it on 2026-08-19 by adding
-    /// `+1.0f` to the measured origin X in `Shaders/OriginMeasure.metal` — every
+    /// `+1.0f` to the measured origin X in the former `Shaders/OriginMeasure.metal` — every
     /// check in this harness stayed green, while a one-pixel origin bias
     /// propagates into every Bragg vector, every strain component and every ACOM
     /// orientation the app produces.
@@ -856,20 +871,8 @@ func describe(_ peak: BraggPeak) -> String {
         let data = FourDArray(reader: reader, view: LoadView(fullExtentOf: source))
         let pixels = try await data.scanTile(yRange: 0..<source.ry).pixels
 
-        guard let buffer = MetalEngine.shared.device.makeBuffer(
-            bytes: pixels,
-            length: pixels.count * MemoryLayout<Float>.stride,
-            options: .storageModeShared
-        ) else { fail("absolute origin: could not allocate the cube") }
-
-        let measured = try MetalEngine.shared.measureOrigins(
-            cube: buffer,
-            params: OriginParams(
-                ry: UInt32(source.ry), rx: UInt32(source.rx),
-                qy: UInt32(source.qy), qx: UInt32(source.qx),
-                r: 3, rscale: 1.2
-            )
-        )
+        let measured = try await kitOrigins(
+            pixels, ry: source.ry, rx: source.rx, qy: source.qy, qx: source.qx, radius: 3, scale: 1.2)
 
         let text = try String(contentsOf: root.appendingPathComponent("origins.txt"), encoding: .utf8)
         let planted: [(y: Float, x: Float)] = text
@@ -885,7 +888,7 @@ func describe(_ peak: BraggPeak) -> String {
         var worst: Float = 0
         var worstCase = ""
         for index in 0..<planted.count {
-            // measureOrigins writes x then y per position (OriginCalibration.run).
+            // kitOrigins writes x then y per position, as VirtualDetector.tiledMeasuredOrigins does.
             let dx = abs(measured[2 * index] - planted[index].x)
             let dy = abs(measured[2 * index + 1] - planted[index].y)
             if max(dx, dy) > worst {
@@ -907,7 +910,7 @@ func describe(_ peak: BraggPeak) -> String {
 
     /// Translate a diffraction pattern by an integer (dy, dx) and the measured
     /// origin must move by exactly (dy, dx). Until 2026-09-05 this pinned a
-    /// KNOWN DEFECT at 0.65 px: the coarse step in `Shaders/OriginMeasure.metal`
+    /// KNOWN DEFECT at 0.65 px: the coarse step in the former `Shaders/OriginMeasure.metal`
     /// scans bin-aligned blocks pinned to the detector origin, so translating
     /// the feature moved it *within* its block, and ONE centre of mass in a
     /// window seeded there admitted a different pixel set at the two positions.
@@ -919,7 +922,7 @@ func describe(_ peak: BraggPeak) -> String {
     /// The coarse step's grid dependence itself is unchanged and still matters
     /// when the window cannot reach the beam (an r underestimated so far that
     /// the window sits inside a flat plateau).
-    static func originTranslationEquivariance() throws {
+    static func originTranslationEquivariance() async throws {
         let qy = 32, qx = 36
         let radius: Float = 3
         let rscale: Float = 1.2      // the app's default (OriginCalibration.run)
@@ -953,18 +956,8 @@ func describe(_ peak: BraggPeak) -> String {
                 let b = pattern(cy: baseY + dy, cx: baseX + dx)
                 var cube = a
                 cube.append(contentsOf: b)
-                guard let buffer = MetalEngine.shared.device.makeBuffer(
-                    bytes: cube,
-                    length: cube.count * MemoryLayout<Float>.stride,
-                    options: .storageModeShared
-                ) else { fail("P4: could not allocate the two-pattern cube") }
-
-                let measured = try MetalEngine.shared.measureOrigins(
-                    cube: buffer,
-                    params: OriginParams(ry: 1, rx: 2, qy: UInt32(qy), qx: UInt32(qx),
-                                         r: radius, rscale: rscale)
-                )
-                // measureOrigins writes x then y per position (OriginCalibration.run).
+                let measured = try await kitOrigins(cube, ry: 1, rx: 2, qy: qy, qx: qx, radius: radius, scale: rscale)
+                // kitOrigins writes x then y per position, as VirtualDetector.tiledMeasuredOrigins does.
                 let movedX = measured[2] - measured[0]
                 let movedY = measured[3] - measured[1]
                 let deviation = max(abs(movedX - Float(dx)), abs(movedY - Float(dy)))
@@ -979,7 +972,7 @@ func describe(_ peak: BraggPeak) -> String {
         check(worstDeviation <= P4_KNOWN_BOUND,
               "P4 equivariance: the origin measurement's translation error is \(worstDeviation) px, "
               + "above the bound of \(P4_KNOWN_BOUND) px (\(worstCase)). The iterated centre of mass in "
-              + "Shaders/OriginMeasure.metal made this exact on 2026-09-05; a failure here means the "
+              + "CuboKit's iterated-window estimator made this exact on 2026-09-05; a failure here means the "
               + "measurement depends on where the beam sits in the coarse block grid again.")
     }
 

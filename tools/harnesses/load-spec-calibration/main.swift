@@ -12,7 +12,7 @@
 //  on the full frame, MEASURES it again on the cropped frame through the real
 //  reader crop, and asserts that re-referencing the first gives the second.
 //  Nothing in that chain is allowed to be arithmetic this stage wrote:
-//  `MetalEngine.measureOrigins` is the arbiter, and it does not know a crop
+//  the kit's per-position origin (`OriginMeasurement`, iterated-window, CuboKit 0.7.0) is the arbiter, and it does not know a crop
 //  exists.
 //
 //  Also asserted: a value that CANNOT be re-referenced — the beam outside the
@@ -21,7 +21,7 @@
 //  detector pixel it no longer holds.
 //
 //  WHY "MEASURE IT AGAIN ON THE CROP" IS NOT THE WHOLE ARBITER, and this is the
-//  finding that shaped the harness. `measureOrigin` is FRAME-DEPENDENT by
+//  finding that shaped the harness. the estimator is FRAME-DEPENDENT by
 //  construction: its coarse step takes an argmax over blocks of side
 //  `bin = round(probeRadius)` tiled from pixel (0, 0), so a crop offset that is
 //  not a multiple of `bin` slides that block grid under the disk and moves the
@@ -31,7 +31,7 @@
 //  differs by 0.68 px and (8, 5) by 1.13 px. That is the estimator moving, not
 //  the re-reference. py4DSTEM's own coarse step, `argmax(gaussian_filter(dp,
 //  sigma=r))`, is translation-equivariant and would not do this; the binned-block
-//  substitution is the DELIBERATE DEVIATION recorded in OriginMeasure.metal.
+//  substitution is the DELIBERATE DEVIATION recorded in CuboKit's `IteratedWindowOrigin.swift` (the former OriginMeasure.metal).
 //
 //  So the claim is checked two ways, neither of which is the arithmetic under
 //  test:
@@ -170,7 +170,7 @@ func windowedCenterOfMass(
 }
 
 /// Measure the beam origin at every scan position of `view`, through the real
-/// reader crop and the production Metal kernel.
+/// reader crop and the production estimator (CuboKit, Metal).
 func measuredOrigins(_ reader: DiskCubeSource, view: LoadView) async throws -> OriginMaps {
     let data = FourDArray(reader: reader, view: view)
     let interleaved = try await VirtualDetector.tiledMeasuredOrigins(

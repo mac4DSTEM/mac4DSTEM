@@ -2,7 +2,7 @@ import XCTest
 import CryptoKit
 import DSTEMCore
 
-/// H5Reader's private libhdf5 code (`HDF5LegacyProbe`: chunk shape, link listing, float16, enum/bool; `HDF5SlabFile`: the slab read) onto FormatoKit 0.7.0's `HDF5Reader` (2026-10-21,
+/// H5Reader's private libhdf5 code (`HDF5LegacyProbe`: chunk shape, link walk, float16, enum/bool; `HDF5SlabFile`: the slab read) onto FormatoKit's `HDF5Reader` (0.7.0), then its link walk onto `HDF5Reader.walk` and its slab read onto `HDF5SlabReader` (0.8.0) (2026-10-21,
 /// D12: readers are tested exact). `Fixtures/H5Reader/*.json` was written by the app's reader with those shims (a4c8a610) BEFORE
 /// they were deleted, over the h5py-written files of `Fixtures/H5Reader/make_fixtures.py` (calibration stored as enum, uint8, int,
 /// double and float16 datasets and attributes; float16, big-endian and 64-bit element types; dim vectors; hard, soft, dangling

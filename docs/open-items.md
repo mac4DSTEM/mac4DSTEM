@@ -9,34 +9,35 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 ## Kit asks
 
 ### CuboKit (next: 0.7)
-- **Ptychography engine, Float path with cancel and progress.** The kit's Double engine is 4.2x slower and twice the memory, so
-  `SingleslicePtychography` stays (agreement 3.4e-6, `PtychographyKitSwitchTests`). A measuring thread owns the numbers.
-- **Parallax alignment, a faster Double FFT or Float shifter.** Kit 2.71 s against 0.58 s (about 5x) on 121 images at 160x160, so
-  `ParallaxAlignment` and `MatrixDFTCorrelation` stay.
+- **Parallax shifts on sizes vDSP's DFT does not take** (CuboKit 0.7.0): alignment of a stack whose padded size is not 2^n x {1, 3, 5, 15}
+  (133 + 32 = 165, the usual case) runs the kit's Double Bluestein path, about 1.9x slower than the Float `FFT2D` it replaced (whole 5-level
+  schedule, 49 images at 165 x 165: 0.33 s then, 0.66 s now; sizes vDSP takes are 20 % faster). Ask: a Float or vDSP-backed Bluestein shifter.
+- **Strain (0.7.1):** `LatticeStrain.fitRobust` throws for any intensity >= 1e10 before it rescales (the app divides by the maximum
+  past 1e9, "delete at CuboKit 0.7.1"); `StrainMapping.compute` has no `isCancelled`/progress, so a strain map cancels only between calls.
+- **Names and hooks:** the kit's enums `CuboPtycho` and `CuboStrain` clash with their module names, so the app's types were renamed
+  (`PtychographyReconstructor`, `StrainMapper`); `FloatFFT2D.supports` is `package` (the app catches `invalidInput` and falls back);
+  `BraggDisks.detectAll` has no per-position progress and names no failing rows (a tile-read failure is attributed in the app).
+- **Ptychography on detector sizes vDSP does not take:** the Double path (about 2x slower, 2x the memory; the app re-checks its budget for it).
 - **Hot-pixel filter.** `HotPixelFilter.filter()` accumulates the mean in Float32, the app's Double mean stays beside the kit's
   `mask` / `replacing` (numpy is float32; the 060 cube matches py4DSTEM exactly, margin unmeasured).
 - **Disk detection options:** keep the integer position on a non-finite refinement; pointer/stride `fillNonFinite`; a
   smoothed-surface entry. **Strain:** a `LatticeStrain` diagnostics entry for the `initialBasis` path.
 - **Embedding:** sklearn `svd_flip` signs (the kit's provisional sign, largest entry positive, flips saved embeddings; CHANGELOG).
 - **Origin:** `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred, the kit's half-pixel for odd
-  sides, which changes sim_Au counts), a mask hook for the measured sigmoid kernel; a GPU form of `OriginMeasurement` (the app's `measureOrigin` kernel is Metal, the kit's is CPU); per-position origins (C3).
+  sides, which changes sim_Au counts), a mask hook for the measured sigmoid kernel. (The GPU per-position origin is the kit's since 0.7.0.)
 
 ### FormatoKit (next: 0.8)
-- **Single-pattern HDF5 read, 0.5 ms.** The kit opens the file per call: a one-pattern read of Au_sim.h5 went 49 us -> 540 us
-  (tile and row reads equal). Ask: a handle-holding slab read; the app's `HDF5LegacyProbe` shim stays until then.
-- **Link walk with object identity** (`descendants` lists aliases twice and throws at a cycle); h5py bool-enum attributes.
-- **Sidecar writes:** `SessionSidecarWriting` and the app's HDF5 writer binding onto `HDF5WriteSession` (needs a sidecar-parity
-  run, about 35 GB); `write(vectors:)` is too wide for 0.5's append writer.
+- **HDF5 version attributes:** the kit writes `version_major`, `version_minor` and `_target_paths/length` as int64 where the app wrote
+  int32 (values equal; no reader here or in py4DSTEM depends on the width). The sidecar-parity run (about 35 GB) stays the owner's gate.
 - **DM4:** lazy 4D gather (the kit's `DM4Datacube` was 7.6x slower on a float32 whole-scan tile and always maps non-local volumes),
   DM3 / declared length 0, rank-3 scan-shaped objects, more than four dimensions. `DM4Reader` stays.
-- **MIB / EMPAD:** header-less MIB; an EMPAD precedence option (`scan_resolution` against `pix_x/pix_y`).
+- **MIB / EMPAD:** header-less MIB; EMPAD `preferScanResolution` (0.8.0) takes the LAST `scan_parameters` block, the app's `EMPADReader` takes `mode="acquire"` wherever it sits (`VendorRawKitSwitchBaselineTests` acquire_first.xml), so the app's scan parse stays.
 - **Velox:** live/real times (`/Data/SpectrumImage`) are not read; allocation from file sizes is unbounded for `markersPerFrame` and
   the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes`; GMS EDS geometry (`Stage tilt`, multi-segment list)
   and beam energy are not read, so GMS absorption is refused (also SpectroKit).
 
 ### DiffractoKit
-- **Q calibration:** a linear-scale-from-reference-ring helper (the app's `KnownCrystalQCalibration` has no camera length L; the
-  kit's `RingCalibration.q` needs it). The pre-cut list peaks about 800 MB for a 30 A cell at kMax 2.5.
+- **Q calibration:** the pre-cut reflection list peaks about 800 MB for a 30 A cell at kMax 2.5.
 - **Phase matching:** `minimumVectors` = 2 makes "matrix" by exclusion and the cross-phase winner ignores completeness
   (`completenessAwareCrossPhaseRanking` off, byte-identical on the demo cube). Diagnose before any edit (`/diagnose`).
 - **ACOM mirror:** `inPlaneAngle` of a mirrored win is angle + pi, published raw in `acom_in_plane` with no per-pixel flag; and
@@ -114,7 +115,7 @@ Ordered as the ROADMAP takes them.
 
 ## Drop
 
-- Switched 2026-10-21 onto the pinned kits: `fitOriginTrimmed` is `OriginFit.fitTrimmed` (CuboKit 0.6.0; `kept` and both residuals are the kit's); the preset crystals are `CrystalPresets`; the Metal ACOM backend is `ACOMMatcher.matchAll(backend: .metal)` (the kit's selection and preview expansion, `MetalACOMMatcher` and its shader gone); the virtual image, mean/max and centre-of-mass Metal one-shots and their four shaders are gone (CuboKit's reducers). Stays: the selected-area sum (`virtualDiffraction`; the kit's `VirtualDiffraction.pattern` is CPU-only) and the per-position origin kernel (`measureOrigin`).
+- Switched 2026-10-21 onto the pinned kits: `fitOriginTrimmed` is `OriginFit.fitTrimmed` (CuboKit 0.6.0; `kept` and both residuals are the kit's); the preset crystals are `CrystalPresets`; the Metal ACOM backend is `ACOMMatcher.matchAll(backend: .metal)` (the kit's selection and preview expansion, `MetalACOMMatcher` and its shader gone); the virtual image, mean/max and centre-of-mass Metal one-shots and their four shaders are gone (CuboKit's reducers). Since CuboKit 0.7.0 the per-position origin is `OriginMeasurement.measure(estimator: .iteratedWindow, path: .metal)` (`measureOrigin` and its shader gone; agrees with the old kernel to 7.6e-6 px) and the classical full scan is `BraggDisks.detectAll(failurePolicy: .recordEmpty)` (peaks bit-identical; the resident `DiskDetection.detectAll(cube:)` is gone). Stays: the selected-area sum (`virtualDiffraction`; the kit's `VirtualDiffraction.pattern` is CPU-only, Double).
 - Learned detector training and refine stay in the app, not ready for a kit (Paul, 2026-10-21 12:29; ADR 071).
 - Kit asks after session 5, "Done and ticked" list (Float32 detection, fillNonFinite, HotPixelFilter.Replacer, ptycho probe, parallax correction/depth/position, streamed PCA, strain diagnostics, ACOM, Materials Project, DM4/DM3, HDF5 chunk/float16/bool, MIB, EMPAD): done in session 5.
 - "Kept in the app on purpose" (lineage and marks, header-less MIB, rank-3 reshape): restated in the kit asks above.

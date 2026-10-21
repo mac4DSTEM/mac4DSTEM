@@ -483,7 +483,7 @@ extension AppState {
             provenance.merge(strain.originProvenance) { current, _ in current }
             // The weighting DEVIATION from py4DSTEM, carried outward rather
             // than living only in a source comment (S11, 2026-08-28).
-            // `StrainMapping.fitLattice` minimizes Σ w·r² where py4DSTEM's
+            // `LatticeStrain.fitIntensityOnce` (CuboKit) minimizes Σ w·r² where py4DSTEM's
             // `fit_lattice_vectors` minimizes Σ w²·r²; measured effect on
             // sim_Au is ~5e-3 median per strain component against a ~2e-4
             // agreement floor when the estimators are matched — 25× the floor

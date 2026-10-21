@@ -328,7 +328,7 @@ nonisolated extension BraggVectorEMDWriter {
         }
     }
 
-    /// The read half of `writePeakGrid` (2026-09-28, ../_archive/mac4DSTEM/docs/archive/v4/
+    /// The read half of the peak-grid write (now FormatoKit's `writeBraggVectors`; 2026-09-28, ../_archive/mac4DSTEM/docs/archive/v4/
     /// bragg-restore-registration-2026-09-28.md). Nil when the sidecar has no
     /// peak grid (or no `_braggvectors_shape`, which the detector shape comes
     /// from). Throws on an HDF5 failure or a non-finite peak — never a partial

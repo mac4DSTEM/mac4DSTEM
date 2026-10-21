@@ -2,7 +2,9 @@ import Foundation
 import Metal
 
 // Memory-growth gate for DiskDetection.detectAll(data:) — the app's own tiled
-// full-scan path. Gate D 2026-09-29: with no autorelease pool per tile, the
+// full-scan path (CuboKit's `BraggDisks.detectAll` over `CuboCubeSource` since 0.7.0, which binds no
+// MTLBuffer per tile; the gate stays as the measurement that it does not grow).
+// Gate D 2026-09-29: with no autorelease pool per tile, the
 // tile MTLBuffers and the resident detector's Metal objects survived until the
 // scan ended, so phys_footprint grew by about one tile per tile.
 //
@@ -229,13 +231,12 @@ if mode == "classical" {
     log.note(physFootprintMB())
     tiledPeaks = tiled.peaks
 
-    guard let buffer = MetalEngine.shared.device.makeBuffer(
-        bytes: tile0.pixels, length: tile0.pixels.count * MemoryLayout<Float>.stride,
-        options: .storageModeShared),
-        let resident = DiskDetection.detectAll(
-            cube: buffer, descriptor: tile0Descriptor, kernel: kernel, params: params)
-    else { fail("resident detection of the first tile failed") }
-    residentPeaks = resident.peaks
+    // The reference for the first tile: the single-pattern facade, one pattern at a time (the full scan is the
+    // kit's `BraggDisks.detectAll` since CuboKit 0.7.0; both run the same detector).
+    guard let detector = DiskDetector(kernel: kernel) else { fail("could not build the disk detector") }
+    residentPeaks = (0..<(rowsPerTile * rx)).map { k in
+        tile0.pixels.withUnsafeBufferPointer { detector.detect(pattern: $0.baseAddress! + k * q * q, params: params) }
+    }
 } else {
     // The learned twin at the app's realistic settings (scan-bench's), the
     // shipped threshold, the Neural Engine preferred — as the app runs it.

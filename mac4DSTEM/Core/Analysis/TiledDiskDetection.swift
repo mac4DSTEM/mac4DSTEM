@@ -1,29 +1,18 @@
 //
 //  TiledDiskDetection.swift
-//  Role: Out-of-core orchestration for full-scan Bragg disk detection. The
-//        numerical detector remains in DiskDetection.swift and is reused per
-//        bounded scan-row tile.
+//  Role: Out-of-core orchestration for full-scan Bragg disk detection. The scan
+//        loop is CuboKit's (`BraggDisks.detectAll`, CuboKit 0.7.0, failure policy
+//        `.recordEmpty`); this file keeps the app's contract around it: the
+//        parameter validation, typed attributed errors, nil on cancellation and
+//        the `BraggVectors` the rest of the app reads.
 //
 
+import CuboBragg
+import CuboCore
 import Foundation
-import Metal
 
-/// Lock-guarded permille gate for progress callbacks: admits a fraction only
-/// when its 0.1 % bucket differs from the last admitted one.
-nonisolated private final class ProgressCoalescer: @unchecked Sendable {
-    private let lock = NSLock()
-    private var lastBucket = -1
-    package func admits(_ fraction: Double) -> Bool {
-        let bucket = Int((fraction * 1000).rounded(.down))
-        return lock.withLock {
-            guard bucket != lastBucket else { return false }
-            lastBucket = bucket
-            return true
-        }
-    }
-}
-
-extension DiskDetection {
+/// Full-scan Bragg disk detection (the namespace; the per-pattern detector is `DiskDetector`).
+package enum DiskDetection {
 
     /// Why a full-scan detection over a streamed cube failed. Typed and
     /// attributed, because the previous contract collapsed every failure into
@@ -63,9 +52,10 @@ extension DiskDetection {
         package var errorDescription: String? { description }
     }
 
-    /// Detect every scan position without materializing the full datacube.
-    /// Each bounded tile delegates to the resident detector so the numerical
-    /// pipeline remains identical while progress spans all tiles.
+    /// Detect every scan position without materializing the full datacube: CuboKit's whole-cube pass over the app's cube
+    /// (`CuboCubeSource`: bounded scan-row tiles, the next one read while the current one is detected, every core on a
+    /// tile's patterns). A pattern whose detection fails (a non-finite refinement) keeps an empty peak list and is
+    /// counted in `failedPatternCount`; the scan goes on.
     ///
     /// Returns nil ONLY on cancellation — every failure throws a
     /// `FullScanError` naming what failed and where. // v2 S7
@@ -89,111 +79,59 @@ extension DiskDetection {
         guard issues.isEmpty else {
             throw FullScanError.invalidParameters(issues.map(\.message))
         }
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
-        var failedPatterns = 0
-
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
+        guard let kernelImage = DiskDetector.kitKernel(kernel) else { throw FullScanError.detectorUnavailable }
+        let source = TileReadAttribution(try CuboCubeSource(data, descriptor: d, cancellation: cancellation))
+        let result: BraggScanResult
+        do {
+            result = try await BraggDisks.detectAll(
+                in: source, kernel: kernelImage,
+                options: DiskDetector.kitOptions(params, qy: d.qy, qx: d.qx),
+                tiling: try await VirtualDetector.kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows),
+                failurePolicy: .recordEmpty,
+                isCancelled: { cancellation?.isCancelled == true },
+                progress: { fraction in progress?(fraction) })
+        } catch is CancellationError {
+            return nil
+        } catch {
+            // A read aborted BY a cancel is a cancel, not a failure.
+            guard cancellation?.isCancelled != true else { return nil }
+            throw error
         }
-        var prefetcher = TilePrefetcher(data: data)
-        // The resident detector rate-limits its ticks per TILE (one per 0.1 %
-        // of the tile); across many tiles that would multiply. Coalesce again
-        // on the GLOBAL fraction so a full-scan run makes at most ~1,000
-        // callbacks however it is tiled.
-        let coalescer = ProgressCoalescer()
-        let coalesced: (@Sendable (Double) -> Void)? = progress.map { progress in
-            { @Sendable fraction in
-                if coalescer.admits(fraction) { progress(fraction) }
-            }
-        }
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
-            let lower = range.lowerBound
-            let upper = range.upperBound
-            let tile: FourDScanTile
-            do {
-                tile = try await prefetcher.tile(
-                    for: range,
-                    prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
-                )
-            } catch {
-                prefetcher.cancel()
-                // A read aborted BY a cancel is a cancel, not a failure.
-                guard cancellation?.isCancelled != true else { return nil }
-                throw FullScanError.tileRead(rows: range, underlying: error)
-            }
-            guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
-            let byteCount = tile.pixels.count * MemoryLayout<Float>.stride
-            let tileDescriptor = DatasetDescriptor(
-                filePath: d.filePath, datasetPath: d.datasetPath,
-                shape: [range.count, d.rx, d.qy, d.qx],
-                dtypeDescription: d.dtypeDescription, chunkShape: nil
-            )
-            // One autorelease pool per tile. This loop is `async`, so no pool
-            // drains inside it; without one an autoreleased reference keeps
-            // each tile's MTLBuffer alive until the scan ends, and GPU memory
-            // grows by about one tile per tile (the resident detector itself
-            // is CPU-only) (Gate D, 2026-09-29: 1087 -> 2093 MB over four tiles of
-            // the Thronsen stride-3 cube, flat with a pool per tile —
-            // ../_archive/mac4DSTEM/docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md).
-            // The `await` above stays outside the pool; nothing inside
-            // suspends. Arithmetic is untouched: peaks are bit-identical.
-            enum TileOutcome {
-                case peaks([[BraggPeak]], failed: Int)
-                case bufferFailed
-                case detectorFailed
-            }
-            let outcome: TileOutcome = autoreleasepool {
-                guard let buffer = MetalEngine.shared.device.makeBuffer(
-                    bytes: tile.pixels,
-                    length: byteCount,
-                    options: .storageModeShared
-                ) else { return .bufferFailed }
-                buffer.label = "Disk detection tile rows \(lower)..<\(upper)"
-                guard let detected = detectAll(
-                    cube: buffer, descriptor: tileDescriptor, kernel: kernel,
-                    params: params, cancellation: cancellation,
-                    progress: { fraction in
-                        coalesced?(
-                            (Double(lower) + fraction * Double(range.count)) / Double(d.ry)
-                        )
-                    }
-                ) else { return .detectorFailed }
-                return .peaks(detected.peaks, failed: detected.failedPatternCount)
-            }
-            switch outcome {
-            case .bufferFailed:
-                prefetcher.cancel()
-                // Same rule as the other two throw branches: a cancel racing
-                // this failure is a cancel, honoring "nil ONLY on
-                // cancellation" from both sides (Gate B, 2026-08-25).
-                guard cancellation?.isCancelled != true else { return nil }
-                throw FullScanError.bufferAllocation(rows: range, bytes: byteCount)
-            case .detectorFailed:
-                prefetcher.cancel()
-                // The resident detector returns nil for exactly three
-                // reasons: cancellation, parameter validation (already
-                // checked above against the same context), or a failed
-                // detector build. Not-cancelled therefore means the build.
-                guard cancellation?.isCancelled != true else { return nil }
-                throw FullScanError.detectorUnavailable
-            case .peaks(let detected, let failed):
-                failedPatterns += failed
-                allPeaks.replaceSubrange(
-                    lower * d.rx..<upper * d.rx,
-                    with: detected
-                )
-            }
-        }
-
+        guard cancellation?.isCancelled != true else { return nil }
         progress?(1)
+        let peaks = result.vectors.peaks.map { list in
+            list.map { BraggPeak(x: Float($0.column), y: Float($0.row), intensity: Float($0.intensity)) }
+        }
         return BraggVectors(
-            scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks,
-            detectionProvenance: params.provenance(
-                kernel: kernel, qy: d.qy, qx: d.qx
-            ),
-            failedPatternCount: failedPatterns
+            scanWidth: d.rx, scanHeight: d.ry, peaks: peaks,
+            detectionProvenance: params.provenance(kernel: kernel, qy: d.qy, qx: d.qx),
+            failedPatternCount: result.failedPositions.count
         )
+    }
+}
+
+/// The cube as the kit's scan loop reads it, with a failed tile read named by its scan rows (`FullScanError.tileRead`)
+/// where the kit would surface the bare error. A cancel passes through untouched.
+private actor TileReadAttribution: CubeSource {
+    private let base: CuboCubeSource
+    nonisolated let shape: CubeShape
+
+    init(_ base: CuboCubeSource) {
+        self.base = base
+        self.shape = base.shape
+    }
+
+    func readPattern(row: Int, column: Int) async throws -> CuboCore.DiffractionPattern {
+        try await base.readPattern(row: row, column: column)
+    }
+
+    func readScanTile(rows: Range<Int>) async throws -> ScanTile {
+        do {
+            return try await base.readScanTile(rows: rows)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw DiskDetection.FullScanError.tileRead(rows: rows, underlying: error)
+        }
     }
 }

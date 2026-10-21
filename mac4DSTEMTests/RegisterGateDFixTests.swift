@@ -47,7 +47,7 @@ final class StrainEmptyPositionMedianTests: XCTestCase {
     private func basis(empty: Int, of total: Int, centralOnly: Bool) -> (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? {
         let filler: [BraggPeak] = centralOnly ? [BraggPeak(x: 32, y: 32, intensity: 10)] : []
         let peaks = (0..<total).map { $0 < empty ? filler : lattice() }
-        return StrainMapping.chooseLatticeVectors(
+        return StrainMapper.chooseLatticeVectors(
             bragg: BraggVectors(scanWidth: 20, scanHeight: total / 20, peaks: peaks), x0: 32, y0: 32)
     }
 
@@ -87,7 +87,7 @@ final class StrainCentralOnlyPositionsTests: XCTestCase {
             if (i + 1) * latticePositions / 400 > placed { placed += 1; return lattice() }
             return filler
         }
-        return StrainMapping.chooseLatticeVectors(
+        return StrainMapper.chooseLatticeVectors(
             bragg: BraggVectors(scanWidth: 20, scanHeight: 20, peaks: peaks), x0: 32, y0: 32)
     }
 

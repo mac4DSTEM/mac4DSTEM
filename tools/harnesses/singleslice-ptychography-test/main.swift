@@ -124,7 +124,7 @@ struct TruthDocument: Decodable {
 }
 
 /// The position-bounds crop `SingleslicePtychographyResult.objectPhase(cropped:)` shows (floor of the minimum, ceil of the maximum).
-func cropBounds(_ positions: [PtychographyPosition], height: Int, width: Int) -> (row0: Int, row1: Int, column0: Int, column1: Int) {
+func cropBounds(_ positions: [PtychographyScanPosition], height: Int, width: Int) -> (row0: Int, row1: Int, column0: Int, column1: Int) {
     let rows = positions.map(\.row), columns = positions.map(\.column)
     let row0 = max(0, Int(floor(rows.min()!))), column0 = max(0, Int(floor(columns.min()!)))
     return (row0, max(row0 + 1, min(height, Int(ceil(rows.max()!)))), column0, max(column0 + 1, min(width, Int(ceil(columns.max()!)))))
@@ -135,7 +135,7 @@ func cropBounds(_ positions: [PtychographyPosition], height: Int, width: Int) ->
 /// Pearson correlation of the two phase maps and the RMS of the offset-removed wrapped phase difference, both on the crop.
 func scoreAgainstTruth(
     objectReal: [Float], objectImag: [Float], truthReal: [Float], truthImag: [Float],
-    height: Int, width: Int, positions: [PtychographyPosition]
+    height: Int, width: Int, positions: [PtychographyScanPosition]
 ) throws -> TruthScore {
     guard let fft = FFT2D(nx: width, ny: height) else {
         throw NSError(domain: "singleslice-ptychography-test", code: 3, userInfo: [NSLocalizedDescriptionKey: "no FFT for the object canvas"])
@@ -250,7 +250,7 @@ struct Harness {
             from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         )
         let positions = stride(from: 0, to: fixture.positions.count, by: 2).map {
-            PtychographyPosition(row: fixture.positions[$0],
+            PtychographyScanPosition(row: fixture.positions[$0],
                                  column: fixture.positions[$0 + 1])
         }
         let input = SingleslicePtychographyInput(
@@ -275,7 +275,7 @@ struct Harness {
         options.iterations = fixture.iterations
         options.stepSize = fixture.stepSize
         options.normalizationMinimum = fixture.normalizationMinimum
-        let result = try SingleslicePtychography.reconstruct(input: input, options: options)
+        let result = try PtychographyReconstructor.reconstruct(input: input, options: options)
         let errors = maximumError(result.errorHistory, fixture.errors)
         let objectReal = maximumError(result.object.real, fixture.objectReal)
         let objectImag = maximumError(result.object.imaginary, fixture.objectImag)
@@ -305,7 +305,7 @@ struct Harness {
         constrainedOptions.constrainProbeAmplitude = true
         constrainedOptions.probeAmplitudeRelativeRadius = 0.42
         constrainedOptions.probeAmplitudeRelativeWidth = 0.09
-        let constrained = try SingleslicePtychography.reconstruct(
+        let constrained = try PtychographyReconstructor.reconstruct(
             input: input, options: constrainedOptions
         )
         try require(maximumError(constrained.errorHistory, fixture.constrainedErrors) < 2e-5,
@@ -328,30 +328,30 @@ struct Harness {
         var limited = options
         limited.maxWorkingBytes = 1
         do {
-            _ = try SingleslicePtychography.reconstruct(input: input, options: limited)
+            _ = try PtychographyReconstructor.reconstruct(input: input, options: limited)
             try require(false, "memory ceiling was ignored")
-        } catch SingleslicePtychography.ReconstructionError.memoryLimit {}
+        } catch PtychographyReconstructor.ReconstructionError.memoryLimit {}
         var invalid = options
         invalid.iterations = 0
         do {
-            _ = try SingleslicePtychography.reconstruct(input: input, options: invalid)
+            _ = try PtychographyReconstructor.reconstruct(input: input, options: invalid)
             try require(false, "zero iterations were accepted")
-        } catch SingleslicePtychography.ReconstructionError.invalidOptions {}
+        } catch PtychographyReconstructor.ReconstructionError.invalidOptions {}
         invalid = options
         invalid.probeAmplitudeRelativeWidth = 0
         do {
-            _ = try SingleslicePtychography.reconstruct(input: input, options: invalid)
+            _ = try PtychographyReconstructor.reconstruct(input: input, options: invalid)
             try require(false, "invalid probe support width was accepted")
-        } catch SingleslicePtychography.ReconstructionError.invalidOptions {}
+        } catch PtychographyReconstructor.ReconstructionError.invalidOptions {}
         let cancellation = AnalysisCancellationToken()
         do {
-            _ = try SingleslicePtychography.reconstruct(
+            _ = try PtychographyReconstructor.reconstruct(
                 input: input, options: options, cancellation: cancellation
             ) { fraction in
                 if fraction > 0 { cancellation.cancel() }
             }
             try require(false, "mid-reconstruction cancellation was ignored")
-        } catch SingleslicePtychography.ReconstructionError.cancelled {}
+        } catch PtychographyReconstructor.ReconstructionError.cancelled {}
         print("PASS: immutable input, invalid options, memory, and cancellation")
 
         // R1 (2026-09-30) — the initial probe against py4DSTEM's `ComplexProbe(...).build()._array`, on a NON-square grid with
@@ -653,7 +653,7 @@ struct Harness {
                             "crop \(index): `prepare` did not record the aberrations it built the probe with")
                 var oneIteration = SingleslicePtychographyOptions()
                 oneIteration.iterations = 1
-                let carried = try SingleslicePtychography.reconstruct(input: prepared, options: oneIteration)
+                let carried = try PtychographyReconstructor.reconstruct(input: prepared, options: oneIteration)
                 try require(carried.probeAberrations == aberrated,
                             "crop \(index): the reconstruction did not carry the input's probe aberrations")
             }
@@ -681,7 +681,7 @@ struct Harness {
                         aberrations: aberrations
                     )
                     try require(false, "malformed aberrations were accepted: \(aberrations)")
-                } catch SingleslicePtychography.ReconstructionError.invalidInput {}
+                } catch PtychographyReconstructor.ReconstructionError.invalidInput {}
             }
             print("PASS: zero aberrations match the pre-switch probe within 3e-7 on \(goldens.count) crops; aberrations reach the prepared probe; \(malformed.count) malformed sets refused")
         }
@@ -707,7 +707,7 @@ struct Harness {
                 let det = fixture.probeShape[0], canvas = fixture.objectShape[0]
                 defocusValues.insert(fixture.defocusAngstrom)
                 let positions = stride(from: 0, to: fixture.positions.count, by: 2).map {
-                    PtychographyPosition(row: fixture.positions[$0], column: fixture.positions[$0 + 1])
+                    PtychographyScanPosition(row: fixture.positions[$0], column: fixture.positions[$0 + 1])
                 }
                 guard let pyGD = fixture.py4dstem.first(where: { $0.method == "gd" }),
                       fixture.py4dstem.count == 1 else {
@@ -732,7 +732,7 @@ struct Harness {
                     options.stepSize = 0.5
                     options.normalizationMinimum = normalizationMinimum
                     options.constrainObjectAmplitude = clamp
-                    return try SingleslicePtychography.reconstruct(input: input, options: options)
+                    return try PtychographyReconstructor.reconstruct(input: input, options: options)
                 }
                 func score(_ result: SingleslicePtychographyResult) throws -> TruthScore {
                     try scoreAgainstTruth(objectReal: result.object.real, objectImag: result.object.imaginary,

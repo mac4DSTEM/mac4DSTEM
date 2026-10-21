@@ -50,7 +50,7 @@ extension AppState {
         let epoch = datasetSession.epoch
         let (map, kitRefusal) = await Task.detached(priority: .userInitiated) { () -> (StrainMap?, String?) in
             var refusal: String?
-            let map = StrainMapping.compute(bragg: calibrated.vectors,
+            let map = StrainMapper.compute(bragg: calibrated.vectors,
                                             originX: origin.x, originY: origin.y,
                                             referenceMask: referenceMask,
                                             initialBasis: initialBasis,

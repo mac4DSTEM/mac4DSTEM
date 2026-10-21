@@ -4,7 +4,7 @@
 //        calibrated R–Q rotation (py4DSTEM: process/strain get_rotated_strain_map
 //        and the calibrated Bragg-vector transform).
 //
-//  The strain map is COMPUTED in detector x/y (`StrainMapping.compute`) and is
+//  The strain map is COMPUTED in detector x/y (`StrainMapper.compute`) and is
 //  stored that way; this file is presentation. Display and export derive the
 //  scan-frame view from the CURRENT calibration every time — the
 //  `DPC.applyRotation` pattern — so re-running rotation calibration updates
@@ -47,6 +47,7 @@
 //
 
 import Foundation
+import CuboStrain
 
 /// Which frame strain components are presented in. Carried everywhere the
 /// numbers go — screen, burned caption, export provenance — never implied.
@@ -136,44 +137,17 @@ extension StrainMap {
             return PresentedStrainMap(base: self, frame: frame,
                                       exx: exx, eyy: eyy, exy: exy, theta: theta)
         case .scan(let rotationRad, let transposed):
-            let rotated = StrainFrameRotation.rotate(
-                exx: exx, eyy: eyy, exy: exy, theta: theta,
-                rotationRad: rotationRad, transposed: transposed
+            // Transpose first (swap εxx ↔ εyy, negate θ), then the tensor rotation by the calibrated angle: the order
+            // py4DSTEM applies to the vectors themselves (flip, then R·v). CuboStrain's `StrainFrame.rotate` (Double,
+            // element-wise over the raw field; masked positions hold 0 here and become NaN in `component`).
+            func wide(_ values: [Float]) -> [Double] { values.map(Double.init) }
+            let rotated = StrainFrame.rotate(
+                exx: wide(exx), eyy: wide(eyy), exy: wide(exy), theta: wide(theta),
+                rotation: Double(rotationRad), transposed: transposed
             )
             return PresentedStrainMap(base: self, frame: frame,
-                                      exx: rotated.exx, eyy: rotated.eyy,
-                                      exy: rotated.exy, theta: rotated.theta)
+                                      exx: rotated.exx.map(Float.init), eyy: rotated.eyy.map(Float.init),
+                                      exy: rotated.exy.map(Float.init), theta: rotated.theta.map(Float.init))
         }
-    }
-}
-
-package nonisolated enum StrainFrameRotation {
-
-    /// Rotate a strain tensor field from the detector frame into the scan
-    /// frame: transpose first (swap εxx ↔ εyy, negate θ), then the tensor
-    /// rotation by the calibrated angle — the same order py4DSTEM applies to
-    /// the vectors themselves (flip, then R·v). Element-wise over the raw
-    /// field; masked positions hold 0 here and become NaN in `component`,
-    /// exactly as in the unrotated path.
-    package static func rotate(
-        exx: [Float], eyy: [Float], exy: [Float], theta: [Float],
-        rotationRad: Float, transposed: Bool
-    ) -> (exx: [Float], eyy: [Float], exy: [Float], theta: [Float]) {
-        let n = exx.count
-        let c = cos(rotationRad), s = sin(rotationRad)
-        let c2 = c * c, s2 = s * s, sc = s * c
-        var outXX = [Float](repeating: 0, count: n)
-        var outYY = [Float](repeating: 0, count: n)
-        var outXY = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            let a = transposed ? eyy[i] : exx[i]
-            let b = transposed ? exx[i] : eyy[i]
-            let d = exy[i]
-            outXX[i] = c2 * a - 2 * sc * d + s2 * b
-            outYY[i] = s2 * a + 2 * sc * d + c2 * b
-            outXY[i] = sc * (a - b) + (c2 - s2) * d
-        }
-        let outTheta = transposed ? theta.map { -$0 } : theta
-        return (outXX, outYY, outXY, outTheta)
     }
 }
