@@ -17,7 +17,7 @@ import struct CuboParallax.ParallaxAberrationTerm
 final class ParallaxKitSwitchTests: XCTestCase {
     private let height = 6, width = 5
 
-    private func preprocessing() -> ParallaxPreprocessResult {
+    private func preprocessing(unshifted: [Float] = []) -> ParallaxPreprocessResult {
         let angles = [(-2, -3), (-2, 3), (2, -3), (2, 3)].map { ParallaxVector(qx: Float($0.0), qy: Float($0.1)) }
         return ParallaxPreprocessResult(
             scanHeight: height, scanWidth: width, detectorHeight: 1, detectorWidth: 4, stackHeight: height, stackWidth: width,
@@ -28,7 +28,7 @@ final class ParallaxKitSwitchTests: XCTestCase {
             detectorIndices: (0..<4).map { ParallaxDetectorIndex(qx: 0, qy: $0) },
             reciprocalVectors: angles, probeAnglesMrad: angles,
             edgeWindow: [Float](repeating: 1, count: height * width),
-            normalizedStack: [], unshiftedStack: [], incoherentBF: [], initialError: 0)
+            normalizedStack: [], unshiftedStack: unshifted, incoherentBF: [], initialError: 0)
     }
 
     private func texture(_ count: Int) -> [Float] {
@@ -79,5 +79,34 @@ final class ParallaxKitSwitchTests: XCTestCase {
             progress: { all.values.append($0) })
         XCTAssertEqual(all.values, [0.2, 0.4, 0.6, 0.8, 1.0])
         XCTAssertEqual(result.planeCount, 5)
+    }
+
+    /// Position correction runs in the kit's `.application` loop: progress ticks once per iteration (0.2 + 0.7 * i / n), the scores
+    /// record the baseline plus one per iteration, and a cancel on the first tick stops before the second iteration.
+    /// Mutation: run the py4DSTEM variant (Double, step floor everywhere) -> the demo-cube fixture of the app's loop differs;
+    /// drop `isCancelled` -> the cancel is only seen after the run -> ticks.count == 3.
+    func testPositionCorrectionTicksPerIterationAndACancelStopsIt() throws {
+        let count = height * width
+        let unshifted = (0..<4).flatMap { b in texture(count).map { $0 + Float(b) * 0.05 } }
+        var options = ParallaxSubpixelOptions()
+        options.upsampleFactor = 2
+        options.positionCorrectionIterations = 3
+        let token = AnalysisCancellationToken()
+        let ticks = Ticks()
+        XCTAssertThrowsError(try ParallaxSubpixelReconstructor.reconstruct(
+            preprocessing: preprocessing(unshifted: unshifted), alignment: alignment(), options: options, cancellation: token,
+            progress: { ticks.values.append($0); token.cancel() })) {
+            XCTAssertEqual($0 as? ParallaxSubpixelReconstructor.ReconstructionError, .cancelled)
+        }
+        XCTAssertEqual(ticks.values.count, 1)
+
+        let all = Ticks()
+        let result = try ParallaxSubpixelReconstructor.reconstruct(
+            preprocessing: preprocessing(unshifted: unshifted), alignment: alignment(), options: options,
+            progress: { all.values.append($0) })
+        XCTAssertEqual(result.positionCorrectionScores.count, 4, "the baseline and one score per iteration")
+        XCTAssertEqual(all.values.count, 4, "three iteration ticks and the final one")
+        XCTAssertEqual(all.values.first ?? 0, 0.2 + 0.7 / 3, accuracy: 1e-12)
+        XCTAssertEqual(all.values.last, 1)
     }
 }

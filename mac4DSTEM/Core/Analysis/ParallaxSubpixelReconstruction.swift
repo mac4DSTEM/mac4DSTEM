@@ -1,8 +1,7 @@
 //
 //  ParallaxSubpixelReconstruction.swift
-//  py4DSTEM Parallax.subpixel_alignment. The kernel-density deposition and the factor heuristic are CuboKit 0.4.0's
-//  CuboParallax.ParallaxSubpixel; the position-correction loop (the app's Float variant, cancellation and progress) stays here:
-//  delete at a CuboKit whose correctPositions offers the app's variant.
+//  py4DSTEM Parallax.subpixel_alignment. The kernel-density deposition, the factor heuristic and the position-correction loop (the
+//  app's Float variant) are CuboKit 0.6.0's CuboParallax.ParallaxSubpixel; this file keeps the options, the memory refusal and the crop.
 //
 
 import CuboParallax
@@ -176,7 +175,7 @@ package nonisolated enum ParallaxSubpixelReconstructor {
         var workingBytes = outputCount * (MemoryLayout<Double>.stride * doubleArrayCount + MemoryLayout<Float>.stride)
             + preprocessing.brightFieldPixelCount * planeCount * MemoryLayout<Double>.stride
         if options.positionCorrectionIterations != nil {
-            // dx, dy, step, scores, four trial score maps, and fixed-step scores (Float), and the Double probe offsets handed to the kit.
+            // The kit's loop holds the offsets, steps, scores, four trial score maps and the fixed-step scores (Float) and the Double offsets it hands to each deposition.
             guard planeCount <= Int.max / (MemoryLayout<Float>.stride * 9 + MemoryLayout<Double>.stride * 2) else {
                 throw ReconstructionError.invalidOptions("position work dimensions overflow")
             }
@@ -188,119 +187,54 @@ package nonisolated enum ParallaxSubpixelReconstructor {
             )
         }
 
-        var probeRows = [Float](repeating: 0, count: planeCount)
-        var probeColumns = [Float](repeating: 0, count: planeCount)
-        // The unshifted stack and the shifts as the kit's Double inputs, converted once for every deposition below.
+        // The unshifted stack and the shifts as the kit's Double inputs.
         let images: [[Double]] = (0..<preprocessing.brightFieldPixelCount).map { bf in
             preprocessing.unshiftedStack[(bf * planeCount)..<((bf + 1) * planeCount)].map(Double.init)
         }
         let shifts = alignment.totalShifts.map {
             CuboParallax.ParallaxShift(row: Double($0.row), column: Double($0.column))
         }
-        func deposit() throws -> [Float] {
-            try checkCancellation(cancellation)
-            return try kernelDensity(
-                images: images, shifts: shifts, rows: preprocessing.stackHeight, columns: preprocessing.stackWidth,
-                probeRows: probeRows, probeColumns: probeColumns, factor: factor,
-                sigmaPixels: options.kdeSigmaPixels, lanczosOrder: options.lanczosOrder, lowpass: options.lowpassFilter
-            )
-        }
-        var pixelOutput = try deposit()
-        progress?(options.positionCorrectionIterations == nil ? 0.9 : 0.2)
-
+        let isCancelled: () -> Bool = { cancellation?.isCancelled == true }
+        var probeRows = [Float](repeating: 0, count: planeCount)
+        var probeColumns = [Float](repeating: 0, count: planeCount)
+        var pixelOutput: [Float]
         var correctionScores = [Float]()
-        if let iterations = options.positionCorrectionIterations {
-            var step = [Float](
-                repeating: options.positionCorrectionInitialStep, count: planeCount
-            )
-            let window = paddedWindow(preprocessing)
-            var scores = try scoreMap(
-                image: pixelOutput, outputWidth: outputWidth, outputHeight: outputHeight,
-                preprocessing: preprocessing, alignment: alignment,
-                probeRows: probeRows, probeColumns: probeColumns,
-                factor: Float(factor), window: window, cancellation: cancellation
-            )
-            correctionScores.append(mean(scores))
-            let directions: [(Float, Float)] = options.positionCorrectionCheckerboard
-                ? [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                : [(-0.5, 0), (0.5, 0), (0, -0.5), (0, 0.5)]
-            for iteration in 0..<iterations {
-                try checkCancellation(cancellation)
-                var trials = [[Float]]()
-                for direction in directions {
-                    let trialRows = zip(probeRows, step).map {
-                        $0.0 + direction.0 * $0.1
-                    }
-                    let trialColumns = zip(probeColumns, step).map {
-                        $0.0 + direction.1 * $0.1
-                    }
-                    trials.append(try scoreMap(
-                        image: pixelOutput, outputWidth: outputWidth,
-                        outputHeight: outputHeight, preprocessing: preprocessing,
-                        alignment: alignment, probeRows: trialRows,
-                        probeColumns: trialColumns, factor: Float(factor),
-                        window: nil, cancellation: cancellation
-                    ))
-                }
-                var update = [Bool](repeating: false, count: planeCount)
-                if options.positionCorrectionCheckerboard {
-                    for index in 0..<planeCount {
-                        var best = 0
-                        var bestScore = trials[0][index] * window[index]
-                        for direction in 1..<4 {
-                            let value = trials[direction][index] * window[index]
-                            if value < bestScore { best = direction; bestScore = value }
-                        }
-                        if bestScore < scores[index] {
-                            update[index] = true
-                            probeRows[index] += directions[best].0 * step[index] * window[index]
-                            probeColumns[index] += directions[best].1 * step[index] * window[index]
-                        }
-                    }
-                } else {
-                    var deltaRows = [Float](repeating: 0, count: planeCount)
-                    var deltaColumns = [Float](repeating: 0, count: planeCount)
-                    for index in 0..<planeCount {
-                        let gradientRow = trials[0][index] - trials[1][index]
-                        let gradientColumn = trials[2][index] - trials[3][index]
-                        let denominator = hypot(gradientRow, gradientColumn) / step[index]
-                        if denominator.isFinite, denominator > 0 {
-                            deltaRows[index] = gradientRow * window[index] / denominator
-                            deltaColumns[index] = gradientColumn * window[index] / denominator
-                        }
-                    }
-                    let trialRows = zip(probeRows, deltaRows).map(+)
-                    let trialColumns = zip(probeColumns, deltaColumns).map(+)
-                    let fixed = try scoreMap(
-                        image: pixelOutput, outputWidth: outputWidth,
-                        outputHeight: outputHeight, preprocessing: preprocessing,
-                        alignment: alignment, probeRows: trialRows,
-                        probeColumns: trialColumns, factor: Float(factor),
-                        window: window, cancellation: cancellation
-                    )
-                    for index in 0..<planeCount where fixed[index] < scores[index] {
-                        update[index] = true
-                        probeRows[index] += deltaRows[index]
-                        probeColumns[index] += deltaColumns[index]
-                    }
-                }
-                for index in 0..<planeCount where !update[index] {
-                    step[index] = max(
-                        step[index] * options.positionCorrectionStepFactor,
-                        options.positionCorrectionMinimumStep
-                    )
-                }
-                pixelOutput = try deposit()
-                scores = try scoreMap(
-                    image: pixelOutput, outputWidth: outputWidth,
-                    outputHeight: outputHeight, preprocessing: preprocessing,
-                    alignment: alignment, probeRows: probeRows,
-                    probeColumns: probeColumns, factor: Float(factor),
-                    window: window, cancellation: cancellation
+        do {
+            if let iterations = options.positionCorrectionIterations {
+                // The app's Float loop is the kit's `.application` variant (CuboKit 0.6.0): Float offsets, steps and scores, no
+                // regularisation, the step floor on rejected sites only, a zero gradient a zero move.
+                var correction = CuboParallax.ParallaxPositionCorrectionOptions(iterations: iterations)
+                correction.variant = .application
+                correction.initialStep = Double(options.positionCorrectionInitialStep)
+                correction.minimumStep = Double(options.positionCorrectionMinimumStep)
+                correction.stepFactor = Double(options.positionCorrectionStepFactor)
+                correction.checkerboard = options.positionCorrectionCheckerboard
+                let result = try CuboParallax.ParallaxSubpixel.correctPositions(
+                    images: images, rows: preprocessing.stackHeight, columns: preprocessing.stackWidth, shifts: shifts,
+                    window: paddedWindow(preprocessing).map(Double.init),
+                    scanSampling: CuboParallax.ParallaxShift(row: scanSampling, column: scanSampling), factor: factor,
+                    sigmaPixels: options.kdeSigmaPixels, lanczosOrder: options.lanczosOrder, lowpass: options.lowpassFilter,
+                    options: correction, isCancelled: isCancelled,
+                    progress: { completed, total in progress?(0.2 + 0.7 * Double(completed) / Double(max(total, 1))) }
                 )
-                correctionScores.append(mean(scores))
-                progress?(0.2 + 0.7 * Double(iteration + 1) / Double(max(iterations, 1)))
+                pixelOutput = result.image.image.map(Float.init)
+                probeRows = result.offsets.rows.map(Float.init)
+                probeColumns = result.offsets.columns.map(Float.init)
+                correctionScores = result.scores.map(Float.init)
+            } else {
+                pixelOutput = try CuboParallax.ParallaxSubpixel.kernelDensity(
+                    images: images, rows: preprocessing.stackHeight, columns: preprocessing.stackWidth, shifts: shifts,
+                    factor: factor, sigmaPixels: options.kdeSigmaPixels, lanczosOrder: options.lanczosOrder,
+                    lowpass: options.lowpassFilter,
+                    probeOffsets: CuboParallax.ParallaxProbeOffsets(
+                        rows: probeRows.map(Double.init), columns: probeColumns.map(Double.init))
+                ).image.map(Float.init)
+                progress?(0.9)
             }
+        } catch is CancellationError {
+            throw ReconstructionError.cancelled
+        } catch {
+            throw ReconstructionError.invalidInput(parallaxKitReason(error))
         }
         try checkCancellation(cancellation)
 
@@ -326,81 +260,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
         )
     }
 
-    /// CuboParallax's `ParallaxSubpixel.kernelDensity` (bilinear or Lanczos deposition, Gaussian blur, density division, optional
-    /// pixel-sinc low-pass) with the current probe-position offsets, back to the Float image the scoring reads.
-    private static func kernelDensity(
-        images: [[Double]], shifts: [CuboParallax.ParallaxShift], rows: Int, columns: Int,
-        probeRows: [Float], probeColumns: [Float], factor: Double,
-        sigmaPixels: Double, lanczosOrder: Int?, lowpass: Bool
-    ) throws -> [Float] {
-        do {
-            let result = try CuboParallax.ParallaxSubpixel.kernelDensity(
-                images: images, rows: rows, columns: columns, shifts: shifts, factor: factor,
-                sigmaPixels: sigmaPixels, lanczosOrder: lanczosOrder, lowpass: lowpass,
-                probeOffsets: CuboParallax.ParallaxProbeOffsets(
-                    rows: probeRows.map(Double.init), columns: probeColumns.map(Double.init))
-            )
-            return result.image.map(Float.init)
-        } catch {
-            throw ReconstructionError.invalidInput(parallaxKitReason(error))
-        }
-    }
-
-    private static func scoreMap(
-        image: [Float], outputWidth: Int, outputHeight: Int,
-        preprocessing: ParallaxPreprocessResult,
-        alignment: ParallaxAlignmentResult,
-        probeRows: [Float], probeColumns: [Float], factor: Float,
-        window: [Float]?, cancellation: AnalysisCancellationToken?
-    ) throws -> [Float] {
-        let width = preprocessing.stackWidth
-        let height = preprocessing.stackHeight
-        let planeCount = width * height
-        var scores = [Float](repeating: 0, count: planeCount)
-        for row in 0..<height {
-            if row & 7 == 0 { try checkCancellation(cancellation) }
-            for column in 0..<width {
-                let position = row * width + column
-                var score: Float = 0
-                for bf in 0..<preprocessing.brightFieldPixelCount {
-                    let coordinateRow = (
-                        Float(row) + probeRows[position] + alignment.totalShifts[bf].row
-                    ) * factor
-                    let coordinateColumn = (
-                        Float(column) + probeColumns[position]
-                            + alignment.totalShifts[bf].column
-                    ) * factor
-                    let sampled = bilinearSample(
-                        image, width: outputWidth, height: outputHeight,
-                        row: coordinateRow, column: coordinateColumn
-                    )
-                    score += abs(sampled - preprocessing.unshiftedStack[
-                        bf * planeCount + position
-                    ])
-                }
-                score /= Float(preprocessing.brightFieldPixelCount)
-                scores[position] = score * (window?[position] ?? 1)
-            }
-        }
-        return scores
-    }
-
-    private static func bilinearSample(
-        _ image: [Float], width: Int, height: Int, row: Float, column: Float
-    ) -> Float {
-        let rowFloor = Int(floor(row)), columnFloor = Int(floor(column))
-        let rowFraction = row - Float(rowFloor)
-        let columnFraction = column - Float(columnFloor)
-        let row0 = wrapped(rowFloor, count: height)
-        let row1 = wrapped(rowFloor + 1, count: height)
-        let column0 = wrapped(columnFloor, count: width)
-        let column1 = wrapped(columnFloor + 1, count: width)
-        return image[row0 * width + column0] * (1 - rowFraction) * (1 - columnFraction)
-            + image[row1 * width + column0] * rowFraction * (1 - columnFraction)
-            + image[row0 * width + column1] * (1 - rowFraction) * columnFraction
-            + image[row1 * width + column1] * rowFraction * columnFraction
-    }
-
     private static func paddedWindow(
         _ preprocessing: ParallaxPreprocessResult
     ) -> [Float] {
@@ -416,10 +275,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
             }
         }
         return window
-    }
-
-    private static func mean(_ values: [Float]) -> Float {
-        values.reduce(0, +) / Float(values.count)
     }
 
     private static func crop(
@@ -441,11 +296,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
             )
         }
         return FloatImage(width: cropWidth, height: cropHeight, pixels: cropped)
-    }
-
-    private static func wrapped(_ value: Int, count: Int) -> Int {
-        let remainder = value % count
-        return remainder >= 0 ? remainder : remainder + count
     }
 
     private static func checkCancellation(
