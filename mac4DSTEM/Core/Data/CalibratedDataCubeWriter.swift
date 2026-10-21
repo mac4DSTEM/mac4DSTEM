@@ -463,8 +463,15 @@ nonisolated extension BraggVectorEMDWriter {
         let sourcePatternCount = descriptor.qy * descriptor.qx
         let patternSize = outQY * outQX
         var output = [Float](repeating: 0, count: localRows * xPositions.count * patternSize)
-        var flags = [Bool](repeating: false, count: hotPixelMask.isEmpty ? 0 : patternSize)
-        for flat in hotPixelMask where flags.indices.contains(flat) { flags[flat] = true }
+        // One replacement plan for the whole tile: the kit builds the clipped 3x3 neighbour lists of the mask once and
+        // `apply` allocates nothing per pattern (CuboKit 0.6.0, `HotPixelFilter.Replacer`).
+        var replacer: HotPixelFilter.Replacer?
+        if !hotPixelMask.isEmpty {
+            var flags = [Bool](repeating: false, count: patternSize)
+            for flat in hotPixelMask where flags.indices.contains(flat) { flags[flat] = true }
+            do { replacer = try HotPixelFilter.Replacer(rows: outQY, columns: outQX, mask: flags) }
+            catch { throw WriterError.hotPixelFilterNeedsFinitePixels }
+        }
         for localY in 0..<localRows {
             for (outX, sourceX) in xPositions.enumerated() {
                 let inputBase = (localY * descriptor.rx + sourceX) * sourcePatternCount
@@ -481,8 +488,8 @@ nonisolated extension BraggVectorEMDWriter {
                         output[outputBase + qy * outQX + qx] = sum
                     }
                 }
-                if !hotPixelMask.isEmpty {
-                    try replaceHotPixels(in: &output, base: outputBase, rows: outQY, columns: outQX, mask: flags)
+                if let replacer {
+                    try replaceHotPixels(in: &output, base: outputBase, replacer: replacer)
                 }
             }
         }
@@ -490,17 +497,24 @@ nonisolated extension BraggVectorEMDWriter {
     }
 
     /// The masked pixels of the pattern at `pixels[base ..< base + rows * columns]` replaced by CuboCore's clipped 3x3 median, in place
-    /// (the other patterns are not touched). A non-finite pixel is refused, as the kit refuses it.
+    /// (the other patterns are not touched). A non-finite pixel is refused, as the kit's `replacing` refuses it.
     package static func replaceHotPixels(in pixels: inout [Float], base: Int, rows: Int, columns: Int,
                                          mask: [Bool]) throws {
-        let range = base..<(base + rows * columns)
-        let cleaned: [Float]
-        do {
-            cleaned = try HotPixelFilter.replacing(Array(pixels[range]), rows: rows, columns: columns, mask: mask)
-        } catch {
-            throw WriterError.hotPixelFilterNeedsFinitePixels
+        let replacer: HotPixelFilter.Replacer
+        do { replacer = try HotPixelFilter.Replacer(rows: rows, columns: columns, mask: mask) }
+        catch { throw WriterError.hotPixelFilterNeedsFinitePixels }
+        try replaceHotPixels(in: &pixels, base: base, replacer: replacer)
+    }
+
+    /// `replaceHotPixels` with a plan built once for the mask and reused across patterns (`Replacer.apply` assumes finite
+    /// pixels, so the pattern is checked first and a non-finite one is refused, as before).
+    package static func replaceHotPixels(in pixels: inout [Float], base: Int, replacer: HotPixelFilter.Replacer) throws {
+        let end = base + replacer.rows * replacer.columns
+        guard base >= 0, end <= pixels.count else { throw WriterError.hotPixelFilterNeedsFinitePixels }
+        try pixels.withUnsafeMutableBufferPointer { buffer in
+            for i in base..<end where !buffer[i].isFinite { throw WriterError.hotPixelFilterNeedsFinitePixels }
+            replacer.apply(to: buffer, base: base)
         }
-        pixels.replaceSubrange(range, with: cleaned)
     }
 
     /// Mean of the exported (cropped, thinned, binned) patterns: the first of the

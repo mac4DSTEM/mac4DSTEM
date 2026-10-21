@@ -125,6 +125,23 @@ final class PreprocessExportTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: target.path))
     }
 
+    /// One `Replacer` reused across many patterns equals the kit's validating `replacing` pattern by pattern, bit for bit
+    /// (CuboKit 0.6.0), writes only its own pattern, and still refuses a non-finite pixel.
+    func testASharedReplacerMatchesReplacingOnEveryPatternAndRefusesNonFinite() throws {
+        let rows = 6, columns = 7, size = rows * columns, count = 5
+        var pixels = (0..<(size * count)).map { Float(($0 * 37 + 11) % 101) }
+        var mask = [Bool](repeating: false, count: size)
+        for k in [0, 8, 20, size - 1] { mask[k] = true }      // a corner, the interior, the far corner
+        let expected = (0..<count).flatMap { p in
+            try! HotPixelFilter.replacing(Array(pixels[(p * size)..<((p + 1) * size)]), rows: rows, columns: columns, mask: mask)
+        }
+        let replacer = try HotPixelFilter.Replacer(rows: rows, columns: columns, mask: mask)
+        for p in 0..<count { try BraggVectorEMDWriter.replaceHotPixels(in: &pixels, base: p * size, replacer: replacer) }
+        XCTAssertEqual(pixels.map(\.bitPattern), expected.map(\.bitPattern))
+        pixels[2 * size + 3] = .infinity
+        XCTAssertThrowsError(try BraggVectorEMDWriter.replaceHotPixels(in: &pixels, base: 2 * size, replacer: replacer))
+    }
+
     func testANonFinitePixelIsRefusedNotMedianed() {
         var pixels: [Float] = [1, .nan, 3]
         XCTAssertThrowsError(try BraggVectorEMDWriter.replaceHotPixels(
