@@ -47,9 +47,10 @@ final class SpectroscopyDriveL11Tests: XCTestCase {
     /// Mutation: `mapChips` offers every `MapMode` (wt% and at% are not per-pixel maps) or `mapSelection` writes `.integrated` always - red.
     func testMapsChipsAreIntAndNetAndWriteTheMode() {
         let m = SpectroscopyRoomModel.fixture
-        XCTAssertEqual(ElementsSection.mapChips.map(\.title), ["int", "net"])
+        XCTAssertEqual(ElementsSection.mapChips(quantified: false).map(\.title), ["int", "net"])
+        XCTAssertEqual(ElementsSection.mapChips(quantified: true).map(\.title), ["int", "net", "wt%", "at%"])
         m.mapMode = .netCounts
-        let g = group(ElementsSection.mapChips, .single, ElementsSection.mapSelection(m))
+        let g = group(ElementsSection.mapChips(quantified: false), .single, ElementsSection.mapSelection(m))
         XCTAssertEqual(ElementsSection.mapSelection(m).wrappedValue, [.netCounts])
         g.tap(.integrated)
         XCTAssertEqual(m.mapMode, .integrated)

@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Spectroscopy: wt% and at% map modes (offered after Quantify, typed k) from `EDXQuantification.quantifyMaps`; per-pixel, no σ, a failed pixel (e.g. negative net) drawn 0 and counted on the tile, badge `validation: none`. Runs without absorption correction and refuses computed k with a sentence until the kit exposes them. Not on screen yet (unverified).
+
 - 2026-10-21 Patch re-pin: SpectroKit 0.8.1, FormatoKit 0.9.1, DiffractoKit 0.9.1, CuboKit 0.8.1, ImagoKit 0.6.1 (no source change, no public API change). Visible: `peak_local_max` accepts ±inf; CIF import is faster with identical results; kit test pins loosened to the Python tolerances. No migration.
 
 - 2026-10-21 Re-pin onto the audited kits: SpectroKit 0.8.0, FormatoKit 0.9.0, DiffractoKit 0.9.0, CuboKit 0.8.0, ImagoKit 0.6.0 (no feature, no numerics). Migration (visible): a CIF that names its group by Hermann-Mauguin symbol alone and lists an incomplete operation set is now refused (`incompleteSymmetryOperationsForSymbol`; it imported before). Source change: `sameScanAs4DCube` is `sameScanAsCube`; the unit tests name `DSTEMCore.Calibration` because CuboCore now exports a `Calibration` too. The spectro goldens carry the renamed field.

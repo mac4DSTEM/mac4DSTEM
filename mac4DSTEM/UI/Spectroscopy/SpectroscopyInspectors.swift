@@ -66,7 +66,7 @@ struct ElementsSection: View {
         PeriodicTableView(model: model)
         SelectedElementRows(model: model)
         InspectorRow("Maps") {
-            GlassChipGroup(chips: Self.mapChips, mode: .single, selection: Self.mapSelection(model), identifier: "spectroscopy.mapMode")
+            GlassChipGroup(chips: Self.mapChips(quantified: model.hasFit), mode: .single, selection: Self.mapSelection(model), identifier: "spectroscopy.mapMode")
         }
         // Row 1a: a display kernel on the maps (the fixture has no maps behind it, so no row there).
         if model.isLive {
@@ -121,10 +121,10 @@ struct ElementsSection: View {
         if let why = model.autoID.failure { InspectorNote(why) }
     }
 
-    /// The maps' int / net choice as chips (wt% and at% are not per-pixel, so they are not offered).
-    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the Results section), not per pixel."
-    static var mapChips: [GlassChip<MapMode>] {
-        MapMode.allCases.filter(\.isAvailable).map {
+    /// The maps' choice as chips: int and net always, wt% and at% once Quantify has run.
+    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% (after Quantify, typed k) are per-pixel with no σ; the number with a σ is a pooled region's, in the Results section."
+    static func mapChips(quantified: Bool) -> [GlassChip<MapMode>] {
+        MapMode.allCases.filter { $0.isOffered(quantified: quantified) }.map {
             GlassChip(id: $0, title: $0.rawValue, help: mapHelp, accessibilityID: "spectroscopy.mapMode." + $0.rawValue)
         }
     }

@@ -14,11 +14,9 @@
 		300000000000000000000011 /* DiffractoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000010 /* DiffractoCore */; };
 		300000000000000000000013 /* DiffractoScattering in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000012 /* DiffractoScattering */; };
 		300000000000000000000015 /* DiffractoGeometry in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000014 /* DiffractoGeometry */; };
-		300000000000000000000101 /* DiffractoOrientation in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000100 /* DiffractoOrientation */; };
 		300000000000000000000017 /* CuboCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000016 /* CuboCore */; };
 		300000000000000000000019 /* CuboVirtual in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000018 /* CuboVirtual */; };
 		30000000000000000000001B /* CuboPhase in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001A /* CuboPhase */; };
-		300000000000000000000103 /* CuboParallax in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000102 /* CuboParallax */; };
 		30000000000000000000001D /* SpectroEDX in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001C /* SpectroEDX */; };
 		30000000000000000000001F /* FormatoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001E /* FormatoCore */; };
 		300000000000000000000021 /* FormatoDM in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000020 /* FormatoDM */; };
@@ -26,6 +24,8 @@
 		300000000000000000000025 /* FormatoHDF5 in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000024 /* FormatoHDF5 */; };
 		300000000000000000000031 /* ImagoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000030 /* ImagoCore */; };
 		300000000000000000000033 /* ImagoFFT in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000032 /* ImagoFFT */; };
+		300000000000000000000101 /* DiffractoOrientation in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000100 /* DiffractoOrientation */; };
+		300000000000000000000103 /* CuboParallax in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000102 /* CuboParallax */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
@@ -92,13 +92,13 @@
 				Core/Crystal/MaterialsProjectImport.swift,
 				Core/Crystal/OrientationMatcher.swift,
 				Core/Crystal/OrientationPlan.swift,
-				Core/Crystal/PhaseMapPresentation.swift,
 				Core/Crystal/PhaseMappingScan.swift,
+				Core/Crystal/PhaseMapPresentation.swift,
 				Core/Data/BraggVectorEMDTypes.swift,
 				Core/Data/BraggVectorEMDWriter.swift,
+				Core/Data/CalibratedDataCubeWriter.swift,
 				Core/Data/Calibration.swift,
 				Core/Data/CalibrationReReference.swift,
-				Core/Data/CalibratedDataCubeWriter.swift,
 				Core/Data/CuboCubeSource.swift,
 				Core/Data/DatasetDescriptor.swift,
 				Core/Data/DemoFourDDataSource.swift,
@@ -127,8 +127,8 @@
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Workflow/AnalysisOperationController.swift,
 				Info.plist,
-				Resources/DiskDetector/disk-detector-heatmap-256.json,
-				Resources/DiskDetector/disk-detector-heatmap-256.mlpackage,
+				"Resources/DiskDetector/disk-detector-heatmap-256.json",
+				"Resources/DiskDetector/disk-detector-heatmap-256.mlpackage",
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,
 				Session/AppPreferences.swift,
@@ -187,10 +187,10 @@
 				Fixtures/DiskDetector/fixture/expected.json,
 				Fixtures/DiskDetector/fixture/fixture.npz,
 				Fixtures/DiskDetector/fixture/swift/expected.json,
-				Fixtures/DiskDetector/fixture/swift/inputs-ref.f16,
+				"Fixtures/DiskDetector/fixture/swift/inputs-ref.f16",
 				Fixtures/DiskDetector/fixture/swift/patterns.u16,
 				Fixtures/DiskDetector/fixture/swift/probe.f32,
-				Fixtures/DiskDetector/labels/bullseye-2026-09-28.json,
+				"Fixtures/DiskDetector/labels/bullseye-2026-09-28.json",
 			);
 			target = 100000000000000100000000 /* mac4DSTEMTests */;
 		};
@@ -948,11 +948,6 @@
 			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
 			productName = DiffractoGeometry;
 		};
-		300000000000000000000100 /* DiffractoOrientation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
-			productName = DiffractoOrientation;
-		};
 		300000000000000000000016 /* CuboCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
@@ -967,11 +962,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
 			productName = CuboPhase;
-		};
-		300000000000000000000102 /* CuboParallax */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
-			productName = CuboParallax;
 		};
 		30000000000000000000001C /* SpectroEDX */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1007,6 +997,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */;
 			productName = ImagoFFT;
+		};
+		300000000000000000000100 /* DiffractoOrientation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
+			productName = DiffractoOrientation;
+		};
+		300000000000000000000102 /* CuboParallax */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
+			productName = CuboParallax;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

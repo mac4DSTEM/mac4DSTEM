@@ -47,6 +47,14 @@ struct MapsGridView: View {
                     .offset(x: plan.tileArea.minX, y: plan.tileArea.minY)
             }
         }
+        .overlay(alignment: .top) {
+            // wt% / at% could not be made: the sentence in the kit's or the app's words; int and net stay selectable.
+            if let why = model.quantMapsFailure {
+                Text(why).font(.caption).foregroundStyle(.white).padding(6)
+                    .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6)).padding(.top, 4)
+                    .accessibilityIdentifier("spectroscopy.maps.failure")
+            }
+        }
         .frame(width: plan.size.width, height: plan.size.height, alignment: .topLeading)
     }
 
@@ -314,7 +322,11 @@ struct MapTileView: View {
                 Text(ColorMixHeader.text(mixed: mixed, smoothing: model.smoothing)).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
                     .help(ColorMixHeader.help(mixed: mixed, notMixed: notMixed))
             } else {
-                if case .element = map, let kernel = Self.kernelText(mode: model.mapMode, smoothing: model.smoothing) {
+                if case .element = map, let footer = tile?.footer, model.mapMode.isComposition {
+                    // A composition tile: failed pixels, "no σ", the absorption state and the badge (`validation: none`).
+                    Text("\(model.mapMode.rawValue) \u{00B7} per-pixel").font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                        .help(footer).accessibilityIdentifier("spectroscopy.tile.footer")
+                } else if case .element = map, let kernel = Self.kernelText(mode: model.mapMode, smoothing: model.smoothing) {
                     // Row 1a: the tile names the kernel it went through; the raw map is what the export writes.
                     Text(kernel).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
                         .help(Self.kernelHelp(smoothing: model.smoothing) ?? "")

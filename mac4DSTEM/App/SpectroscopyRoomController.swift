@@ -702,6 +702,8 @@ final class SpectroscopyRoomController {
         let quantify: QuantifyRequest?
         /// `SpectrumComputeCache.epoch(region)` when the request was made: what this pass caches is refused if the region was forgotten since.
         var epoch: Int? = nil
+        /// wt% or at%: the maps pass runs after the fit (needs `quantify`); nil for int and net.
+        var compositionMode: MapMode? = nil
     }
 
     struct QuantifyRequest: Sendable {
@@ -724,6 +726,13 @@ final class SpectroscopyRoomController {
         let fitFailure: String?
         /// The same method on the whole map (for a region's comparison line); nil for the whole map or without a fit.
         let wholeLine: String?
+        /// The wt% / at% maps of `compositionMode` (kit `quantifyMaps` over the net maps), nil when not asked for.
+        var quantMaps: QuantMapsOutcome? = nil
+    }
+
+    enum QuantMapsOutcome: Sendable {
+        case maps(EDXQuantificationMaps, elements: [String], masked: Int)
+        case failed(String)
     }
 
     /// Recomputes everything the current selection shows. Cheap when nothing it needs is new; the pooled fit (after the
@@ -735,6 +744,7 @@ final class SpectroscopyRoomController {
             cancelAutoID()
             autoIDRestart = true   // the open's run is not lost to a click made while it ran: it starts again below
         }
+        if model.mapMode.isComposition, !quantifyActive { model.mapMode = .netCounts }   // wt% / at% exist only after Quantify
         checkTask?.cancel(); checkTask = nil         // about the previous fit; the next fit starts its own
         generation += 1
         let gen = generation
@@ -744,9 +754,10 @@ final class SpectroscopyRoomController {
             quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
             model.isFitting = true
         }
-        let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
+        var request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
                               integrated: model.mapMode == .integrated,
                               beam: source.metadata.beamEnergyKeV, quantify: quantify, epoch: cache.epoch(region.id))
+        if model.mapMode.isComposition, quantify != nil { request.compositionMode = model.mapMode }
         let cache = cache
         // The previous recompute is about a selection that no longer stands (its answer would be dropped by the generation check):
         // cancel it so its remaining stages do not run. A cancelled task returns early and lands nothing.
@@ -826,8 +837,37 @@ final class SpectroscopyRoomController {
             } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
         }
         if cancelled() { return nil }
-        return Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
-                      fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
+        var out = Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
+                         fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
+        if r.compositionMode != nil, let q = r.quantify {
+            out.quantMaps = quantMaps(windows: windows, maps: maps, method: q.method, width: r.source.nx, height: r.source.ny)
+            if cancelled() { return nil }
+        }
+        return out
+    }
+
+    /// The wt% / at% maps: the quantified elements' summed net maps (as the tiles take them) into `EDXQuantification.quantifyMaps`.
+    nonisolated static func quantMaps(windows: [LineWindow], maps: [[Double]?], method: QuantificationMethod,
+                                      width: Int, height: Int, minimumCounts: Double = 0) -> QuantMapsOutcome {
+        let quantified = Set(method.elements.filter { $0.role == .quantify }.map(\.symbol))
+        var elements: [String] = [], inputs: [[Double]] = []
+        var done = Set<String>()
+        for w in windows where quantified.contains(w.element) && done.insert(w.element).inserted {
+            let group = windows.indices.filter { windows[$0].element == w.element }
+            guard let map = summed(group.compactMap { maps[$0] }) else {
+                return .failed("No map for \(w.element): \(w.failure ?? "its line is not on the axis").")
+            }
+            elements.append(w.element); inputs.append(map)
+        }
+        switch QuantMapsSetup.setup(method: method, elements: elements) {
+        case .failure(let why): return .failed(why.text)
+        case .success(let setup):
+            let request = QuantMapsRequest(setup: setup, rows: height, columns: width, minimumCounts: minimumCounts, methodHash: method.hash)
+            do {
+                let result = try QuantMapsPass.run(request, netMaps: inputs)
+                return .maps(result, elements: elements, masked: 0)
+            } catch { return .failed((error as? LocalizedError)?.errorDescription ?? "\(error)") }
+        }
     }
 
     private func apply(_ out: Output, generation gen: Int) {
@@ -894,6 +934,23 @@ final class SpectroscopyRoomController {
         for i in tiles.indices { tiles[i].lineLabel = tileLineLabels[tiles[i].z] }   // "Al Kα+Kβ" on the tile only when the person chose lines
         m.results = rows
         applyFit(out, source: source)
+        m.quantMapsFailure = nil
+        if let qm = out.quantMaps, m.mapMode.isComposition {
+            switch qm {
+            case .failed(let why):
+                m.quantMapsFailure = why
+                tiles = []
+            case .maps(let result, let elements, let masked):
+                let summary = QuantMapsPass.summary(result, masked: masked)
+                for i in tiles.indices {
+                    guard let e = elements.firstIndex(of: PeriodicLayout.symbol(tiles[i].z)),
+                          let pct = QuantMapsPass.percentMap(result, index: e, mode: m.mapMode) else { continue }
+                    var t = QuantMapsPass.tile(z: tiles[i].z, percent: pct, width: source.nx, height: source.ny, summary: summary, mode: m.mapMode)
+                    t.lineLabel = tiles[i].lineLabel
+                    tiles[i] = t
+                }
+            }
+        }
         m.tiles = tiles
         m.tileRevision += 1
         // A tile that is gone loses its tick and its "seen" mark, so it is ticked again when it comes back.
@@ -1032,7 +1089,7 @@ final class SpectroscopyRoomController {
     }
 
     /// The sum of the maps of one element's lines (pixel by pixel); nil for none. One map is returned as it is.
-    static func summed(_ maps: [[Double]]) -> [Double]? {
+    nonisolated static func summed(_ maps: [[Double]]) -> [Double]? {
         guard var total = maps.first else { return nil }
         for m in maps.dropFirst() { for p in total.indices { total[p] += m[p] } }
         return total

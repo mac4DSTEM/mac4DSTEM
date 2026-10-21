@@ -28,6 +28,9 @@ final class SpectroscopyRoomModel {
     var smoothing: MapSmoothing = .none
     var mixed: Set<Int> = []                   // tiles picked into the ColorMix
     var tiles: [MapTile] = []
+    /// The wt% / at% maps' state: nil when they are not asked for or landed; the kit's or the app's sentence when they could not be made
+    /// (int and net stay selectable). Set by the controller with `tiles`.
+    var quantMapsFailure: String?
     /// Colour per element the person chose in the active map's popover; absent: `ElementPalette`. View state: the element
     /// states the replay record keeps (`QuantificationMethod.ElementState`) hold no colour and a colour is not a method
     /// setting, so it lives (and is lost with the window) here, reset when a spectrum image is bound.
@@ -258,6 +261,8 @@ struct MapTile: Identifiable {
     var scale: Float = 1
     /// "Al Kα+Kβ": the lines the person chose for this map (nil = the default line, which says nothing).
     var lineLabel: String? = nil
+    /// A wt% / at% tile's note: failed pixels, "per-pixel, no σ", the absorption state and the badge (`validation: none`).
+    var footer: String? = nil
     var id: Int { z }
 }
 

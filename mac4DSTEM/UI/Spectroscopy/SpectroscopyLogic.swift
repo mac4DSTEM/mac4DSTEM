@@ -582,10 +582,14 @@ nonisolated enum MarkerLabelLayout {
 nonisolated enum AbundanceUnit: String, CaseIterable, Sendable { case atomic = "at%", weight = "wt%" }
 /// What the maps show (the grid header's switch). `integrated` is the signal window's sum, `netCounts` the same less its
 /// background windows. at% and wt% are computed on pooled regions only (ADR 054 item 3, a pooled fit has a σ and a pixel's
-/// counts have none worth a composition), so the two are listed but never offered for the maps.
+/// counts have none worth a composition), so the pooled fit keeps the number with a σ; the per-pixel maps (task 4) are offered once
+/// Quantify has run, computed by `EDXQuantification.quantifyMaps`, and say "per-pixel, no σ".
 nonisolated enum MapMode: String, CaseIterable, Sendable {
     case integrated = "int", netCounts = "net", weight = "wt%", atomic = "at%"
     var isAvailable: Bool { self == .integrated || self == .netCounts }
+    /// wt% and at%: a composition computed from the net maps, not a count.
+    var isComposition: Bool { self == .weight || self == .atomic }
+    func isOffered(quantified: Bool) -> Bool { isAvailable || (isComposition && quantified) }
     var units: String { self == .integrated ? "integrated counts" : (self == .netCounts ? "net counts" : rawValue) }
 }
 /// The region tools in the grid header: a rectangle, or a polygon closed by a click on its first vertex.
