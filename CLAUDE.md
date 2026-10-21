@@ -35,6 +35,7 @@ The suite process (`../CLAUDE.md`): a focused commit on `main`, with tests that 
 - A threshold is a property of the dataset and settings it was measured under until measured on every dataset it will touch; never infer a mechanism from a null result.
 - Never read a gate's exit code through a pipe: redirect to a log, `echo $?` on its own line; count tests by method name and reconcile against the expected delta. A lost session resumes from its own scratchpad, not from memory.
 - Parallel sessions share `/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/locks/`: while a file `drive` exists a session is driving the app, so start no test run; `mkdir heavy.1` / `heavy.2` is a build slot, removed after.
+- **Kit boundary** (D15): `tools/check-kit-boundary.sh` (in `inventory` and its own CI job) fails on Accelerate, vecLib, MetalPerformanceShaders, BNNS, Metal, MetalKit or simd imports, and on vDSP / cblas / vImage / LAPACK symbols, outside `tools/kit-boundary.allow` (a reason per row; rows marked LEFTOVER are debts to move to a kit). The learned detector (ADR 071) is allowlisted by decision.
 - Do NOT set `ResidencyAdmission.measuredWorkingSetFraction`: nil by decision (ADR 013).
 - Metal parameter structs in `MetalEngine.swift` stay byte-identical to the matching `.metal` structs (all 4-byte fields). Port deviations from py4DSTEM get an inline `DEVIATION` note. Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use `tools/run-tests.sh unit` for unsigned XCTest work.
 

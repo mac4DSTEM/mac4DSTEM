@@ -169,6 +169,8 @@ support=(lib release hooks)
 
 inventory() {
   local rc=0 name f
+  echo "== kit boundary (no Accelerate / Metal / vDSP in the app outside tools/kit-boundary.allow)"
+  "$ROOT/tools/check-kit-boundary.sh" || rc=1
   local -a gated=("${scientific[@]}" real-data-acceptance package-test)
   local -a harness_names=("${gated[@]}" "${diagnostic[@]}" "${owner_only[@]}" "${retired[@]}")
   echo "== tools/: gated ${#gated[@]}, diagnostic ${#diagnostic[@]}, owner-only ${#owner_only[@]}, retired ${#retired[@]}, support ${#support[@]}"
