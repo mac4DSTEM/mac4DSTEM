@@ -59,6 +59,7 @@ extension AppState {
     /// mean/max pattern display modes as a side effect.
     func calibrateOrigin() async {
         guard let fourD = datasetSession.fourD, let descriptor else { return }
+        let signpost = Signposts.begin("prepare.origin"); defer { Signposts.end(signpost) }
         let cancellation = beginCancellableOperation(
             "Origin calibration", status: "Calibrating origin…",
             totalUnits: descriptor.rx * descriptor.ry

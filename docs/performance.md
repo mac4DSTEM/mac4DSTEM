@@ -1,26 +1,26 @@
 # Performance of the main actions on the demos
 
-Measured by `PerformanceJourney` (XCTest metrics, five iterations each, the Debug build with `SWIFT_OPTIMIZATION_LEVEL=-O` as the UI
-gate builds it). Run with `tools/run-tests.sh ui Performance` (a bare `ui` skips it, `ui all` includes it). The first numbers:
-2026-10-21, Apple M5 Pro, macOS 27.0.1, the commit that adds this file. Medians of five.
+Measured by `PerformanceJourney` (XCTest metrics, five iterations each; the Debug build with `SWIFT_OPTIMIZATION_LEVEL=-O` as the UI
+gate builds it). Run with `tools/run-tests.sh ui Performance` (a bare `ui` skips it, `ui all` includes it). Machine: Apple M5 Pro
+(64 GB), macOS 27.0.1. Medians of five. Every iteration is a fresh launch and the way to the room, unmeasured (except "open"); the
+measured part runs from the click to the busy state ending.
 
-| Action (demo data) | Clock (s) | Peak memory (MB) | CPU time (s) | What one iteration drives |
+| Action (demo data) | App compute (signpost, s) | UI clock (s) | App CPU time (s) | Peak memory (MB) |
 |---|---|---|---|---|
-| Open the demo (launch to ready) | 4.24 | not measured | not measured | launch, load, preview, workspace ready |
-| Prepare: Re-calibrate Origin (origin and probe) | 2.75 | 254 | 0.30 | one click, wait for the busy state to end |
-| ADF virtual image | 4.37 | 203 | 0.46 | two clicks (workspace, action), wait |
-| Bragg disk detection, all 144 positions | 4.35 | 193 | 0.40 | two clicks, wait |
-| Strain from the disks | 6.04 | 212 | 0.56 | three clicks (workspace, task, action), wait |
-| Auto ID and Quantify (demo spectrum image) | 4.45 | 348 | 0.69 | three clicks, wait |
+| Open the demo | 0.52 | 2.15 | not measured | not measured |
+| Prepare: Re-calibrate Origin | 0.083 | 2.78 | 1.74 | 277 |
+| ADF virtual image | 0.078 | 2.77 | 2.20 | 209 |
+| Bragg disk detection, all 144 positions | 0.078 | 2.76 | 1.75 | 213 |
+| Strain from the disks | 0.045 | 2.70 | 2.44 | 280 |
+| Auto ID | 0.062 | 4.42 (with Quantify) | 2.53 (with Quantify) | 361 |
+| Quantify (pooled fit) | 0.122 | (above) | (above) | (above) |
 
-How to read it, honestly:
+How to read it:
 
-- **The clock includes the UI driver.** Every iteration is clicks and waits through XCUITest; one click-and-wait cycle costs about
-  1.5 to 2.7 s on its own (the Prepare row has one click and is the floor: 2.75 s; each further click adds about 1.5 s). The actions
-  themselves on the 12 x 12 x 64 x 64 demo are therefore well under a second and are not resolved by this journey. Do not read the
-  clock column as the app's speed; read it as a regression tripwire (a step that moves by seconds).
-- **CPU time** is the app process's CPU time in the iteration (the compute the app really did): 0.3 to 0.7 s per action.
-- **Peak memory** is the app's physical footprint peak (it includes the app's idle footprint of about 100 to 200 MB).
-- Meaningful speed numbers need a real cube (the study datasets, 28 GB class) and a driver that reads the app's own timings
-  (the status line's "Last run" values) instead of the UI round trip; that is a later session (a `--benchmark` launch flag that
-  writes the app's own per-action durations to `--export-dir`).
+- **App compute** is the app's own `os_signpost` interval around the action (`Signposts`, read by `XCTOSSignpostMetric`): the number to
+  watch. On the 12 x 12 x 64 x 64 demo every action is well under a second; the demo is too small to rank them.
+- **UI clock** includes XCUITest's own click latency and the wait for the busy state: about 2.7 s for any one click, so it is a floor of
+  the harness, not the app (an earlier run without the unmeasured preparation read 2.75 to 6 s for the same actions).
+- **App CPU time** includes the app's UI work while XCUITest drives it (about 1.7 to 2.5 s per iteration), not just the compute.
+- Real speed needs a real cube (the study datasets, 28 GB class): the signposts are in place for it; run the journey's actions by
+  hand on that cube with Instruments, or add a launch flag that opens it, in a later session.

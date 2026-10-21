@@ -26,6 +26,7 @@ extension AppState {
     @discardableResult
     func runStrainMapping(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("No dataset is loaded") }
+        let signpost = Signposts.begin("strain.map"); defer { Signposts.end(signpost) }
         guard !diskDetectionSettingsAreStale else {
             let reason = "Detection settings changed — run Detect All Disks again before computing strain."
             presentComputeFailure(SimpleError(reason))

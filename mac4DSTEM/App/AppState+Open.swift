@@ -166,6 +166,7 @@ extension AppState {
         calibrated: Bool = true,
         specification: LoadSpecification = .fullExtent
     ) async {
+        let signpost = Signposts.begin("open.demo"); defer { Signposts.end(signpost) }
         let source = DemoFourDDataSource(includesCalibration: calibrated)
         // Same rule as `commitPendingLoad`: a dataset change outside
         // `openFileAsync` drops the previous dataset's restore-failure

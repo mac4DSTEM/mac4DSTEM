@@ -283,6 +283,7 @@ extension AppState {
     /// interactive call sites ignore both. // v2 S6
     @discardableResult
     func runVirtualDetector(quiet: Bool = false, replaying: Bool = false) async -> AnalysisRunOutcome {
+        let signpost = Signposts.begin("virtual.image"); defer { Signposts.end(signpost) }
         guard let fourD = datasetSession.fourD, let descriptor else {
             return .failed("No dataset is loaded")
         }

@@ -278,6 +278,7 @@ extension AppState {
     @discardableResult
     func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let fourD = datasetSession.fourD, let descriptor else { return .failed("No dataset is loaded") }
+        let signpost = Signposts.begin("disks.all"); defer { Signposts.end(signpost) }
         // CR4: the epoch is taken BEFORE any await, with the cube and descriptor above; every await below
         // re-checks it, so a dataset opened meanwhile cannot be detected as the old cube or published as the new.
         let epoch = datasetSession.epoch

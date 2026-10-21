@@ -305,6 +305,7 @@ final class SpectroscopyRoomController {
             return
         }
         // D-12: the run is an operation (infobar bar, elapsed time, Stop); every way out ends it (`endOperation`).
+        let signpost = Signposts.begin("edx.autoID")
         let run = beginOperation("Auto ID", "Identifying elements…") { [weak self] in self?.cancelAutoID() }
         autoIDOperation = run
         let current = model.elements.activeZ.map { PeriodicLayout.symbol($0) }
@@ -335,6 +336,7 @@ final class SpectroscopyRoomController {
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
+            Signposts.end(signpost)
             let finalOutcome = outcome, finalFailure = failure   // immutable copies for the main-actor closure (no mutable capture)
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -421,6 +423,7 @@ final class SpectroscopyRoomController {
     /// session's method takes the run's own (a computed k's source string filled in), so the record names it.
     func quantify() async -> Bool {
         guard canQuantify, let session else { return false }
+        let signpost = Signposts.begin("edx.quantify"); defer { Signposts.end(signpost) }
         // D-12: the verb is an operation (infobar bar, elapsed time, Stop). Stop puts the room back as it was and records nothing.
         let wasActive = quantifyActive
         quantifying = true; quantifyStopped = false
