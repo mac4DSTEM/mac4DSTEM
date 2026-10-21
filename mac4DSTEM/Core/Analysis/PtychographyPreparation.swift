@@ -3,6 +3,7 @@
 //  Bounded bridge from an app FourDDataSource to the first single-slice engine.
 //
 
+import CuboPtycho
 import Foundation
 import ImagoCore
 
@@ -77,85 +78,53 @@ package nonisolated struct PtychographyProbeAberrations: Equatable, Sendable {
                     && ($0.component == 0 || ($0.component == 1 && $0.angularOrder > 0))
             }
     }
+}
 
-    /// The aberration function chi (radians) at scattering angle `alpha` (rad) and azimuth `theta` (rad).
-    package func chi(alpha: Double, theta: Double, wavelengthAngstrom: Double) -> Double {
-        var phase = 0.5 * alpha * alpha * (
-            -defocusAngstrom
-                + c12aAngstrom * cos(2 * theta) + c12bAngstrom * sin(2 * theta)
-        )
-        for term in higherOrder {
-            let radial = pow(alpha, Double(term.radialOrder + 1)) / Double(term.radialOrder + 1)
-            if term.angularOrder == 0 {
-                phase += term.coefficientAngstrom * radial
-            } else if term.component == 0 {
-                phase += term.coefficientAngstrom * radial * cos(Double(term.angularOrder) * theta)
-            } else {
-                phase += term.coefficientAngstrom * radial * sin(Double(term.angularOrder) * theta)
-            }
+extension PtychographyProbeAberrations {
+    /// The kit's form of these aberrations (CuboPtycho 0.6.0 `PtychographyProbe.build`): the cartesian two-fold astigmatism
+    /// C12a = C12 cos(2 phi12), C12b = C12 sin(2 phi12) becomes the polar C12 = hypot(a, b), phi12 = atan2(b, a) / 2 (the kit's
+    /// Migration paragraph), and every higher-order term maps one to one (the same cosine/sine convention).
+    package var kitAstigmatism: (magnitude: Double, angle: Double) {
+        (hypot(c12aAngstrom, c12bAngstrom), c12aAngstrom == 0 && c12bAngstrom == 0 ? 0 : atan2(c12bAngstrom, c12aAngstrom) / 2)
+    }
+
+    package var kitHigherOrder: [PtychographyAberrationTerm] {
+        higherOrder.map {
+            PtychographyAberrationTerm(
+                radialOrder: $0.radialOrder, angularOrder: $0.angularOrder,
+                component: $0.component == 0 ? .cosine : .sine, coefficient: $0.coefficientAngstrom
+            )
         }
-        return 2 * Double.pi / wavelengthAngstrom * phase
     }
 }
 
-/// The initial probe, corner-centred, unit norm - py4DSTEM's `ComplexProbe(...).build()._array` (utils.py `build`: ifft2 of the
-/// contrast-transfer function, divided by sqrt(sum |array|^2)). `PtychographyPreparer` then scales it to the mean diffraction
-/// intensity, as py4DSTEM's `_initialize_probe` does (ptychographic_methods.py).
-package nonisolated enum PtychographyProbe {
-    package static func build(
+extension PtychographyPreparer {
+    /// The initial probe, corner-centred, unit norm - py4DSTEM's `ComplexProbe(...).build()._array` (utils.py `build`: ifft2 of the
+    /// contrast-transfer function, divided by sqrt(sum |array|^2)), built by CuboPtycho's `PtychographyProbe.build` in Double and
+    /// stored as Float. `prepare` then scales it to the mean diffraction intensity, as py4DSTEM's `_initialize_probe` does
+    /// (ptychographic_methods.py). The convention of every term (defocus sign, cartesian astigmatism, phi = atan2(second axis,
+    /// first axis)) is documented at `PtychographyProbeAberrations`.
+    package static func initialProbe(
         detectorHeight: Int, detectorWidth: Int,
         rowSamplingAngstrom: Double, columnSamplingAngstrom: Double,
         wavelengthAngstrom: Double, cutoffRad: Double, rolloffRad: Double,
-        aberrations: PtychographyProbeAberrations, fft: FFT2D
+        aberrations: PtychographyProbeAberrations
     ) throws -> (real: [Float], imaginary: [Float]) {
-        let detectorCount = detectorHeight * detectorWidth
-        var probeReal = [Float](repeating: 0, count: detectorCount)
-        var probeImaginary = [Float](repeating: 0, count: detectorCount)
-        let aberrated = !aberrations.isZero
-        for row in 0..<detectorHeight {
-            let frequencyRow = Double(FFT2D.fftfreq(row, detectorHeight))
-                / rowSamplingAngstrom
-            for column in 0..<detectorWidth {
-                let frequencyColumn = Double(FFT2D.fftfreq(column, detectorWidth))
-                    / columnSamplingAngstrom
-                let alpha = hypot(frequencyRow, frequencyColumn) * wavelengthAngstrom
-                let aperture: Double
-                if rolloffRad > 0, alpha > cutoffRad - rolloffRad {
-                    aperture = alpha > cutoffRad ? 0
-                        : 0.5 * (1 + cos(.pi * (alpha - cutoffRad + rolloffRad) / rolloffRad))
-                } else {
-                    aperture = alpha < cutoffRad ? 1 : 0
-                }
-                let index = row * detectorWidth + column
-                // exp(-i chi); chi == 0 leaves the old real-only aperture bit for bit.
-                let chi = aberrated ? aberrations.chi(
-                    alpha: alpha, theta: atan2(frequencyColumn, frequencyRow),
-                    wavelengthAngstrom: wavelengthAngstrom
-                ) : 0
-                if chi != 0 {
-                    probeReal[index] = Float(aperture * cos(chi))
-                    probeImaginary[index] = Float(-aperture * sin(chi))
-                } else {
-                    probeReal[index] = Float(aperture)
-                }
-            }
-        }
-        fft.transform(re: &probeReal, im: &probeImaginary, forward: false)
-        let norm = sqrt(probeReal.indices.reduce(0.0) {
-            $0 + Double(probeReal[$1] * probeReal[$1]
-                + probeImaginary[$1] * probeImaginary[$1])
-        })
-        guard norm.isFinite, norm > 0 else {
+        let astigmatism = aberrations.kitAstigmatism
+        do {
+            let probe = try PtychographyProbe.build(
+                rows: detectorHeight, columns: detectorWidth,
+                rowSampling: rowSamplingAngstrom, columnSampling: columnSamplingAngstrom,
+                wavelength: wavelengthAngstrom, cutoff: cutoffRad, rolloff: rolloffRad,
+                defocus: aberrations.defocusAngstrom, astigmatism: astigmatism.magnitude,
+                astigmatismAngle: astigmatism.angle, higherOrder: aberrations.kitHigherOrder
+            )
+            return (probe.real.map { Float($0) }, probe.imaginary.map { Float($0) })
+        } catch {
             throw SingleslicePtychography.ReconstructionError.invalidInput(
                 "the calibrated probe aperture is empty"
             )
         }
-        let normalization = Float(1 / norm)
-        for index in 0..<detectorCount {
-            probeReal[index] *= normalization
-            probeImaginary[index] *= normalization
-        }
-        return (probeReal, probeImaginary)
     }
 }
 
@@ -391,11 +360,11 @@ package nonisolated enum PtychographyPreparer {
         let rolloff = options.probeRolloffMrad / 1_000
         // The probe the reconstruction starts from: the calibrated aperture, with the defocus and fitted aberrations
         // `aberrations` carries (none -> the in-focus aperture, bit for bit what this built before R1).
-        var (probeReal, probeImaginary) = try PtychographyProbe.build(
+        var (probeReal, probeImaginary) = try initialProbe(
             detectorHeight: descriptor.qy, detectorWidth: descriptor.qx,
             rowSamplingAngstrom: objectRowSampling, columnSamplingAngstrom: objectColumnSampling,
             wavelengthAngstrom: wavelength, cutoffRad: cutoff, rolloffRad: rolloff,
-            aberrations: aberrations, fft: fft
+            aberrations: aberrations
         )
         var spectrumReal = probeReal, spectrumImaginary = probeImaginary
         fft.transform(re: &spectrumReal, im: &spectrumImaginary, forward: true)

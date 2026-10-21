@@ -7,7 +7,7 @@ set -euo pipefail
 # harness runs Core/Analysis/SingleslicePtychography.swift's SingleslicePtychography.reconstruct (GD)
 # and the position/crop-convention check, error cases, and an origin-shift/circular-shift
 # invariant, and (R1, 2026-09-30) the initial probe against py4DSTEM's own ComplexProbe (defocus, astigmatism, every term to fifth
-# order; reference.py imports References/py4DSTEM-dev for it) plus the aberration-free probe's bit-for-bit hashes from git 02174c9c.
+# order; reference.py imports References/py4DSTEM-dev for it) plus the aberration-free probe against the pre-switch Float builder's output (fixture, 3e-7; the probe is CuboPtycho's since 2026-10-21).
 # Run with no arguments: tools/harnesses/singleslice-ptychography-test/run.sh. Listed in both the
 # scientific and campaign arrays of tools/run-tests.sh (and all). Pass condition: final line
 # singleslice-ptychography-test: all passed.

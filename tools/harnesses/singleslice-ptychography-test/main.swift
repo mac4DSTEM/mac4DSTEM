@@ -27,18 +27,14 @@ struct ProbeCase: Decodable {
     let imag: [Double]
 }
 
-/// FNV-1a over the bit patterns: the golden hashes below were captured from the probe code at git 02174c9c, BEFORE R1.
-func bitHash(_ values: [Float]) -> UInt64 {
-    var hash: UInt64 = 0xcbf29ce484222325
-    for value in values {
-        var bits = value.bitPattern
-        for _ in 0..<4 {
-            hash ^= UInt64(bits & 0xff)
-            hash = hash &* 0x100000001b3
-            bits >>= 8
-        }
-    }
-    return hash
+/// The aberration-free prepared probes the app built before the CuboPtycho switch (commit 881f8e0a: Float builder), two demo-cube crops.
+/// Float32 rounding is the only difference (D12): the kit builds in Double, so the comparison is a tolerance, not a hash.
+struct PreSwitchGolden: Decodable { let qy: Int; let qx: Int; let real: [Double]; let imag: [Double] }
+struct PreSwitchBaseline: Decodable { let goldens: [PreSwitchGolden] }
+func loadPreSwitchGoldens() throws -> [PreSwitchGolden] {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("mac4DSTEMTests/Fixtures/Ptychography/probe-engine-baseline-881f8e0a.json")
+    return try JSONDecoder().decode(PreSwitchBaseline.self, from: Data(contentsOf: url)).goldens
 }
 
 /// py4DSTEM's cartesian terms as the app's aberrations: defocus = -C10 (ComplexProbe C10 = -defocus), C12a/C12b, and every other
@@ -367,18 +363,14 @@ struct Harness {
             var plantedControlsRejected = 0
             var inFocus: [Double]?
             for probeCase in fixture.probeCases {
-                guard let fft = FFT2D(nx: probeCase.gptsColumn, ny: probeCase.gptsRow) else {
-                    throw NSError(domain: "singleslice-ptychography-test", code: 2,
-                                  userInfo: [NSLocalizedDescriptionKey: "no FFT for the probe grid"])
-                }
                 let wavelength = ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: probeCase.energyEV)
                 let aberrations = probeAberrations(from: probeCase.cartesian)
                 func built(_ aberrations: PtychographyProbeAberrations) throws -> (real: [Double], imag: [Double]) {
-                    let probe = try PtychographyProbe.build(
+                    let probe = try PtychographyPreparer.initialProbe(
                         detectorHeight: probeCase.gptsRow, detectorWidth: probeCase.gptsColumn,
                         rowSamplingAngstrom: probeCase.samplingRow, columnSamplingAngstrom: probeCase.samplingColumn,
                         wavelengthAngstrom: wavelength, cutoffRad: probeCase.semiangleMrad / 1_000,
-                        rolloffRad: probeCase.rolloffMrad / 1_000, aberrations: aberrations, fft: fft
+                        rolloffRad: probeCase.rolloffMrad / 1_000, aberrations: aberrations
                     )
                     return (probe.real.map(Double.init), probe.imaginary.map(Double.init))
                 }
@@ -584,22 +576,20 @@ struct Harness {
                         "an integer origin shift is not a circular shift of the resampled amplitudes: max |delta| = \(maximumDelta) against a separation of \(maximumSeparation) — originQX must roll ROWS and originQY COLUMNS")
             print("PASS: an integer origin shift equals a circular shift of the resampled amplitudes (rows by \(shiftRows), columns by \(shiftColumns); separation \(maximumSeparation))")
         }
-        // R1 (2026-09-30) — through the preparer. (1) No aberrations reproduce, bit for bit, the probe this code built
-        // before R1 (the hashes were captured from git 02174c9c's PtychographyPreparation.swift on these two crops). (2) With
+        // R1 (2026-09-30) — through the preparer. (1) No aberrations reproduce, within float rounding (3e-7; was a
+        // bitwise hash until the CuboPtycho switch), the probe this code built before (fixture: the app's Float builder at 881f8e0a on these two crops). (2) With
         // aberrations the prepared probe is the builder's probe up to the mean-intensity scale, i.e. `prepare` really hands them
         // on. (3) Non-finite or malformed aberrations are refused.
         do {
             struct Golden {
                 let ry: Int, rx: Int, qy: Int, qx: Int
                 let q: Double, radius: Float, originQX: Double, originQY: Double
-                let real: UInt64, imaginary: UInt64
             }
             let goldens = [
-                Golden(ry: 3, rx: 4, qy: 16, qx: 24, q: 0.05, radius: 8, originQX: 0, originQY: 0,
-                       real: 0xa2f70f0ec0ff6fbd, imaginary: 0x3fc1df107866e72b),
-                Golden(ry: 2, rx: 3, qy: 24, qx: 32, q: 0.0213, radius: 7.5, originQX: 1.25, originQY: 0.5,
-                       real: 0x1c82119693445fab, imaginary: 0x2051128dad3f47bb),
+                Golden(ry: 3, rx: 4, qy: 16, qx: 24, q: 0.05, radius: 8, originQX: 0, originQY: 0),
+                Golden(ry: 2, rx: 3, qy: 24, qx: 32, q: 0.0213, radius: 7.5, originQX: 1.25, originQY: 0.5),
             ]
+            let preSwitch = try loadPreSwitchGoldens()
             let wavelength = ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: 80_000)
             for (index, golden) in goldens.enumerated() {
                 let specification = LoadSpecification(
@@ -615,9 +605,10 @@ struct Harness {
                 let plain = try await PtychographyPreparer.prepare(
                     source: source, view: view, calibration: calibration, probeRadiusPixels: golden.radius
                 )
-                try require(bitHash(plain.initialProbe.real) == golden.real
-                            && bitHash(plain.initialProbe.imaginary) == golden.imaginary,
-                            "golden crop \(index): the aberration-free probe is no longer bit-identical to the pre-R1 probe (real \(String(bitHash(plain.initialProbe.real), radix: 16)), imaginary \(String(bitHash(plain.initialProbe.imaginary), radix: 16)))")
+                let probeGap = max(zip(plain.initialProbe.real, preSwitch[index].real).reduce(0.0) { max($0, abs(Double($1.0) - $1.1)) },
+                                   zip(plain.initialProbe.imaginary, preSwitch[index].imag).reduce(0.0) { max($0, abs(Double($1.0) - $1.1)) })
+                try require(preSwitch[index].qy == golden.qy && probeGap <= 3e-7,
+                            "golden crop \(index): the aberration-free probe moved from the pre-switch probe by \(probeGap) (limit 3e-7, float rounding)")
                 let explicitZero = try await PtychographyPreparer.prepare(
                     source: source, view: view, calibration: calibration, probeRadiusPixels: golden.radius,
                     aberrations: PtychographyProbeAberrations()
@@ -634,13 +625,12 @@ struct Harness {
                     source: source, view: view, calibration: calibration, probeRadiusPixels: golden.radius,
                     aberrations: aberrated
                 )
-                guard let fft = FFT2D(nx: golden.qx, ny: golden.qy) else { fatalError("no FFT") }
-                let expected = try PtychographyProbe.build(
+                let expected = try PtychographyPreparer.initialProbe(
                     detectorHeight: golden.qy, detectorWidth: golden.qx,
                     rowSamplingAngstrom: 1 / (golden.q * Double(golden.qy)),
                     columnSamplingAngstrom: 1 / (golden.q * Double(golden.qx)),
                     wavelengthAngstrom: wavelength, cutoffRad: Double(golden.radius) * golden.q * wavelength,
-                    rolloffRad: 0.002, aberrations: aberrated, fft: fft
+                    rolloffRad: 0.002, aberrations: aberrated
                 )
                 let preparedNorm = sqrt(zip(prepared.initialProbe.real, prepared.initialProbe.imaginary)
                     .reduce(0.0) { $0 + Double($1.0 * $1.0 + $1.1 * $1.1) })
@@ -693,7 +683,7 @@ struct Harness {
                     try require(false, "malformed aberrations were accepted: \(aberrations)")
                 } catch SingleslicePtychography.ReconstructionError.invalidInput {}
             }
-            print("PASS: zero aberrations are bit-identical to the pre-R1 probe on \(goldens.count) crops; aberrations reach the prepared probe; \(malformed.count) malformed sets refused")
+            print("PASS: zero aberrations match the pre-switch probe within 3e-7 on \(goldens.count) crops; aberrations reach the prepared probe; \(malformed.count) malformed sets refused")
         }
 
         // R3 (2026-10-01) — ground truth. truth.py simulates a cube from a KNOWN pure-phase object with a DEFOCUSED probe (200 / 400 /
@@ -769,12 +759,12 @@ struct Harness {
                 // The app's own probe at +/- the fixture's defocus, scaled to the mean diffraction intensity as `prepare` does.
                 func appProbe(sign: Double) throws -> (real: [Float], imag: [Float]) {
                     guard let fft = FFT2D(nx: det, ny: det) else { throw NSError(domain: "singleslice-ptychography-test", code: 2) }
-                    var probe = try PtychographyProbe.build(
+                    var probe = try PtychographyPreparer.initialProbe(
                         detectorHeight: det, detectorWidth: det,
                         rowSamplingAngstrom: fixture.objectSamplingAngstrom, columnSamplingAngstrom: fixture.objectSamplingAngstrom,
                         wavelengthAngstrom: ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: fixture.energyEV),
                         cutoffRad: fixture.semiangleMrad / 1_000, rolloffRad: fixture.rolloffMrad / 1_000,
-                        aberrations: PtychographyProbeAberrations(defocusAngstrom: sign * fixture.defocusAngstrom), fft: fft
+                        aberrations: PtychographyProbeAberrations(defocusAngstrom: sign * fixture.defocusAngstrom)
                     )
                     let meanIntensity = fixture.amplitudes.reduce(0.0) { $0 + Double($1 * $1) } / Double(positions.count)
                     var spectrumReal = probe.real, spectrumImag = probe.imaginary

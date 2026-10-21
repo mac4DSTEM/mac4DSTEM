@@ -451,6 +451,9 @@ mac4dstem_sources() {
         # position cases crop.
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
+        # The initial probe is CuboPtycho's PtychographyProbe.build (CuboKit 0.6.0, 2026-10-21).
+        kit_module "$repo" CuboKit CuboCore CuboPtycho
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"

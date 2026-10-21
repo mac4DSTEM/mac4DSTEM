@@ -14,8 +14,7 @@ import struct CuboParallax.ParallaxAberrationTerm
 ///
 /// The fixture that pins the probe to py4DSTEM's `ComplexProbe` (planted wrong conventions included) is
 /// `tools/harnesses/singleslice-ptychography-test` - it needs py4DSTEM, so it lives in the scientific gate. What this class pins without
-/// Python: the conventions as plain arithmetic on the Fourier side of the probe, the nothing-moved check for "no aberrations" (bitwise, a quick check under D12),
-/// the seeding rule (defocus is MINUS the parallax fit's C1), and that the published product names the defocus it started from.
+/// Python: the conventions as plain arithmetic on the Fourier side of the probe, the seeding rule (defocus is MINUS the parallax fit's C1), and that the published product names the defocus it started from.
 /// Every test names the mutation it catches.
 @MainActor
 final class PtychographyProbeTests: XCTestCase {
@@ -29,15 +28,15 @@ final class PtychographyProbeTests: XCTestCase {
 
     private var wavelength: Double { ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: energyEV) }
 
-    /// The probe's Fourier transform (aperture * exp(-i chi), up to one overall complex scale), by `PtychographyProbe.build`
+    /// The probe's Fourier transform (aperture * exp(-i chi), up to one overall complex scale), by `PtychographyPreparer.initialProbe` (CuboPtycho's `PtychographyProbe.build`)
     /// followed by a forward FFT.
     private func spectrum(_ aberrations: PtychographyProbeAberrations) throws -> (real: [Float], imaginary: [Float]) {
         let fft = try XCTUnwrap(FFT2D(nx: columns, ny: rows))
-        var probe = try PtychographyProbe.build(
+        var probe = try PtychographyPreparer.initialProbe(
             detectorHeight: rows, detectorWidth: columns,
             rowSamplingAngstrom: rowSampling, columnSamplingAngstrom: columnSampling,
             wavelengthAngstrom: wavelength, cutoffRad: semiangleRad, rolloffRad: rolloffRad,
-            aberrations: aberrations, fft: fft
+            aberrations: aberrations
         )
         fft.transform(re: &probe.real, im: &probe.imaginary, forward: true)
         return probe
@@ -109,57 +108,6 @@ final class PtychographyProbeTests: XCTestCase {
         XCTAssertEqual(sineOnRow.phase, 0, accuracy: 3e-3, "sin(theta) vanishes on the row axis")
         let onColumn = relativePhase(of: sine, row: 0, column: 4)
         XCTAssertEqual(onColumn.phase, -2 * .pi / wavelength * coefficient * pow(onColumn.alpha, 3) / 3, accuracy: 3e-3)
-    }
-
-    // MARK: - No aberrations: the probe this code built before R1, bit for bit
-
-    private func bitHash(_ values: [Float]) -> UInt64 {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for value in values {
-            var bits = value.bitPattern
-            for _ in 0..<4 {
-                hash ^= UInt64(bits & 0xff)
-                hash = hash &* 0x100000001b3
-                bits >>= 8
-            }
-        }
-        return hash
-    }
-
-    /// The hashes were captured from git 02174c9c's `PtychographyPreparation.swift` (the code BEFORE this lane) on these two
-    /// demo-cube crops (`$SP/R1/golden/head-golden.log`, 2026-09-30). The same two hashes are pinned in the harness.
-    /// Mutation it catches: any change to the aberration-free aperture, rolloff or normalisation.
-    func testNoAberrationsReproduceThePreR1ProbeBitForBit() async throws {
-        struct Golden {
-            let ry: Int, rx: Int, qy: Int, qx: Int
-            let q: Double, radius: Float, originQX: Double, originQY: Double
-            let real: UInt64, imaginary: UInt64
-        }
-        let goldens = [
-            Golden(ry: 3, rx: 4, qy: 16, qx: 24, q: 0.05, radius: 8, originQX: 0, originQY: 0,
-                   real: 0xa2f70f0ec0ff6fbd, imaginary: 0x3fc1df107866e72b),
-            Golden(ry: 2, rx: 3, qy: 24, qx: 32, q: 0.0213, radius: 7.5, originQX: 1.25, originQY: 0.5,
-                   real: 0x1c82119693445fab, imaginary: 0x2051128dad3f47bb),
-        ]
-        let source = DemoFourDDataSource()
-        let full = try await source.discoverPrimaryDataset()
-        for golden in goldens {
-            let specification = LoadSpecification(
-                scanCrop: AxisCrop(yOffset: 0, xOffset: 0, height: golden.ry, width: golden.rx),
-                detectorCrop: AxisCrop(yOffset: 0, xOffset: 0, height: golden.qy, width: golden.qx)
-            )
-            let view = try LoadView(source: full, specification: specification)
-            let calibration = ParallaxPhysicalCalibration(
-                scanSamplingAngstrom: 1.0, reciprocalSamplingInvAngstrom: golden.q,
-                energyEV: 80_000, wavelengthAngstrom: wavelength,
-                originQX: golden.originQX, originQY: golden.originQY, rotationRad: 0, transpose: false
-            )
-            let input = try await PtychographyPreparer.prepare(
-                source: source, view: view, calibration: calibration, probeRadiusPixels: golden.radius
-            )
-            XCTAssertEqual(bitHash(input.initialProbe.real), golden.real, "crop \(golden.qy)x\(golden.qx): real part")
-            XCTAssertEqual(bitHash(input.initialProbe.imaginary), golden.imaginary, "crop \(golden.qy)x\(golden.qx): imaginary part")
-        }
     }
 
     // MARK: - Seeding from the parallax fit
