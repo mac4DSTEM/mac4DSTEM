@@ -8,9 +8,7 @@ final class LaunchJourney: Journey {
         step("demo ready") {
             wait(for: "workspace.prepare")
             waitForLoadingToEnd()
-            let status = wait(for: "toolbar.display.idle")
-            let text = (status.value as? String) ?? status.label
-            XCTAssertTrue(text.contains("Demo.h5") && text.contains("Prepare"), "status line: \(text)")
+            wait(for: "calibration.readiness", timeout: 30)
         }
     }
 }

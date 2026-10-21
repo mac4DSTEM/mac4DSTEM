@@ -386,7 +386,7 @@ ui_tests() (
   # One screen, one mouse, one UI-test session: macTEM's and mac4DSTEM's runs take the same machine-wide lock (lockf blocks until it
   # is free; a run that holds it for 20 minutes is given up on).
   lockf -k -t 1200 "${TMPDIR:-/tmp}/macem-ui-tests.lock" \
-    xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM -configuration Debug \
+    xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEMUI -configuration Debug \
     -destination 'platform=macOS' -resultBundlePath "$gate/ui.xcresult" "${only[@]}" \
     SWIFT_OPTIMIZATION_LEVEL=-O -quiet && rc=0 || rc=$?
   "$ROOT/tools/lib/ui-screenshots.sh" "$gate/ui.xcresult" "$gate/ui-screenshots/$sha" || true

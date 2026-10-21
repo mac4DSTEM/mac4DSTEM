@@ -15,20 +15,21 @@ class Journey: XCTestCase {
         continueAfterFailure = false
     }
 
-    override func tearDown() {
-        app?.terminate()
-        super.tearDown()
-    }
-
-    /// A fresh launch with the deterministic-app arguments plus the journey's own.
+    /// A fresh launch with the deterministic-app arguments plus the journey's own (the recipe macTEM's journeys use). The run must
+    /// hold the machine-wide UI lock (`tools/run-tests.sh ui`): two UI runs, or a person using the machine, take the foreground away
+    /// and the app then shows no window to the test.
     func launch(arguments extra: [String] = []) {
-        app = XCUIApplication()
-        app.launchArguments = ["--ui-testing", "-ApplePersistenceIgnoreState", "YES"] + extra
-        app.launch()
-        app.activate()
-        // The window first: a launch that shows none is a launch failure, named as one, with what the app says it is doing.
-        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30),
-                      "mac4DSTEM showed no window after launch (state \(app.state.rawValue), \(app.windows.count) windows)\n\(app.debugDescription.split(separator: "\n").filter { !$0.contains("MenuItem") && !$0.contains("Menu,") && !$0.contains("MenuBarItem") }.joined(separator: "\n").prefix(3000))")
+        let a = XCUIApplication()
+        a.launchArguments = ["--ui-testing"] + extra
+        a.launch()
+        a.activate()
+        XCTAssertTrue(a.windows.firstMatch.waitForExistence(timeout: 20),
+                      "mac4DSTEM showed no window after launch (state \(a.state.rawValue), \(a.windows.count) windows)")
+        app = a
+        addTeardownBlock {
+            a.terminate()
+            _ = a.wait(for: .notRunning, timeout: 20)   // the next journey launches into a quiet desktop
+        }
     }
 
     /// Runs `body`, then keeps a screenshot of the screen under the step's name.

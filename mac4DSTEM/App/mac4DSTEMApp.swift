@@ -395,6 +395,24 @@ struct mac4DSTEMApp: App {
     @State private var tableSelection = PrecipitateTableSelection()
     /// Launched by the UI test target: deterministic window, no restore.
     private static let uiTesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+
+    init() {
+        // `--ui-testing`: a launch starts from no saved window or split geometry (the unit runner clears the same keys from
+        // outside: `tools/run-tests.sh clear_test_host_geometry`). Before any window is made.
+        if Self.uiTesting {
+            let defaults = UserDefaults.standard
+            for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("NSWindow Frame") || key.hasPrefix("NSSplitView Subview Frames") {
+                defaults.removeObject(forKey: key)
+            }
+            // A launch killed by the test leaves saved windows that the next launch restores into nothing (0 windows, the app frontmost
+            // and "Disabled" to XCUITest): start from no saved application state.
+            if let id = Bundle.main.bundleIdentifier {
+                let saved = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Saved Application State/\(id).savedState")
+                try? FileManager.default.removeItem(at: saved)
+            }
+            defaults.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+        }
+    }
     // File-menu actions asked for while no dataset window is focused (`MenuActionRelay`): read by the
     // commands, taken by the window they open.
     @State private var menuRelay = MenuActionRelay()
@@ -406,7 +424,10 @@ struct mac4DSTEMApp: App {
         }
             .defaultSize(width: Self.uiTesting ? 1440 : LayoutPolicy.datasetWindowIdealSize.width,
                          height: Self.uiTesting ? 900 : LayoutPolicy.datasetWindowIdealSize.height)
-            // `--ui-testing` (UI test target): one 1440 x 900 window; the test passes `-ApplePersistenceIgnoreState YES` so no window is restored.
+            // `--ui-testing` (UI test target): one 1440 x 900 window; windows are not restored by the test's own launch.
+            // A launch always presents the window (a UI test's launch has no restored state to present it).
+            .defaultLaunchBehavior(.presented)
+            .handlesExternalEvents(matching: ["*"])   // a launch event from the test runner opens this window, as macTEM's does
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands {
