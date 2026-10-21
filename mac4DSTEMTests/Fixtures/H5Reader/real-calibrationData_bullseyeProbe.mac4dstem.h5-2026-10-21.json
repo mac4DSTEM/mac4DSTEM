@@ -1,0 +1,5 @@
+{
+  "calibrationData_bullseyeProbe.mac4dstem.h5" : {
+    "discoverError" : "sessionSidecarOpened(sidecar: \"calibrationData_bullseyeProbe.mac4dstem.h5\", suggestedSource: Optional(\"calibrationData_bullseyeProbe\"))"
+  }
+}

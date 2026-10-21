@@ -1,0 +1,34 @@
+{
+  "sim_Au_data_all_binned.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.0), rUnits: Optional(\"pixels\"), qSize: Optional(1.0), qUnits: Optional(\"pixels\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (100, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      78125,
+      "3551d88cf7b3a9483170a1972958c9a2cc465d2df2a2a3b13f0e339454c0ad48"
+    ],
+    "full.rows" : "ab5ee3bd6764b758faa06ce042712373074892e78813106b7927ac41407d648a",
+    "full.tiles" : "d9a1e0f94881b88f221bb7ad8ba87375d3216a24ac3c4cfafda391b7cd136380",
+    "path" : "\/4DSTEM_simulation\/4DSTEM_AuNanoplatelet\/data",
+    "probes" : [
+      "125x125 \/4DSTEM_simulation\/vacuum_probe\/data 1 false 9e69b525638815a1de0231f551206617fe34d87b9a64be6dda1851c2d073bf9a"
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (99, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      19220,
+      "069f5f17294a28ca2110f1d055be945d1a8dcbd40c70b03e7d2ec0f585d01c03"
+    ],
+    "reduced.rows" : "a5358f7ab13f621251ccec763216e8af03c38de35c0204d9ec97c18231086c2f",
+    "reduced.tiles" : "57e6c18c12a5b287dc64704fbf525cc81d087d88b27e15f56e0b53b56d6d0801",
+    "shape" : [
+      100,
+      84,
+      125,
+      125
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}

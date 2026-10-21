@@ -1,0 +1,34 @@
+{
+  "AlMgSi_4D_EDX_single.h5" : {
+    "calibration" : "nil",
+    "chunk" : "[6, 8, 16, 32]",
+    "dtype" : "int32",
+    "full.outside" : "readFailed(\"scan position (48, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      81920,
+      "0e876fbe8ee8b64fe8c6a9798ad29bb4cf187a62a26c4bd1ebcc7b0d94a94146"
+    ],
+    "full.rows" : "e9758c3be8277eaba1c15e7c5a3f053ca4e441d1f0ef72a3aa3b148a32b2c708",
+    "full.tiles" : "3f5ac486bb42d567df0849f15a7282963e50fd574e8d653347a22b831edf79c1",
+    "path" : "\/diffraction",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (47, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      19845,
+      "3d55a82d909fb3d528b2b9efffe8849008975cded97489f0386019df01def069"
+    ],
+    "reduced.rows" : "3f4dacb7f31ddc412b9a6737ddf3a65b7a4a51bc8ef62128f011e15e6f85e209",
+    "reduced.tiles" : "9f9ff8b7327135e0591dabad5f2c0608e3f3c3103aade5409a54ea0ecc544e90",
+    "shape" : [
+      48,
+      64,
+      128,
+      128
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}

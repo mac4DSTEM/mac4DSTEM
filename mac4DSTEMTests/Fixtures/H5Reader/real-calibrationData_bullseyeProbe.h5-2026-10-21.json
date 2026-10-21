@@ -1,0 +1,34 @@
+{
+  "calibrationData_bullseyeProbe.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.0), rUnits: Optional(\"[pix]\"), qSize: Optional(1.0), qUnits: Optional(\"[pix]\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (100, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      312500,
+      "d8e4c46b6b082fd8c2c6a2c3c56b50976852f0e503c822ed4c6703b86456719b"
+    ],
+    "full.rows" : "e86e0682f32cb5a83cca3405bc47f57251376c3fd50d34e907082b2a2ce373cb",
+    "full.tiles" : "81729440a16acfd71b3433300c299587afe30a05532cad5f076dde7516e034be",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/polyAu_4DSTEM\/data",
+    "probes" : [
+      "250x250 \/4DSTEM_experiment\/data\/diffractionslices\/probe_template\/data 20 false b085c45edc3f09ffddd161c9d5b73499fe32a92152163be902a61983b64d135c"
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (99, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      76880,
+      "c9dc801d775a4fe93df64f0c1923303016650d86a09ef4902d71bbeb6fb8499a"
+    ],
+    "reduced.rows" : "61616b62749c033870144ed0595fa63c2c9054a86375dfe983358f9fb54eff7a",
+    "reduced.tiles" : "9be1ea51b5f59266f6822c885ab51809ba5680c09831e8cf9812320b6a6073dc",
+    "shape" : [
+      100,
+      84,
+      250,
+      250
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}

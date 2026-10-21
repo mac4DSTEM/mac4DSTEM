@@ -1,0 +1,34 @@
+{
+  "Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(0.0015393428038805723), rUnits: Optional(\"µm\"), qSize: Optional(0.045741477608680726), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: nil, qy0Mean: nil, ellipseA: Optional(21.1647), ellipseB: Optional(19.5013), ellipseTheta: Optional(0.35779249665883756), qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (330, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      20480,
+      "3a473746a4688ac3931b00ed31e9960411d6b8db3f970238c7dfa7d19f1229e1"
+    ],
+    "full.rows" : "07fab7181c14e651e2d040127b67026ea11788c51cb8383e23c13d3737954b50",
+    "full.tiles" : "710b6d9773d6564ddb64ad1efcf9f20f4625d481526c92250f9d3ff33320f378",
+    "path" : "\/dm_dataset_root\/dm_dataset\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (329, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      4805,
+      "2117b962ff8399620292e15b46a2edc73cba3c5fdb6f22ee2c4c7ebc96dfbf03"
+    ],
+    "reduced.rows" : "a824fa4f02c6aeb06f3e7cf9b1781d6a5f5c97a233606bb8f366d0fe42428bdd",
+    "reduced.tiles" : "90125f405684a1c8b5c992d72d493e294ba93612cfd34741bb42964dfbc680ba",
+    "shape" : [
+      330,
+      330,
+      64,
+      64
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}

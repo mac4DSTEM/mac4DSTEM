@@ -1,0 +1,34 @@
+{
+  "Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(49.5), rUnits: Optional(\"nm\"), qSize: Optional(1.0), qUnits: Optional(\"pixels\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "uint32",
+    "full.outside" : "readFailed(\"scan position (90, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      81920,
+      "76da8bfbfc884e18a3230d7597bfb67e93961024d1dce9a4fa1335a56cf2ebe6"
+    ],
+    "full.rows" : "a4eaef75a37f7f5d598a67590a0811d6d5dd6ea63b99f7677379c5c0dc9287e2",
+    "full.tiles" : "7f80cde4ad82307a694f116fd5dac55ede91039cb7154b9d9194fb19aad40e01",
+    "path" : "\/datacube_root\/datacube\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (89, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      19845,
+      "c071e85b8950bc456210c08d3ad1829810ad448d7592d76014674e5db8a3408e"
+    ],
+    "reduced.rows" : "90f292ee6c46bb1488b95b7d7b352bd5bf9592f82a122bc7de93ccd0f95c7bcd",
+    "reduced.tiles" : "97ae3b5204eb2428def6080fb19c7505ead62fca558195c5514bf3a7d26d1987",
+    "shape" : [
+      90,
+      45,
+      128,
+      128
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}

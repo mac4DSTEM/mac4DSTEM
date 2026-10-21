@@ -1,0 +1,410 @@
+{
+  "be_f4" : {
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca"
+    ],
+    "full.rows" : "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca",
+    "full.tiles" : "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78"
+    ],
+    "reduced.rows" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "reduced.tiles" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "be_f8" : {
+    "chunk" : "nil",
+    "dtype" : "float64",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a"
+    ],
+    "full.rows" : "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a",
+    "full.tiles" : "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78"
+    ],
+    "reduced.rows" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "reduced.tiles" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "be_i2" : {
+    "chunk" : "nil",
+    "dtype" : "int16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578"
+    ],
+    "full.rows" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "full.tiles" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47"
+    ],
+    "reduced.rows" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "reduced.tiles" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "be_i4" : {
+    "chunk" : "nil",
+    "dtype" : "int32",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1"
+    ],
+    "full.rows" : "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1",
+    "full.tiles" : "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684"
+    ],
+    "reduced.rows" : "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684",
+    "reduced.tiles" : "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "be_u2" : {
+    "chunk" : "nil",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0"
+    ],
+    "full.rows" : "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0",
+    "full.tiles" : "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead"
+    ],
+    "reduced.rows" : "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead",
+    "reduced.tiles" : "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "float16" : {
+    "chunk" : "nil",
+    "dtype" : "float16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "1406f300a953d42d363c5bdaba4cfdf223b9af1691569b794894e78c0f9161e9"
+    ],
+    "full.rows" : "1406f300a953d42d363c5bdaba4cfdf223b9af1691569b794894e78c0f9161e9",
+    "full.tiles" : "1406f300a953d42d363c5bdaba4cfdf223b9af1691569b794894e78c0f9161e9",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "f0d249dc799ba76c11c47cfca5f8c246d1ad548220380c8ad02847ff2c5762d7"
+    ],
+    "reduced.rows" : "f0d249dc799ba76c11c47cfca5f8c246d1ad548220380c8ad02847ff2c5762d7",
+    "reduced.tiles" : "f0d249dc799ba76c11c47cfca5f8c246d1ad548220380c8ad02847ff2c5762d7",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "float32" : {
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca"
+    ],
+    "full.rows" : "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca",
+    "full.tiles" : "ea365264a8b30a8c033bba180220b557c9a908df696a9f98c04338c8934335ca",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78"
+    ],
+    "reduced.rows" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "reduced.tiles" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "float64" : {
+    "chunk" : "nil",
+    "dtype" : "float64",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a"
+    ],
+    "full.rows" : "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a",
+    "full.tiles" : "264bfc3b3ccd560b40c092343c9aec325d0a8f5e503fceb7c297f0131b09b64a",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78"
+    ],
+    "reduced.rows" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "reduced.tiles" : "1d58bbee39274f17f435ebbcdca101eb2adc989768a624db65301736ce3a5a78",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "int8" : {
+    "chunk" : "nil",
+    "dtype" : "int8",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "06d0ed9fccd435190a89dc1cc275edf3286a18ac794335cfa16c8f9974a42db2"
+    ],
+    "full.rows" : "06d0ed9fccd435190a89dc1cc275edf3286a18ac794335cfa16c8f9974a42db2",
+    "full.tiles" : "06d0ed9fccd435190a89dc1cc275edf3286a18ac794335cfa16c8f9974a42db2",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "02449448ff34ac22b5f59fb9dfcdfa8ccacb44ecf48e1ebbce1e35bf571cd190"
+    ],
+    "reduced.rows" : "02449448ff34ac22b5f59fb9dfcdfa8ccacb44ecf48e1ebbce1e35bf571cd190",
+    "reduced.tiles" : "02449448ff34ac22b5f59fb9dfcdfa8ccacb44ecf48e1ebbce1e35bf571cd190",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "int16" : {
+    "chunk" : "nil",
+    "dtype" : "int16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578"
+    ],
+    "full.rows" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "full.tiles" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47"
+    ],
+    "reduced.rows" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "reduced.tiles" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "int32" : {
+    "chunk" : "nil",
+    "dtype" : "int32",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1"
+    ],
+    "full.rows" : "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1",
+    "full.tiles" : "3f1e15238376f5c129b10bde4e6ad11b7650658d0e28c47376af6e35361277d1",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684"
+    ],
+    "reduced.rows" : "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684",
+    "reduced.tiles" : "16f7e4338687fb09769504727640d9a43c743a6152311dade115dd3da6d22684",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "int64" : {
+    "chunk" : "nil",
+    "dtype" : "int64",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "496c7609280c227c21e79785e1f8a43d2cdbc0e93af0bb1f785d8dd822742f00"
+    ],
+    "full.rows" : "496c7609280c227c21e79785e1f8a43d2cdbc0e93af0bb1f785d8dd822742f00",
+    "full.tiles" : "496c7609280c227c21e79785e1f8a43d2cdbc0e93af0bb1f785d8dd822742f00",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "4475c62d719fa9abd6cab31864f61582e4c94ae93612be4ed71ad7062a1f7730"
+    ],
+    "reduced.rows" : "4475c62d719fa9abd6cab31864f61582e4c94ae93612be4ed71ad7062a1f7730",
+    "reduced.tiles" : "4475c62d719fa9abd6cab31864f61582e4c94ae93612be4ed71ad7062a1f7730",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "le_i2" : {
+    "chunk" : "nil",
+    "dtype" : "int16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578"
+    ],
+    "full.rows" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "full.tiles" : "d0e60188566578a0fd0a0134658a64323a04e7ada7d25648f9a90b76baba9578",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47"
+    ],
+    "reduced.rows" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "reduced.tiles" : "9b83fedb21ae36c37bb3914ef688fb7edc920735751f2c7c381de2cb7d4d9f47",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "uint8" : {
+    "chunk" : "nil",
+    "dtype" : "uint8",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "6e5216a5c4d1273045be2662f5fd83e40b0add1a49207b5d9d3af0e73cf6815d"
+    ],
+    "full.rows" : "6e5216a5c4d1273045be2662f5fd83e40b0add1a49207b5d9d3af0e73cf6815d",
+    "full.tiles" : "6e5216a5c4d1273045be2662f5fd83e40b0add1a49207b5d9d3af0e73cf6815d",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "fcae55541e366e6b09faa9cf4c96c858729cec9c8a477e81e20353a69dbca66a"
+    ],
+    "reduced.rows" : "fcae55541e366e6b09faa9cf4c96c858729cec9c8a477e81e20353a69dbca66a",
+    "reduced.tiles" : "fcae55541e366e6b09faa9cf4c96c858729cec9c8a477e81e20353a69dbca66a",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "uint16" : {
+    "chunk" : "nil",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0"
+    ],
+    "full.rows" : "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0",
+    "full.tiles" : "beda136d71b760644f7cc74d0f0c8cf9e7c4e0fc494d38987d866d6aba01f8c0",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead"
+    ],
+    "reduced.rows" : "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead",
+    "reduced.tiles" : "0174fad2fdab2ab31ca725d1d6172f1605df3d32085c0ea2e347e01443b0bead",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "uint32" : {
+    "chunk" : "nil",
+    "dtype" : "uint32",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "b0e042cd70c360deb5ab9c23ab0d0bc235c4c6d1f43749417f03eb9de69b7030"
+    ],
+    "full.rows" : "b0e042cd70c360deb5ab9c23ab0d0bc235c4c6d1f43749417f03eb9de69b7030",
+    "full.tiles" : "b0e042cd70c360deb5ab9c23ab0d0bc235c4c6d1f43749417f03eb9de69b7030",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "3c29f340273f88662ea8e533056fb0bacd6a6c8cd88d0e6e511e1d50ab8b2fe6"
+    ],
+    "reduced.rows" : "3c29f340273f88662ea8e533056fb0bacd6a6c8cd88d0e6e511e1d50ab8b2fe6",
+    "reduced.tiles" : "3c29f340273f88662ea8e533056fb0bacd6a6c8cd88d0e6e511e1d50ab8b2fe6",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "uint64" : {
+    "chunk" : "nil",
+    "dtype" : "uint64",
+    "full.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      120,
+      "6430cdee236a5cc4c7ccffa7d7fa3b1baa4d0e4fbf44657959f8f12214841bcd"
+    ],
+    "full.rows" : "6430cdee236a5cc4c7ccffa7d7fa3b1baa4d0e4fbf44657959f8f12214841bcd",
+    "full.tiles" : "6430cdee236a5cc4c7ccffa7d7fa3b1baa4d0e4fbf44657959f8f12214841bcd",
+    "reduced.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      2,
+      "5ba43bff809bc52a5605128b956e0c853fc158e9c0a9dc8252153b7f61a007f5"
+    ],
+    "reduced.rows" : "5ba43bff809bc52a5605128b956e0c853fc158e9c0a9dc8252153b7f61a007f5",
+    "reduced.tiles" : "5ba43bff809bc52a5605128b956e0c853fc158e9c0a9dc8252153b7f61a007f5",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ]
+  }
+}

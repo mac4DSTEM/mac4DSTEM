@@ -1,0 +1,602 @@
+{
+  "cal_attrs.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_bad_ellipse.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_double_dataset.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_enum_attr.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_enum_dataset_false.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_enum_dataset.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_float16_dataset.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_int_attr.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "cal_uint8_dataset.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]))))",
+    "chunk" : "[1, 2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "emd_dims_f16.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "[3, 4, 5, 6]",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909"
+    ],
+    "full.rows" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "full.tiles" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "path" : "\/Experiments\/__unnamed__\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4"
+    ],
+    "reduced.rows" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "reduced.tiles" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "emd_dims_f32.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "[3, 4, 5, 6]",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909"
+    ],
+    "full.rows" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "full.tiles" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "path" : "\/Experiments\/__unnamed__\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4"
+    ],
+    "reduced.rows" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "reduced.tiles" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "emd_dims_f64.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "[3, 4, 5, 6]",
+    "dtype" : "uint16",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909"
+    ],
+    "full.rows" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "full.tiles" : "1a60a6a6766ed83dbd3c28b701a5ed60206aeacf01c4f51cc66a95f146110909",
+    "path" : "\/Experiments\/__unnamed__\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4"
+    ],
+    "reduced.rows" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "reduced.tiles" : "a0a56ceb67d2e248d000b45e269f5705ea7c31693a426786ceff03ba962a54f4",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "emd_dims_rank3.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(2.0), rUnits: Optional(\"nm\"), qSize: Optional(0.1), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "int16",
+    "full.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      210,
+      "2e9f195994e4d5a33913a5cba0f6a9ee61d5a544a8a2938b089b9a8bf6b31d90"
+    ],
+    "full.rows" : "2e9f195994e4d5a33913a5cba0f6a9ee61d5a544a8a2938b089b9a8bf6b31d90",
+    "full.tiles" : "2e9f195994e4d5a33913a5cba0f6a9ee61d5a544a8a2938b089b9a8bf6b31d90",
+    "path" : "\/exp\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "shape" : [
+      1,
+      7,
+      5,
+      6
+    ],
+    "storedRank" : 3,
+    "voltage" : "nil"
+  },
+  "links_alias_first.h5" : {
+    "calibration" : "nil",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/alpha_alias\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "links_cycle.h5" : {
+    "calibration" : "nil",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/g\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "links.h5" : {
+    "calibration" : "nil",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/a\/data",
+    "probes" : [
+      "5x6 \/a\/probe 1 false 8b6f20f6a367f0fbf9dbb78526825aaa6c082e43cb8cc466319c7e7021d10ce1",
+      "5x6 \/probes\/probe_template 2 false 757d637ebf1a6b38cafbee5b18fb85b9eb478f1946035425b9a61457fb5ff982",
+      "5x6 \/probes\/stack_probe 3 true 7005b477d4930510fc9bd2f193ccfa303966bb08aff57e627f709c3b48f32c23",
+      "5x6 \/zz\/deeper\/probe 1 false 8b6f20f6a367f0fbf9dbb78526825aaa6c082e43cb8cc466319c7e7021d10ce1",
+      "5x6 \/a\/probe 1 false 8b6f20f6a367f0fbf9dbb78526825aaa6c082e43cb8cc466319c7e7021d10ce1",
+      "5x6 \/probes\/probe_template 2 false 757d637ebf1a6b38cafbee5b18fb85b9eb478f1946035425b9a61457fb5ff982",
+      "5x6 \/probes\/stack_probe 3 true 7005b477d4930510fc9bd2f193ccfa303966bb08aff57e627f709c3b48f32c23",
+      "5x6 \/zz\/deeper\/probe 1 false 8b6f20f6a367f0fbf9dbb78526825aaa6c082e43cb8cc466319c7e7021d10ce1"
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "odd_chunked_rank3.h5" : {
+    "calibration" : "nil",
+    "chunk" : "[2, 5, 6]",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      270,
+      "d26f4e51858fa52db72fbb6cb2f814c2fe34681934223bd70c591f403ea84f44"
+    ],
+    "full.rows" : "d26f4e51858fa52db72fbb6cb2f814c2fe34681934223bd70c591f403ea84f44",
+    "full.tiles" : "d26f4e51858fa52db72fbb6cb2f814c2fe34681934223bd70c591f403ea84f44",
+    "path" : "\/a\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "shape" : [
+      1,
+      9,
+      5,
+      6
+    ],
+    "storedRank" : 3,
+    "voltage" : "nil"
+  },
+  "odd_compound.h5" : {
+    "calibration" : "nil",
+    "chunk" : "nil",
+    "dtype" : "compound",
+    "path" : "\/a\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "readError" : "readFailed(\"pattern at ry 0, rx 0\")",
+    "shape" : [
+      2,
+      2,
+      2,
+      2
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "odd_empty.h5" : {
+    "discoverError" : "noDatasetFound([\"\/dm_dataset_root\/dm_dataset\/data\", \"\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data\", \"\/4DSTEM\/data\/datacubes\/datacube_root\/data\", \"\/datacube_root\/datacube\/data\", \"\/Experiments\/__unnamed__\/data\", \"\/Experiments\/__unnamed__\/data\/data\", \"\/4DSTEM_experiment\/data\", \"\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data\", \"\/4DSTEM_experiment\", \"\/4DSTEM_experiment\/data\/datacubes\", \"\/4DSTEM_experiment\/data\/datacubes\/datacube_0\"])"
+  },
+  "odd_not_hdf5.h5" : {
+    "openError" : "cannotOpenFile(\"\/odd_not_hdf5.h5\")"
+  },
+  "odd_rank5.h5" : {
+    "discoverError" : "noDatasetFound([\"\/dm_dataset_root\/dm_dataset\/data\", \"\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data\", \"\/4DSTEM\/data\/datacubes\/datacube_root\/data\", \"\/datacube_root\/datacube\/data\", \"\/Experiments\/__unnamed__\/data\", \"\/Experiments\/__unnamed__\/data\/data\", \"\/a\/data\", \"\/a\"])"
+  },
+  "odd_scalar.h5" : {
+    "calibration" : "nil",
+    "chunk" : "nil",
+    "dtype" : "float32",
+    "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      360,
+      "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc"
+    ],
+    "full.rows" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "full.tiles" : "831aaa2488f37d0805890753c437e03372f288bd33a4875fdb77163002232fdc",
+    "path" : "\/other\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (2, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      16,
+      "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c"
+    ],
+    "reduced.rows" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "reduced.tiles" : "7beab63caedc2e161b89ff5db6bcc0615f3b013091b734c44866aac478c4d66c",
+    "shape" : [
+      3,
+      4,
+      5,
+      6
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  },
+  "odd_string.h5" : {
+    "discoverError" : "noDatasetFound([\"\/dm_dataset_root\/dm_dataset\/data\", \"\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data\", \"\/4DSTEM\/data\/datacubes\/datacube_root\/data\", \"\/datacube_root\/datacube\/data\", \"\/Experiments\/__unnamed__\/data\", \"\/Experiments\/__unnamed__\/data\/data\", \"\/dm_dataset_root\/dm_dataset\/data\", \"\/dm_dataset_root\", \"\/dm_dataset_root\/dm_dataset\"])"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "downsample_Si_SiGe_exp.h5" : {
+    "calibration" : "PixelCalibration(rSize: Optional(1.0), rUnits: Optional(\"[pix]\"), qSize: Optional(1.0), qUnits: Optional(\"[pix]\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "chunk" : "nil",
+    "dtype" : "uint64",
+    "full.outside" : "readFailed(\"scan position (50, 0) is outside the loaded view\")",
+    "full.patterns" : [
+      81920,
+      "1ef159ee215080de25d9898e45e5f16ed4a9cd37892c00edebb062cab0238be0"
+    ],
+    "full.rows" : "3b7a2a74212cda529769bacff3aa25a71257c7a57272b528ddebd7dd0217639b",
+    "full.tiles" : "ed7cea4f5feacdca8d6ab347fac77e2e4bb3a9920da17e5dfa09cd1f2cc512c3",
+    "path" : "\/4DSTEM_experiment\/data\/datacubes\/datacube_0\/data",
+    "probes" : [
+
+    ],
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: true)",
+    "reduced.outside" : "readFailed(\"scan position (49, 0) is outside the loaded view\")",
+    "reduced.patterns" : [
+      19845,
+      "f147f3a98ab9b19088cc2d270d14ead09c9649c2465218679cacda2f23451247"
+    ],
+    "reduced.rows" : "69cdccad242585ee99a972cb786833536e4ceb1decc0127568b943d4f8ae7379",
+    "reduced.tiles" : "7803fa36fa5bccee0d1b0cc5103894e25164adc5c9aa7d8e662ef142258430c9",
+    "shape" : [
+      50,
+      200,
+      128,
+      128
+    ],
+    "storedRank" : 4,
+    "voltage" : "nil"
+  }
+}
