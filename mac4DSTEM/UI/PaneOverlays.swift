@@ -193,7 +193,7 @@ struct ScaleBar: View {
         if value >= 10 { text = String(format: "%.0f", value) }
         else if value >= 1 { text = String(format: "%g", value) }
         else { text = String(format: "%.3g", value) }
-        return text.replacingOccurrences(of: ".", with: locale.decimalSeparator ?? ".")
+        return CalibrationUnitConversion.localizedDecimal(text, locale: locale)
     }
 }
 
@@ -349,14 +349,14 @@ struct Colorbar: View {
                             + (showsMasked ? ", gray marks masked pixels with no fit" : ""))
     }
 
-    private static func format(_ value: Double) -> String {
+    /// The range ends in the reader's locale, the same decimal mark as the scale bar beside them.
+    static func format(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
         guard value.isFinite else { return "—" }
         if value == 0 { return "0" }
         let magnitude = abs(value)
-        if magnitude >= 10_000 || magnitude < 0.001 {
-            return String(format: "%.2e", value)
-        }
-        return String(format: "%.4g", value)
+        let text = magnitude >= 10_000 || magnitude < 0.001
+            ? String(format: "%.2e", value) : String(format: "%.4g", value)
+        return CalibrationUnitConversion.localizedDecimal(text, locale: locale)
     }
 }
 

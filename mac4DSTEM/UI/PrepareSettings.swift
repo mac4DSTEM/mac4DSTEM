@@ -285,12 +285,12 @@ struct PrepareSettings: View {
                 InspectorValueRow("Probe radius", CalibrationUnitConversion.displayNumber(Double(radius), digits: 3) + "\u{00A0}px")
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("calibration.probeRadius")
-                    .accessibilityValue(String(format: "%.1f", radius))
+                    .accessibilityValue(String(format: "%.1f", locale: .autoupdatingCurrent, radius))
             }
             // The residual the GATE judged, which is the robust one
             // where a robust fit ran — one number for one decision.
             if let residual = calibration.judgedOriginResidual {
-                InspectorValueRow("Fit residual", String(format: "%.3f px RMS", residual))
+                InspectorValueRow("Fit residual", String(format: "%.3f px RMS", locale: .autoupdatingCurrent, residual))
             }
             // The excluded fraction, where the reader who sees the number
             // sees it: "2.19 px over 73% of positions" is a different claim
@@ -406,12 +406,12 @@ struct PrepareSettings: View {
                     InspectorValueRow("Model", fit.model.rawValue)
                     InspectorValueRow(
                         "Residual",
-                        String(format: "%.3f · %d/36 sectors", fit.normalizedResidual, fit.occupiedAngularBins)
+                        String(format: "%.3f · %d/36 sectors", locale: .autoupdatingCurrent, fit.normalizedResidual, fit.occupiedAngularBins)
                     )
                     if let profile = fit.profile {
                         InspectorValueRow(
                             "Ring widths",
-                            String(format: "inner %.3g · outer %.3g px", profile.innerSigma, profile.outerSigma)
+                            String(format: "inner %.3g · outer %.3g px", locale: .autoupdatingCurrent, profile.innerSigma, profile.outerSigma)
                         )
                     } else if let reason = fit.profileFallbackReason {
                         InspectorNote("Profile fallback: \(reason)")

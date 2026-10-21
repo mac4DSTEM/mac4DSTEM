@@ -1033,7 +1033,7 @@ struct RealSpacePane: View {
                       + "scan position, double-click to reset. At 1× a click "
                       + "anywhere moves the scan position.")
                 .accessibilityLabel(
-                    "Zoomed to \(String(format: "%.1f", zp.effectiveZoom)) times; "
+                    "Zoomed to \(String(format: "%.1f", locale: .autoupdatingCurrent, zp.effectiveZoom)) times; "
                         + "dragging pans, and the scan position moves by its marker handle"
                 )
                 .accessibilityIdentifier("result.zoomModeBadge")

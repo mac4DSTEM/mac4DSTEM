@@ -79,7 +79,7 @@ nonisolated enum QuantMapsSetup {
                     let energies = elements.map { e in fit?.rows.first { $0.element == e }?.lineEnergyKeV }
                     if energies.allSatisfy({ $0 != nil }) {
                         absorption = EDXAbsorptionSetting(takeOffDegrees: angle, lineEnergiesKeV: energies.compactMap { $0 })
-                        note = String(format: "absorption corrected, one take-off angle %.1f\u{00B0} (the pooled fit averages the detector segments)", angle)
+                        note = String(format: "absorption corrected, one take-off angle %.1f\u{00B0} (the pooled fit averages the detector segments)", locale: .autoupdatingCurrent, angle)
                     } else {
                         note = "no absorption correction (a line energy is unknown)"
                     }

@@ -54,7 +54,7 @@ nonisolated struct AutoIDOutcome: Equatable, Sendable {
 nonisolated enum AutoIDPresentation {
     /// "net 900 counts, 3.0 × L_D, χ²ᵣ 54.8 (Pearson)": the quantity every suggestion carries (F3.3), whatever the verdict on it.
     static func stats(_ c: ElementCandidate, chiSquared: Double?) -> String {
-        var t = String(format: "net %@ counts, %.1f \u{00D7} L_D", UnlistedLineChecker.grouped(c.net), c.significance)
+        var t = String(format: "net %@ counts, %.1f \u{00D7} L_D", locale: .autoupdatingCurrent, UnlistedLineChecker.grouped(c.net), c.significance)
         if let x = chiSquared { t += ", " + PooledQuantifier.qualityText(label: "\u{03C7}\u{00B2}\u{1D63} (Pearson)", value: x) }
         return t
     }

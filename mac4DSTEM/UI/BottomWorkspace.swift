@@ -238,6 +238,6 @@ enum ProvenanceValueText {
               let number = Double(raw), number.isFinite else { return raw }
         let magnitude = abs(number)
         guard magnitude >= 0.001, magnitude < 100_000 else { return raw }
-        return String(format: "%.5g", number)
+        return String(format: "%.5g", locale: .autoupdatingCurrent, number)
     }
 }

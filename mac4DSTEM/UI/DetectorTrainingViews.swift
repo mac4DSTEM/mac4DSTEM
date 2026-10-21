@@ -74,7 +74,7 @@ struct DetectorTrainingReviewSheet: View {
     private var judgedOn: String {
         let s = outcome.candidate
         return "Judged on \(s.heldOutPositions) held-out positions of \(review.datasetFile): \(s.score.truth) disk centres, "
-            + String(format: "match radius %.0f px, threshold %.2f", s.radiusPx, s.threshold)
+            + String(format: "match radius %.0f px, threshold %.2f", locale: .autoupdatingCurrent, s.radiusPx, s.threshold)
             + ", detected on the Neural Engine. "
             + "Trained on \(outcome.trained.count) other positions; the held-out positions never trained it, and they neighbour the training positions, so this holds for this dataset only."
     }

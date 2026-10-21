@@ -117,7 +117,7 @@ private struct DPCSettingsSection: View {
                 if let scale = appState.dpcMilliradiansPerDetectorPixel {
                     InspectorValueRow(
                         "Angular scale",
-                        String(format: "%.5g mrad / detector px", scale)
+                        String(format: "%.5g mrad / detector px", locale: .autoupdatingCurrent, scale)
                     )
                 } else {
                     InspectorWarning("mrad needs accelerating voltage and Q pixel calibration.")
@@ -655,7 +655,7 @@ private struct ParallaxProductSection: View {
                             )
                         ) {
                             ForEach(depth.depthsAngstrom.indices, id: \.self) { index in
-                                Text(String(format: "%.1f Å", depth.depthsAngstrom[index]))
+                                Text(String(format: "%.1f Å", locale: .autoupdatingCurrent, depth.depthsAngstrom[index]))
                                     .tag(index)
                             }
                         }
@@ -699,15 +699,15 @@ private struct ParallaxRunDetailsSection: View {
                 )
                 InspectorValueRow(
                     "Electron wavelength",
-                    String(format: "%.5f Å", preview.calibration.wavelengthAngstrom)
+                    String(format: "%.5f Å", locale: .autoupdatingCurrent, preview.calibration.wavelengthAngstrom)
                 )
                 InspectorValueRow(
                     "Probe-angle extent",
-                    String(format: "%.2f mrad", preview.maximumProbeAngleMrad)
+                    String(format: "%.2f mrad", locale: .autoupdatingCurrent, preview.maximumProbeAngleMrad)
                 )
                 InspectorValueRow(
                     "Initial mismatch",
-                    String(format: "%.4f", preview.initialError)
+                    String(format: "%.4f", locale: .autoupdatingCurrent, preview.initialError)
                 )
                 if let alignment = appState.phaseContrast.parallaxAlignment {
                     ParallaxAlignmentDetails(alignment: alignment)
@@ -760,11 +760,11 @@ private struct ParallaxAlignmentDetails: View {
         )
         InspectorValueRow(
             "Maximum shift",
-            String(format: "%.2f px", alignment.maximumShiftPixels)
+            String(format: "%.2f px", locale: .autoupdatingCurrent, alignment.maximumShiftPixels)
         )
         InspectorValueRow(
             "Aligned mismatch",
-            String(format: "%.4f", alignment.currentError)
+            String(format: "%.4f", locale: .autoupdatingCurrent, alignment.currentError)
         )
         ScientificHistoryPlot(
             title: "Alignment mismatch",
@@ -780,7 +780,7 @@ private struct ParallaxAlignmentDetails: View {
                 "Fitted rotation",
                 RQRotationConvention.degreesText(fit.rotationRad * 180 / .pi, decimals: 2)
             )
-            InspectorValueRow("C1", String(format: "%.1f Å", fit.c1Angstrom))
+            InspectorValueRow("C1", String(format: "%.1f Å", locale: .autoupdatingCurrent, fit.c1Angstrom))
             InspectorValueRow(
                 "C12a / C12b",
                 String(
@@ -808,11 +808,11 @@ private struct ParallaxFitDetails: View {
             )
             InspectorValueRow(
                 "Higher-order RMS",
-                String(format: "%.4f Å", higher.rmsResidualAngstrom)
+                String(format: "%.4f Å", locale: .autoupdatingCurrent, higher.rmsResidualAngstrom)
             )
             let coefficients = zip(higher.terms, higher.coefficientsAngstrom)
                 .map { term, coefficient in
-                    "C\(term.radialOrder)\(term.angularOrder)\(term.component == 0 ? "a" : "b") \(String(format: "%.1f", coefficient))"
+                    "C\(term.radialOrder)\(term.angularOrder)\(term.component == 0 ? "a" : "b") \(String(format: "%.1f", locale: .autoupdatingCurrent, coefficient))"
                 }
                 .joined(separator: " · ")
             Text(coefficients)
@@ -974,7 +974,7 @@ private struct ScientificHistoryPlot: View {
 
     private var selectionLabel: String {
         guard let point = geometry.point(at: effectiveSelection) else { return "No finite samples" }
-        return "#\(point.index)  \(String(format: "%.5g", point.value))"
+        return "#\(point.index)  \(String(format: "%.5g", locale: .autoupdatingCurrent, point.value))"
     }
 }
 
@@ -985,7 +985,7 @@ nonisolated enum HistoryAxisText {
     static func yRange(_ geometry: ScientificSeriesGeometry, scale: ScientificSeriesScale) -> String? {
         let values = geometry.points.map(\.value)
         guard let low = values.min(), let high = values.max() else { return nil }
-        let range = "\(String(format: "%.3g", low)) – \(String(format: "%.3g", high))"
+        let range = "\(String(format: "%.3g", locale: .autoupdatingCurrent, low)) – \(String(format: "%.3g", locale: .autoupdatingCurrent, high))"
         return scale == .logarithmic ? "\(range) · log scale" : "\(range) · linear"
     }
 

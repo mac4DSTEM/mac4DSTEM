@@ -258,12 +258,12 @@ private struct DiskDetectionRows: View {
         if let hint = ringHint, let now = appState.calibrationSession.calibration.probeRadius,
            ProbeRingHint.isWorthOffering(hint, current: now) {
             InspectorWarning(
-                String(format: "Ring-shaped probe: its outer edge is at %.0f px (now %.1f px)", hint.outerRadius, now),
+                String(format: "Ring-shaped probe: its outer edge is at %.0f px (now %.1f px)", locale: .autoupdatingCurrent, hint.outerRadius, now),
                 systemImage: "circle.dashed")
                 .help("The probe-size estimate, taken from the scan's max pattern as py4DSTEM does, stops at the first ring. A trench kernel built at the outer edge finds the beam on a ring-structured probe; Train Model uses the same radius.")
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    String(format: "Use %.0f px", hint.outerRadius), systemImage: "circle.dashed",
+                    String(format: "Use %.0f px", locale: .autoupdatingCurrent, hint.outerRadius), systemImage: "circle.dashed",
                     help: "Sets the probe radius to the ring's outer edge and rebuilds a synthetic kernel. Nothing changes unless you click."
                 ) {
                     PendingEdits.run { await appState.useProbeRadius(hint.outerRadius) }

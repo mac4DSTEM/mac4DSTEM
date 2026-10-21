@@ -329,7 +329,7 @@ struct PhaseMappingSections: View {
                 InspectorDataRow(row.label) {
                     HStack(spacing: 6) {
                         swatch(row)
-                        Text(String(format: "%.1f %%", 100 * row.fraction))
+                        Text(String(format: "%.1f %%", locale: .autoupdatingCurrent, 100 * row.fraction))
                             .monospacedDigit()
                             .fixedSize()
                     }
@@ -346,7 +346,7 @@ struct PhaseMappingSections: View {
             // the reader judges.
             if let explained = PhaseMapPresentation.medianMatrixExplainedFraction(map) {
                 InspectorRow("Matrix evidence") {
-                    Text(String(format: "%.0f %% of vectors, median", 100 * explained))
+                    Text(String(format: "%.0f %% of vectors, median", locale: .autoupdatingCurrent, 100 * explained))
                         .monospacedDigit()
                         .labelsHidden()
                         .accessibilityHint("How much of each matrix position's signal the matrix explains; there is no threshold")
@@ -389,7 +389,7 @@ struct PhaseMappingSections: View {
             }
 
             InspectorValueRow("Chance match at max |q|",
-                               String(format: "%.1f %%", run.worstChanceMatchPercent))
+                               String(format: "%.1f %%", locale: .autoupdatingCurrent, run.worstChanceMatchPercent))
             InspectorValueRow("Orientations", "\(run.libraryEntryCount)")
             if run.matrixInPlaneDegrees.isFinite {
                 InspectorValueRow("Matrix in-plane",

@@ -110,7 +110,7 @@ struct DiffractionGroupsSection: View {
                 }
 
                 let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
-                InspectorNote("First 3 components explain \(String(format: "%.1f", firstThreePercent)) % of variance")
+                InspectorNote("First 3 components explain \(String(format: "%.1f", locale: .autoupdatingCurrent, firstThreePercent)) % of variance")
                     .accessibilityIdentifier("groups.explainedVariance")
 
                 let sizes = groupSizes(result)

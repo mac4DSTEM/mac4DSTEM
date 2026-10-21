@@ -219,6 +219,14 @@ package nonisolated enum CalibrationUnitConversion {
             .number.locale(locale).grouping(.never).precision(.significantDigits(1...digits)))
     }
 
+    /// A C-formatted number ("0.88", "1.16e+04", "-0.02908") with the locale's own decimal mark: the one way colorbars, scale
+    /// bars and histogram readouts localise, so a screen never mixes "0,2 Å⁻¹" with "0.88". The digits are the C-format ones
+    /// as always (en output is byte-identical); only the mark changes. DISPLAY ONLY, exports burn with en_US_POSIX.
+    package static func localizedDecimal(_ cFormatted: String, locale: Locale = .autoupdatingCurrent) -> String {
+        guard let mark = locale.decimalSeparator, mark != "." else { return cFormatted }
+        return cFormatted.replacingOccurrences(of: ".", with: mark)
+    }
+
     /// The detector ellipse as the readiness row, the Prepare row and the status
     /// line print it. a and b are semi-axes in detector pixels (py4DSTEM's
     /// qx/qy convention; `CalibrationReReference` rescales them as lengths),

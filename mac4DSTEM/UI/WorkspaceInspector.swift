@@ -377,7 +377,7 @@ struct DatasetInfoSections: View {
             InspectorValueRow("Scan (Rx × Ry)", "\(descriptor.rx) × \(descriptor.ry)")
             InspectorValueRow("Detector (Qx × Qy)", "\(descriptor.qx) × \(descriptor.qy)")
             if let acceleratingVoltage = appState.calibrationSession.acceleratingVoltage {
-                InspectorValueRow("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
+                InspectorValueRow("Accel. voltage", String(format: "%.0f kV", locale: .autoupdatingCurrent, acceleratingVoltage))
             }
         }
     }
@@ -442,10 +442,10 @@ struct DatasetInfoSections: View {
     @ViewBuilder
     private var apertureSection: some View {
         InspectorSection("Aperture (detector px)") {
-            InspectorValueRow("Center x", String(format: "%.1f", appState.aperture.centerX))
-            InspectorValueRow("Center y", String(format: "%.1f", appState.aperture.centerY))
-            InspectorValueRow("Inner r", String(format: "%.1f", appState.aperture.inner))
-            InspectorValueRow("Outer r", String(format: "%.1f", appState.aperture.outer))
+            InspectorValueRow("Center x", String(format: "%.1f", locale: .autoupdatingCurrent, appState.aperture.centerX))
+            InspectorValueRow("Center y", String(format: "%.1f", locale: .autoupdatingCurrent, appState.aperture.centerY))
+            InspectorValueRow("Inner r", String(format: "%.1f", locale: .autoupdatingCurrent, appState.aperture.inner))
+            InspectorValueRow("Outer r", String(format: "%.1f", locale: .autoupdatingCurrent, appState.aperture.outer))
         }
     }
 
@@ -501,8 +501,8 @@ private struct CurrentScanPositionSection: View {
                     mode: appState.patternDisplayMode,
                     roiSummed: appState.realSpaceShape != .point
                         && appState.resultPresentation.virtualDiffractionPattern != nil)
-                InspectorValueRow("\(noun) min", String(format: "%.3g", lowerBound))
-                InspectorValueRow("\(noun) max", String(format: "%.3g", upperBound))
+                InspectorValueRow("\(noun) min", String(format: "%.3g", locale: .autoupdatingCurrent, lowerBound))
+                InspectorValueRow("\(noun) max", String(format: "%.3g", locale: .autoupdatingCurrent, upperBound))
             }
         }
     }
@@ -689,7 +689,7 @@ struct ProductInfoSections: View {
         let valid = product.validityMask.reduce(0) { $0 + ($1 ? 1 : 0) }
         guard total > 0 else { return "no positions" }
         if valid == total { return "all \(SystemMonitor.count(total)) positions" }
-        return String(format: "%@ of %@ positions (%.0f%%)", SystemMonitor.count(valid), SystemMonitor.count(total),
+        return String(format: "%@ of %@ positions (%.0f%%)", locale: .autoupdatingCurrent, SystemMonitor.count(valid), SystemMonitor.count(total),
                       Double(valid) / Double(total) * 100)
     }
 }

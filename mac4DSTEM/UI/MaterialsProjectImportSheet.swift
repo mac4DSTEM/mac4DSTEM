@@ -166,8 +166,8 @@ struct MaterialsProjectImportSheet: View {
 
     private func cellText(_ model: CrystalModel) -> String {
         let crystal = model.structure.cell
-        func length(_ value: Double) -> String { String(format: "%.4g", value) }
-        func angle(_ value: Double) -> String { String(format: "%.2f", value) }
+        func length(_ value: Double) -> String { String(format: "%.4g", locale: .autoupdatingCurrent, value) }
+        func angle(_ value: Double) -> String { String(format: "%.2f", locale: .autoupdatingCurrent, value) }
         return "a=\(length(crystal.a)) b=\(length(crystal.b)) c=\(length(crystal.c)) Å · "
             + "α=\(angle(crystal.alphaDeg)) β=\(angle(crystal.betaDeg)) γ=\(angle(crystal.gammaDeg))°"
     }

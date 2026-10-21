@@ -15,7 +15,7 @@ final class PolishB1Tests: XCTestCase {
     private let german = Locale(identifier: "de_DE")
 
     private func shown(_ printf: String, _ value: Double) -> String {
-        DecimalEntryFormat(PhaseMappingSections.displayFormat(printf), locale: german).format(value)
+        DecimalEntryFormat(PhaseMappingSections.displayFormat(printf).locale(german), locale: german).format(value)
     }
 
     /// Mutation: `displayFormat` ignores the printf precision (the old hard-coded 3 decimals) — "1,600"
@@ -31,7 +31,7 @@ final class PolishB1Tests: XCTestCase {
     func testDisplayNeverRoundsBelowTheStoredDigits() throws {
         for value in [0.0275, 1.234, 0.123456] {
             let text = shown("%.2f", value)
-            let entry = DecimalEntryFormat(PhaseMappingSections.displayFormat("%.2f"), locale: german)
+            let entry = DecimalEntryFormat(PhaseMappingSections.displayFormat("%.2f").locale(german), locale: german)
             XCTAssertEqual(try entry.parseStrategy.parse(text), value, accuracy: 1e-12, "\(value) shown as \(text)")
         }
     }

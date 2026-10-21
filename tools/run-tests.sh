@@ -89,11 +89,13 @@ unit_tests() (
   # -Onone (the 936 MB Velox read 20.3 s vs 1.0 s). A command-line setting is
   # the one that reaches a package target; it also makes the test target -O
   # (the app and DSTEMCore already are). Testability stays on (Debug).
+  # `-testLanguage en -testRegion US`: the unit tests spell numbers with a decimal point; display strings follow the Mac's
+  # locale now (a de_DE Mac printed commas and failed them), and locale-specific cases pass their own Locale.
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$dd" "${par[@]}" \
-      -only-testing:mac4DSTEMTests \
+      -only-testing:mac4DSTEMTests -testLanguage en -testRegion US \
       SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO -quiet
 )
 

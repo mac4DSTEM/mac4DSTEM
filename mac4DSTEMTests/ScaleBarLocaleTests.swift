@@ -42,3 +42,23 @@ final class ScaleBarLocaleTests: XCTestCase {
         XCTAssertTrue(two.contains("0,5 × 0,25"), two)
     }
 }
+
+/// One decimal mark per screen: the colorbar's range, the histogram's readout and the scale bar print the same mark
+/// (a de_DE Mac showed "0,2 Å⁻¹" beside "0.88 / 1.16e+04", design review 2026-10-21).
+final class ColorbarLocaleTests: XCTestCase {
+    private let de = Locale(identifier: "de_DE"), en = Locale(identifier: "en_US")
+
+    func testColorbarRangeUsesTheReadersDecimalMark() {
+        XCTAssertEqual(Colorbar.format(0.88, locale: de), "0,88")
+        XCTAssertEqual(Colorbar.format(11600, locale: de), "1,16e+04")
+        XCTAssertEqual(Colorbar.format(-0.02908, locale: de), "-0,02908")
+        XCTAssertEqual(Colorbar.format(0.88, locale: en), "0.88")
+        XCTAssertEqual(Colorbar.format(11600, locale: en), "1.16e+04")
+        XCTAssertEqual(Colorbar.format(0, locale: de), "0")
+    }
+
+    func testHistogramReadoutUsesTheReadersDecimalMark() {
+        XCTAssertEqual(HistogramReadout.text(value: 0.123456, scale: 1, unit: "", locale: de), "0,123")
+        XCTAssertEqual(HistogramReadout.text(value: 0.123456, scale: 1, unit: "", locale: en), "0.123")
+    }
+}

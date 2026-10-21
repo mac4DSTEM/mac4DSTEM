@@ -2,6 +2,10 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-22 One decimal mark per screen: colorbar ranges, histogram readouts and the inspector's and status line's numbers follow the Mac's locale like the scale bars and the Prepare rows already did (a de_DE Mac showed "0,2 Å⁻¹" beside "0.88 / 1.16e+04"). Recorded values (provenance, sidecar, exports) keep their locale-free spelling. The unit-test run is pinned to en_US.
+
+- 2026-10-22 The status bar keeps its message ("Strain ✓ 89%…") longer than the "Last run" and machine columns when the window is narrow; Imaging's Region shape picker has word labels (Point, Rectangle, Circle), the rectangle's size reads "Half-width", and the section is titled "Region to diffraction"; a Q or R pixel scale that is in force from the file or a session shows its editor behind "Override", open when the scale is missing or your own.
+
 - 2026-10-21 Selected-area diffraction (the CBED pane for a region of the scan) runs on CuboKit's Metal path (`VirtualDiffraction.pattern(path: .metal)`, compensated sums, relative 1e-5 of the old kernel); the app's own kernel and shader are deleted. Same pane, same numbers to display precision; a Mac without Metal runs the kit's CPU path. Unverified on screen beyond the UI journeys.
 
 - 2026-10-21 Fixture move: the cif-symmetry harness case `two_column_symop_loop` no longer declares `F m -3 m` (it listed 4 of the group's 192 operations; DiffractoKit 0.9.0 refuses a symbol-only group with a short list on purpose, pymatgen applies the listed operations as given). It still pins the two-column loop shape. This was the red `scientific (py4DSTEM parity)` job.

@@ -110,7 +110,7 @@ struct HistogramView: View {
 
     private var histogramAccessibilityValue: String {
         guard let stats else { return "No finite pixel statistics" }
-        return String(format: "minimum %.3g, mean %.3g, maximum %.3g", stats.min, stats.mean, stats.max)
+        return String(format: "minimum %.3g, mean %.3g, maximum %.3g", locale: .autoupdatingCurrent, stats.min, stats.mean, stats.max)
     }
 
     /// Dimmed excluded tails + two handle markers. Instead of tiny per-handle
@@ -310,7 +310,7 @@ enum HistogramReadout {
         if scale > 1 {
             number = ResultFormat.grouped(Double(value * scale).rounded(), locale: locale)   // "4 120" (narrow no-break space)
         } else {
-            number = String(format: "%.3g", value * safeScale(scale))
+            number = CalibrationUnitConversion.localizedDecimal(String(format: "%.3g", value * safeScale(scale)), locale: locale)
         }
         return unit.isEmpty ? number : number + " " + unit
     }

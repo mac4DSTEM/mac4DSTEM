@@ -225,7 +225,7 @@ nonisolated enum QuantifyPresentation {
     private static func termsWithoutAbundance(_ r: PooledQuantification.Row, _ q: PooledQuantification) -> String {
         guard r.failure == nil else { return "" }
         let rel = r.net > 0 ? r.sigma / r.net : nil
-        return "counting (fit covariance) \(rel.map { String(format: "%.1f %%", $0 * 100) } ?? "n/a") of the area"
+        return "counting (fit covariance) \(rel.map { String(format: "%.1f %%", locale: .autoupdatingCurrent, $0 * 100) } ?? "n/a") of the area"
     }
 
     /// "Whole map, same listed elements, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the quantified rows of the same method on the
@@ -234,7 +234,7 @@ nonisolated enum QuantifyPresentation {
         guard q.hasAbundance else { return nil }
         let cells = q.rows.compactMap { r -> String? in
             guard r.failure == nil, let a = r.atomicPercent, let s = r.atomicSigma else { return nil }
-            return "\(r.element) " + String(format: "%.1f \u{00B1} %.1f", a, s)
+            return "\(r.element) " + String(format: "%.1f \u{00B1} %.1f", locale: .autoupdatingCurrent, a, s)
         }
         return cells.isEmpty ? nil : "Whole map, same listed elements, for comparison: " + cells.joined(separator: " \u{00B7} ") + " at%"
     }
@@ -265,7 +265,7 @@ nonisolated enum QuantifyPresentation {
         if q.axisLocked { return "locked: the file's axis is used" }
         guard let r = q.refinement else { return "not refined" }
         let used = q.usedAxis == r.refinedAxis
-        return String(format: "%+.1f eV, gain %+.3f %%, FWHM %.0f eV%@", r.offsetShiftEV, r.gainShift * 100, r.resolutionMnKaEV, used ? "" : " (not used)")
+        return String(format: "%+.1f eV, gain %+.3f %%, FWHM %.0f eV%@", locale: .autoupdatingCurrent, r.offsetShiftEV, r.gainShift * 100, r.resolutionMnKaEV, used ? "" : " (not used)")
     }
 
     /// The plot's one-line footer: the estimator, the continuum form and the fit quality, each a whole token. The fit's own

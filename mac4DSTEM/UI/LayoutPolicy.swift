@@ -439,7 +439,7 @@ enum OperationMetricsFormat {
     }
 
     static func throughput(_ rate: Double, for operation: String?) -> String {
-        String(format: "%.1f %@", rate, throughputUnit(for: operation))
+        String(format: "%.1f %@", locale: .autoupdatingCurrent, rate, throughputUnit(for: operation))
     }
 
     /// The Run tab's idle "Last run" line: the run's name and how long it
@@ -528,11 +528,11 @@ enum OperationMetricsFormat {
         // "2000.0 GB" — a number no reader parses at a glance the way "2.0
         // TB" does.
         if residentMB >= 1000 * 1000 {
-            value = String(format: "%.1f TB", residentMB / (1000 * 1000))
+            value = String(format: "%.1f TB", locale: .autoupdatingCurrent, residentMB / (1000 * 1000))
         } else if residentMB >= 1000 {
-            value = String(format: "%.1f GB", residentMB / 1000)
+            value = String(format: "%.1f GB", locale: .autoupdatingCurrent, residentMB / 1000)
         } else {
-            value = String(format: "%.0f MB", residentMB)
+            value = String(format: "%.0f MB", locale: .autoupdatingCurrent, residentMB)
         }
         return "\(value) · \(isResident ? "resident" : "streaming")"
     }

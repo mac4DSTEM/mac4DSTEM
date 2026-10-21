@@ -137,7 +137,7 @@ extension AppState {
         case .training(let p):
             updateCancellableOperation(
                 token, progress: Double(p.step) / Double(max(p.steps, 1)),
-                status: String(format: "Fine-tuning · Step %d/%d · %.2f s/step", p.step, p.steps, p.secondsPerStep))
+                status: String(format: "Fine-tuning · Step %d/%d · %.2f s/step", locale: .autoupdatingCurrent, p.step, p.steps, p.secondsPerStep))
         case .writing:
             updateCancellableOperation(token, progress: 1, status: "Writing and loading the fine-tuned model…")
         case .evaluating(let done, let total):

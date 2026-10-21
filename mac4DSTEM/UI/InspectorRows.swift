@@ -1093,7 +1093,7 @@ nonisolated enum RoomAccessibilityText {
 
     /// A pixel count spoken in full ("px" is read letter by letter): "1 pixel", "12 pixels".
     static func pixels(_ value: Double) -> String {
-        let text = value == value.rounded() ? String(Int(value)) : String(format: "%g", value)
+        let text = value == value.rounded() ? String(Int(value)) : String(format: "%g", locale: .autoupdatingCurrent, value)
         return value == 1 ? "1 pixel" : "\(text) pixels"
     }
 

@@ -112,7 +112,7 @@ enum SpectroscopyPlaceholderFormat {
 
     /// "az 45° · el 18° · 0.7 sr (as stored)": only what the file wrote.
     static func detector(_ d: SpectrumDetectorSegment) -> String {
-        [d.azimuthDegrees.map { String(format: "az %.0f°", $0) }, d.elevationDegrees.map { String(format: "el %.0f°", $0) },
+        [d.azimuthDegrees.map { String(format: "az %.0f°", locale: .autoupdatingCurrent, $0) }, d.elevationDegrees.map { String(format: "el %.0f°", locale: .autoupdatingCurrent, $0) },
          d.solidAngle.map { "\($0.formatted()) sr" }].compactMap { $0 }.joined(separator: " · ")
     }
 

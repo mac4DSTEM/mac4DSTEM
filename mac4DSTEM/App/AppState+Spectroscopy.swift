@@ -161,8 +161,8 @@ extension AppState {
         // one-pixel image, the detector's live and real time said in the status line and the session log.
         if kind == .other, ext == "emd", let single = await Task.detached(priority: .userInitiated, operation: { FileRouting.veloxSpectrum(path: path) }).value {
             openSpectrumImage(single.image)
-            let times = [single.liveTimeSeconds.map { String(format: "live time %.4g s", $0) },
-                         single.realTimeSeconds.map { String(format: "real time %.4g s", $0) }].compactMap { $0 }
+            let times = [single.liveTimeSeconds.map { String(format: "live time %.4g s", locale: .autoupdatingCurrent, $0) },
+                         single.realTimeSeconds.map { String(format: "real time %.4g s", locale: .autoupdatingCurrent, $0) }].compactMap { $0 }
             if !times.isEmpty { activityLog.record("\(url.lastPathComponent): single spectrum, " + times.joined(separator: ", ")) }
             return true
         }

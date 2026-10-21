@@ -157,3 +157,8 @@ Ordered as the ROADMAP takes them.
 - Number formatting (2026-10-21 UI check): the colorbar values on the image panes (0.88 / 96.11, 1.16e+04) use periods beside locale-formatted scale bars (0,2 A^-1, 1 nm); one formatter for the pane overlays is open.
 
 - Task 5 (CuboKit calibration and cube edits), left for a later night: only the bridge landed (`DSTEMCore.Calibration.cuboCalibration()`, pinned by `CuboCalibrationBridgeTests`). Replacing the app calibration struct needs its provenance, validity mask, aperture centre and the origin/probe/ellipse rescale under a bin or crop (the app moves them with the pixels, the kit leaves them as py4DSTEM does) to be decided first; ~290 call sites and the sidecar replay read it. `CubeEditing` (binScan, thinScan, padDetector, resampleDetector) is not adopted: the app bins and crops at load (`LoadSpecification`), not on an in-memory cube.
+
+## Design review 2026-10-21, left for Paul or a kit
+- Taste items waiting on Paul: the demo's 3x3 blocks (fixture varies per 4x4 block), the duplicate Compute buttons (toolbar and inspector), status words styled as controls ("Relative" accent text, "ROI sum" orange), pane titles on the Prepare pane, and the macTEM periodic table size.
+- Not done in this pass: the number formatter reaches the display strings in `UI/` and the status lines; `ResultExport` burns with en_US_POSIX on purpose, and the remaining `String(format:)` calls in `Core/`, `Session/` and `Support/` are records or exports.
+- The `--ui-testing` window opens at the screen's width (1280 points on this Mac), not 1440; the `--ui-window-width` launch argument picks another, `LaunchJourney` keeps a shot at 1280 and one in light mode.

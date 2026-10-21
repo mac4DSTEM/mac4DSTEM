@@ -133,7 +133,7 @@ extension AppState {
         case .notSelfChecked:
             status += " · shell ratio unchecked"
         case .measured(let observed, let expected, _):
-            status += String(format: " · shell ratio %.3f vs %.3f predicted", observed, expected)
+            status += String(format: " · shell ratio %.3f vs %.3f predicted", locale: .autoupdatingCurrent, observed, expected)
         }
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)

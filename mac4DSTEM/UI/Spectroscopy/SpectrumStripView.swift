@@ -577,8 +577,8 @@ struct SpectrumStripView: View {
     }
 
     static func format(_ v: Double) -> String {
-        if v >= 10_000 { return String(format: "%.0fk", v / 1000) }
-        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        if v >= 10_000 { return String(format: "%.0fk", locale: .autoupdatingCurrent, v / 1000) }
+        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", locale: .autoupdatingCurrent, v)
     }
 
     static func superscript(_ n: Int) -> String {
