@@ -1,7 +1,7 @@
 //
 //  ParallaxDepthSectioning.swift
-//  py4DSTEM Parallax.depth_section: the app's options, result and memory/cancellation wrapper around CuboKit 0.4.0's
-//  CuboParallax.ParallaxDepthSectioning.
+//  py4DSTEM Parallax.depth_section: the app's options, result and memory/cancellation wrapper around CuboKit 0.6.0's
+//  CuboParallax.ParallaxDepthSectioner.
 //
 
 import CuboParallax
@@ -83,9 +83,8 @@ package nonisolated enum ParallaxDepthSectioner {
         }
     }
 
-    /// CuboParallax's `ParallaxDepthSectioning.section` (`.fullFit` or `.defocusOnly` as `useFullFit` says) on the aligned stack, in Double.
-    /// The kit takes the whole stack as Double images; the app calls it once per depth plane (cancellation and progress between planes)
-    /// and keeps the memory refusal.
+    /// CuboParallax's `ParallaxDepthSectioner` (`.fullFit` or `.defocusOnly` as `useFullFit` says) on the aligned stack, in Double: the
+    /// forward transforms once, then a plane per depth. The app keeps the memory refusal and the Float output.
     package static func section(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
@@ -140,34 +139,41 @@ package nonisolated enum ParallaxDepthSectioner {
                 terms: fit.terms,
                 coefficientsAngstrom: fit.coefficientsAngstrom)
             : .defocusOnly(c1Angstrom: fit.lowOrder.c1Angstrom)
-        let images: [[Double]] = (0..<bfCount).map { bf in
-            alignment.shiftedStack[(bf * count)..<((bf + 1) * count)].map(Double.init)
-        }
         let angles = preprocessing.probeAnglesMrad.map {
             CuboParallax.ParallaxShift(row: Double($0.qx) / 1_000, column: Double($0.qy) / 1_000)
         }
-        // One kit call per depth plane, so a cancel lands between planes as before. The kit transforms every image forward on each
-        // call (a plane's own work is one shift and one inverse FFT per image), so this costs one extra forward FFT per image per plane:
-        // about 1.5x the FFT work of a single multi-depth call, measured nowhere on real data (delete at a CuboKit that takes the
-        // depth list with a per-plane callback).
+        let isCancelled: () -> Bool = { cancellation?.isCancelled == true }
+        // The kit's sectioner transforms every image forward once; each plane is then one shift and one inverse FFT per image, so a
+        // cancel lands between images and progress ticks per plane. The Double images are released once the spectra exist.
+        let sectioner: CuboParallax.ParallaxDepthSectioner
+        do {
+            let images: [[Double]] = (0..<bfCount).map { bf in
+                alignment.shiftedStack[(bf * count)..<((bf + 1) * count)].map(Double.init)
+            }
+            sectioner = try CuboParallax.ParallaxDepthSectioner(
+                stack: images, rows: height, columns: width, probeAngles: angles,
+                sampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
+                wavelength: preprocessing.calibration.wavelengthAngstrom, ctf: ctf,
+                informationLimit: options.informationLimitInvAngstrom,
+                informationPower: options.informationPower, isCancelled: isCancelled
+            )
+        } catch is CancellationError {
+            throw DepthError.cancelled
+        } catch {
+            throw DepthError.invalidInput(parallaxKitReason(error))
+        }
         var stack = [Float](repeating: 0, count: outputCount)
         for (depthIndex, depth) in options.depthsAngstrom.enumerated() {
-            try checkCancellation(cancellation)
-            let planes: [[Double]]
+            let plane: [Double]
             do {
-                planes = try CuboParallax.ParallaxDepthSectioning.section(
-                    stack: images, rows: height, columns: width, probeAngles: angles,
-                    sampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
-                    wavelength: preprocessing.calibration.wavelengthAngstrom, ctf: ctf,
-                    depthsAngstrom: [depth],
-                    informationLimit: options.informationLimitInvAngstrom,
-                    informationPower: options.informationPower
-                )
+                plane = try sectioner.plane(atDepth: depth, isCancelled: isCancelled)
+            } catch is CancellationError {
+                throw DepthError.cancelled
             } catch {
                 throw DepthError.invalidInput(parallaxKitReason(error))
             }
             let destination = depthIndex * count
-            for index in 0..<count { stack[destination + index] = Float(planes[0][index]) }
+            for index in 0..<count { stack[destination + index] = Float(plane[index]) }
             progress?(Double(depthIndex + 1) / Double(options.depthsAngstrom.count))
         }
         try checkCancellation(cancellation)
