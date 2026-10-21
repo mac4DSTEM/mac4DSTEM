@@ -81,12 +81,13 @@ struct ImagingSettings: View {
                 }
             }
         } else {
-            InspectorSection("Region → diffraction") {
+            InspectorSection("Region to diffraction") {
                 InspectorRow("Shape") {
                     Picker("Region shape", selection: $appState.realSpaceShape) {
+                        // Words, not glyphs: three segments fit, and a bare square or circle names neither the point nor the
+                        // region it selects (design review 2026-10-21).
                         ForEach(RegionShape.allCases) { shape in
-                            Image(systemName: Self.symbol(shape))
-                                .accessibilityLabel(shape.rawValue)
+                            Text(shape.rawValue)
                                 .tag(shape)
                         }
                     }
@@ -98,7 +99,7 @@ struct ImagingSettings: View {
 
                 if appState.realSpaceShape != .point, let d = appState.descriptor {
                     AdjustmentSlider(
-                        "Radius",
+                        appState.realSpaceShape == .rectangle ? "Half-width" : "Radius",
                         value: Binding(
                             get: { Double(appState.realSpaceRadius) },
                             set: { appState.realSpaceRadius = Float($0) }
@@ -107,7 +108,7 @@ struct ImagingSettings: View {
                         format: .number.precision(.fractionLength(0)),
                         unit: "px"
                     )
-                    .accessibilityLabel("Region radius in pixels")
+                    .accessibilityLabel(appState.realSpaceShape == .rectangle ? "Region half-width in pixels" : "Region radius in pixels")
                 }
                 InspectorNote(appState.realSpaceShape == .point
                      ? "Drag on the real-space image to scrub the diffraction pattern."
