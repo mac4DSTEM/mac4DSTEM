@@ -9,7 +9,6 @@
 # reason (lineage/marks records need none: they import nothing gated).
 mac4DSTEM/App/AppState+PhaseMapping.swift	simd	view / overlay geometry in simd, no science
 mac4DSTEM/App/PendingLoad.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
-mac4DSTEM/Core/Analysis/DiffractionEmbedding.swift	Accelerate,+symbols	LEFTOVER: vDSP_vsub/vDSP_dotpr in the embedding projection; move to CuboEmbedding (PCA is the kit's already)
 mac4DSTEM/Core/Analysis/OrientationResult.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
 mac4DSTEM/Core/Analysis/VirtualDetector.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
 mac4DSTEM/Core/Compute/MTLTexture+Float.swift	Metal	array-to-texture helpers for the display and residency paths
