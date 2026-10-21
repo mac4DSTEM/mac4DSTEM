@@ -395,6 +395,14 @@ struct mac4DSTEMApp: App {
     @State private var tableSelection = PrecipitateTableSelection()
     /// Launched by the UI test target: deterministic window, no restore.
     private static let uiTesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    /// `--ui-window-width <points>` (with `--ui-testing`): the window opens that wide, so a journey can see the narrower layout
+    /// beside the default 1440.
+    private static let uiWindowWidth: CGFloat = {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let i = arguments.firstIndex(of: "--ui-window-width"), i + 1 < arguments.count,
+              let width = Double(arguments[i + 1]), width >= 800 else { return 1440 }
+        return CGFloat(width)
+    }()
 
     init() {
         // `--ui-testing`: a launch starts from no saved window or split geometry (the unit runner clears the same keys from
@@ -422,9 +430,9 @@ struct mac4DSTEMApp: App {
             DatasetWindow(preferences: preferences, recents: recents, menuRelay: menuRelay)
                 .environment(tableSelection)
         }
-            .defaultSize(width: Self.uiTesting ? 1440 : LayoutPolicy.datasetWindowIdealSize.width,
+            .defaultSize(width: Self.uiTesting ? Self.uiWindowWidth : LayoutPolicy.datasetWindowIdealSize.width,
                          height: Self.uiTesting ? 900 : LayoutPolicy.datasetWindowIdealSize.height)
-            // `--ui-testing` (UI test target): one 1440 x 900 window; windows are not restored by the test's own launch.
+            // `--ui-testing` (UI test target): one 1440 x 900 window (or the `--ui-window-width`); windows are not restored by the test's own launch.
             // A launch always presents the window (a UI test's launch has no restored state to present it).
             .defaultLaunchBehavior(.presented)
             .handlesExternalEvents(matching: ["*"])   // a launch event from the test runner opens this window, as macTEM's does
