@@ -882,7 +882,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/SpectroKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.7.0;
+				version = 0.7.1;
 			};
 		};
 		30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */ = {
@@ -906,7 +906,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/FormatoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.5.0;
+				version = 0.7.0;
 			};
 		};
 		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {

@@ -25,8 +25,8 @@ let package = Package(
     // since 0.4.0 FormatoKit ships libhdf5 as three dynamic-framework XCFrameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that Xcode
     // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.7.0"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.5.0"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.7.1"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.7.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.7.1"),
