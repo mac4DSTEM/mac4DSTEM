@@ -362,9 +362,15 @@ package actor H5Reader: FourDDataSource {
             datasetPath: path,
             shape: shape,
             dtypeDescription: Self.describeType(info.type),
-            chunkShape: (try? reader.chunkShape(of: path)) ?? nil,
+            chunkShape: try Self.chunkShape(path) { try reader.chunkShape(of: path) },
             storedRank: rank
         )
+    }
+
+    /// The chunk shape of the dataset at `path`: nil only when the kit answers "not chunked" (contiguous or compact storage); a
+    /// failed read of the layout is an error, not a quiet nil that would make the loader assume a contiguous dataset.
+    package static func chunkShape(_ path: String, _ lookup: () throws -> [Int]?) throws -> [Int]? {
+        do { return try lookup() } catch { throw H5Error.datasetOpenFailed(path) }
     }
 
     private static func describeType(_ type: HDF5DatasetType) -> String {
