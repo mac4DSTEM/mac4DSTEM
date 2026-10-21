@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import struct CuboBragg.BraggDetector
 import DSTEMCore
 @testable import mac4DSTEM
 
@@ -166,9 +167,7 @@ final class DiskDetectionNonFinitePixelTests: XCTestCase {
         var image: [Float] = [.nan, 2, 9,
                               4, 6, 1,
                               7, 8, .infinity]
-        let count = image.withUnsafeMutableBufferPointer {
-            DiskDetector.fillNonFinite($0.baseAddress!, width: 3, height: 3, rowStride: 3)
-        }
+        let count = BraggDetector.fillNonFinite(&image, rows: 3, columns: 3)
         XCTAssertEqual(count, 2)
         XCTAssertEqual(image[0], 4, "median of 2, 4, 6")
         XCTAssertEqual(image[8], 6, "median of 6, 1, 8")

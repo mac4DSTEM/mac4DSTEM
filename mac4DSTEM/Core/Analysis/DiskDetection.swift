@@ -18,16 +18,17 @@
 //  Coordinates: peaks are (x = detector column, y = row), app convention.
 //  py4DSTEM's (qx, qy) has x as the row axis — translated here, nowhere else.
 //
-//  The full-scan pass reads bounded scan-row tiles, then parallelizes each
-//  tile with one detector (and its FFT scratch) per worker. multicorr is
+//  Steps (1)-(4) are CuboKit's (CuboBragg 0.6.0, Float32 `BraggPrecision.single`);
+//  `DiskDetector` below maps the app's controls onto it. The full-scan pass reads
+//  bounded scan-row tiles, then parallelizes each tile with one detector per worker. multicorr is
 //  ~10× slower than poly per pattern — poly is the interactive default,
 //  multicorr the strain-analysis choice.
 //
 
 import Foundation
-import Accelerate
 import Metal
-import ImagoCore
+import CuboBragg
+import CuboVirtual
 
 // MARK: - Types
 
@@ -766,42 +767,59 @@ package nonisolated struct BraggVectors: Sendable {
 
 // MARK: - DiskDetector
 
-/// Per-worker detector: owns the FFT plan and scratch buffers, so one
-/// instance must not be used from two threads at once. Create one per
-/// concurrent worker (they share the kernel, which is immutable).
+/// The app's detector: a facade over CuboKit's `CuboBragg.BraggDetector` (CuboKit 0.6.0), which owns the correlation,
+/// the maxima, the filter cascade and both subpixel refinements. This type keeps the app's vocabulary (`DiskDetectionParams`,
+/// x = column, Float peaks, `DiskDetectionPatternDiagnostics`) and the learned detector's two entries (`correlation`,
+/// `refine`). The kit's detector is `Sendable` and keeps one scratch per concurrent caller, so one `DiskDetector` may serve
+/// several threads; the full-scan pass still makes one per worker, as before.
+///
+/// Precision: Float32 (`BraggPrecision.single`, as the former in-app detector computed) on a detector size vDSP's DFT
+/// supports and at `corrPower` of 0.5 or more; otherwise the kit's Double path. Phase correlation (`corrPower` near 0) is
+/// not held in Float32 (CuboKit `docs/bragg.md`, moves a peak by up to 11 px), and an unsupported size is refused by
+/// `.single`. DEVIATION from the former detector: it ran Float32 everywhere; Double is more exact where it is used.
+///
+/// The kit refuses a peak whose parabola or matrix DFT is not finite (`CuboBraggError.nonFiniteRefinement`); the former
+/// detector kept the integer position. Such a pattern now yields no peaks, with a zero funnel.
 package nonisolated final class DiskDetector {
 
-    private let kernel: ProbeKernel
-    private let fft: FFT2D
-    private let px: Int, py: Int          // exact detector/FFT dims
+    private let detector: BraggDetector
     private let qx: Int, qy: Int          // detector dims
-
-    // Scratch (native detector grid)
-    private var re: [Float]
-    private var im: [Float]
-    private var ccRe: [Float]             // complex correlation, kept for multicorr
-    private var ccIm: [Float]
-    private var cc: [Float]               // real correlation
-    private var smooth: [Float]
-    private var blurTemp: [Float]
-    private var blurPadded: [Float] = []
-    private var blurTaps: [Float] = []
-    private var cachedBlurSigma: Float = -.greatestFiniteMagnitude
+    private let singleSupported: Bool
 
     package init?(kernel: ProbeKernel) {
-        guard let fft = FFT2D(nx: kernel.px, ny: kernel.py) else { return nil }
-        self.kernel = kernel
-        self.fft = fft
-        self.px = kernel.px; self.py = kernel.py
+        guard kernel.px == kernel.qx, kernel.py == kernel.qy,
+              let image = try? CuboVirtual.DetectorImage(
+                detectorRows: kernel.qy, detectorColumns: kernel.qx,
+                values: kernel.kernel.map(Double.init), path: .cpu),
+              let detector = try? BraggDetector(kernel: image) else { return nil }
+        self.detector = detector
         self.qx = kernel.qx; self.qy = kernel.qy
-        let n = px * py
-        re = [Float](repeating: 0, count: n)
-        im = [Float](repeating: 0, count: n)
-        ccRe = [Float](repeating: 0, count: n)
-        ccIm = [Float](repeating: 0, count: n)
-        cc = [Float](repeating: 0, count: n)
-        smooth = [Float](repeating: 0, count: n)
-        blurTemp = [Float](repeating: 0, count: n)
+        singleSupported = BraggDetector.supportsSinglePrecision(detectorRows: kernel.qy, detectorColumns: kernel.qx)
+    }
+
+    /// The kit's options for these controls: the app's variants on (neighbour-median fill, multicorr peaks left in
+    /// correlation order), every field from `params`.
+    private func options(_ params: DiskDetectionParams) -> BraggDiskOptions {
+        var o = BraggDiskOptions.mac4DSTEM
+        o.correlationPower = Double(params.corrPower)
+        o.patternSigma = Double(params.sigmaDP)
+        o.correlationSigma = Double(params.sigmaCC)
+        switch params.subpixel {
+        case .pixel: o.subpixel = .pixel
+        case .poly: o.subpixel = .parabolic
+        // The kit refuses an upsample factor of 2 or less for multicorr; the former detector skipped the refinement.
+        case .multicorr: o.subpixel = params.upsampleFactor > 2 ? .multicorr : .parabolic
+        }
+        o.upsampleFactor = params.upsampleFactor
+        o.minimumAbsoluteIntensity = Double(params.minAbsoluteIntensity)
+        o.minimumRelativeIntensity = Double(params.minRelativeIntensity)
+        o.relativeToPeak = params.relativeToPeak
+        o.relativeReferenceMinimumRadius = Double(params.relativeReferenceMinimumRadiusPx)
+        o.minimumPeakSpacing = Double(params.minPeakSpacing)
+        o.edgeBoundary = params.edgeBoundary
+        o.maximumPeaks = params.maxNumPeaks
+        o.precision = singleSupported && params.corrPower >= 0.5 ? .single : .double
+        return o
     }
 
     // MARK: Detection (one pattern)
@@ -816,33 +834,27 @@ package nonisolated final class DiskDetector {
     package func detectWithDiagnostics(
         pattern: UnsafePointer<Float>, params: DiskDetectionParams
     ) -> DiskDetectionPatternResult {
-        crossCorrelate(
-            pattern: pattern,
-            corrPower: params.corrPower,
-            sigmaDP: params.sigmaDP,
-            retainComplexCorrelation: params.subpixel == .multicorr
-        )
-
-        // Smooth (or copy) the real CC for maxima finding.
-        if params.sigmaCC > 0 {
-            gaussianBlur(src: cc, dst: &smooth, sigma: params.sigmaCC)
-        } else {
-            smooth = cc
+        let buffer = UnsafeBufferPointer(start: pattern, count: qy * qx)
+        guard let (peaks, funnel) = try? detector.detectWithFunnel(buffer, options: options(params)) else {
+            return DiskDetectionPatternResult(peaks: [], diagnostics: DiskDetectionPatternDiagnostics(
+                localMaximumCount: 0, afterAbsoluteThresholdCount: 0, afterRelativeThresholdCount: 0,
+                afterSpacingCount: 0, acceptedCount: 0, wasCountLimited: false, relativeReferenceIntensity: nil,
+                relativeReferenceWasAvailable: params.minRelativeIntensity == 0, correlationMaximum: 0))
         }
-
-        var result = findMaxima(in: smooth, params: params)
-        result.diagnostics.nonFinitePixelCount = nonFinitePixelCount
-
-        if params.subpixel != .pixel {
-            polyRefine(&result.peaks, in: smooth)
-        }
-        if params.subpixel == .multicorr {
-            multicorrRefine(&result.peaks, upsampleFactor: params.upsampleFactor)
-        }
+        var diagnostics = DiskDetectionPatternDiagnostics(
+            localMaximumCount: funnel.localMaximumCount,
+            afterAbsoluteThresholdCount: funnel.afterAbsoluteCutCount,
+            afterRelativeThresholdCount: funnel.afterRelativeCutCount,
+            afterSpacingCount: funnel.afterSpacingCount,
+            acceptedCount: funnel.acceptedCount,
+            wasCountLimited: funnel.wasCountLimited,
+            relativeReferenceIntensity: funnel.relativeReferenceIntensity.map { Float($0) },
+            relativeReferenceWasAvailable: funnel.relativeReferenceWasAvailable,
+            correlationMaximum: Float(funnel.correlationMaximum))
+        diagnostics.nonFinitePixelCount = funnel.nonFinitePixelCount
         return DiskDetectionPatternResult(
-            peaks: result.peaks,
-            diagnostics: result.diagnostics
-        )
+            peaks: peaks.map { BraggPeak(x: Float($0.column), y: Float($0.row), intensity: Float($0.intensity)) },
+            diagnostics: diagnostics)
     }
 
     /// Convenience for [Float] input (live single-pattern path).
@@ -859,6 +871,7 @@ package nonisolated final class DiskDetector {
             detectWithDiagnostics(pattern: $0.baseAddress!, params: params)
         }
     }
+
 
     // MARK: Learned candidates (v3-plan §3a step 4, 2026-09-07)
 
@@ -881,21 +894,21 @@ package nonisolated final class DiskDetector {
     package func correlation(
         pattern: UnsafePointer<Float>, params: DiskDetectionParams
     ) -> (raw: [Float], smoothed: [Float]) {
-        crossCorrelate(pattern: pattern, corrPower: params.corrPower, sigmaDP: params.sigmaDP,
-                       retainComplexCorrelation: false)
-        if params.sigmaCC > 0 {
-            gaussianBlur(src: cc, dst: &smooth, sigma: params.sigmaCC)
-        } else {
-            smooth = cc
+        let o = options(params)
+        let values = UnsafeBufferPointer(start: pattern, count: qy * qx).map(Double.init)
+        guard let image = try? CuboVirtual.DetectorImage(
+                detectorRows: qy, detectorColumns: qx, values: values, path: .cpu),
+              let correlation = try? detector.correlate(image, options: o) else {
+            return ([Float](repeating: 0, count: qy * qx), [Float](repeating: 0, count: qy * qx))
         }
-        func cropped(_ a: [Float]) -> [Float] {
-            if px == qx && py == qy { return a }
-            var out = [Float](repeating: 0, count: qy * qx)
-            for y in 0..<qy { for x in 0..<qx { out[y * qx + x] = a[y * px + x] } }
-            return out
-        }
-        return (cropped(cc), cropped(smooth))
+        let raw = correlation.real
+        let smoothed = o.correlationSigma > 0
+            ? ((try? CuboVirtual.GaussianFilter(sigma: o.correlationSigma)
+                .apply(raw, rows: qy, columns: qx, edge: .reflect)) ?? raw)
+            : raw
+        return (raw.map { Float($0) }, smoothed.map { Float($0) })
     }
+
 
     /// Refine learned candidates the way the classical maxima are refined, on the
     /// [qy * qx] smoothed correlation from `correlation(pattern:params:)`: snap each
@@ -977,338 +990,6 @@ package nonisolated final class DiskDetector {
         return kept.map(\.peak)
     }
 
-    // MARK: Stage 1 — hybrid cross correlation
-
-    /// Non-finite pixels the last `crossCorrelate` filled (D019).
-    private var nonFinitePixelCount = 0
-
-    /// Replaces every non-finite pixel of a `width × height` image (rows
-    /// `rowStride` apart) with the median of its finite 8-neighbours, 0 when
-    /// none is finite; returns how many it replaced. Neighbours are read
-    /// before any replacement, so fills never feed each other. The D019
-    /// refuter measured a zero fill moving a peak by up to 1.8 px at
-    /// corrPower 0 where the neighbour median moved it ≤ 0.07 px.
-    package nonisolated static func fillNonFinite(
-        _ p: UnsafeMutablePointer<Float>, width: Int, height: Int, rowStride: Int
-    ) -> Int {
-        var fills: [(index: Int, value: Float)] = []
-        for y in 0..<height {
-            for x in 0..<width where !p[y * rowStride + x].isFinite {
-                var neighbours: [Float] = []
-                for dy in -1...1 {
-                    for dx in -1...1 where dx != 0 || dy != 0 {
-                        let yy = y + dy, xx = x + dx
-                        guard yy >= 0, yy < height, xx >= 0, xx < width else { continue }
-                        let v = p[yy * rowStride + xx]
-                        if v.isFinite { neighbours.append(v) }
-                    }
-                }
-                neighbours.sort()
-                let k = neighbours.count
-                let median: Float = k == 0 ? 0
-                    : k % 2 == 1 ? neighbours[k / 2] : (neighbours[k / 2 - 1] + neighbours[k / 2]) / 2
-                fills.append((y * rowStride + x, median))
-            }
-        }
-        for fill in fills { p[fill.index] = fill.value }
-        return fills.count
-    }
-
-    private func crossCorrelate(
-        pattern: UnsafePointer<Float>,
-        corrPower: Float,
-        sigmaDP: Float,
-        retainComplexCorrelation: Bool
-    ) {
-        // Copy the pattern onto the native circular-correlation grid, then
-        // optionally apply py4DSTEM's pre-correlation diffraction smoothing.
-        let n = px * py
-        for i in 0..<n { re[i] = 0; im[i] = 0 }
-        for y in 0..<qy {
-            re.withUnsafeMutableBufferPointer { buf in
-                buf.baseAddress!.advanced(by: y * px)
-                    .update(from: pattern + y * qx, count: qx)
-            }
-        }
-        // A non-finite detector pixel (a NaN-masked dead pixel, a gain
-        // division by zero) takes the median of its finite neighbours.
-        // Unguarded, the FFT spread it to every bin, `vDSP_vthres` mapped the
-        // NaN map to all-zero, and the pattern silently lost every peak
-        // (register D019, Gate D 2026-09-30). DEVIATION: py4DSTEM loses the
-        // pattern the same way. A no-op on finite data.
-        nonFinitePixelCount = re.withUnsafeMutableBufferPointer {
-            Self.fillNonFinite($0.baseAddress!, width: qx, height: qy, rowStride: px)
-        }
-        if sigmaDP > 0 {
-            gaussianBlur(src: re, dst: &smooth, sigma: sigmaDP)
-            re = smooth
-        }
-        fft.transform(re: &re, im: &im, forward: true)
-
-        // m = FFT(pattern) · conj(FFT(kernel));  hybrid: m · |m|^(p−1)
-        let kRe = kernel.ftRe, kIm = kernel.ftIm
-        for i in 0..<n {
-            let pr = re[i], pi = im[i]
-            var mr = pr * kRe[i] - pi * kIm[i]
-            var mi = pr * kIm[i] + pi * kRe[i]
-            if corrPower != 1 {
-                let mag = (mr * mr + mi * mi).squareRoot()
-                let f = mag > 0 ? pow(mag, corrPower - 1) : 0
-                mr *= f; mi *= f
-            }
-            re[i] = mr; im[i] = mi
-            if retainComplexCorrelation { ccRe[i] = mr; ccIm[i] = mi }
-        }
-
-        // CC = max(Re(IFFT(cc)), 0), computed in place on re/im. ccRe/ccIm
-        // are only populated when the caller needs the complex correlation
-        // retained (multicorrRefine is the sole consumer).
-        fft.transform(re: &re, im: &im, forward: false)
-        vDSP_vthres(re, 1, [0], &cc, 1, vDSP_Length(n))
-    }
-
-    // MARK: Stage 2+3 — maxima + filter cascade (get_maxima_2D port)
-
-    private func findMaxima(
-        in ar: [Float], params p: DiskDetectionParams
-    ) -> (peaks: [BraggPeak], diagnostics: DiskDetectionPatternDiagnostics) {
-        // Local maxima by strict/loose 8-neighbor comparison, restricted to
-        // the detector region minus the edge boundary.
-        let eb = max(1, p.edgeBoundary)
-        var found: [BraggPeak] = []
-        guard qy - eb > eb, qx - eb > eb else {
-            return (
-                [],
-                DiskDetectionPatternDiagnostics(
-                    localMaximumCount: 0, afterAbsoluteThresholdCount: 0,
-                    afterRelativeThresholdCount: 0, afterSpacingCount: 0,
-                    acceptedCount: 0, wasCountLimited: false,
-                    relativeReferenceIntensity: nil,
-                    relativeReferenceWasAvailable: p.minRelativeIntensity == 0,
-                    correlationMaximum: ar.max() ?? 0
-                )
-            )
-        }
-        for y in eb..<(qy - eb) {
-            for x in eb..<(qx - eb) {
-                let i = y * px + x
-                let v = ar[i]
-                // Ties break toward the earlier (lower-index) pixel, matching
-                // py4DSTEM's mixed >=/> roll comparison.
-                if v >= ar[i + 1], v > ar[i - 1],
-                   v >= ar[i + px], v > ar[i - px],
-                   v >= ar[i + px + 1], v > ar[i + px - 1],
-                   v >= ar[i - px + 1], v > ar[i - px - 1] {
-                    found.append(BraggPeak(x: Float(x), y: Float(y), intensity: v))
-                }
-            }
-        }
-        found.sort { $0.intensity > $1.intensity }
-        let localMaximumCount = found.count
-
-        // Intensity thresholds.
-        if p.minAbsoluteIntensity > 0 {
-            found.removeAll { $0.intensity < p.minAbsoluteIntensity }
-        }
-        let afterAbsoluteThresholdCount = found.count
-        var relativeReferenceIntensity: Float?
-        var relativeReferenceWasAvailable = p.minRelativeIntensity == 0
-        // DEVIATION from py4DSTEM `filter_2D_maxima` (preprocess/utils.py):
-        // that function always takes `maxima["intensity"][relativeToPeak]` —
-        // the n-th brightest maximum overall, no spatial exclusion. This adds
-        // an optional radius (`relativeReferenceMinimumRadiusPx`, 0 keeps
-        // py4DSTEM's rule) excluding candidates near the brightest maximum
-        // before picking the reference. The reference: the `relativeToPeak`-th
-        // brightest maximum, taken among those at least
-        // `relativeReferenceMinimumRadiusPx` from the BRIGHTEST maximum when
-        // that is set. The brightest is the direct beam in any pattern that
-        // needs this rule, wherever descan put it; the array centre is not
-        // (Gate B 2026-09-15: measured from the centre, a descanned beam
-        // stayed the reference and low-angle spots near the centre lost their
-        // eligibility). MEASURED (Thronsen step 3, 2026-09-15): a saturated
-        // direct-beam plateau makes "0.5% of the maximum" mean "0.5% of the
-        // plateau", not of a single peak — against the brightest Bragg peak
-        // outside the plateau instead, the same fraction means the same thing
-        // on every pattern (plateau radius measured 6.5 px on a 12-px plateau).
-        let references: [BraggPeak]
-        if p.relativeReferenceMinimumRadiusPx > 0, let beam = found.first {
-            references = found.filter {
-                hypot($0.x - beam.x, $0.y - beam.y) >= p.relativeReferenceMinimumRadiusPx
-            }
-        } else {
-            references = found
-        }
-        if p.minRelativeIntensity > 0, references.count > p.relativeToPeak {
-            let ref = references[p.relativeToPeak].intensity
-            relativeReferenceIntensity = ref
-            relativeReferenceWasAvailable = true
-            found.removeAll { $0.intensity / ref < p.minRelativeIntensity }
-        }
-        let afterRelativeThresholdCount = found.count
-
-        // Min spacing: walk brightest-first, drop anything too close to a
-        // kept peak.
-        if p.minPeakSpacing > 0 {
-            let d2 = p.minPeakSpacing * p.minPeakSpacing
-            var kept: [BraggPeak] = []
-            outer: for cand in found {
-                for k in kept {
-                    let dx = cand.x - k.x, dy = cand.y - k.y
-                    if dx * dx + dy * dy < d2 { continue outer }
-                }
-                kept.append(cand)
-            }
-            found = kept
-        }
-        let afterSpacingCount = found.count
-
-        let wasCountLimited = found.count > p.maxNumPeaks
-        // Copy the survivors into an array of their own size. `removeAll(where:)`
-        // and `removeLast` keep the capacity of every local maximum, and a
-        // whole-scan result retains one array per position. It bites when the
-        // spacing filter is off (`minPeakSpacing` 0; the filter rebuilds the
-        // array): ~14 MB per 512 positions in the memory harness (2026-09-29,
-        // tools/harnesses/tiled-detection-memory-test). Same elements, same order.
-        var kept: [BraggPeak] = []
-        kept.reserveCapacity(min(found.count, p.maxNumPeaks))
-        kept.append(contentsOf: found.prefix(p.maxNumPeaks))
-        return (
-            kept,
-            DiskDetectionPatternDiagnostics(
-                localMaximumCount: localMaximumCount,
-                afterAbsoluteThresholdCount: afterAbsoluteThresholdCount,
-                afterRelativeThresholdCount: afterRelativeThresholdCount,
-                afterSpacingCount: afterSpacingCount,
-                acceptedCount: kept.count,
-                wasCountLimited: wasCountLimited,
-                relativeReferenceIntensity: relativeReferenceIntensity,
-                relativeReferenceWasAvailable: relativeReferenceWasAvailable,
-                correlationMaximum: ar.max() ?? 0
-            )
-        )
-    }
-
-    // MARK: Stage 4a — parabolic subpixel
-
-    private func polyRefine(_ peaks: inout [BraggPeak], in ar: [Float]) {
-        for i in 0..<peaks.count {
-            let x = Int(peaks[i].x), y = Int(peaks[i].y)
-            let c = y * px + x
-            let ix0 = ar[c], ix1 = ar[c + 1], ix1_ = ar[c - 1]
-            let iy1 = ar[c + px], iy1_ = ar[c - px]
-            let dx = (ix1 - ix1_) / (4 * ix0 - 2 * ix1 - 2 * ix1_)
-            let dy = (iy1 - iy1_) / (4 * ix0 - 2 * iy1 - 2 * iy1_)
-            if dx.isFinite { peaks[i].x += dx }
-            if dy.isFinite { peaks[i].y += dy }
-
-            // py4DSTEM updates the reported peak intensity after polynomial
-            // refinement using bilinear interpolation of the same correlation
-            // image. Keeping the integer-pixel value biases refined peaks high.
-            let refinedX = peaks[i].x
-            let refinedY = peaks[i].y
-            let x0 = Int(refinedX.rounded(.down))
-            let x1 = Int(refinedX.rounded(.up))
-            let y0 = Int(refinedY.rounded(.down))
-            let y1 = Int(refinedY.rounded(.up))
-            let fx = refinedX - Float(x0)
-            let fy = refinedY - Float(y0)
-            peaks[i].intensity =
-                (1 - fx) * (1 - fy) * ar[y0 * px + x0]
-                + fx * (1 - fy) * ar[y0 * px + x1]
-                + (1 - fx) * fy * ar[y1 * px + x0]
-                + fx * fy * ar[y1 * px + x1]
-        }
-    }
-
-    // MARK: Stage 4b — multicorr (DFT-upsampled) subpixel
-
-    /// Refine each peak on the unsmoothed complex correlation via the
-    /// matrix-multiply DFT of Guizar-Sicairos et al. (upsampled_correlation).
-    private func multicorrRefine(_ peaks: inout [BraggPeak], upsampleFactor: Int) {
-        guard upsampleFactor > 2 else { return }
-        for i in 0..<peaks.count {
-            let refined = MatrixDFTCorrelation.refine(
-                correlationRe: ccRe, correlationIm: ccIm,
-                width: px, height: py,
-                initial: CorrelationPeak(row: peaks[i].y, column: peaks[i].x),
-                upsampleFactor: upsampleFactor
-            )
-            peaks[i].x = refined.column
-            peaks[i].y = refined.row
-        }
-    }
-
-    // MARK: Gaussian smoothing (separable, truncated at 4σ)
-
-    private func gaussianBlur(src: [Float], dst: inout [Float], sigma: Float) {
-        let radius = max(1, Int((4 * sigma).rounded()))
-        if sigma != cachedBlurSigma {
-            blurTaps = [Float](repeating: 0, count: 2 * radius + 1)
-            var sum: Float = 0
-            for i in -radius...radius {
-                let value = exp(-Float(i * i) / (2 * sigma * sigma))
-                blurTaps[i + radius] = value
-                sum += value
-            }
-            for index in blurTaps.indices { blurTaps[index] /= sum }
-            blurPadded = [Float](
-                repeating: 0, count: max(px, py) + 2 * radius
-            )
-            cachedBlurSigma = sigma
-        }
-
-        // vDSP performs the same separable convolution as the prior scalar
-        // loops. Explicit padding retains scipy.ndimage's half-sample reflect
-        // boundary instead of substituting Accelerate's edge extension.
-        // scipy.ndimage.gaussian_filter defaults to half-sample symmetric
-        // `reflect`: -1 -> 0, -2 -> 1, n -> n-1.
-        func reflected(_ raw: Int, count: Int) -> Int {
-            var value = raw
-            while value < 0 || value >= count {
-                value = value < 0 ? -value - 1 : 2 * count - value - 1
-            }
-            return value
-        }
-
-        for y in 0..<py {
-            let row = y * px
-            for paddedIndex in 0..<(px + 2 * radius) {
-                let x = reflected(paddedIndex - radius, count: px)
-                blurPadded[paddedIndex] = src[row + x]
-            }
-            blurPadded.withUnsafeBufferPointer { input in
-                blurTaps.withUnsafeBufferPointer { filter in
-                    blurTemp.withUnsafeMutableBufferPointer { output in
-                        vDSP_conv(
-                            input.baseAddress!, 1,
-                            filter.baseAddress!, 1,
-                            output.baseAddress!.advanced(by: row), 1,
-                            vDSP_Length(px), vDSP_Length(filter.count)
-                        )
-                    }
-                }
-            }
-        }
-
-        for x in 0..<px {
-            for paddedIndex in 0..<(py + 2 * radius) {
-                let y = reflected(paddedIndex - radius, count: py)
-                blurPadded[paddedIndex] = blurTemp[y * px + x]
-            }
-            blurPadded.withUnsafeBufferPointer { input in
-                blurTaps.withUnsafeBufferPointer { filter in
-                    dst.withUnsafeMutableBufferPointer { output in
-                        vDSP_conv(
-                            input.baseAddress!, 1,
-                            filter.baseAddress!, 1,
-                            output.baseAddress!.advanced(by: x), vDSP_Stride(px),
-                            vDSP_Length(py), vDSP_Length(filter.count)
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Full-scan detection

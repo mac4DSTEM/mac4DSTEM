@@ -12,6 +12,7 @@
 //
 
 import CuboCore
+import struct CuboBragg.BraggDetector   // the neighbour-median fill
 import CuboVirtual   // FriedelOrigin and BeamstopMask are the kit's (CuboKit 0.2.0, 2026-10-16); CuboKit also exports ProbeKernel, which the app's own type of that name still shadows here
 import Foundation
 import Metal
@@ -77,7 +78,7 @@ package nonisolated enum OriginMethod: String, Sendable, CaseIterable, Codable {
 }
 
 /// The cube seen by `FriedelOrigin.measure`, with the two things the kit does not do: the app fills a non-finite pixel
-/// by the median of its finite 8-neighbours (`DiskDetector.fillNonFinite`, D019; review row 24; DEVIATION from
+/// by the median of its finite 8-neighbours (`BraggDetector.fillNonFinite`, D019; review row 24; DEVIATION from
 /// py4DSTEM, whose FFT is NaN-poisoned, and the kit refuses nothing here but would propagate NaN), and it reports the
 /// fraction of rows read so far, so a tile-wise pass moves the progress bar.
 private actor FriedelFilledSource: CubeSource {
@@ -101,10 +102,12 @@ private actor FriedelFilledSource: CubeSource {
         var values = tile.values
         if values.contains(where: { !$0.isFinite }) {
             let h = shape.detectorRows, w = shape.detectorColumns
-            values.withUnsafeMutableBufferPointer { buf in
-                for k in 0..<tile.positionCount {
-                    _ = DiskDetector.fillNonFinite(buf.baseAddress! + k * h * w, width: w, height: h, rowStride: w)
-                }
+            for k in 0..<tile.positionCount {
+                let range = (k * h * w)..<((k + 1) * h * w)
+                guard values[range].contains(where: { !$0.isFinite }) else { continue }
+                var pattern = Array(values[range])
+                _ = BraggDetector.fillNonFinite(&pattern, rows: h, columns: w)
+                values.replaceSubrange(range, with: pattern)
             }
             return try ScanTile(shape: shape, rows: rows, values: values)
         }
@@ -480,9 +483,7 @@ package nonisolated enum OriginCalibration {
             // app's neighbour-median fill is applied first, as it is to every pattern.
             var meanDP = statistics.meanDP
             if meanDP.contains(where: { !$0.isFinite }) {
-                meanDP.withUnsafeMutableBufferPointer {
-                    _ = DiskDetector.fillNonFinite($0.baseAddress!, width: d.qx, height: d.qy, rowStride: d.qx)
-                }
+                _ = BraggDetector.fillNonFinite(&meanDP, rows: d.qy, columns: d.qx)
             }
             let patternMask = try BeamstopMask.make(from: DetectorImage(
                 detectorRows: d.qy, detectorColumns: d.qx, values: meanDP.map(Double.init), path: .cpu)).map { !$0 }

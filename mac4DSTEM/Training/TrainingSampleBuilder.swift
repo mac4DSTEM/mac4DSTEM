@@ -12,6 +12,7 @@
 //  outside the 256 frame.
 //
 
+import struct CuboBragg.BraggDetector   // the neighbour-median fill (the app and the kit both have a BraggPeak, so only this type)
 import DSTEMCore
 import Foundation
 
@@ -41,9 +42,7 @@ package nonisolated final class TrainingSampleBuilder: @unchecked Sendable {
         probe.pixels.withUnsafeBufferPointer {
             LearnedDiskDetector.window(of: $0.baseAddress!, qy: qy, qx: qx, row0: probeRow0, col0: probeCol0, into: &crop)
         }
-        _ = crop.withUnsafeMutableBufferPointer {
-            DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)
-        }
+        _ = BraggDetector.fillNonFinite(&crop, rows: S, columns: S)
         guard let kernel = ProbeKernel.flat(
             pattern: DiffractionPattern(qy: S, qx: S, pixels: crop),
             originX: probeCentre.x - Float(probeCol0), originY: probeCentre.y - Float(probeRow0),
@@ -61,9 +60,7 @@ package nonisolated final class TrainingSampleBuilder: @unchecked Sendable {
             pattern.pixels.withUnsafeBufferPointer {
                 LearnedDiskDetector.window(of: $0.baseAddress!, qy: qy, qx: qx, row0: win.row0, col0: win.col0, into: &crop)
             }
-            _ = crop.withUnsafeMutableBufferPointer {
-                DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)
-            }
+            _ = BraggDetector.fillNonFinite(&crop, rows: S, columns: S)
             let corr = crop.withUnsafeBufferPointer { detector.correlation(pattern: $0.baseAddress!, params: params) }
             let inputs = LearnedDiskDetector.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw)
             out.append(TrainingSample(position: position, inputs: inputs,

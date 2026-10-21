@@ -292,6 +292,8 @@ mac4dstem_sources() {
       analysis)
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
+        kit_module "$repo" CuboKit CuboVirtual CuboBragg   # DiskDetector is a facade over CuboBragg's BraggDetector (CuboKit 0.6.0)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" cube
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -319,7 +321,7 @@ mac4dstem_sources() {
       acom)
         # Production Bragg types and ACOM; no harness-side type replicas.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
-        kit_module "$repo" CuboKit CuboVirtual CuboPhase   # ProbeKernel's arithmetic is CuboVirtual's (2026-10-16)
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboBragg   # ProbeKernel is CuboVirtual's (2026-10-16); DiskDetector is a facade over CuboBragg (CuboKit 0.6.0)
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT2D is ImagoKit's ImagoCore (2026-10-15); FFT1D is ImagoFFT's (0.1.1)
         want+=("${KIT_FLAGS[@]}")
@@ -366,7 +368,7 @@ mac4dstem_sources() {
         # matrix-DFT correlation and the detector. Strain, export and the
         # parallax chain build on it. Added in C2 (2026-09-07) when the
         # remaining 46 harnesses adopted this file.
-        kit_module "$repo" CuboKit CuboVirtual CuboPhase   # ProbeKernel's arithmetic is CuboVirtual's (2026-10-16)
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboBragg   # ProbeKernel is CuboVirtual's (2026-10-16); DiskDetector is a facade over CuboBragg (CuboKit 0.6.0)
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")

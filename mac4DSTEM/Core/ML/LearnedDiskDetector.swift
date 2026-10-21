@@ -37,6 +37,7 @@
 
 import Foundation
 import Metal
+import struct CuboBragg.BraggDetector   // the neighbour-median fill
 import CryptoKit
 import CoreML
 
@@ -468,9 +469,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let probeCol0 = d.qx > S ? min(max(Int(probeCentre.x.rounded(.toNearestOrEven)) - S / 2, 0), d.qx - S) : colOrigins[0]
         var probeCrop = [Float](repeating: 0, count: S * S)
         probe.pixels.withUnsafeBufferPointer { Self.window(of: $0.baseAddress!, qy: d.qy, qx: d.qx, row0: probeRow0, col0: probeCol0, into: &probeCrop) }
-        _ = probeCrop.withUnsafeMutableBufferPointer {
-            DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)   // D019
-        }
+        _ = BraggDetector.fillNonFinite(&probeCrop, rows: S, columns: S)   // D019
         guard let kernel = ProbeKernel.flat(
             pattern: DiffractionPattern(qy: S, qx: S, pixels: probeCrop),
             originX: probeCentre.x - Float(probeCol0), originY: probeCentre.y - Float(probeRow0),
@@ -524,9 +523,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                             Self.window(of: shared.base + pos * patPix, qy: d.qy, qx: d.qx, row0: win.row0, col0: win.col0, into: &crop)
                             // The net's own input channel reads the raw crop: one
                             // NaN there poisoned every input (D019 refuter).
-                            _ = crop.withUnsafeMutableBufferPointer {
-                                DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)
-                            }
+                            _ = BraggDetector.fillNonFinite(&crop, rows: S, columns: S)
                             let corr = crop.withUnsafeBufferPointer { shared.detectors[w].correlation(pattern: $0.baseAddress!, params: params) }
                             let mi = Self.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw,
                                                       countScale: shared.scales.isEmpty ? nil : shared.scales[pos - shared.firstPos])

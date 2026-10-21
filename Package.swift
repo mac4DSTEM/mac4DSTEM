@@ -128,7 +128,7 @@ let package = Package(
         // target until C4b.
         .target(
             name: "DSTEMTraining",
-            dependencies: ["DSTEMCore"],
+            dependencies: ["DSTEMCore", .product(name: "CuboBragg", package: "CuboKit")],
             path: "mac4DSTEM/Training",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
