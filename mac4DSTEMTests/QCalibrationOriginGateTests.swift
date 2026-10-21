@@ -178,7 +178,9 @@ final class QCalibrationOriginGateTests: XCTestCase {
         // MAX pattern again, py4DSTEM's `dp_max` default (`OriginCalibration.ProbeRadiusSource.maxPattern`), so the
         // demo's kernel is over-measured as before and the scale returns to 0.021001 Å⁻¹/px (first shell 20.22 px,
         // shell ratio 1.370 vs 1.155 predicted). The mean-pattern value, 0.024472, is `.meanPattern`'s.
-        XCTAssertEqual(scale, 0.021001, accuracy: 0.0001,
+        // Moved again, 2026-10-21: Re-calibrate Origin's stored radius is the mean pattern's (py4DSTEM `get_probe_size`; the max-pattern
+        // radius stays the origin window's only), so the demo kernel is 6.93 px, first shell 17.38 px, scale 0.024440 (ratio 1.431).
+        XCTAssertEqual(scale, 0.024440, accuracy: 0.0001,
                        "the known-wrong demo scale moved: \(state.statusText)")
 
         // And the disagreement must reach the user. This is what survived of
