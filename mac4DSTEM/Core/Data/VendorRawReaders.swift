@@ -1,10 +1,10 @@
 //
 //  VendorRawReaders.swift
-//  Role: EMPAD and Merlin MIB 4D files as `FourDDataSource`s. The files are FormatoKit's: `FormatoMIB.MIBReader(.appScanXY)` and
-//        `FormatoEMPAD.EMPADReader` (RosettaSciIO's XML) read the pixels; this file keeps the app's side: the descriptor, the
-//        LoadView crops and binning, the refusals the app words (a MIB without its .hdr, a non-square raw-only EMPAD), the EMPAD
-//        files the kit does not recognise (scan_resolution_x/y XML, raw-only square scans), and `MappingLiveness` before every
-//        read of a mapped file.
+//  Role: EMPAD and Merlin MIB 4D files as `FourDDataSource`s. The files are FormatoKit's (0.7.0): `FormatoMIB.MIBReader(.appScanXY)` and
+//        `FormatoEMPAD.EMPADReader` (RosettaSciIO's XML, `scan_resolution_x/y`, raw-only) read the pixels; this file keeps the app's side:
+//        the descriptor, the LoadView crops and binning, the refusals the app words (a MIB without its .hdr, a non-square raw-only EMPAD),
+//        the app's precedence of `scan_resolution_x/y` over `pix_x/pix_y`, the header-less MIB the kit does not take, and
+//        `MappingLiveness` before every read of a mapped file.
 //
 
 import Foundation
@@ -39,6 +39,8 @@ package enum VendorRawError: LocalizedError {
         case let MIBError.malformed(detail): return .malformed(detail)
         case let MIBError.unsupported(detail): return .unsupported(detail)
         case let EMPADError.cannotOpen(detail): return .cannotOpen(detail)
+        case let cocoa as NSError where cocoa.domain == NSCocoaErrorDomain
+            && [NSFileNoSuchFileError, NSFileReadNoSuchFileError, NSFileReadNoPermissionError].contains(cocoa.code): return .cannotOpen(path)
         case let EMPADError.invalidXML(detail): return .malformed(detail)
         case let EMPADError.rawSizeMismatch(expected, actual):
             return .malformed("EMPAD raw file has \(actual) bytes where its header needs \(expected).")
@@ -78,32 +80,29 @@ private nonisolated func vendorLiveness(path: String) throws -> MappingLiveness 
     do { return try MappingLiveness.descriptor(path: path) } catch { throw VendorRawError.cannotOpen(path) }
 }
 
-/// EMPAD v1 reader contract: little-endian float32 frames of 130×128 values,
-/// with the final two detector rows treated as a per-frame footer. Non-square
-/// scans require the vendor XML companion; square raw-only scans follow the
-/// conservative py4DSTEM fallback.
+/// EMPAD v1 reader contract: little-endian float32 frames of 130×128 values, with the final two detector rows treated as a per-frame
+/// footer. The frames are `FormatoEMPAD.EMPADReader`'s lazy array over the mapped raw file; this actor keeps the app's side: which XML
+/// fields give the scan, the refusals it words, and `MappingLiveness` before every read.
 ///
-/// An XML the app's own reading cannot take and FormatoEMPAD can (`pix_x`/`pix_y`, a `scan_xN_yN.raw` name) is read by the kit. An XML with
-/// `scan_parameters mode="acquire"` and `scan_resolution_x/y` (the app's precedence, under any file name), a raw file with no XML, and
-/// anything the kit refuses, are read here, frame by frame, as before.
+/// The scan: the app's precedence is the XML's `scan_resolution_x/y` (the `scan_parameters mode="acquire"` block, else the whole file),
+/// with the raw file beside the XML under its last path component, and the kit reads the frames at that size (`init(rawPath:scanSize:)`).
+/// Where the XML carries no such pair the kit reads the XML itself (`pix_x`/`pix_y`, a `scan_xN_yN` name). A raw file with no XML is a
+/// square scan whose side is the frame count's root (the kit infers it), as py4DSTEM's fallback.
 package actor EMPADReader: FourDDataSource {
     private static let rawHeight = 130
     private static let width = 128
     private static let imageHeight = 128
     private static let frameBytes = rawHeight * width * MemoryLayout<Float>.size
 
-    /// Where the frames are read from.
-    private enum Source: Sendable {
-        /// FormatoEMPAD's lazy array over the mapped raw file (scan axes of size 1 are squeezed out of it), and the disk watch of that mapping.
-        case kit(array: any FormatoLazyArray, hasScanY: Bool, hasScanX: Bool, liveness: MappingLiveness)
-        /// This file's own frame reads.
-        case frames
-    }
-
     private let rawPath: String
     private let scanHeight: Int
     private let scanWidth: Int
-    private let source: Source
+    /// FormatoEMPAD's lazy array (scan axes of size 1 are squeezed out of it), and which of the two scan axes it has.
+    private let array: any FormatoLazyArray
+    private let hasScanY: Bool
+    private let hasScanX: Bool
+    /// The disk watch of the mapping, opened BEFORE the kit maps the file.
+    private let liveness: MappingLiveness
     /// THE LATCH (as `DM4Reader`): set by the first read that finds the disk gone, never cleared.
     private var diskGone = false
 
@@ -117,62 +116,53 @@ package actor EMPADReader: FourDDataSource {
             sourceXML = FileManager.default.fileExists(atPath: companion.path) ? companion : nil
         }
 
-        // The kit, only for an XML the app's own reading cannot take: where the XML carries `scan_resolution_x/y` the app's precedence
-        // is the old one (its own parse, no chance of a silent transpose against the kit's `pix_x`/`pix_y`). The raw file must be the
-        // very one the app would map (the kit resolves `raw_file`'s whole path; the app its last component). The disk watch is opened
-        // BEFORE the kit maps the file. Whatever the kit refuses, the app's own reading below judges and words, as before.
-        if let xml = sourceXML, (try? Self.parseXML(xml)) == nil, let rawFile = try? Self.rawFileAttribute(xml) {
-            let directory = xml.deletingLastPathComponent()
-            let appRaw = directory.appendingPathComponent(URL(fileURLWithPath: rawFile).lastPathComponent).standardizedFileURL.path
-            let kitRaw = URL(fileURLWithPath: rawFile, relativeTo: directory).standardizedFileURL.path
-            if appRaw == kitRaw, let liveness = try? vendorLiveness(path: appRaw),
-               let reader = try? FormatoEMPAD.EMPADReader(path: xml.path),
-               !reader.signal.axes.contains(where: { $0.name == "series_count" }) {
-                let axes = reader.signal.axes
-                let y = axes.first(where: { $0.name == "scan_y" }), x = axes.first(where: { $0.name == "scan_x" })
-                rawPath = appRaw
-                scanHeight = y?.size ?? 1
-                scanWidth = x?.size ?? 1
-                source = .kit(array: reader.signal.array, hasScanY: y != nil, hasScanX: x != nil, liveness: liveness)
-                return
+        let kit: FormatoEMPAD.EMPADReader
+        let watch: MappingLiveness
+        do {
+            if let xml = sourceXML {
+                // The raw file is named by the XML: the app maps its last component beside the XML (where scan_resolution gives the
+                // scan); the kit resolves the whole `filename` against the XML's folder (where it reads the XML itself).
+                let rawFile = try Self.rawFileAttribute(xml)
+                let directory = xml.deletingLastPathComponent()
+                if let scan = try? Self.scanResolution(xml) {
+                    let raw = directory.appendingPathComponent(URL(fileURLWithPath: rawFile).lastPathComponent).standardizedFileURL.path
+                    watch = try vendorLiveness(path: raw)
+                    kit = try FormatoEMPAD.EMPADReader(rawPath: raw, scanSize: (y: scan.y, x: scan.x))
+                } else {
+                    watch = try vendorLiveness(path: URL(fileURLWithPath: rawFile, relativeTo: directory).standardizedFileURL.path)
+                    kit = try FormatoEMPAD.EMPADReader(path: xml.path)
+                    // An image series is not a scan.
+                    if kit.signal.axes.contains(where: { $0.name == "series_count" }) {
+                        throw VendorRawError.malformed("EMPAD XML describes an image series, not a scan (no positive acquire scan_resolution_x/y).")
+                    }
+                }
+            } else {
+                guard url.pathExtension.lowercased() == "raw" else {
+                    throw VendorRawError.unsupported("EMPAD input must be a .xml or .raw file.")
+                }
+                let bytes = try Self.fileSize(path)
+                guard bytes % Self.frameBytes == 0 else {
+                    throw VendorRawError.malformed("EMPAD byte count is not a multiple of a 130×128 float32 frame.")
+                }
+                watch = try vendorLiveness(path: path)
+                do {
+                    kit = try FormatoEMPAD.EMPADReader(rawPath: path)
+                } catch EMPADError.invalidXML("Missing scan dimensions") {
+                    throw VendorRawError.unsupported("raw-only EMPAD scan has \(bytes / Self.frameBytes) frames; add its XML companion to define a non-square scan.")
+                }
             }
+        } catch {
+            throw VendorRawError.from(error, path: path)
         }
-
-        // The app's own reading.
-        let height: Int, width: Int, raw: String
-        if let xml = sourceXML {
-            // delete at FormatoEMPAD 0.6: scan_resolution_x/y of scan_parameters mode="acquire" (kit ask)
-            let metadata = try Self.parseXML(xml)
-            raw = xml.deletingLastPathComponent().appendingPathComponent(metadata.rawFile).path
-            height = metadata.scanY
-            width = metadata.scanX
-        } else {
-            guard url.pathExtension.lowercased() == "raw" else {
-                throw VendorRawError.unsupported("EMPAD input must be a .xml or .raw file.")
-            }
-            raw = path
-            let bytes = try Self.fileSize(path)
-            guard bytes % Self.frameBytes == 0 else {
-                throw VendorRawError.malformed("EMPAD byte count is not a multiple of a 130×128 float32 frame.")
-            }
-            let frameCount = bytes / Self.frameBytes
-            let side = Int(Double(frameCount).squareRoot().rounded())
-            guard side > 0, side * side == frameCount else {
-                throw VendorRawError.unsupported("raw-only EMPAD scan has \(frameCount) frames; add its XML companion to define a non-square scan.")
-            }
-            height = side
-            width = side
-        }
-
-        let expected = try Self.checkedProduct([height, width, Self.frameBytes])
-        let actual = try Self.fileSize(raw)
-        guard expected == actual else {
-            throw VendorRawError.malformed("EMPAD XML describes \(width)×\(height) frames (\(expected) bytes), but the raw file has \(actual) bytes.")
-        }
-        rawPath = raw
-        scanHeight = height
-        scanWidth = width
-        source = .frames
+        let axes = kit.signal.axes
+        let y = axes.first(where: { $0.name == "scan_y" }), x = axes.first(where: { $0.name == "scan_x" })
+        rawPath = kit.rawPath
+        scanHeight = y?.size ?? 1
+        scanWidth = x?.size ?? 1
+        array = kit.signal.array
+        hasScanY = y != nil
+        hasScanX = x != nil
+        liveness = watch
     }
 
     package func discoverPrimaryDataset() throws -> DatasetDescriptor {
@@ -187,9 +177,8 @@ package actor EMPADReader: FourDDataSource {
     /// cost more than the bytes they saved.
     package nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .scanOnly }
 
-    /// One check per public read; latches on the first failure. Only a mapped file needs it.
+    /// One check per public read; latches on the first failure.
     private func requireDiskAlive() throws {
-        guard case .kit(_, _, _, let liveness) = source else { return }
         if !diskGone, !liveness.isAlive() { diskGone = true }
         if diskGone { throw VendorRawError.volumeGone(displayFileName(rawPath)) }
     }
@@ -197,43 +186,8 @@ package actor EMPADReader: FourDDataSource {
     /// `viewRows` x `viewColumns` positions of the view, each over `readDetectorCrop` (or the whole image), BEFORE binning.
     private func block(_ view: LoadView, viewRows: Range<Int>, viewColumns: Range<Int>) throws -> [Float] {
         try requireDiskAlive()
-        switch source {
-        case .kit(let array, let hasScanY, let hasScanX, _):
-            return try vendorSlab(array, view: view, viewRows: viewRows, viewColumns: viewColumns,
-                                  detector: (Self.imageHeight, Self.width), hasScanY: hasScanY, hasScanX: hasScanX, path: rawPath)
-        case .frames:
-            var out = [Float]()
-            for viewY in viewRows {
-                for viewX in viewColumns {
-                    out.append(contentsOf: try frame(view, sourceY: view.sourceScanY(viewY), sourceX: view.sourceScanX(viewX)))
-                }
-            }
-            return out
-        }
-    }
-
-    /// One frame read from the raw file, cropped (the READ crop: trimmed to a whole number of bins).
-    private func frame(_ view: LoadView, sourceY: Int, sourceX: Int) throws -> [Float] {
-        let frame = sourceY * scanWidth + sourceX
-        let data = try Self.read(path: rawPath, offset: frame * Self.frameBytes,
-                                 count: Self.imageHeight * Self.width * 4)
-        // Decode only the rows the view keeps: the bytes were read either way,
-        // but the cropped-out pixels are never converted or allocated.
-        let crop = view.readDetectorCrop
-        let rows = crop.map { $0.yOffset..<($0.yOffset + $0.height) } ?? 0..<Self.imageHeight
-        let columns = crop.map { $0.xOffset..<($0.xOffset + $0.width) } ?? 0..<Self.width
-        return data.withUnsafeBytes { bytes in
-            var out = [Float]()
-            out.reserveCapacity(rows.count * columns.count)
-            for row in rows {
-                for column in columns {
-                    let index = row * Self.width + column
-                    let bits = bytes.loadUnaligned(fromByteOffset: index * 4, as: UInt32.self).littleEndian
-                    out.append(Float(bitPattern: bits))
-                }
-            }
-            return out
-        }
+        return try vendorSlab(array, view: view, viewRows: viewRows, viewColumns: viewColumns,
+                              detector: (Self.imageHeight, Self.width), hasScanY: hasScanY, hasScanX: hasScanX, path: rawPath)
     }
 
     package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
@@ -296,8 +250,8 @@ package actor EMPADReader: FourDDataSource {
         return String(rawTag[afterQuote..<endQuote])
     }
 
-    private static func parseXML(_ url: URL) throws -> (rawFile: String, scanX: Int, scanY: Int) {
-        let rawFile = URL(fileURLWithPath: try rawFileAttribute(url)).lastPathComponent
+    /// The XML's scan, the app's precedence: `scan_resolution_x/y` of the `scan_parameters mode="acquire"` block, else of the whole file.
+    private static func scanResolution(_ url: URL) throws -> (x: Int, y: Int) {
         let text = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         func element(_ name: String, in body: String = "") -> String? {
             let source = body.isEmpty ? text : body
@@ -316,7 +270,7 @@ package actor EMPADReader: FourDDataSource {
               let yText = element("scan_resolution_y", in: acquireBody), let scanY = Int(yText), scanY > 0 else {
             throw VendorRawError.malformed("EMPAD XML has no positive acquire scan_resolution_x/y.")
         }
-        return (rawFile, scanX, scanY)
+        return (scanX, scanY)
     }
 
     fileprivate static func fileSize(_ path: String) throws -> Int {
@@ -352,13 +306,13 @@ package actor EMPADReader: FourDDataSource {
 /// U08/U16/U32 big-endian payloads, 1x1/2x2/2x2G assemblies, and a companion
 /// `.hdr` containing ScanX/ScanY. Headers are skipped independently per frame.
 /// The frames are `FormatoMIB.MIBReader(path:convention: .appScanXY)`'s: the ScanX/ScanY companion, the full detector assembly, the
-/// unflipped values as Float32. A file the kit refuses but this app's reader always took (a header size other than 384 or 768, a
-/// header with no width and height, a detector that disagrees with its assembly) is read here, frame by frame, as before.
+/// unflipped values as Float32 (any header size from 384 to 65536; `pixelCode` is the stored code). A file the kit refuses but this app's
+/// reader always took (a header with no width and height, a detector that disagrees with its assembly) is read here, frame by frame, as before.
 package actor MIBReader: FourDDataSource {
     /// Where the frames are read from.
     private enum Source: Sendable {
         case kit(array: any FormatoLazyArray, liveness: MappingLiveness)
-        /// delete at FormatoKit 0.6.0: MIB header sizes other than 384/768 and headers without width and height (kit ask)
+        /// delete at FormatoKit <next>: headers without width and height, and a detector that disagrees with its assembly (the kit does not take header-less MIB)
         case frames(headerBytes: Int, bytesPerPixel: Int, frameBytes: Int)
     }
 
@@ -387,13 +341,6 @@ package actor MIBReader: FourDDataSource {
         guard let hdr = try? String(contentsOf: hdrURL, encoding: .utf8) else {
             throw VendorRawError.unsupported("MIB needs a companion .hdr with ScanX and ScanY so scan shape is never guessed.")
         }
-        // The stored pixel code of the first frame header.
-        let head = try EMPADReader.read(path: path, offset: 0, count: min(4096, try EMPADReader.fileSize(path)))
-        let fields = head.firstIndex(of: 0).map {
-            String(decoding: head[..<$0], as: UTF8.self).split(separator: ",", omittingEmptySubsequences: false)
-        }
-        dtype = fields.flatMap { $0.count > 6 ? String($0[6]) : nil } ?? "U16"
-
         // The kit first; the descriptor is opened BEFORE the kit maps the file.
         let watch = try? vendorLiveness(path: path)
         var refusal = "its disk could not be watched"
@@ -403,6 +350,7 @@ package actor MIBReader: FourDDataSource {
                 let shape = kit.signal.array.shape
                 if shape.count == 4 {
                     (scanHeight, scanWidth, detectorHeight, detectorWidth) = (shape[0], shape[1], shape[2], shape[3])
+                    dtype = kit.pixelCode
                     source = .kit(array: kit.signal.array, liveness: watch)
                     return
                 }
@@ -413,7 +361,12 @@ package actor MIBReader: FourDDataSource {
         }
         kitRefusal = refusal
 
-        // The app's own reading.
+        // The app's own reading. The stored pixel code is the first frame header's.
+        let head = try EMPADReader.read(path: path, offset: 0, count: min(4096, try EMPADReader.fileSize(path)))
+        let fields = head.firstIndex(of: 0).map {
+            String(decoding: head[..<$0], as: UTF8.self).split(separator: ",", omittingEmptySubsequences: false)
+        }
+        dtype = fields.flatMap { $0.count > 6 ? String($0[6]) : nil } ?? "U16"
         guard let fields, fields.count > 10, let offset = Int(fields[2]), offset > 0 else {
             throw VendorRawError.malformed("MIB first frame header has no valid data offset.")
         }

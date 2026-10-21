@@ -241,4 +241,29 @@ final class VendorRawKitSwitchBaselineTests: XCTestCase {
         }
         try check(results, fixture: "mib")
     }
+
+    // MARK: What the 0.7.0 kit now takes (not in the baseline: the readers refused or fell back before)
+
+    /// A raw file named `scan_xN_yN` with no XML is the kit's name rule; it was refused as ambiguous when its frame count is not square.
+    func testARawFileNamedByItsScanOpensWithoutAnXML() async throws {
+        try writeEMPADRaw("scan_x3_y2.raw", frames: 6)
+        let reader = try EMPADReader(path: directory.appendingPathComponent("scan_x3_y2.raw").path)
+        let d = try await reader.discoverPrimaryDataset()
+        XCTAssertEqual(d.shape, [2, 3, 128, 128])
+        XCTAssertEqual((d.filePath as NSString).lastPathComponent, "scan_x3_y2.raw")
+    }
+
+    /// Header sizes other than 384 and 768 and a pixel code come from the kit now; only header-less MIB keeps the app's frame reads.
+    func testTheKitTakesAnyHeaderSizeAndHeaderlessMIBKeepsTheFallback() async throws {
+        try writeMIB("h512.mib", frames: 2, size: 512)
+        try writeMIB("nodetector_512.mib", frames: 2, size: 512, withDetector: false)
+        let kit = try MIBReader(path: directory.appendingPathComponent("h512.mib").path)
+        let kitRefusal = await kit.kitRefusal
+        XCTAssertNil(kitRefusal, "a 512-byte header with a width and height is the kit's")
+        let fallback = try MIBReader(path: directory.appendingPathComponent("nodetector_512.mib").path)
+        let fallbackRefusal = await fallback.kitRefusal
+        XCTAssertNotNil(fallbackRefusal, "a header without width and height is still read by the app")
+        let d = try await kit.discoverPrimaryDataset()
+        XCTAssertTrue(d.dtypeDescription.hasPrefix("U16"))
+    }
 }
