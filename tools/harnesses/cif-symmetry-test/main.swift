@@ -951,9 +951,15 @@ Au1 Au 0.00000 0.00000 0.00000
 /// The very common COD shape: a TWO-column symmetry loop (row id + operation).
 /// Intact, it must import with the full expansion — pins that the loop parser
 /// genuinely handles multi-column symmetry loops.
+///
+/// FIXTURE MOVE, 2026-10-21 (CI red since DiffractoKit 0.9.0): the fixture declared `F m -3 m` but listed only the four centring
+/// translations (4 of the group's 192 operations). DiffractoKit 0.9.0 refuses a symbol-only group whose list is shorter than the
+/// group (`incompleteSymmetryOperationsForSymbol`, on purpose: a partial list can build a smaller structure than the file
+/// describes, "rock salt without its F-centring reads as CsCl"). pymatgen's CifParser, the reference, applies the listed operations
+/// as given and imports the 4-site cell without a completeness check, so this fixture was a CIF whose declaration the list does not
+/// satisfy. It no longer declares the group (as `translationOnlySymopLoop` does): what it pins is the two-column loop shape.
 private let twoColumnSymopLoop = """
 data_gold_two_column_ops
-_symmetry_space_group_name_H-M 'F m -3 m'
 _cell_length_a 4.0782
 _cell_length_b 4.0782
 _cell_length_c 4.0782
