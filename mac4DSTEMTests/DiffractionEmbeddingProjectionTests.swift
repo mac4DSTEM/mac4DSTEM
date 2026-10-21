@@ -1,3 +1,4 @@
+import CuboEmbedding
 import XCTest
 import DSTEMCore
 
@@ -89,7 +90,7 @@ final class DiffractionEmbeddingProjectionTests: XCTestCase {
                     centred.withUnsafeMutableBufferPointer { cen in
                         out.withUnsafeMutableBufferPointer { o in
                             for pos in 0..<f.n {
-                                DiffractionEmbedding.project(
+                                PCA.project(
                                     v.baseAddress! + pos * f.dims, mean: m.baseAddress!, basis: b.baseAddress!,
                                     dims: f.dims, components: f.k, centred: cen.baseAddress!,
                                     into: o.baseAddress! + pos * f.k)

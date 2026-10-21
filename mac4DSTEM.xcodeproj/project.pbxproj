@@ -894,7 +894,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/CuboKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.7.0;
+				version = 0.7.1;
 			};
 		};
 		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {

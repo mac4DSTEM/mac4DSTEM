@@ -41,7 +41,6 @@
 //  numerical accumulation order.
 //
 
-import Accelerate
 import CuboEmbedding
 import Foundation
 
@@ -290,10 +289,10 @@ package nonisolated enum DiffractionEmbedding {
                             var centred = [Float](repeating: 0, count: dims)
                             centred.withUnsafeMutableBufferPointer { cen in
                                 for pos in 0..<totalPositions {
-                                    project(cache.baseAddress! + pos * dims, mean: meanBuf.baseAddress!,
-                                            basis: basisBuf.baseAddress!, dims: dims,
-                                            components: actualComponents, centred: cen.baseAddress!,
-                                            into: outBuf.baseAddress! + pos * actualComponents)
+                                    PCA.project(cache.baseAddress! + pos * dims, mean: meanBuf.baseAddress!,
+                                                basis: basisBuf.baseAddress!, dims: dims,
+                                                components: actualComponents, centred: cen.baseAddress!,
+                                                into: outBuf.baseAddress! + pos * actualComponents)
                                 }
                             }
                         }
@@ -329,10 +328,10 @@ package nonisolated enum DiffractionEmbedding {
                             centred2.withUnsafeMutableBufferPointer { cen in
                                 coordinates.withUnsafeMutableBufferPointer { out in
                                     for local in 0..<positionsInTile {
-                                        project(v.baseAddress! + local * dims, mean: m.baseAddress!,
-                                                basis: b.baseAddress!, dims: dims, components: actualComponents,
-                                                centred: cen.baseAddress!,
-                                                into: out.baseAddress! + (firstPosition + local) * actualComponents)
+                                        PCA.project(v.baseAddress! + local * dims, mean: m.baseAddress!,
+                                                    basis: b.baseAddress!, dims: dims, components: actualComponents,
+                                                    centred: cen.baseAddress!,
+                                                    into: out.baseAddress! + (firstPosition + local) * actualComponents)
                                     }
                                 }
                             }
@@ -363,24 +362,6 @@ package nonisolated enum DiffractionEmbedding {
             basis: basis, explainedVariance: explainedVariance,
             groupOf: groupOf, groupCentroids: centroids
         )
-    }
-
-    /// One binned vector's coordinates on the principal components:
-    /// out[c] = Σᵢ (vector[i] − mean[i]) · basis[c·dims + i]. Shared by the
-    /// cached and the two-pass projection. Gate D, 2026-09-28
-    /// (`../_archive/mac4DSTEM/docs/archive/v4/embedding-projection-gateD-2026-09-28.md`): the scalar
-    /// loop this replaces was 0.69 s per 1 000 patterns at 32 × 32 in an
-    /// `-Onone` build. `vDSP_vsub` centres exactly as before; `vDSP_dotpr`
-    /// reorders the sum (`DiffractionEmbeddingProjectionTests`).
-    package static func project(
-        _ vector: UnsafePointer<Float>, mean: UnsafePointer<Float>, basis: UnsafePointer<Float>,
-        dims: Int, components: Int, centred: UnsafeMutablePointer<Float>,
-        into out: UnsafeMutablePointer<Float>
-    ) {
-        vDSP_vsub(mean, 1, vector, 1, centred, 1, vDSP_Length(dims))   // vector − mean
-        for c in 0..<components {
-            vDSP_dotpr(centred, 1, basis + c * dims, 1, out + c, vDSP_Length(dims))
-        }
     }
 
     // MARK: - similarity / groupMap

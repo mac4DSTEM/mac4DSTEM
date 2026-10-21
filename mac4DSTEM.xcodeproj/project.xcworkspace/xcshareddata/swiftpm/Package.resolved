@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/CuboKit",
       "state" : {
-        "revision" : "84068e6fee4c2b6240904af83efb768e40b196e0",
-        "version" : "0.7.0"
+        "revision" : "a818e07f0e0f7d3e049b94829a5ecf902b18fdd7",
+        "version" : "0.7.1"
       }
     },
     {

@@ -9,11 +9,19 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 ## Kit asks
 
 ### CuboKit (next: 0.7)
+- **Selected-area diffraction on the GPU, and the resident cube** (the last app/kit separation item, sized 2026-10-21; its own change):
+  CuboKit's `VirtualDiffraction.pattern` is CPU-only (compensated Double). The app still holds `VirtualDiffraction.metal`,
+  `MetalEngine.virtualDiffraction`, `VirtualDetector.tiledDiffraction` and the cube residency (`FourDArray`, `ResidentCube`,
+  `PendingLoad`; about 70 files use them, `PendingLoad` is load-screen state). Ask: a Metal weighted-pattern kernel in CuboVirtual
+  (CPU Double reference kept, Metal against CPU 1e-5) and a kit cube type that can be held GPU-resident; then the app deletes its four.
+- **Kit audit and visibility (owner, 2026-10-21):** one audit session per kit, in parallel, against the Python reference's documented
+  API (code and docs read, not a web pass), implementing what is missing so the apps are free to develop; and, like the Python packages,
+  show capabilities (parity table, examples, API docs). Written down in CuboKit `docs/status.md`.
 - **Parallax shifts on sizes vDSP's DFT does not take** (CuboKit 0.7.0): alignment of a stack whose padded size is not 2^n x {1, 3, 5, 15}
   (133 + 32 = 165, the usual case) runs the kit's Double Bluestein path, about 1.9x slower than the Float `FFT2D` it replaced (whole 5-level
   schedule, 49 images at 165 x 165: 0.33 s then, 0.66 s now; sizes vDSP takes are 20 % faster). Ask: a Float or vDSP-backed Bluestein shifter.
-- **Strain (0.7.1):** `LatticeStrain.fitRobust` throws for any intensity >= 1e10 before it rescales (the app divides by the maximum
-  past 1e9, "delete at CuboKit 0.7.1"); `StrainMapping.compute` has no `isCancelled`/progress, so a strain map cancels only between calls.
+- **Strain (next kit release):** `LatticeStrain.fitRobust throws for any intensity >= 1e10 before it rescales (the app divides by the maximum
+  past 1e9, "delete at the next CuboKit release"); `StrainMapping.compute` has no `isCancelled`/progress, so a strain map cancels only between calls.
 - **Names and hooks:** the kit's enums `CuboPtycho` and `CuboStrain` clash with their module names, so the app's types were renamed
   (`PtychographyReconstructor`, `StrainMapper`); `FloatFFT2D.supports` is `package` (the app catches `invalidInput` and falls back);
   `BraggDisks.detectAll` has no per-position progress and names no failing rows (a tile-read failure is attributed in the app).
