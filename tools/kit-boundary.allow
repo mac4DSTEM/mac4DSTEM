@@ -1,0 +1,68 @@
+# tools/kit-boundary.allow — where the app may touch the GPU or a numerics framework (decision D15).
+#
+# One line per file: <path><TAB><modules the file may import, comma-separated; `-` for a .metal file><TAB><reason>.
+# tools/check-kit-boundary.sh fails on a gated import (Accelerate, vecLib, Metal, MetalKit, MetalPerformanceShaders*,
+# BNNS, simd) in a file or for a module not listed here, on any vDSP / cblas / vImage / LAPACK / vForce / BNNS / MPS
+# symbol in a Swift file outside the learned detector (mac4DSTEM/Training/, ADR 071), and on a .metal file not listed.
+# Rows whose reason starts with LEFTOVER are numerics or compute the kits should own; they are listed so the guard
+# passes today and the debt is visible. Delete the row when the code moves. A new row needs a display or app-provenance
+# reason (lineage/marks records need none: they import nothing gated).
+mac4DSTEM/App/AppState+PhaseMapping.swift	simd	view / overlay geometry in simd, no science
+mac4DSTEM/App/PendingLoad.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
+mac4DSTEM/Core/Analysis/DiffractionEmbedding.swift	Accelerate,+symbols	LEFTOVER: vDSP_vsub/vDSP_dotpr in the embedding projection; move to CuboEmbedding (PCA is the kit's already)
+mac4DSTEM/Core/Analysis/OrientationResult.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
+mac4DSTEM/Core/Analysis/VirtualDetector.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
+mac4DSTEM/Core/Compute/MTLTexture+Float.swift	Metal	array-to-texture helpers for the display and residency paths
+mac4DSTEM/Core/Compute/MetalEngine.swift	Metal,MetalKit	Metal device, queue and pipelines (display + compute dispatch); review at next kit round for what is still compute
+mac4DSTEM/Core/Crystal/Crystal.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
+mac4DSTEM/Core/Crystal/OrientationPlan.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
+mac4DSTEM/Core/Crystal/PhaseMappingScan.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
+mac4DSTEM/Core/Data/FourDArray.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
+mac4DSTEM/Core/Data/ResidentCube.swift	Metal	LEFTOVER?: GPU residency / Metal virtual detector dispatch for the 4D cube; candidate for CuboKit (Metal virtual diffraction ask), listed for review
+mac4DSTEM/Core/ML/LearnedDiskDetection.swift	Metal	learned detector (training + refine), stays in the app by decision (D13, ADR 071)
+mac4DSTEM/Core/ML/LearnedDiskDetector.swift	Metal	learned detector (training + refine), stays in the app by decision (D13, ADR 071)
+mac4DSTEM/Session/PhaseMappingProduct.swift	simd	crystal / orientation vectors in SIMD3 and SIMD4 (types shared with DiffractoKit); no own numerics
+mac4DSTEM/Session/SystemMonitor.swift	Metal	reads the GPU name and memory for the status line
+mac4DSTEM/Training/DetectorGraph.swift	MetalPerformanceShadersGraph,+symbols	learned detector (training + refine), stays in the app by decision (D13, ADR 071)
+mac4DSTEM/Training/DetectorTrainer.swift	Metal,MetalPerformanceShadersGraph,+symbols	learned detector (training + refine), stays in the app by decision (D13, ADR 071)
+mac4DSTEM/UI/MetalDisplayTransform.swift	simd	view / overlay geometry in simd, no science
+mac4DSTEM/UI/MetalImageView.swift	MetalKit	MTKView that draws the displayed image; AppKit/Metal view
+mac4DSTEM/UI/PaneOverlays.swift	simd	view / overlay geometry in simd, no science
+mac4DSTEM/UI/PhaseMappingSettings.swift	simd	view / overlay geometry in simd, no science
+mac4DSTEMTests/ACOMKitCallSiteTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMKitSwitchFreezeTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMMetalMemoryTests.swift	Metal,simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMMetalPoolRefuterTests.swift	Metal,simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMRow1MirrorZoneTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMScanSelectionTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMTestSupport.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/DetectorTrainerTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/DiffractoP4RefuterTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/HexagonalIPFKeyTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/LearnedDiskDetectionScanTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/LearnedDiskDetectorGateBTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/LearnedWindowedDetectionTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/LearnedWindowedFixture.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MTLTextureFloatTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MaterialsProjectImportTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MaterialsProjectKitSwitchFreezeTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MetalEngineDispatchTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MetalLayerScaleTests.swift	MetalKit	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/MonoclinicOrientationTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/PhaseDiskClaimsTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/PhaseMapAppTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/PhaseMappingReproductionTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ProbeSizeTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+tools/harnesses/acom-convention-test/main.swift	simd	harness: GPU or simd types for the check it runs
+tools/harnesses/acom-mirror-test/main.swift	simd	harness: GPU or simd types for the check it runs
+tools/harnesses/acom-orientation-test/main.swift	simd	harness: GPU or simd types for the check it runs
+tools/harnesses/phase-vector-matching/main.swift	simd	harness: GPU or simd types for the check it runs
+tools/harnesses/resident-cropped-view/main.swift	Metal	harness: GPU or simd types for the check it runs
+tools/harnesses/tiled-detection-memory-test/main.swift	Metal	harness: GPU or simd types for the check it runs
+tools/harnesses/two-spec-analysis-test/main.swift	Metal	harness: GPU or simd types for the check it runs
+tools/harnesses/virtual-detector-memory-test/main.swift	Metal	harness: GPU or simd types for the check it runs
+tools/harnesses/virtual-detector-residency/main.swift	Metal	harness: GPU or simd types for the check it runs
+tools/harnesses/virtual-detector-test/main.swift	Metal	harness: GPU or simd types for the check it runs
+mac4DSTEM/Shaders/Colormaps.metal	-	colormap / contrast display shader
+mac4DSTEM/Shaders/VirtualDiffraction.metal	-	LEFTOVER?: virtual-diffraction compute kernel (selected-area); moves with CuboKit Metal virtual diffraction ask
+mac4DSTEM/Training/TrainedModelStore.swift	+symbols	learned detector (ADR 071): records the runtime name "MPSGraph" in the model file, no MPS call

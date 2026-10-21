@@ -170,3 +170,13 @@ jobs:
           swift --version
       - name: Build the package layers standalone
         run: tools/run-tests.sh core
+
+  kit-boundary:
+    name: kit boundary (no numerics frameworks in the app)
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on Accelerate / Metal / vDSP outside the allowlist
+        # Decision D15. Plain grep, no build; also part of `inventory`, kept as its own job so the red is named.
+        run: tools/check-kit-boundary.sh
