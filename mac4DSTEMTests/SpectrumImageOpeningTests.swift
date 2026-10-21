@@ -27,12 +27,12 @@ final class SpectrumImageOpeningTests: XCTestCase {
         let index = try XCTUnwrap(try DM4Experiment.list(path: Self.dm4).first { $0.role == .diffraction }).index
         let same = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(
             path: Self.dm4, fourD: GMSFourDIdentity(objectIndex: index, scanWidth: 6, scanHeight: 4)))
-        XCTAssertTrue(same.metadata.sameScanAs4DCube)
+        XCTAssertTrue(same.metadata.sameScanAsCube)
         XCTAssertNil(same.metadata.registrationNote)
 
         let other = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(
             path: Self.dm4, fourD: GMSFourDIdentity(objectIndex: index, scanWidth: 4, scanHeight: 6)))
-        XCTAssertFalse(other.metadata.sameScanAs4DCube)
+        XCTAssertFalse(other.metadata.sameScanAsCube)
         XCTAssertTrue(try XCTUnwrap(other.metadata.registrationNote).hasPrefix("Not registered"))
     }
 
@@ -47,7 +47,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         state.descriptor = descriptor     // the cube is showing (4D), as it is when the attach runs after the load
         await state.attachGMSSpectrumImage(of: URL(fileURLWithPath: Self.dm4), descriptor: descriptor)
         XCTAssertTrue(state.hasSpectrumImage)
-        XCTAssertEqual(state.spectroscopy.metadata?.sameScanAs4DCube, true)
+        XCTAssertEqual(state.spectroscopy.metadata?.sameScanAsCube, true)
         XCTAssertEqual(state.navigation.workspaceArea, .image, "the joint open lands on the cube's room, as before")
         XCTAssertEqual(state.spectroscopy.regions.first?.pixelCount, 24)
     }
@@ -169,7 +169,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: false).sourceWarning)
         let beside = SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true)
         XCTAssertTrue(beside.sourceWarning)
-        meta.sameScanAs4DCube = true
+        meta.sameScanAsCube = true
         XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true).sourceWarning)
     }
 

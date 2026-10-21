@@ -1097,7 +1097,7 @@ final class SpectroscopyRoomController {
     /// The Spectrum image step's registration warning: set when the image sits beside a 4D cube it was not registered to.
     static func imageSettings(_ meta: SpectrumImageMetadata, hasFourDCube: Bool) -> SpectrumImageSettings {
         var s = SpectrumImageSettings()
-        if !meta.sameScanAs4DCube && hasFourDCube {
+        if !meta.sameScanAsCube && hasFourDCube {
             s.sourceWarning = true
             s.sourceNote = meta.registrationNote ?? SpectroscopyPlaceholderFormat.unregisteredNote
         }

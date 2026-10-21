@@ -41,7 +41,7 @@ final class SpectroscopyPoolsH9Tests: XCTestCase {
         XCTAssertEqual([nx, ny], [64, 48])
         // The joint attach, by identity: same Experiment ID and scan grid.
         let loaded = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: dm4.path, fourD: GMSFourDIdentity(objectIndex: nil, scanWidth: nx, scanHeight: ny, voltageKV: 200)))
-        XCTAssertTrue(loaded.metadata.sameScanAs4DCube, "H9's precondition")
+        XCTAssertTrue(loaded.metadata.sameScanAsCube, "H9's precondition")
         // The phase map is the truth's: phase per position from the recipe map.
         let phases = ["Al", "beta''", "Q", "vacuum"]
         var map = PhaseMap(width: nx, height: ny, matrixEntryIndex: -1, phaseNames: phases, matrixPhaseIndex: 0)

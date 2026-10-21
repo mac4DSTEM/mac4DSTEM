@@ -32,7 +32,7 @@ final class PoolSpyImage: SpectrumImageSource, @unchecked Sendable {
         var meta = SpectrumImageMetadata(fileName: "e1.emd", filePath: "/tmp/e1.emd", scanWidth: image.nx, scanHeight: image.ny,
                                          channelCount: image.channels, energyOffsetEV: 0, energyDispersionEV: 10)
         meta.beamEnergyKeV = 200
-        meta.sameScanAs4DCube = sameScan
+        meta.sameScanAsCube = sameScan
         metadata = meta
         energyAxis = EnergyAxis(offset: 0, scale: 0.01, size: image.channels)
     }

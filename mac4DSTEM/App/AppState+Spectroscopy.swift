@@ -67,7 +67,7 @@ extension AppState {
         wireSpectroscopyOperations()
         spectroscopyRoom.bind(source, session: spectroscopy, hasFourDCube: hasDataset)
         // E1: the only registration the app states is the identity of a GMS joint attach (same Experiment ID and scan grid).
-        if hasDataset, source.metadata.sameScanAs4DCube {
+        if hasDataset, source.metadata.sameScanAsCube {
             spectroscopy.registration = PoolCatalogue.identityRegistration(width: source.nx, height: source.ny)
             spectroscopy.registeredCubePath = descriptor?.filePath
         }

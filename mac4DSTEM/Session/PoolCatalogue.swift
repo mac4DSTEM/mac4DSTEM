@@ -76,7 +76,7 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
     package static let noPhaseMapLine = "Run phase mapping in Crystal Maps to pool by phase."
     package static let noRegistrationLine = "No registration between the 4D scan and this spectrum image: the app states one only for the two objects of one GMS file (same scan)."
 
-    /// The registration the app states: the identity of a GMS joint attach (`sameScanAs4DCube`).
+    /// The registration the app states: the identity of a GMS joint attach (`sameScanAsCube`).
     package static func identityRegistration(width: Int, height: Int) -> RegistrationRecordM2 {
         RegistrationRecordM2(matrix: [1, 0, 0, 0, 1, 0], source: .identityFromOneRun,
                              sourceNote: "same scan, identity; no lag check",

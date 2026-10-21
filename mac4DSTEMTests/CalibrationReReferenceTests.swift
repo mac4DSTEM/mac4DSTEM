@@ -46,8 +46,8 @@ final class CalibrationReReferenceTests: XCTestCase {
         )
     }
 
-    private func calibration() -> Calibration {
-        var calibration = Calibration()
+    private func calibration() -> DSTEMCore.Calibration {
+        var calibration = DSTEMCore.Calibration()
         calibration.origin = maps()
         calibration.originProvenance = .fileMaps
         calibration.probeRadius = 2.5
@@ -65,7 +65,7 @@ final class CalibrationReReferenceTests: XCTestCase {
 
     private func apply(
         _ specification: LoadSpecification,
-        calibration: Calibration? = nil,
+        calibration: DSTEMCore.Calibration? = nil,
         apertureCenter: CalibrationReReference.DetectorPoint = .init(x: 5, y: 6)
     ) throws -> CalibrationReReference.Outcome {
         let view = try LoadView(source: source, specification: specification)

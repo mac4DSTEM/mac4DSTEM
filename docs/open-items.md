@@ -55,7 +55,7 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 
 ### SpectroKit
 - **Public initialiser for `LineConflict`** (`autoid-velox-check --replay` is off without it); 18 app test files reach `package`
-  API through `@testable import` (a Debug-only build); `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (rename moves a golden).
+  API through `@testable import` (a Debug-only build); `SpectrumImageMetadata.sameScanAsCube` keeps its 4D name (rename moves a golden).
 - **Fit on real Al alloys:** the continuum absorbs the Al K alpha high-side misfit; a weak Mg K alpha reads about 300 counts low and
   Si 8.7 % low (the owner's pure-Al spectrum is the remedy); sigma is 5-12 % small on weak lines; unlisted strong lines (Ge, Cu, Ga)
   hold Ti at 0; the order-5 upper segment is stiff. Fix F2/F3 refuted, needs a new registration.

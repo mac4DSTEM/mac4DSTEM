@@ -33,7 +33,7 @@ nonisolated extension BeamEnergySource {
 nonisolated extension SpectrumImageOpener {
     /// The EDS spectrum image of a GMS DM4, or nil when the file has none. With `fourD`, the image is registered to that cube
     /// BY IDENTITY when both objects carry the same Experiment ID and the EDS grid equals the cube's scan grid
-    /// (`sameScanAs4DCube`); otherwise it is still attached, with the reason in `registrationNote`. The beam energy is the EDS
+    /// (`sameScanAsCube`); otherwise it is still attached, with the reason in `registrationNote`. The beam energy is the EDS
     /// object's own voltage, else the cube's when both are one run (`BeamEnergy.resolve`).
     package static func openGMSEDS(path: String, fourD: GMSFourDIdentity?,
                                    cancelled: @Sendable () -> Bool = SpectroCancellation.task,
@@ -46,14 +46,14 @@ nonisolated extension SpectrumImageOpener {
             ?? objects.first { $0.role == .diffraction }
         let eds = objects.first { $0.role == .eds }
         if let id = eds?.experimentID, id == object?.experimentID, cube.scanWidth == meta.scanWidth, cube.scanHeight == meta.scanHeight {
-            meta.sameScanAs4DCube = true
+            meta.sameScanAsCube = true
         } else if cube.scanWidth != meta.scanWidth || cube.scanHeight != meta.scanHeight {
             meta.registrationNote = "Not registered: the EDS scan is \(meta.scanWidth) × \(meta.scanHeight) px, the 4D scan \(cube.scanWidth) × \(cube.scanHeight)."
         } else {
             meta.registrationNote = "Not registered: the two objects do not share an Experiment ID."
         }
         if let b = BeamEnergy.resolve(rawObjectVoltage: eds?.voltage, suppliedKV: cube.voltageKV, suppliedAs: .fourDCube,
-                                      sameRun: meta.sameScanAs4DCube) {
+                                      sameRun: meta.sameScanAsCube) {
             meta.beamEnergyKeV = b.keV; meta.beamEnergySource = b.source
         }
         return LoadedSpectrumImage(image: loaded.image, metadata: meta, energyAxis: loaded.energyAxis, scanImage: loaded.scanImage)

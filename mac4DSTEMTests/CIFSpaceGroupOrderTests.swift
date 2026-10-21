@@ -184,13 +184,11 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
             spaceGroupNumber: 225, declaredName: "F m -3 m", listed: 48, required: 192))
     }
 
-    /// A file that names no IT number is unchanged behaviour: no table lookup, no refusal
-    /// (the same 48 operations import, as they did before this change).
-    func testAListWithNoNamedGroupNumberIsUnchanged() throws {
-        let model = try CIFModelImport.crystalModel(
-            from: mgo(ops: Self.pointOps, itNumber: nil), fileBaseName: "t")
-        XCTAssertEqual(model.structure.sites.count, 2)
-        XCTAssertNil(model.spaceGroupNumber)
+    /// A file that names its group by Hermann-Mauguin symbol alone is held to the same completeness as one named by number
+    /// (DiffractoKit 0.9.0; before it imported the same 48 operations). Red under: the symbol-only path not checked.
+    func testASymbolOnlyListIsHeldToTheSameCompleteness() {
+        assertThrows(mgo(ops: Self.pointOps, itNumber: nil), expected: .incompleteSymmetryOperationsForSymbol(
+            symbol: "F m -3 m", listed: 48, required: 192))
     }
 
     /// A primitive (60°) cell of Fm-3m legitimately lists the 48 centring-free operations:
