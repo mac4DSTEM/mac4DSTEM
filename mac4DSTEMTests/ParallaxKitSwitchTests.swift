@@ -1,8 +1,9 @@
 //
 //  ParallaxKitSwitchTests.swift
 //  Session 5 (2026-10-21): the parallax stages on CuboKit 0.6.0's CuboParallax. The numbers are pinned against py4DSTEM by the
-//  parallax-* harnesses; the app's former outputs on the demo cube (commit 18c1516b) are a committed fixture; these pin what the
-//  switch itself changes: where a cancel lands, and what the progress callback sees.
+//  parallax-* harnesses, and against the app's former outputs (position-correction offsets, scores and image, the stored transfer
+//  function and phase surfaces, depth planes) by ParallaxGoldenTests and Fixtures/Parallax/pre-switch-outputs.json; these pin what
+//  the switch itself changes: where a cancel lands, and what the progress callback sees.
 //
 
 import XCTest
@@ -83,7 +84,7 @@ final class ParallaxKitSwitchTests: XCTestCase {
 
     /// Position correction runs in the kit's `.application` loop: progress ticks once per iteration (0.2 + 0.7 * i / n), the scores
     /// record the baseline plus one per iteration, and a cancel on the first tick stops before the second iteration.
-    /// Mutation: run the py4DSTEM variant (Double, step floor everywhere) -> the demo-cube fixture of the app's loop differs;
+    /// Mutation: run the py4DSTEM variant (Double, step floor everywhere) -> ParallaxGoldenTests' position fixture differs;
     /// drop `isCancelled` -> the cancel is only seen after the run -> ticks.count == 3.
     func testPositionCorrectionTicksPerIterationAndACancelStopsIt() throws {
         let count = height * width
@@ -161,7 +162,7 @@ private struct SynthLCG { var s: UInt64
   mutating func next() -> Double { s = s &* 6364136223846793005 &+ 1442695040888963407; return Double(s >> 11) / Double(1 << 53) } }
 
 /// Bright-field images of a periodic texture shifted by a linear aberration field: 7x7 detector pixels, 40x40 padded stack.
-private func syntheticParallax() -> (pre: ParallaxPreprocessResult, truth: [ParallaxScanShift]) {
+func syntheticParallax() -> (pre: ParallaxPreprocessResult, truth: [ParallaxScanShift]) {
   let h = 40, w = 40, scan = 24, n = 7
   var g = SynthLCG(s: 99)
   var waves: [(kr: Double, kc: Double, a: Double, p: Double)] = []
