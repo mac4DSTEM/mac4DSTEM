@@ -41,11 +41,19 @@
 			remoteGlobalIDString = 000000000000000100000000;
 			remoteInfo = mac4DSTEM;
 		};
+		400000000000000160000000 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = mac4DSTEM;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* mac4DSTEM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mac4DSTEM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		400000000000000000000120 /* mac4DSTEMUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = mac4DSTEM/Resources/DiskDetector; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
@@ -214,6 +222,11 @@
 			path = mac4DSTEMTests;
 			sourceTree = "<group>";
 		};
+		400000000000000000000010 /* mac4DSTEMUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = mac4DSTEMUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -246,6 +259,11 @@
 			files = (
 			);
 		};
+		400000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -254,6 +272,7 @@
 			children = (
 				000000000000000000000010 /* mac4DSTEM */,
 				100000000000000000000010 /* mac4DSTEMTests */,
+				400000000000000000000010 /* mac4DSTEMUITests */,
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
 				F6A1D0DE0001000000000001 /* DiskDetector */,
@@ -268,6 +287,7 @@
 			children = (
 				000000000000000000000120 /* mac4DSTEM.app */,
 				100000000000000000000120 /* mac4DSTEMTests.xctest */,
+				400000000000000000000120 /* mac4DSTEMUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -335,6 +355,27 @@
 			productReference = 100000000000000000000120 /* mac4DSTEMTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		400000000000000100000000 /* mac4DSTEMUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 400000000000000110000000 /* Build configuration list for PBXNativeTarget "mac4DSTEMUITests" */;
+			buildPhases = (
+				400000000000000120000000 /* Sources */,
+				400000000000000130000000 /* Frameworks */,
+				400000000000000140000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				400000000000000170000000 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				400000000000000000000010 /* mac4DSTEMUITests */,
+			);
+			name = mac4DSTEMUITests;
+			productName = mac4DSTEMUITests;
+			productReference = 400000000000000000000120 /* mac4DSTEMUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -349,6 +390,10 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					100000000000000100000000 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 000000000000000100000000;
+					};
+					400000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 000000000000000100000000;
 					};
@@ -378,6 +423,7 @@
 			targets = (
 				000000000000000100000000 /* mac4DSTEM */,
 				100000000000000100000000 /* mac4DSTEMTests */,
+				400000000000000100000000 /* mac4DSTEMUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -398,6 +444,11 @@
 			files = (
 			);
 		};
+		400000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -411,6 +462,11 @@
 			files = (
 			);
 		};
+		400000000000000120000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -418,6 +474,11 @@
 			isa = PBXTargetDependency;
 			target = 000000000000000100000000 /* mac4DSTEM */;
 			targetProxy = 100000000000000160000000 /* PBXContainerItemProxy */;
+		};
+		400000000000000170000000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* mac4DSTEM */;
+			targetProxy = 400000000000000160000000 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -834,6 +895,57 @@
 			};
 			name = Develop;
 		};
+		400000000000000111000000 /* Debug configuration for PBXNativeTarget "mac4DSTEMUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEMUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = mac4DSTEM;
+			};
+			name = Debug;
+		};
+		400000000000000112000000 /* Release configuration for PBXNativeTarget "mac4DSTEMUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEMUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = mac4DSTEM;
+			};
+			name = Release;
+		};
+		400000000000000113000000 /* Develop configuration for PBXNativeTarget "mac4DSTEMUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEMUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = mac4DSTEM;
+			};
+			name = Develop;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -861,6 +973,15 @@
 				100000000000000111000000 /* Debug configuration for PBXNativeTarget "mac4DSTEMTests" */,
 				100000000000000113000000 /* Develop configuration for PBXNativeTarget "mac4DSTEMTests" */,
 				100000000000000112000000 /* Release configuration for PBXNativeTarget "mac4DSTEMTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		400000000000000110000000 /* Build configuration list for PBXNativeTarget "mac4DSTEMUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				400000000000000111000000 /* Debug configuration for PBXNativeTarget "mac4DSTEMUITests" */,
+				400000000000000113000000 /* Develop configuration for PBXNativeTarget "mac4DSTEMUITests" */,
+				400000000000000112000000 /* Release configuration for PBXNativeTarget "mac4DSTEMUITests" */,
 			);
 			defaultConfigurationName = Release;
 		};

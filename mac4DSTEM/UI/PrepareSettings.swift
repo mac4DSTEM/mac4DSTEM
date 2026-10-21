@@ -272,6 +272,7 @@ struct PrepareSettings: View {
                     Label("Calibrate Origin", systemImage: "scope")
                 }
                 .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.calibrateOrigin")
                 Button {
                     PendingEdits.run { await appState.calibrateRotation() }
                 } label: {
@@ -282,6 +283,9 @@ struct PrepareSettings: View {
 
             if let radius = calibration.probeRadius {
                 InspectorValueRow("Probe radius", String(format: "%.1f px", radius))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("calibration.probeRadius")
+                    .accessibilityValue(String(format: "%.1f", radius))
             }
             // The residual the GATE judged, which is the robust one
             // where a robust fit ran — one number for one decision.

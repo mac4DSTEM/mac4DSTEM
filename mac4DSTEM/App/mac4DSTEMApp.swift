@@ -393,6 +393,8 @@ struct mac4DSTEMApp: App {
     // (`PrecipitateTableSelection`). App-scoped because the table is a separate
     // scene holding a snapshot, not a link to any one window's AppState.
     @State private var tableSelection = PrecipitateTableSelection()
+    /// Launched by the UI test target: deterministic window, no restore.
+    private static let uiTesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
     // File-menu actions asked for while no dataset window is focused (`MenuActionRelay`): read by the
     // commands, taken by the window they open.
     @State private var menuRelay = MenuActionRelay()
@@ -402,8 +404,9 @@ struct mac4DSTEMApp: App {
             DatasetWindow(preferences: preferences, recents: recents, menuRelay: menuRelay)
                 .environment(tableSelection)
         }
-            .defaultSize(width: LayoutPolicy.datasetWindowIdealSize.width,
-                         height: LayoutPolicy.datasetWindowIdealSize.height)
+            .defaultSize(width: Self.uiTesting ? 1440 : LayoutPolicy.datasetWindowIdealSize.width,
+                         height: Self.uiTesting ? 900 : LayoutPolicy.datasetWindowIdealSize.height)
+            // `--ui-testing` (UI test target): one 1440 x 900 window; the test passes `-ApplePersistenceIgnoreState YES` so no window is restored.
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands {

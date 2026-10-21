@@ -190,6 +190,15 @@ inventory() {
     (( ${support[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
   done
 
+  # UI journeys (process/ui-testing-2026-10-21.md §4): every accessibility identifier a journey uses exists in the app's sources, so a
+  # renamed identifier fails here before it fails on screen. `workspace.<area>` is built from the area's raw value in the source.
+  echo "== UI test identifiers exist in the app sources"
+  local id
+  for id in $(grep -rhoE '"[a-z][A-Za-z]*\.[A-Za-z][A-Za-z0-9.]*"' "$ROOT/mac4DSTEMUITests" 2>/dev/null | tr -d '"' | sort -u); do
+    [[ "$id" == workspace.* || "$id" == *.xcresult ]] && continue
+    grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" || { echo "  MISSING identifier $id"; rc=1; }
+  done
+
   # Large tracked files (added 2026-09-18): history already carries a removed 6 MB model and two copies of a 4 MB dylib, and a
   # public repo's history is not rewritten. Any tracked file over 1 MiB must be named, with its reason, in tools/large-files.allow.
   echo "== tracked files over 1 MiB"
@@ -363,9 +372,32 @@ core_build() (
   return "$rc"
 )
 
+# UI journeys (mac4DSTEMUITests): signed build, never part of `unit`. `tools/run-tests.sh ui [Journey ...]`; screenshots are exported
+# from the result bundle into the gate dir (tools/lib/ui-screenshots.sh). The first run asks for Accessibility permission for Xcode Helper.
+ui_tests() (
+  local gate="${MAC4DSTEM_GATE_DIR:-${TMPDIR:-/tmp}/mac4dstem-gate}" sha only=()
+  sha="$(git -C "$ROOT" rev-parse --short HEAD)"
+  mkdir -p "$gate"
+  rm -rf "$gate/ui.xcresult"
+  if [[ $# -eq 0 ]]; then only=(-only-testing:mac4DSTEMUITests); else
+    for j in "$@"; do only+=(-only-testing:mac4DSTEMUITests/$j); done
+  fi
+  cd "$ROOT"
+  # One screen, one mouse, one UI-test session: macTEM's and mac4DSTEM's runs take the same machine-wide lock (lockf blocks until it
+  # is free; a run that holds it for 20 minutes is given up on).
+  lockf -k -t 1200 "${TMPDIR:-/tmp}/macem-ui-tests.lock" \
+    xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM -configuration Debug \
+    -destination 'platform=macOS' -resultBundlePath "$gate/ui.xcresult" "${only[@]}" \
+    SWIFT_OPTIMIZATION_LEVEL=-O -quiet && rc=0 || rc=$?
+  "$ROOT/tools/lib/ui-screenshots.sh" "$gate/ui.xcresult" "$gate/ui-screenshots/$sha" || true
+  echo "ui: screenshots in $gate/ui-screenshots/$sha"
+  return "$rc"
+)
+
 case "${1:-unit}" in
   inventory) inventory ;;
   core) core_build ;;
+  ui) shift; ui_tests "$@" ;;
   unit) require_free_space 4 "the xcodebuild unit suite"; unit_tests ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
   scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}"; real_data ;;

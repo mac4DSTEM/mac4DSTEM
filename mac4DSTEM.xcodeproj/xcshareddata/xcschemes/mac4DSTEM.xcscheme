@@ -39,6 +39,17 @@
                ReferencedContainer = "container:mac4DSTEM.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "400000000000000100000000"
+               BuildableName = "mac4DSTEMUITests.xctest"
+               BlueprintName = "mac4DSTEMUITests"
+               ReferencedContainer = "container:mac4DSTEM.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
