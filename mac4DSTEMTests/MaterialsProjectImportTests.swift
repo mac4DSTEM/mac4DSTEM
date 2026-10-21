@@ -699,8 +699,9 @@ final class MaterialsProjectImportTests: XCTestCase {
         )
     }
 
-    // A centred cell with one 50/50 disordered site: every output site keeps its label and its
-    // species list, and lands at the right position (the site-major, then centring-translation order).
+    // A centred cell with one 50/50 disordered site: every output atom keeps its label, species and occupancy, and lands at
+    // the right position. DEVIATION from the former app adapter: the kit orders the atoms of a site species-major, then by
+    // centring translation (the app's was site-major), so the atoms are compared as a set per (label, element).
     func testDisorderedSiteKeepsLabelSpeciesAndPositionThroughFCentringStandardisation() throws {
         let half = 5.431 / 2
         let matrix: [[Double]] = [[0, half, half], [half, 0, half], [half, half, 0]]
@@ -708,33 +709,39 @@ final class MaterialsProjectImportTests: XCTestCase {
         let (pa, pb, pc, palpha, pbeta, pgamma) = latticeParams(rows)
         let mixed = [MaterialsProjectSpecies(element: "Si", occu: 0.5), MaterialsProjectSpecies(element: "Ge", occu: 0.5)]
         let pure = [MaterialsProjectSpecies(element: "Si", occu: 1.0)]
-        let structure = MaterialsProjectStructure(
-            lattice: MaterialsProjectLattice(
-                a: pa, b: pb, c: pc, alpha: palpha, beta: pbeta, gamma: pgamma, matrix: matrix),
-            sites: [
-                MaterialsProjectSite(label: "mixed", species: mixed, abc: [0, 0, 0]),
-                MaterialsProjectSite(label: "pure", species: pure, abc: [0.25, 0.25, 0.25]),
-            ])
-        let out = try MaterialsProjectImport.standardise(
-            structure, symmetry: MaterialsProjectSymmetry(crystalSystem: "cubic", symbol: "Fd-3m", number: 227))
-        XCTAssertEqual(out.how, .conventional(centring: "F"))
-        let sites = try XCTUnwrap(out.structure.sites)
-        let expected: [(String, Int, SIMD3<Double>)] = [
-            ("mixed", 2, SIMD3(0, 0, 0)), ("mixed", 2, SIMD3(0, 0.5, 0.5)),
-            ("mixed", 2, SIMD3(0.5, 0, 0.5)), ("mixed", 2, SIMD3(0.5, 0.5, 0)),
-            ("pure", 1, SIMD3(0.25, 0.25, 0.25)), ("pure", 1, SIMD3(0.25, 0.75, 0.75)),
-            ("pure", 1, SIMD3(0.75, 0.25, 0.75)), ("pure", 1, SIMD3(0.75, 0.75, 0.25)),
+        let doc = MaterialsProjectDocument(
+            materialID: "mp-3", formulaPretty: "SiGe",
+            structure: MaterialsProjectStructure(
+                lattice: MaterialsProjectLattice(a: pa, b: pb, c: pc, alpha: palpha, beta: pbeta, gamma: pgamma, matrix: matrix),
+                sites: [
+                    MaterialsProjectSite(label: "mixed", species: mixed, abc: [0, 0, 0]),
+                    MaterialsProjectSite(label: "pure", species: pure, abc: [0.25, 0.25, 0.25]),
+                ]),
+            symmetry: MaterialsProjectSymmetry(crystalSystem: "cubic", symbol: "Fd-3m", number: 227))
+        let out = try MaterialsProjectImport.structure(from: doc)
+        XCTAssertEqual(out.cell, .conventional(centring: "F"))
+        let sites = out.structure.sites
+        XCTAssertEqual(sites.count, 12)
+        let expected: [(label: String, z: Int, occupancy: Double, positions: [SIMD3<Double>])] = [
+            ("mixed", 14, 0.5, [SIMD3(0, 0, 0), SIMD3(0, 0.5, 0.5), SIMD3(0.5, 0, 0.5), SIMD3(0.5, 0.5, 0)]),
+            ("mixed", 32, 0.5, [SIMD3(0, 0, 0), SIMD3(0, 0.5, 0.5), SIMD3(0.5, 0, 0.5), SIMD3(0.5, 0.5, 0)]),
+            ("pure", 14, 1.0, [SIMD3(0.25, 0.25, 0.25), SIMD3(0.25, 0.75, 0.75), SIMD3(0.75, 0.25, 0.75), SIMD3(0.75, 0.75, 0.25)]),
         ]
-        XCTAssertEqual(sites.count, expected.count)
-        for (site, want) in zip(sites, expected) {
-            XCTAssertEqual(site.label, want.0)
-            XCTAssertEqual(site.species?.count, want.1)
-            XCTAssertEqual(site.species?.map(\.element), want.1 == 2 ? ["Si", "Ge"] : ["Si"])
-            XCTAssertEqual(site.species?.map(\.occu), want.1 == 2 ? [0.5, 0.5] : [1.0])
-            let abc = try XCTUnwrap(site.abc)
-            XCTAssertEqual(abc[0], want.2.x, accuracy: 1e-9, want.0)
-            XCTAssertEqual(abc[1], want.2.y, accuracy: 1e-9, want.0)
-            XCTAssertEqual(abc[2], want.2.z, accuracy: 1e-9, want.0)
+        for want in expected {
+            let mine = sites.filter { $0.label == want.label && $0.z == want.z }
+            XCTAssertEqual(mine.count, want.positions.count, "\(want.label) Z=\(want.z)")
+            XCTAssertTrue(mine.allSatisfy { $0.occupancy == want.occupancy }, "\(want.label) Z=\(want.z) occupancy")
+            assertFractionalSites(mine, equal: want.positions)
+        }
+    }
+
+    private func assertFractionalSites(_ sites: [AtomSite], equal positions: [SIMD3<Double>],
+                                       file: StaticString = #filePath, line: UInt = #line) {
+        for p in positions {
+            XCTAssertTrue(sites.contains {
+                fractionalAxisDelta($0.fractional.x, p.x) < 1e-9 && fractionalAxisDelta($0.fractional.y, p.y) < 1e-9
+                    && fractionalAxisDelta($0.fractional.z, p.z) < 1e-9
+            }, "no site at \(p) in \(sites.map(\.fractional))", file: file, line: line)
         }
     }
 

@@ -2,8 +2,9 @@
 //  AppState+MaterialsProject.swift
 //  Role: the one place that talks to api.materialsproject.org, and the one
 //        writer that turns a fetched `CrystalModel` into session state.
-//        `MaterialsProjectImport` (Core/Crystal) does the request-building,
-//        decoding and phase check; this file owns the network call itself
+//        DiffractoKit's `MaterialsProjectImport` does the request-building,
+//        decoding and phase check, and the app's extension of it (Core/Crystal)
+//        builds the `CrystalModel`; this file owns the network call itself
 //        and where the result lands.
 //
 //  Nothing here runs automatically. `fetchMaterialsProject` is called from
@@ -18,6 +19,7 @@
 
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 #endif
