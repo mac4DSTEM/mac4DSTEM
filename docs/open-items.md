@@ -10,8 +10,16 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 
 ## Science & parity
 
+### Kit asks after session 5 (2026-10-21; the switches landed on CuboKit 0.6.0, FormatoKit 0.7.0, DiffractoKit 0.7.1, ImagoKit 0.4.0, SpectroKit 0.7.1; every kept copy carries a `// delete at <Kit> <version>` marker)
+Done and ticked: Float32 disk detection (BraggPrecision.single), fillNonFinite, HotPixelFilter.Replacer, ptychography probe terms, parallax correction/depth sectioner/position correction, streamed PCA + binnedVector + k-means cancel, strain diagnostics, ACOM cancel/progress/result(scores:)/matchAll, Materials Project, DM4/DM3, HDF5Reader chunk shape / float16 / bool datasets, MIB pixel code and header sizes, EMPAD scan_resolution/raw-only.
+- **CuboKit 0.7:** a Float path with cancellation and progress for the ptychography engine (the kit's Double engine is 4.2x slower and twice the memory, so `SingleslicePtychography` stays; agreement 3.4e-6 pinned in `PtychographyKitSwitchTests`); a faster Double FFT or Float shifter for parallax alignment (kit 2.71 s against 0.58 s on 121 images at 160x160, so `ParallaxAlignment` and `MatrixDFTCorrelation` stay); disk detection: an option that keeps the integer position on a non-finite refinement, a pointer/stride `fillNonFinite`, a smoothed-surface entry; a `LatticeStrain` diagnostics entry for the `initialBasis` path; sklearn `svd_flip` signs (the embedding keeps the kit's provisional signs, see CHANGELOG).
+- **FormatoKit 0.8:** a handle-holding slab read (a single-pattern read of Au_sim.h5 went 49 us -> 540 us, tile and row reads equal); a link walk with object identity (`HDF5LegacyProbe.linkInfo` stays: the kit's `descendants` lists aliases twice and throws at a cycle); h5py bool-enum attributes; an EMPAD precedence option (pix_x/pix_y against scan_resolution); the sidecar writes (`SessionSidecarWriting` still on the app's HDF5 writer: a rewrite onto `HDF5WriteSession`, needs the sidecar-parity gate); rank-3 scan-shaped DM objects and more than four dimensions.
+- **DiffractoKit:** the Metal backend stays the app's (the kit's own is not used): selection and preview expansion for Metal are app-side.
+- **Kept in the app on purpose:** lineage and marks records, header-less MIB, `small_datacube.dm4`'s rank-3 reshape.
+- **Not run in session 5:** sidecar-parity (~35 GB) and indexing-parity (~31 GB) were not run: no switched code feeds them (no harness of those names exists under `tools/harnesses`).
+- **Release build on this Mac:** an ad-hoc signed Release build (Hardened Runtime) does not launch (library validation, FormatoLibHDF5 and the app have no common Team ID); the Develop configuration does. A Developer ID archive is the proof (already done 2026-10-20).
+
 ### The kit switches (2026-10-15) — what they leave
-- **Kit asks from the 2026-10-20 calibration/embedding/MP switches** (shims marked `// delete at <Kit> <version>`): CuboEmbedding 0.5.0: a covariance -> top-eigenpairs (PCA) entry (the app streams the covariance; `symmetricEigenTop` stays), a vDSP path in `DiffractionFeatures.binnedVector` (then `embed`'s fast path and `BinGeometry` go), a cancellation hook on `KMeans.fitSeeded`. DiffractoKit 0.6.0: `CellStandardisation` taking species lists and disorder natively (the MP adapter expands disordered sites). The embedding harness (`embedding-pca-parity`) needs `kit_module` to build CuboEmbedding's C target.
 - **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
   `RotationCalibration`'s refinement is in Double on CuboKit's `curve()` since `8d23dba5`; owed: a test that fails on the old
   Float refinement, and the Al–Mg–Si angle measured against py4DSTEM's float64 −82.6° (the field is not in the repo). C3 (per-position origins, `get_origin`) registered,
@@ -26,21 +34,6 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
   recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
   (the staleness signature compares the scale string; honest, one re-run clears it).
-- **Parallax on CuboParallax 0.4.0 (2026-10-20): what stays and the kit asks.** The aberration fit, CTF correction, depth sectioning,
-  and the KDE deposition are the kit's, and so are the fit's option and result value types (DSTEMSession and the app link
-  CuboParallax; files that read their members import them by name, `import struct CuboParallax.X`, because the kit's
-  `ParallaxAlignmentResult` and `ParallaxSubpixelResult` share names with the app's own). The app keeps its Fourier shift (the
-  kit's builds an FFT plan per call) and: the transfer function the correction stores (the kit returns the image and
-  the two phase surfaces only); a cancellation hook and per-plane/per-iteration progress (the kit has none: cancel lands before or
-  after a kit call); `ParallaxAlignment.correlationShift` and the running-average reference (spectrum-level estimate; the kit's
-  `shift` takes real-space images); the position-correction loop (the app's Float variant with its own scoring window). The
-  stages are Double inside the kit, so their memory estimates count Double planes.
-  Also asks: a **plan-reusing batch shift API** (`ParallaxAlignment.shifted` builds a new FFT2D per call, twice per bright-field
-  image per level where the app reuses one plan, so `fourierShift` stays on the app's Float path); depth sectioning with a per-plane
-  callback (the app calls the kit once per plane to keep between-plane cancellation, which re-runs the forward FFT of every image
-  per plane: about 1.5x the FFT work, not measured on real data). Kit error text: kit errors reach the user as the stage's own
-  `invalidInput(...)` with a plain-language reason (`parallaxKitReason`), not the kit's wording; the memory refusals keep the app's
-  text.
 - **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
   spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
   normalised image-pair registration in Double. FFT1D is `ImagoFFT.FFT1D` (ACOM's ring FFTs, now inside DiffractoKit's `ACOMTemplateLibrary`/`ACOMMatcher`).
@@ -52,13 +45,6 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **Owed**: the dead-code pass; the drive block; lane G's gate work (scoped gates, nightly split, parallel harnesses, oracle cache). From 2026-10-15 evening the suite's process is a focused commit with tests
   and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
 
-
-### Kit asks from the reader switches (2026-10-20; every shim is marked `// delete at FormatoKit 0.6.0:` in the code)
-- **DM4Reader stays the app's** (not switched). `DM4Datacube(.appCalibratedAxes)` is bit-identical to it on `AlMgSi_4D_EDX.dm4` (float32 48x64x128x128) and `small_datacube.dm4` (uint16 20x20x512x512), but a whole-scan float32 tile took 0.76 s against 0.10 s (uint16 0.16 s against 0.23 s). Asks: a contiguous fast path (the gather is per element); expose the storage layout it chose (the unit-domain rule is otherwise repeated); DM3 (`.dm3` opens today); a declared data length of 0 (tolerated today); a read-into-memory mode for non-local volumes (the app keeps `.mappedIfSafe` there; the kit always maps).
-- **HDF5Reader / HDF5DatasetInfo:** chunk shape (inspector, `loadPushdown`); an enum/bool read (py4DSTEM's `QR_flip`); float16 datasets, scalars and dim vectors included (the shim reads them, so calibration is not dropped); a slab read that holds the file open and reads straight into Float (the per-call open measured 1.5-6x slower per pattern on Au_sim.h5, 1.45x peak memory); a recursive link listing with link types and object identity (discovery costs one open per group and link). Shims: `HDF5LegacyProbe` and `HDF5SlabFile` in `H5Reader.swift`.
-- **FormatoMIB:** header sizes other than 384/768 and headers without width and height (the former reader took them; the app keeps its frame reads as a fallback); return the stored pixel code (the app reads the first header for the dtype text).
-- **FormatoEMPAD:** `scan_parameters mode="acquire"` with `scan_resolution_x/y` under any raw file name; raw-only EMPAD; expose the resolved raw path. Pixel calibration from the XML is a separate change.
-- **Writers (not switched):** `HDF5AppendWriter` 0.5.0 writes numeric datasets and fixed-length attributes only; the sidecar needs string and bool datasets, variable-length strings (0.6.0 adds the first two), object copy, a vlen peak grid, and space reclamation (a replaced result leaves its space in the file). `BraggCalibration` needs `QR_rotation_convention`, origin maps and UTF-8 units; `BraggVectorsEMD.write` builds beside the destination, which the sandbox refuses (the app uses the item-replacement directory). `write(vectors:)` has no production caller, so it and the merges stay.
 
 ### Phase 2: the rest of Core/ onto the kits (plan 2026-10-16; per file, from `../_archive/mac4DSTEM/inventory-Core-2026-10-16.md`)
 
@@ -74,7 +60,6 @@ unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
   (EMPAD, MIB); `BraggVectorEMDWriter`: split first, only the peak-grid write and the atomic publish move, the `mac4dstem_*`
   attributes, lineage and replay stamping stay.
 - **DiffractoKit:** `OrientationResult` symmetry and `OrientationMatcher`/`OrientationPlan` are DONE (2026-10-20, DiffractoKit 0.5.0; the facade `ACOMCrystalSymmetry`, `OrientationMap`, `OrientationPlan` as the kit library plus symmetry, and the Metal dispatch stay). Open: `MaterialsProjectImport` (JSON fetch glue stays).
-  Kit asks from that switch (delete the interim at the kit version): (1) `ACOMTemplateLibrary.generate` takes no cancellation, so a token is honoured only before and after the build (`OrientationPlan.generate`, delete at 0.6); (2) no public result-from-scores entry, so the Metal path keeps `selectOrientation` and `makeOrientationResult` (`OrientationMatcher.swift`, delete at 0.6); (3) `ACOMMatcher.experimentalPolarImage` is nil for fewer than 2 peaks where the app's diagnostic accepted 1; (4) `ACOMMatcher.matchAll` takes `[[ACOMPeak]]`, so the app converts from `BraggPeak` per 8192-position chunk (a borrowed or generic bulk input would remove the copy).
 - **FormatoKit:** done 2026-10-20: `H5Reader` onto HDF5Reader (shims for what the kit lacks), `VendorRawReaders` (MIB, EMPAD with fallbacks), the sidecar READS, the writer file split. Not done: `DM4Reader` (kit asks below), the sidecar writes and `write(vectors:)` (0.5.0's append writer is too narrow).
 - **DiffractoKit:** `OrientationResult` symmetry (cubic, hexagonal, monoclinic, `ACOMCrystalSymmetry`, `OrientationMap`),
   `OrientationMatcher`/`OrientationPlan` (Metal dispatch and service stay), `MaterialsProjectImport` (JSON fetch glue stays).
@@ -97,16 +82,6 @@ The radius for origin measurement and detection is measured from the **max** pat
 (SPED_MgO: 14.1 px from the max, 5.4 from the mean; the max grows with scan area and diffraction strength). The GPU measurement
 (`MetalEngine.measureOrigins`, `VirtualDetector.tiledMeasuredOrigins`) stays. Open: OriginCalibration's CPU origin measurement is
 not yet CuboKit's `OriginMeasurement` (the centre-of-mass path is GPU-only today; a CPU option beside it is unwritten).
-
-### Disk detection onto CuboBragg: waits on a Float32 path (measured 2026-10-20)
-Done on a side branch and dropped: `DiskDetector` calling `CuboBragg.BraggDetector` (`BraggDiskOptions.mac4DSTEM`) passes every affected unit class and harness
-(positions within the written 2e-4 px of py4DSTEM) but is **2.2x slower serial and 2.3x slower parallel in the default poly mode**
-(256x256 patterns, 4096 positions, 18 workers: old 0.24-0.27 ms per pattern wall, kit 0.58-0.62; serial 2.05 vs 4.6 ms). Multicorr is no slower
-(MatrixDFT dominates; about 21 ms per pattern wall both). The cause is the Double FFT and filters plus the Float/Double conversions against the old
-Float Accelerate path. Ask for CuboKit (0.5.0): a Float32/vDSP path in `CuboBragg`, or a plan-reusing Float entry on `BraggDetector`; also a public
-`fillNonFinite` (the app's static copy stays, used by `OriginCalibration`'s Friedel path) and per-stage funnel counts from `BraggMaxima` (the app's
-diagnostics need them). The bench is untracked in the detect lane's scratchpad (`lanes/detect/bench/main.swift`, `build.sh`, `res.log`); the commit is
-kept on the lane's branch `keep-bragg-switch`. Interim: the app keeps its own detector; `// delete at CuboKit 0.5.0:` marks nothing yet.
 
 ### Phase mapping under the T4 object bar (ADR 040) — one metric short
 Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
@@ -526,4 +501,3 @@ Tooling (2026-10-14 night): `../_archive/mac4DSTEM/tools/velox-parity/run.sh` ne
 envs has both) — run through the data link with one in the scratchpad: 20 cases, 27 stacks, 0 failures. Dependabot #1 (torch
 2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`../_archive/mac4DSTEM/tools/disk-detector/README.md`).
 - **CuboKit gaps kept in the app (2026-10-16).** `OriginCalibration.fitOriginTrimmed` keeps its trim (median + 3 x 1.4826 MAD of the position residuals, up to three rounds, the S12 constants): `OriginFit`'s robust loop cuts squared residuals at a multiple of their mean, not the same rule; only the least squares under it is the kit's (`fit2D`). The measurement stays on the Metal tiled path (`VirtualDetector.tiledMeasuredOrigins`; `OriginMeasurement.measure` is CPU Double). Ask for the kit: `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred; the kit's is half-pixel for odd sides), a mask hook for the measured sigmoid kernel, and fit `kept` / residual outputs.
-- **CuboKit asks from the strain switch (2026-10-20).** `LatticeStrain.chooseBasisConsensus` takes no cancellation closure and returns only the basis: the app re-scores the chosen pair to keep its support / residual / condition / tolerance diagnostics, and checks cancellation only around the call (`StrainMapping.estimateLatticeBasis`, marked "delete at CuboKit 0.5"). `LatticeStrain.referenceMAD` returns only the basis: the app still runs `robustReferenceIndices` for the inlier count its diagnostics report. Ask: return the inliers (or their count) beside the reference, and the consensus support / residual / condition with the basis, plus a cancellation closure.
