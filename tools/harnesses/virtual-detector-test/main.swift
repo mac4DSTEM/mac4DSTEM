@@ -202,8 +202,12 @@ let tiledCoM = try await VirtualDetector.tiledCenterOfMass(
 guard tiledCoM.count == 2 * scanCount, tiledCoM.allSatisfy(\.isFinite) else { fail("center_of_mass: tiled CoM (CuboKit) is not a finite 2 x scanCount field") }
 
 let scanRegion = DetectorShape.rectangle(xMin: 1, xMax: 3, yMin: 0, yMax: 2)
-let residentDiffraction = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: try MetalEngine.shared.virtualDiffraction(
-    cube: cubeBuffer, dims: CubeDims(d), scanMask: VirtualDetector.makeMask(shape: scanRegion, qy: d.ry, qx: d.rx)))
+let scanMaskTruth = VirtualDetector.makeMask(shape: scanRegion, qy: d.ry, qx: d.rx)
+var scanTruth = [Float](repeating: 0, count: d.qy * d.qx)
+for scan in 0..<scanCount where scanMaskTruth[scan] != 0 {
+    for index in 0..<scanTruth.count { scanTruth[index] += cube[scan * detectorPixels + index] }
+}
+let residentDiffraction = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: scanTruth)
 let tiledDiffraction = try await VirtualDetector.tiledDiffraction(
     data: fieldData, descriptor: d, region: scanRegion, maximumTileRows: 1
 )

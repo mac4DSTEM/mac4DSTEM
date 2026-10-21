@@ -67,7 +67,7 @@ consumer here; see the end).
    refined run closer than the unrefined one on the same 200 patterns (the kit's 35 to 14 failures at 1.4 degrees is the
    reference number, `DiffractoKit/docs/open-items.md`), `ACOMKitCallSiteTests` and `PhaseMapAppTests` green, the sidecar
    carries the new plane.
-3. **Adopt CuboKit 0.8: Metal selected-area and the resident cube** (the last app/kit separation item, the kit ask at the top
+3. **Adopt CuboKit 0.8: Metal selected-area (done 2026-10-21) and the resident cube (open)** (the last app/kit separation item, the kit ask at the top
    of "Kit asks, CuboKit"). Goal: delete the app's compute copy. First target: `VirtualDiffraction.pattern(..., path: .metal)`
    replaces `MetalEngine.virtualDiffraction` and `Shaders/VirtualDiffraction.metal`; check the result against the previous
    app output at 1e-5 before deleting. Second: the kit's `ResidentCube` replaces the app's `ResidentCube`/`FourDArray`

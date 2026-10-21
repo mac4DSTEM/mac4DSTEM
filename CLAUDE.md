@@ -17,14 +17,13 @@ The Run configuration is `Develop`: Xcode maps that name to `-O` for packages; a
 Exact tags in `Package.swift` (the truth; the Xcode project and `Package.resolved` follow): SpectroKit + FormatoKit (bump
 together; one HDF5 lock, `HDF5Serial`), DiffractoKit, CuboKit, ImagoKit. In development point at `../<Kit>` local paths;
 restore exact tags at closeout. Stays in the app on purpose: the learned disk detector (ADR 071), lineage and marks,
-selected-area Metal diffraction and the resident cube (until CuboKit has a weighted-pattern Metal kernel).
+the resident cube (`ResidentCube`, `TileGPUSource`; selected-area diffraction is the kit's since 0.8.1).
 
 ## Layering
 Views describe UI only; loading, parsing and compute live in `Core/` (package `DSTEMCore`, no upward imports).
 `AppState` is the composition root; new stored state names its owner first.
 
 ## Hazards
-- Metal parameter structs in `MetalEngine.swift` stay byte-identical to the `.metal` structs (all 4-byte fields).
 - `ResidencyAdmission.measuredWorkingSetFraction` stays nil (ADR 013).
 - Don't add `CODE_SIGNING_ALLOWED=NO` to a build you will launch; `tools/run-tests.sh unit` is the unsigned path.
 - A drive never writes or clears the clipboard.

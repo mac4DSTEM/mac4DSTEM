@@ -9,14 +9,6 @@ import DSTEMSession
 
 final class SwiftUIReviewATests: XCTestCase {
 
-    /// A1: the compute pipeline is built once in `MetalEngine.init`
-    /// (immutable `let`s, no `lazy var` first-touch race). On this Mac every
-    /// shipped kernel must have built; a nil would be refused by name at use.
-    func testEveryComputePipelineIsBuiltAtEngineInit() {
-        let e = MetalEngine.shared
-        XCTAssertNotNil(e.virtualDiffractionPSO, "virtualDiffraction")
-    }
-
     // MARK: A2 - MetalImageView update gating
 
     private func view(version: Int = 1, width: Int = 4, height: Int = 3,

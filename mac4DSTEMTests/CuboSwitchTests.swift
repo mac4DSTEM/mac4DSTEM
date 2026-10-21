@@ -56,6 +56,41 @@ final class CuboSwitchTests: XCTestCase {
         return (source, FourDArray(reader: source, descriptor: d), d)
     }
 
+    // MARK: - Selected-area diffraction (kit Metal path)
+
+    /// The CBED of a real-space region is the SUM of its patterns, in Double from the planted pixels, held to relative
+    /// 1e-5 (the kit's Metal tolerance). Forced one-row tiles, a rectangle that clips the scan, a circle with its partial rows.
+    func testSelectedAreaDiffractionIsTheSumOfTheRegionsPatterns() async throws {
+        let (source, data, d) = try await planted()
+        let regions: [DetectorShape] = [
+            .rectangle(xMin: 1, xMax: 4, yMin: 1, yMax: 4),
+            .rectangle(xMin: -2, xMax: 2, yMin: 3, yMax: 9),
+            .circle(centerX: 2, centerY: 2, radius: 1.5),
+        ]
+        for region in regions {
+            let mask = VirtualDetector.makeMask(shape: region, qy: d.ry, qx: d.rx)
+            var truth = [Double](repeating: 0, count: Self.qy * Self.qx)
+            for r in 0..<Self.ry { for c in 0..<Self.rx where mask[r * Self.rx + c] != 0 {
+                for y in 0..<Self.qy { for x in 0..<Self.qx { truth[y * Self.qx + x] += await source.value(r, c, y, x) } }
+            } }
+            for rows in [1, 2, nil] as [Int?] {
+                let got = try await VirtualDetector.tiledDiffraction(data: data, descriptor: d, region: region, maximumTileRows: rows)
+                XCTAssertEqual(got.pixels.count, truth.count)
+                let scale = truth.map { abs($0) }.max() ?? 1
+                for i in truth.indices {
+                    XCTAssertEqual(Double(got.pixels[i]), truth[i], accuracy: 1e-5 * max(scale, 1), "\(region) rows \(String(describing: rows)) pixel \(i)")
+                }
+            }
+        }
+    }
+
+    /// A region that selects no scan position gives the zero pattern, as the app's sum always did.
+    func testSelectedAreaDiffractionOfAnEmptyRegionIsZero() async throws {
+        let (_, data, d) = try await planted()
+        let got = try await VirtualDetector.tiledDiffraction(data: data, descriptor: d, region: .rectangle(xMin: 50, xMax: 60, yMin: 50, yMax: 60))
+        XCTAssertEqual(got.pixels, [Float](repeating: 0, count: Self.qy * Self.qx))
+    }
+
     // MARK: - C1: virtual images
 
     /// The expected image of a mask predicate over detector (row y, column x): the Double sum, per scan position.

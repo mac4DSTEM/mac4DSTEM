@@ -383,8 +383,6 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
   readers are actors; long analyses guard publication with dataset epoch and
   operation token. Never conscript the main thread with `concurrentPerform`
   (the frozen-Detect-All-Disks lesson).
-- Metal parameter structs in `MetalEngine.swift` stay byte-identical to the
-  `.metal` structs (all 4-byte fields).
 - A stale DerivedData test bundle can fake a pass and a surviving mutation: reconcile the case count against
   `func test` per file, check which `XCTestCase` class a new test landed in, and grep the log for its own name.
 - Debug builds compile the app module AND the `DSTEMCore`/`DSTEMSession` packages at

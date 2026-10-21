@@ -45,7 +45,6 @@ mac4DSTEMTests/LearnedWindowedFixture.swift	Metal	test of display, residency or 
 mac4DSTEMTests/MTLTextureFloatTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/MaterialsProjectImportTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/MaterialsProjectKitSwitchFreezeTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
-mac4DSTEMTests/MetalEngineDispatchTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/MetalLayerScaleTests.swift	MetalKit	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/MonoclinicOrientationTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/PhaseDiskClaimsTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
@@ -63,5 +62,4 @@ tools/harnesses/virtual-detector-memory-test/main.swift	Metal	harness: GPU or si
 tools/harnesses/virtual-detector-residency/main.swift	Metal	harness: GPU or simd types for the check it runs
 tools/harnesses/virtual-detector-test/main.swift	Metal	harness: GPU or simd types for the check it runs
 mac4DSTEM/Shaders/Colormaps.metal	-	colormap / contrast display shader
-mac4DSTEM/Shaders/VirtualDiffraction.metal	-	LEFTOVER?: virtual-diffraction compute kernel (selected-area); moves with CuboKit Metal virtual diffraction ask
 mac4DSTEM/Training/TrainedModelStore.swift	+symbols	learned detector (ADR 071): records the runtime name "MPSGraph" in the model file, no MPS call

@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Selected-area diffraction (the CBED pane for a region of the scan) runs on CuboKit's Metal path (`VirtualDiffraction.pattern(path: .metal)`, compensated sums, relative 1e-5 of the old kernel); the app's own kernel and shader are deleted. Same pane, same numbers to display precision; a Mac without Metal runs the kit's CPU path. Unverified on screen beyond the UI journeys.
+
 - 2026-10-21 Fixture move: the cif-symmetry harness case `two_column_symop_loop` no longer declares `F m -3 m` (it listed 4 of the group's 192 operations; DiffractoKit 0.9.0 refuses a symbol-only group with a short list on purpose, pymatgen applies the listed operations as given). It still pins the two-column loop shape. This was the red `scientific (py4DSTEM parity)` job.
 
 - 2026-10-21 ACOM (DiffractoKit 0.9): a "Mirrored match" map (1 where the best match is the mirror image) and a `mirrored` quality plane on every ACOM product, so the in-plane angle can be read with it; an opt-in "Refine in-plane angle" switch (off by default, CPU scan only, recorded in the recipe only when on) that places the angle at the vertex of the correlation parabola; on 40 planted off-grid patterns the refined angle is closer than the 64-bin one. `minimumMatrixEvidence` is named in the phase provenance when a run uses it (hidden, 0). Orientation numbers with the switch off do not move. Unverified on screen.

@@ -430,8 +430,10 @@ package nonisolated enum VirtualDetector {
         return (both.max.values.map { Float($0) }, both.mean.values.map { Float($0) })
     }
 
-    /// Bounded selected-area diffraction. Each tile contributes one partial
-    /// detector sum; only that Q-sized accumulator survives between tiles.
+    /// Selected-area diffraction: the SUM of the patterns over the scan positions `region` selects (the CBED pane's
+    /// definition). CuboVirtual's `VirtualDiffraction.pattern(statistic: .mean, scan: .mask)` on the Metal path (compensated
+    /// Float32 sums combined in Double, relative 1e-5 of the CPU reference) times the selected count, and on a Mac without a
+    /// Metal device the CPU one. An empty selection gives the zero pattern, as the sum always did.
     package static func tiledDiffraction(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
@@ -439,36 +441,21 @@ package nonisolated enum VirtualDetector {
         maximumTileRows: Int? = nil,
         cancellation: AnalysisCancellationToken? = nil
     ) async throws -> DiffractionPattern {
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        let fullMask = makeMask(shape: region, qy: d.ry, qx: d.rx)
-        var sum = [Float](repeating: 0, count: d.qy * d.qx)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let take = makeMask(shape: region, qy: d.ry, qx: d.rx).map { $0 != 0 }
+        let count = take.reduce(0) { $0 + ($1 ? 1 : 0) }
+        guard count > 0 else { return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: [Float](repeating: 0, count: d.qy * d.qx)) }
+        let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let tiling = try await kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows)
+        let mean: DetectorImage
+        do {
+            mean = try await VirtualDiffraction.pattern(of: source, statistic: .mean, scan: .mask(take), path: .metal, tiling: tiling)
+        } catch CuboVirtualError.noMetalDevice {
+            mean = try await VirtualDiffraction.pattern(of: source, statistic: .mean, scan: .mask(take), path: .cpu, tiling: tiling)
         }
-        var source = TileGPUSource(data: data, descriptor: d,
-                                   cube: await data.resident(for: d))
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else {
-                source.cancel(); throw CancellationError()
-            }
-            let bound = try await source.binding(
-                for: range,
-                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil,
-                label: "virtualDiffraction tile rows \(range.lowerBound)..<\(range.upperBound)"
-            )
-            let tileDescriptor = DatasetDescriptor(
-                filePath: d.filePath, datasetPath: d.datasetPath,
-                shape: [range.count, d.rx, d.qy, d.qx],
-                dtypeDescription: d.dtypeDescription, chunkShape: nil
-            )
-            let mask = Array(fullMask[range.lowerBound * d.rx..<range.upperBound * d.rx])
-            let partial = try MetalEngine.shared.virtualDiffraction(
-                cube: bound.buffer, cubeOffset: bound.offset,
-                dims: CubeDims(tileDescriptor), scanMask: mask
-            )
-            for index in sum.indices { sum[index] += partial[index] }
-        }
-        return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: sum)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let n = Double(count)
+        return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: mean.values.map { Float($0 * n) })
     }
 
     /// Per-position origin measurement after a probe radius has been established: CuboVirtual's iterated-window estimator

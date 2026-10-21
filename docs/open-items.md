@@ -8,11 +8,12 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 ## Kit asks
 
 ### CuboKit (next: 0.7)
-- **Selected-area diffraction on the GPU, and the resident cube** (the last app/kit separation item, sized 2026-10-21; its own change):
-  CuboKit's `VirtualDiffraction.pattern` is CPU-only (compensated Double). The app still holds `VirtualDiffraction.metal`,
-  `MetalEngine.virtualDiffraction`, `VirtualDetector.tiledDiffraction` and the cube residency (`FourDArray`, `ResidentCube`,
-  `PendingLoad`; about 70 files use them, `PendingLoad` is load-screen state). Ask: a Metal weighted-pattern kernel in CuboVirtual
-  (CPU Double reference kept, Metal against CPU 1e-5) and a kit cube type that can be held GPU-resident; then the app deletes its four.
+- **The resident cube** (the last app/kit separation item; the selected-area half landed 2026-10-21): the kit's `VirtualDiffraction.pattern(..., path: .metal)`
+  now serves the CBED pane (`VirtualDetector.tiledDiffraction`; `MetalEngine.virtualDiffraction` and `VirtualDiffraction.metal` are gone).
+  Left: the cube residency (`FourDArray`, `ResidentCube`, `TileGPUSource`, `PendingLoad`; about 70 files use them, `PendingLoad` is load-screen
+  state). Nothing in the shipping app requests `.resident` today and the kit's reducers read the app's tiles through `CuboCubeSource`, so the
+  kit's `ResidentCube` has no consumer to switch yet; adopting it means deciding to hold the cube for the session first (Paul's call), then
+  replacing the app type behind `ResidentCube.fits` with the tiled path as the fallback.
 - **Kit audit and visibility (owner, 2026-10-21):** one audit session per kit, in parallel, against the Python reference's documented
   API (code and docs read, not a web pass), implementing what is missing so the apps are free to develop; and, like the Python packages,
   show capabilities (parity table, examples, API docs). Written down in CuboKit's status, now archived.
