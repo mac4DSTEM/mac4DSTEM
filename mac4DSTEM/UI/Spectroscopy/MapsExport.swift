@@ -44,15 +44,16 @@ enum MapsExport {
     /// exceeded the window, never smoothed); a tile without them (the fixture) falls back to value x `MapTile.scale`, and the
     /// header says so. The `#` header names the file, the map mode, the units and what the numbers are, and carries a tile's
     /// "not a measurement" note with it.
-    nonisolated static func csv(stem: String, mode: MapMode, tiles: [MapTile], symbol: (Int) -> String) throws -> String {
+    nonisolated static func csv(stem: String, mode: MapMode, tiles: [MapTile], provenance: [String] = [], symbol: (Int) -> String) throws -> String {
         guard let first = tiles.first else { throw Failure("No element maps to write.") }
         for t in tiles where t.width != first.width || t.height != first.height || t.values.count != t.width * t.height {
             throw Failure("The element maps are not on one grid.")
         }
-        let raw = (mode == .integrated || mode == .netCounts) && tiles.allSatisfy { $0.counts.count == $0.width * $0.height }
+        let raw = tiles.allSatisfy { $0.counts.count == $0.width * $0.height }
         var out = ["# mac4DSTEM Spectroscopy element maps, file: \(stem)",
                    "# map mode: \(mode.rawValue), units: \(mode.units) (one row per scan pixel, row-major)",
                    rawLine(mode: mode, raw: raw)]
+        if mode.isComposition { out += provenance }
         for t in tiles { if let why = t.notMeasuredWhy { out.append("# \(symbol(t.z)): not a measurement: \(why.replacingOccurrences(of: "\n", with: " "))") } }
         out.append((["x", "y"] + tiles.map { symbol($0.z) }).joined(separator: ","))
         for y in 0..<first.height {
@@ -70,6 +71,7 @@ enum MapsExport {
     /// The header line that says what the numbers are: raw counts as the file gave them, or (no counts held) the display values.
     nonisolated static func rawLine(mode: MapMode, raw: Bool) -> String {
         guard raw else { return "# \(mode.units) per pixel (display values: value x scale)" }
+        if mode.isComposition { return "# \(mode.units) per pixel from EDXQuantification.quantifyMaps, unsmoothed" }
         return "# raw \(mode.units) per pixel as the file gives them"
             + (mode == .netCounts ? " (negative = background exceeded the window)" : "") + ", unsmoothed"
     }
@@ -191,7 +193,7 @@ enum MapsExport {
                                           smoothing: entry.tagged ? model.smoothing : .none,
                                           scaleBar: bar != nil, region: !outlines.isEmpty, pixelScale: scale), data: data))
         }
-        let text = try csv(stem: stem, mode: model.mapMode, tiles: model.tiles, symbol: PeriodicLayout.symbol)
+        let text = try csv(stem: stem, mode: model.mapMode, tiles: model.tiles, provenance: model.quantMapsProvenance, symbol: PeriodicLayout.symbol)
         out.append(File(name: csvName(stem: stem), data: Data(text.utf8)))
         return out
     }

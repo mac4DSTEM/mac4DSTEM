@@ -214,6 +214,7 @@ final class SpectroscopyRoomController {
         endOperation(autoIDOperation); autoIDOperation = nil
         m.resetAutoID()
         m.onAutoID = { [weak self] in self?.runAutoID() }
+        m.onMapsMask = { [weak self] in if self?.model.mapMode.isComposition == true { self?.refresh() } }
         m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
         m.onRegionEdit = { [weak self] shape, final in self?.editRegion(shape, final: final) }
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
@@ -704,6 +705,7 @@ final class SpectroscopyRoomController {
         var epoch: Int? = nil
         /// wt% or at%: the maps pass runs after the fit (needs `quantify`); nil for int and net.
         var compositionMode: MapMode? = nil
+        var minimumCounts: Double = 0
     }
 
     struct QuantifyRequest: Sendable {
@@ -731,7 +733,7 @@ final class SpectroscopyRoomController {
     }
 
     enum QuantMapsOutcome: Sendable {
-        case maps(EDXQuantificationMaps, elements: [String], masked: Int)
+        case maps(EDXQuantificationMaps, elements: [String], masked: Int, hash: String, minimumCounts: Double)
         case failed(String)
     }
 
@@ -757,7 +759,7 @@ final class SpectroscopyRoomController {
         var request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
                               integrated: model.mapMode == .integrated,
                               beam: source.metadata.beamEnergyKeV, quantify: quantify, epoch: cache.epoch(region.id))
-        if model.mapMode.isComposition, quantify != nil { request.compositionMode = model.mapMode }
+        if model.mapMode.isComposition, quantify != nil { request.compositionMode = model.mapMode; request.minimumCounts = model.mapsMinimumCounts ?? 0 }
         let cache = cache
         // The previous recompute is about a selection that no longer stands (its answer would be dropped by the generation check):
         // cancel it so its remaining stages do not run. A cancelled task returns early and lands nothing.
@@ -840,7 +842,7 @@ final class SpectroscopyRoomController {
         var out = Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
                          fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
         if r.compositionMode != nil, let q = r.quantify {
-            out.quantMaps = quantMaps(windows: windows, maps: maps, method: q.method, width: r.source.nx, height: r.source.ny)
+            out.quantMaps = quantMaps(windows: windows, maps: maps, method: q.method, width: r.source.nx, height: r.source.ny, minimumCounts: r.minimumCounts)
             if cancelled() { return nil }
         }
         return out
@@ -865,7 +867,8 @@ final class SpectroscopyRoomController {
             let request = QuantMapsRequest(setup: setup, rows: height, columns: width, minimumCounts: minimumCounts, methodHash: method.hash)
             do {
                 let result = try QuantMapsPass.run(request, netMaps: inputs)
-                return .maps(result, elements: elements, masked: 0)
+                return .maps(result, elements: elements, masked: QuantMapsPass.maskedCount(request, netMaps: inputs), hash: request.methodHash,
+                             minimumCounts: minimumCounts)
             } catch { return .failed((error as? LocalizedError)?.errorDescription ?? "\(error)") }
         }
     }
@@ -940,8 +943,9 @@ final class SpectroscopyRoomController {
             case .failed(let why):
                 m.quantMapsFailure = why
                 tiles = []
-            case .maps(let result, let elements, let masked):
+            case .maps(let result, let elements, let masked, let hash, let minimum):
                 let summary = QuantMapsPass.summary(result, masked: masked)
+                m.quantMapsProvenance = QuantMapsPass.provenance(summary, methodHash: hash, minimumCounts: minimum)
                 for i in tiles.indices {
                     guard let e = elements.firstIndex(of: PeriodicLayout.symbol(tiles[i].z)),
                           let pct = QuantMapsPass.percentMap(result, index: e, mode: m.mapMode) else { continue }

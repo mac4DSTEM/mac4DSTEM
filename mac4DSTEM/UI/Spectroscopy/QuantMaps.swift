@@ -59,15 +59,30 @@ nonisolated enum QuantMapsSetup {
 nonisolated enum QuantMapsPass {
     /// The kit call over the net-count maps (`netMaps[e][pixel]`, e in `request.setup.elements` order).
     static func run(_ request: QuantMapsRequest, netMaps: [[Double]]) throws -> EDXQuantificationMaps {
-        var mask: [Bool]?
-        if request.minimumCounts > 0 {
-            let pixels = request.rows * request.columns
-            if netMaps.allSatisfy({ $0.count == pixels }) {
-                mask = (0..<pixels).map { p in netMaps.reduce(0) { $0 + $1[p] } < request.minimumCounts }
-            }
-        }
+        let mask = mask(request, netMaps: netMaps)
         return try EDXQuantification.quantifyMaps(intensityMaps: netMaps, rows: request.rows, columns: request.columns,
                                                   setup: request.setup, navigationMask: mask)
+    }
+
+    /// The app's mask rule: summed net counts of the quantified elements below the threshold. nil when off.
+    static func mask(_ request: QuantMapsRequest, netMaps: [[Double]]) -> [Bool]? {
+        guard request.minimumCounts > 0 else { return nil }
+        let pixels = request.rows * request.columns
+        guard netMaps.allSatisfy({ $0.count == pixels }) else { return nil }
+        return (0..<pixels).map { p in netMaps.reduce(0) { $0 + $1[p] } < request.minimumCounts }
+    }
+
+    static func maskedCount(_ request: QuantMapsRequest, netMaps: [[Double]]) -> Int {
+        mask(request, netMaps: netMaps)?.reduce(0) { $0 + ($1 ? 1 : 0) } ?? 0
+    }
+
+    /// The comment lines a maps CSV carries (the lineage facts: method hash, mask rule, failed pixels, badge).
+    static func provenance(_ s: QuantMapsSummary, methodHash: String, minimumCounts: Double) -> [String] {
+        ["# quantification maps: EDXQuantification.quantifyMaps (SpectroKit), Cliff-Lorimer with typed k, \(s.absorptionNote)",
+         "# method hash: \(methodHash)",
+         "# mask rule: " + (minimumCounts > 0 ? "summed net counts < \(minimumCounts) left out (\(s.maskedPixels) px)" : "none"),
+         "# failed pixels: \(s.failedPixels) (empty cell); per-pixel, no \u{03C3}",
+         "# validation: \(s.validation)"]
     }
 
     /// The percent map of element `index` in `mode` (nil for a mode that is not a composition).

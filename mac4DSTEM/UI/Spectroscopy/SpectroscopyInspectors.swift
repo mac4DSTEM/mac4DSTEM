@@ -478,6 +478,13 @@ struct QuantificationSection: View {
                 }
             }
         }
+        InspectorRow("Maps min. counts") {
+            OptionalNumericField(title: "Maps minimum counts", value: model.mapsMinimumCounts, format: FloatingPointFormatStyle<Double>.number, unit: "net", prompt: "off") {
+                model.mapsMinimumCounts = $0 > 0 ? $0 : nil
+                model.onMapsMask?()
+            }
+        }
+        .help("wt% / at% maps leave out pixels whose summed net counts of the quantified elements are below this (composition 0). Off: every pixel.")
         InspectorRow("Beam energy") {
             OptionalNumericField(title: "Beam energy", value: q.shownBeam, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "\u{2014}") {
                 model.quantify.beamEnergy = max($0, 0)

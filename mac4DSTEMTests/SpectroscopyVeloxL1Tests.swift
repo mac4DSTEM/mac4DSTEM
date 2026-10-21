@@ -94,10 +94,12 @@ final class SpectroscopyVeloxL1Tests: XCTestCase {
         XCTAssertTrue(text.contains("\n1,0,100,0\n"), "one tile without counts puts the whole file on display values, not a mixed one")
     }
 
-    /// At% / wt% maps hold percentages, not counts: even with counts present the CSV stays on display values.
-    /// Mutation: drop the mode check in `csv`'s `raw` - red.
+    /// At% / wt% maps hold percentages from the kit, not counts: the CSV writes them raw but never calls them counts (task 4).
+    /// Mutation: drop the composition branch in `rawLine` - red.
     func testPercentModesNeverClaimRawCounts() throws {
         let t = tile(13, [0, 0.5, 0.25, 1], scale: 100, counts: [1, 2, 3, 4])
-        XCTAssertTrue(try MapsExport.csv(stem: "d", mode: .atomic, tiles: [t], symbol: sym).contains("display values"))
+        let text = try MapsExport.csv(stem: "d", mode: .atomic, tiles: [t], symbol: sym)
+        XCTAssertTrue(text.contains("from EDXQuantification.quantifyMaps"))
+        XCTAssertFalse(text.contains("raw at%") || text.contains("as the file gives them"))
     }
 }

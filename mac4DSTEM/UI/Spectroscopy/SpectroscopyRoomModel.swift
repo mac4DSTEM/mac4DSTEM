@@ -31,6 +31,12 @@ final class SpectroscopyRoomModel {
     /// The wt% / at% maps' state: nil when they are not asked for or landed; the kit's or the app's sentence when they could not be made
     /// (int and net stay selectable). Set by the controller with `tiles`.
     var quantMapsFailure: String?
+    /// Maps row of the Quantification section: pixels whose summed net counts fall below this are left out of the wt% / at% maps
+    /// (composition 0, counted on the tile). nil: no mask. View state, not a method setting.
+    var mapsMinimumCounts: Double?
+    var onMapsMask: (() -> Void)?
+    /// The `#` lines a wt% / at% maps CSV carries after the header: method hash, mask rule, failed pixels, validation.
+    var quantMapsProvenance: [String] = []
     /// Colour per element the person chose in the active map's popover; absent: `ElementPalette`. View state: the element
     /// states the replay record keeps (`QuantificationMethod.ElementState`) hold no colour and a colour is not a method
     /// setting, so it lives (and is lost with the window) here, reset when a spectrum image is bound.

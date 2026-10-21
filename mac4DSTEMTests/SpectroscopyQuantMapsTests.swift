@@ -75,6 +75,19 @@ final class SpectroscopyQuantMapsTests: XCTestCase {
         XCTAssertGreaterThan(maps.weightPercent[0][1], 0)
     }
 
+    func testCSVCarriesProvenanceAndTheRawPercent() throws {
+        guard case .success(let setup) = QuantMapsSetup.setup(method: typedMethod(), elements: ["Mg", "Al"]) else { return XCTFail() }
+        let request = QuantMapsRequest(setup: setup, rows: 1, columns: 3, minimumCounts: 50, methodHash: "abc")
+        let nets: [[Double]] = [[10, 100, -3], [20, 300, 40]]
+        let maps = try QuantMapsPass.run(request, netMaps: nets)
+        XCTAssertEqual(QuantMapsPass.maskedCount(request, netMaps: nets), 2)
+        let summary = QuantMapsPass.summary(maps, masked: 2)
+        let tile = QuantMapsPass.tile(z: 12, percent: maps.weightPercent[0], width: 3, height: 1, summary: summary, mode: .weight)
+        let csv = try MapsExport.csv(stem: "s", mode: .weight, tiles: [tile], provenance: QuantMapsPass.provenance(summary, methodHash: "abc", minimumCounts: 50)) { _ in "Mg" }
+        XCTAssertTrue(csv.contains("# method hash: abc") && csv.contains("# validation: none") && csv.contains("left out (2 px)"), csv)
+        XCTAssertTrue(csv.contains("0,0,0\n") || csv.contains("0,0,0"), csv)
+    }
+
     func testCompositionChipsAppearOnlyAfterQuantify() {
         XCTAssertFalse(MapMode.weight.isOffered(quantified: false))
         XCTAssertTrue(MapMode.atomic.isOffered(quantified: true))
