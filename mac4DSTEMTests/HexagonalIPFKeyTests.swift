@@ -20,7 +20,7 @@ import DiffractoOrientation
 
 final class HexagonalIPFKeyTests: XCTestCase {
 
-    private let hexagonal = Crystal.structure(
+    private let hexagonal = CrystalPresets.structure(
         a: 3.209, b: 3.209, c: 5.211, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
         sites: [AtomSite(z: 12, fractional: SIMD3(0, 0, 0))])
 

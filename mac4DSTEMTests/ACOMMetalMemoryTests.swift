@@ -1,7 +1,7 @@
 //
 //  ACOMMetalMemoryTests.swift
 //  Gate D, lane M (2026-10-15), tier 2 (memory behaviour, no number moves): the Metal ACOM matcher's batch loop.
-//  `MetalACOMMatcher.matchAll` is a long synchronous loop that makes six buffers, a command buffer and two encoders
+//  DiffractoKit's Metal `matchAll` (formerly the app's `MetalACOMMatcher`) is a long synchronous loop that makes six buffers, a command buffer and two encoders
 //  per `runBatch` call (two calls per batch). No autorelease pool drains inside it, so before the fix the device
 //  memory grew by about 0.125 MB per batch until `matchAll` returned (measured: 3.8 -> 28.7 MB over 200 batches,
 //  lane-M/harness/h2/h2-before.log; flat at 3.7 MB with a pool per `runBatch`, h2-after.log; the 12 800 results
@@ -13,6 +13,7 @@ import Metal
 import simd
 import DiffractoScattering
 import DSTEMCore
+import DiffractoCore
 @testable import mac4DSTEM
 
 final class ACOMMetalMemoryTests: XCTestCase {
@@ -22,7 +23,7 @@ final class ACOMMetalMemoryTests: XCTestCase {
     /// from batch 10 to batch 199; fixed: 0.0 MB. The bound (3 MB) is about 24 batches' worth of the leak and 15x the
     /// observed noise (none).
     func testMetalMatchAllDeviceMemoryDoesNotGrowPerBatch() throws {
-        let crystal = Crystal.gold
+        let crystal = CrystalPresets.gold
         let plan = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 96))
         let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let scale = 0.01

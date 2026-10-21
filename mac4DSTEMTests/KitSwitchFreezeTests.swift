@@ -42,10 +42,10 @@ final class KitSwitchFreezeTests: XCTestCase {
         switch key {
         case "beta":
             return CrystalModel(id: "preset_betaDoublePrime", displayName: "betaDoublePrime",
-                                structure: Crystal.betaDoublePrime, symmetry: .monoclinic, source: .builtIn)
+                                structure: CrystalPresets.betaDoublePrime, symmetry: .monoclinic, source: .builtIn)
         case "hcp":
             return CrystalModel(id: "ideal_hcp", displayName: "ideal hcp",
-                                structure: Crystal.hcp(a: 3.2094, c: 3.2094 * (8.0 / 3.0).squareRoot(), z: 12),
+                                structure: CrystalPresets.hcp(a: 3.2094, c: 3.2094 * (8.0 / 3.0).squareRoot(), z: 12),
                                 symmetry: .hexagonal, source: .builtIn)
         default:
             return try XCTUnwrap(CrystalModelLibrary.model(id: key), key)
@@ -134,27 +134,27 @@ final class KitSwitchMappingTests: XCTestCase {
     /// by the app. Mutation: dropping the filter on `invalid_atomic_number`, or the app's own check.
     func testElementsOutsideTheScatteringTableAreTheAppsRefusalOnce() {
         func codes(_ z: Int) -> [String] {
-            CrystalModel(id: "t", displayName: "t", structure: Crystal.sc(a: 4, z: z), symmetry: .identity, source: .custom)
+            CrystalModel(id: "t", displayName: "t", structure: CrystalPresets.simpleCubic(a: 4, z: z), symmetry: .identity, source: .custom)
                 .validationIssues.map(\.code)
         }
         XCTAssertEqual(codes(104), ["unsupported_element"])
         XCTAssertEqual(codes(0), ["unsupported_element"])
         XCTAssertEqual(codes(119), ["unsupported_element"])
         XCTAssertEqual(codes(26), [])
-        XCTAssertEqual(Crystal.sc(a: 4, z: 104).unsupportedElements, [104])
-        XCTAssertEqual(Crystal.sc(a: 4, z: 26).unsupportedElements, [])
+        XCTAssertEqual(CrystalPresets.simpleCubic(a: 4, z: 104).unsupportedElements, [104])
+        XCTAssertEqual(CrystalPresets.simpleCubic(a: 4, z: 26).unsupportedElements, [])
     }
 
     /// The consumers that used to read an empty list for a structure the kit refuses: no template plan, no zone-axis
     /// fit, and a library that names the phase.
     func testStructuresTheKitRefusesGiveNoPlanAndANamedLibraryFailure() throws {
-        let bad = Crystal.sc(a: 4, z: 104)
+        let bad = CrystalPresets.simpleCubic(a: 4, z: 104)
         XCTAssertNil(OrientationPlan.generate(crystal: bad, kMax: 1.2, zoneAxisCount: 12))
-        let tooClose = Crystal.structure(a: 4, b: 4, c: 4, sites: [
+        let tooClose = CrystalPresets.structure(a: 4, b: 4, c: 4, sites: [
             AtomSite(z: 13, fractional: [0, 0, 0]), AtomSite(z: 13, fractional: [0.01, 0, 0])])
         func library(_ candidate: CrystalStructure) throws -> PhaseReferenceLibrary {
             try PhaseReferenceLibrary.build(phases: [
-                PhaseDefinition(id: "m", displayName: "Matrix", crystal: Crystal.aluminum, role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+                PhaseDefinition(id: "m", displayName: "Matrix", crystal: CrystalPresets.aluminum, role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
                 PhaseDefinition(id: "c", displayName: "Candidate", crystal: candidate, role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
             ])
         }

@@ -5,6 +5,7 @@
 // (including the in-plane-angle composition), and ellipse polyline axes.
 
 import Foundation
+import DiffractoCore
 import DiffractoOrientation
 
 func fail(_ message: String) -> Never {
@@ -182,7 +183,7 @@ print("PASS: strain overlay maps local fit back onto the raw pattern")
 // MARK: - 5. ACOM template overlay lands on the constructed pattern
 
 guard let plan = OrientationPlan.generate(
-    crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
+    crystal: CrystalPresets.gold, kMax: 1.2, zoneAxisCount: 96
 ) else { fail("orientation plan generation") }
 guard plan.templateSpots.count == plan.count else {
     fail("plan must retain spots for every template")

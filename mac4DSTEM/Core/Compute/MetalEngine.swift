@@ -35,50 +35,6 @@ package nonisolated struct CubeDims {
     }
 }
 
-package nonisolated struct ApertureParams {
-    package var ry: UInt32
-    package var rx: UInt32
-    package var qy: UInt32
-    package var qx: UInt32
-    package var cx: Float        // detector center (column), in pixels
-    package var cy: Float        // detector center (row), in pixels
-    package var rInner: Float    // annulus inner radius (px)
-    package var rOuter: Float    // annulus outer radius (px)
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, rInner: Float, rOuter: Float) {
-        self.ry = ry
-        self.rx = rx
-        self.qy = qy
-        self.qx = qx
-        self.cx = cx
-        self.cy = cy
-        self.rInner = rInner
-        self.rOuter = rOuter
-    }
-}
-
-package nonisolated struct CoMParams {
-    package var ry: UInt32
-    package var rx: UInt32
-    package var qy: UInt32
-    package var qx: UInt32
-    package var cx: Float        // global reference center (used when useOrigins == 0)
-    package var cy: Float
-    package var useOrigins: UInt32
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(ry: UInt32, rx: UInt32, qy: UInt32, qx: UInt32, cx: Float, cy: Float, useOrigins: UInt32) {
-        self.ry = ry
-        self.rx = rx
-        self.qy = qy
-        self.qx = qx
-        self.cx = cx
-        self.cy = cy
-        self.useOrigins = useOrigins
-    }
-}
-
 package nonisolated struct OriginParams {
     package var ry: UInt32
     package var rx: UInt32
@@ -136,21 +92,13 @@ package nonisolated final class MetalEngine {
     //
     // try? OK (v2 S7 audit): the functions are compiled into the bundled
     // metallib at build time, so a nil here means the pipeline genuinely
-    // cannot be built on this GPU. nil is the stored contract — all six
+    // cannot be built on this GPU. nil is the stored contract — both
     // PSOs are consumed only inside this file, and every consumer guards
     // its own and THROWS `MetalError.functionMissing` naming the shader
     // rather than computing without it; a `try?` here only defers that
     // named refusal from init time to first use.
-    package let virtualAperturePSO: MTLComputePipelineState?
-    package let virtualMaskPSO: MTLComputePipelineState?
     package let virtualDiffractionPSO: MTLComputePipelineState?
-    package let dpStatisticsPSO: MTLComputePipelineState?
     package let measureOriginPSO: MTLComputePipelineState?
-    package let centerOfMassPSO: MTLComputePipelineState?
-
-    /// Bound in place of optional buffers a kernel will not read
-    /// (Metal validation requires every referenced slot to have a binding).
-    private let placeholderBuffer: MTLBuffer
 
     private init() {
         guard let dev = MTLCreateSystemDefaultDevice() else {
@@ -166,7 +114,6 @@ package nonisolated final class MetalEngine {
         self.device = dev
         self.queue = q
         self.library = lib
-        self.placeholderBuffer = dev.makeBuffer(length: 16, options: .storageModePrivate)!
 
         // Display render pipelines (fullscreen triangle; LUT and RGBA fragments).
         func display(fragment: String) -> MTLRenderPipelineState {
@@ -185,57 +132,10 @@ package nonisolated final class MetalEngine {
             guard let fn = lib.makeFunction(name: name) else { return nil }
             return try? dev.makeComputePipelineState(function: fn)
         }
-        self.virtualAperturePSO = compute("virtualAperture")
-        self.virtualMaskPSO = compute("virtualMaskSum")
         self.virtualDiffractionPSO = compute("virtualDiffraction")
-        self.dpStatisticsPSO = compute("dpStatistics")
         self.measureOriginPSO = compute("measureOrigin")
-        self.centerOfMassPSO = compute("centerOfMass")
 
         print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
-    }
-
-    // MARK: Dispatch — Virtual Detector (analytic annulus, interactive path)
-
-    /// Sum detector intensity within the annulus for every scan position.
-    /// Returns the real-space image as [Ry*Rx] row-major Float.
-    /// (Synchronous + waitUntilCompleted — call from a background Task.)
-    package func virtualDetector(cube: MTLBuffer, params: ApertureParams) throws -> [Float] {
-        guard let pso = virtualAperturePSO else { throw MetalError.functionMissing("virtualAperture") }
-        let n = Int(params.ry) * Int(params.rx)
-        let out = try makeOutputBuffer(floats: n, label: "virtualAperture")
-        var p = params
-        try run(pso, name: "virtualAperture",
-                width: Int(params.rx), height: Int(params.ry)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
-            enc.setBuffer(out, offset: 0, index: 1)
-            enc.setBytes(&p, length: MemoryLayout<ApertureParams>.stride, index: 2)
-        }
-        return arrayFromBuffer(out, count: n)
-    }
-
-    // MARK: Dispatch — Virtual Detector (arbitrary mask)
-
-    /// Sum pattern × mask for every scan position. `mask` is a row-major
-    /// [Qy*Qx] detector-space weight image (see VirtualDetector.makeMask).
-    package func virtualImage(cube: MTLBuffer, dims: CubeDims, mask: [Float]) throws -> [Float] {
-        guard let pso = virtualMaskPSO else { throw MetalError.functionMissing("virtualMaskSum") }
-        let n = Int(dims.ry) * Int(dims.rx)
-        precondition(mask.count == Int(dims.qy) * Int(dims.qx), "mask must be Qy*Qx")
-        let out = try makeOutputBuffer(floats: n, label: "virtualMaskSum")
-        guard let maskBuf = device.makeBuffer(bytes: mask,
-                                              length: mask.count * MemoryLayout<Float>.stride,
-                                              options: .storageModeShared)
-        else { throw MetalError.dispatchFailed("virtualMaskSum: mask buffer") }
-        var d = dims
-        try run(pso, name: "virtualMaskSum",
-                width: Int(dims.rx), height: Int(dims.ry)) { enc in
-            enc.setBuffer(cube, offset: 0, index: 0)
-            enc.setBuffer(maskBuf, offset: 0, index: 1)
-            enc.setBuffer(out, offset: 0, index: 2)
-            enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
-        }
-        return arrayFromBuffer(out, count: n)
     }
 
     // MARK: Dispatch — tiled passes over a resident cube
@@ -251,8 +151,8 @@ package nonisolated final class MetalEngine {
     // path. Offsets are whole scan rows (`rx * qy * qx * 4` bytes), so the
     // 4-byte `device`-address-space alignment Metal requires is automatic.
     //
-    // Only the four reducers below take it. `virtualDetector` / `virtualImage`
-    // do not: their tiled caller already has a whole-cube resident fast path.
+    // Only the two kernels below take it. The virtual image, the mean and max patterns and the centre of
+    // mass are CuboKit's (`VirtualImaging`, `VirtualDiffraction`, `CenterOfMass`: Metal reducers, 0.6.0).
 
     // MARK: Dispatch — Virtual (selected-area) diffraction
 
@@ -279,27 +179,6 @@ package nonisolated final class MetalEngine {
         return arrayFromBuffer(out, count: n)
     }
 
-    // MARK: Dispatch — Diffraction statistics (max / mean pattern)
-
-    /// Max and mean over all scan positions, per detector pixel.
-    /// Both are [Qy*Qx] row-major (py4DSTEM: get_dp_max / get_dp_mean).
-    package func dpStatistics(cube: MTLBuffer, cubeOffset: Int = 0,
-                      dims: CubeDims) throws -> (maxDP: [Float], meanDP: [Float]) {
-        guard let pso = dpStatisticsPSO else { throw MetalError.functionMissing("dpStatistics") }
-        let n = Int(dims.qy) * Int(dims.qx)
-        let outMax = try makeOutputBuffer(floats: n, label: "dpStatistics.max")
-        let outMean = try makeOutputBuffer(floats: n, label: "dpStatistics.mean")
-        var d = dims
-        try run(pso, name: "dpStatistics",
-                width: Int(dims.qx), height: Int(dims.qy)) { enc in
-            enc.setBuffer(cube, offset: cubeOffset, index: 0)
-            enc.setBuffer(outMax, offset: 0, index: 1)
-            enc.setBuffer(outMean, offset: 0, index: 2)
-            enc.setBytes(&d, length: MemoryLayout<CubeDims>.stride, index: 3)
-        }
-        return (arrayFromBuffer(outMax, count: n), arrayFromBuffer(outMean, count: n))
-    }
-
     // MARK: Dispatch — Origin measurement (calibration)
 
     /// Measure the (000)-beam position of every pattern: coarse brightest-blob
@@ -316,41 +195,6 @@ package nonisolated final class MetalEngine {
             enc.setBuffer(cube, offset: cubeOffset, index: 0)
             enc.setBuffer(out, offset: 0, index: 1)
             enc.setBytes(&p, length: MemoryLayout<OriginParams>.stride, index: 2)
-        }
-        return arrayFromBuffer(out, count: n * 2)
-    }
-
-    // MARK: Dispatch — Center of Mass (DPC / rotation calibration)
-
-    /// CoM shift (Qx, Qy) per scan position, relative to per-position
-    /// `origins` (interleaved [x,y]) when given, else the global (cx, cy).
-    /// Returns interleaved [comx0, comy0, ...] of length 2*Ry*Rx.
-    package func centerOfMass(cube: MTLBuffer, cubeOffset: Int = 0,
-                      params: CoMParams, origins: [Float]? = nil) throws -> [Float] {
-        guard let pso = centerOfMassPSO else { throw MetalError.functionMissing("centerOfMass") }
-        let n = Int(params.ry) * Int(params.rx)
-        let out = try makeOutputBuffer(floats: n * 2, label: "centerOfMass")
-
-        var p = params
-        var originsBuf = placeholderBuffer
-        if let origins {
-            precondition(origins.count == n * 2, "origins must be 2*Ry*Rx interleaved")
-            guard let b = device.makeBuffer(bytes: origins,
-                                            length: origins.count * MemoryLayout<Float>.stride,
-                                            options: .storageModeShared)
-            else { throw MetalError.dispatchFailed("centerOfMass: origins buffer") }
-            originsBuf = b
-            p.useOrigins = 1
-        } else {
-            p.useOrigins = 0
-        }
-
-        try run(pso, name: "centerOfMass",
-                width: Int(params.rx), height: Int(params.ry)) { enc in
-            enc.setBuffer(cube, offset: cubeOffset, index: 0)
-            enc.setBuffer(out, offset: 0, index: 1)
-            enc.setBytes(&p, length: MemoryLayout<CoMParams>.stride, index: 2)
-            enc.setBuffer(originsBuf, offset: 0, index: 3)
         }
         return arrayFromBuffer(out, count: n * 2)
     }

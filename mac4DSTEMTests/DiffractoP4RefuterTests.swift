@@ -135,7 +135,7 @@ final class DiffractoP4RefuterTests: XCTestCase {
     func testQ1InvarianceCheckCanFailOnADistortedWurtzite() throws {
         let group = group622()
         let t = 1.0 / 3, u = 2.0 / 3
-        let structure = Crystal.structure(a: 3.2496, b: 3.2496, c: 5.2042, gammaDeg: 120, sites: [
+        let structure = CrystalPresets.structure(a: 3.2496, b: 3.2496, c: 5.2042, gammaDeg: 120, sites: [
             AtomSite(z: 30, fractional: [t, u, 0]), AtomSite(z: 30, fractional: [u, t, 0.5]),
             AtomSite(z: 8, fractional: [t + 0.06, u, 0.3819]), AtomSite(z: 8, fractional: [u, t, 0.8819])])
         XCTAssertNotEqual(structure.laueClass, .sixOverMmm)

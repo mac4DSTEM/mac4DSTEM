@@ -13,6 +13,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import DiffractoOrientation
+import DiffractoCore
 @testable import mac4DSTEM
 
 @MainActor
@@ -160,7 +161,7 @@ final class PhaseClaimGuardTests: XCTestCase {
     // MARK: - 3. The library lives with the run
 
     private func library(entries: Int) -> PhaseReferenceLibrary {
-        let phases = [PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: Crystal.aluminum,
+        let phases = [PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: CrystalPresets.aluminum,
                                       role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])]
         let vectors = [ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.5, 0), length: 0.5, relativeIntensity: 1)]
         return PhaseReferenceLibrary(

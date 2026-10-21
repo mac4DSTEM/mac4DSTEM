@@ -20,6 +20,7 @@ import simd
 import DSTEMCore
 import DSTEMSession
 import DiffractoOrientation
+import DiffractoCore
 @testable import mac4DSTEM
 
 final class PhaseDiskClaimsTests: XCTestCase {
@@ -39,9 +40,9 @@ final class PhaseDiskClaimsTests: XCTestCase {
         let precipitateVectors = [ref(0.30, 0.20), ref(-0.30, -0.20), ref(0.35, -0.25)]
             .sorted { $0.length < $1.length }
         let phases = [
-            PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: Crystal.aluminum,
+            PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: CrystalPresets.aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-            PhaseDefinition(id: "precip", displayName: "Precipitate", crystal: Crystal.aluminum,
+            PhaseDefinition(id: "precip", displayName: "Precipitate", crystal: CrystalPresets.aluminum,
                             role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
         ]
         return PhaseReferenceLibrary(
@@ -157,7 +158,7 @@ final class PhaseDiskClaimsTests: XCTestCase {
     /// or hard-coded instead of `result.phaseIndex`.
     func testPhaseClaimCarriesTheResultsPhaseIndex() {
         let base = fixtureLibrary()
-        let third = PhaseDefinition(id: "other", displayName: "Other", crystal: Crystal.aluminum,
+        let third = PhaseDefinition(id: "other", displayName: "Other", crystal: CrystalPresets.aluminum,
                                     role: .candidate, zoneAxes: [SIMD3(0, 0, 1)])
         let library = PhaseReferenceLibrary(
             phases: base.phases + [third], settings: base.settings,

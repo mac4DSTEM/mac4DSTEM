@@ -8,7 +8,7 @@ import DSTEMSession
 /// Coverage for `CIFImport`: the local-file CIF parser that produces a
 /// validated `.imported` `CrystalModel`. Every fixture is a real CIF text
 /// literal (no binary fixtures), matching the app's built-in presets where
-/// convenient so results can be checked against `Crystal.gold`/`Crystal.silicon`.
+/// convenient so results can be checked against `CrystalPresets.gold`/`CrystalPresets.silicon`.
 final class CIFImportTests: XCTestCase {
 
     // MARK: - Helpers
@@ -82,14 +82,14 @@ final class CIFImportTests: XCTestCase {
         let model = try CIFModelImport.crystalModel(from: goldP1CIF, fileBaseName: "gold")
         XCTAssertEqual(model.source, .imported)
         XCTAssertEqual(model.symmetry, .cubic)
-        XCTAssertEqual(model.structure.cell.a, Crystal.gold.cell.a, accuracy: 1e-9)
-        XCTAssertEqual(model.structure.cell.b, Crystal.gold.cell.b, accuracy: 1e-9)
-        XCTAssertEqual(model.structure.cell.c, Crystal.gold.cell.c, accuracy: 1e-9)
-        XCTAssertEqual(model.structure.cell.alphaDeg, Crystal.gold.cell.alphaDeg, accuracy: 1e-9)
-        XCTAssertEqual(model.structure.cell.betaDeg, Crystal.gold.cell.betaDeg, accuracy: 1e-9)
-        XCTAssertEqual(model.structure.cell.gammaDeg, Crystal.gold.cell.gammaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.a, CrystalPresets.gold.cell.a, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.b, CrystalPresets.gold.cell.b, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.c, CrystalPresets.gold.cell.c, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.alphaDeg, CrystalPresets.gold.cell.alphaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.betaDeg, CrystalPresets.gold.cell.betaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.gammaDeg, CrystalPresets.gold.cell.gammaDeg, accuracy: 1e-9)
         XCTAssertEqual(model.structure.sites.count, 4)
-        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.gold.sites))
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(CrystalPresets.gold.sites))
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
     }
 
@@ -121,7 +121,7 @@ final class CIFImportTests: XCTestCase {
     func testSymmetryLoopExpandsSingleAtomToFullFCCBasisAndDedupes() throws {
         let model = try CIFModelImport.crystalModel(from: goldSymmetryCIF, fileBaseName: "gold_symm")
         XCTAssertEqual(model.structure.sites.count, 4, "expected face-centering to produce exactly 4 distinct sites")
-        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.gold.sites))
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(CrystalPresets.gold.sites))
     }
 
     // MARK: - Silicon diamond: 8 sites
@@ -153,7 +153,7 @@ final class CIFImportTests: XCTestCase {
     func testSiliconDiamondGivesEightSites() throws {
         let model = try CIFModelImport.crystalModel(from: siliconCIF, fileBaseName: "silicon")
         XCTAssertEqual(model.structure.sites.count, 8)
-        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.silicon.sites))
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(CrystalPresets.silicon.sites))
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
     }
 

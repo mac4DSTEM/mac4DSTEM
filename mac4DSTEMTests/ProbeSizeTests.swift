@@ -64,8 +64,7 @@ final class ProbeSizeTests: XCTestCase {
     }
 
     /// The pipeline refuses with a sentence rather than calibrating against
-    /// an invented probe: both entry points, the tiled one the app calls and
-    /// the resident-cube one it keeps for a future caller.
+    /// an invented probe.
     func testACubeWithNoIntensityRefusesOriginCalibration() async throws {
         let source = ZeroFourDDataSource()
         let d = try await source.discoverPrimaryDataset()
@@ -76,12 +75,6 @@ final class ProbeSizeTests: XCTestCase {
         } catch let error as OriginCalibrationError {
             XCTAssertEqual(error, .probeNotMeasurable)
             XCTAssertTrue(error.errorDescription?.contains("no probe radius") == true)
-        }
-        let cube = await source.fullCube()
-        let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(
-            bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
-        XCTAssertThrowsError(try OriginCalibration.run(cube: buffer, descriptor: d)) { error in
-            XCTAssertEqual(error as? OriginCalibrationError, .probeNotMeasurable)
         }
     }
 
@@ -185,34 +178,6 @@ final class ProbeSizeTests: XCTestCase {
         XCTAssertEqual(meanFit.probeRadius, rMean, accuracy: 0.01, ".meanPattern must come from the MEAN pattern")
     }
 
-    /// The resident-cube variant `OriginCalibration.run(cube:)` has no callers in the repo; this pins its source too,
-    /// so a future caller gets the same default as `tiledRun`.
-    func testResidentCubeRunMeasuresTheProbeOnTheMaxPatternByDefaultAndTheMeanOnRequest() async throws {
-        let source = SatelliteFourDDataSource()
-        let d = try await source.discoverPrimaryDataset()
-        let cube = await source.fullCube()
-        let buffer = try XCTUnwrap(
-            MetalEngine.shared.device.makeBuffer(
-                bytes: cube, length: cube.count * MemoryLayout<Float>.stride
-            ),
-            "could not allocate the satellite cube as an MTLBuffer"
-        )
-        guard let fit = try OriginCalibration.run(cube: buffer, descriptor: d) else {
-            return XCTFail("run(cube:) returned nil")
-        }
-        let rMean = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.meanDP, qy: d.qy, qx: d.qx)).r
-        let rMax = try XCTUnwrap(OriginCalibration.probeSize(dp: fit.maxDP, qy: d.qy, qx: d.qx)).r
-        XCTAssertGreaterThan(
-            rMax, rMean * 1.5,
-            "fixture broken: max and mean no longer discriminate (max \(rMax), mean \(rMean))"
-        )
-        XCTAssertEqual(fit.probeRadius, rMax, accuracy: 0.01, "run(cube:)'s default radius must come from the MAX pattern")
-        guard let meanFit = try OriginCalibration.run(cube: buffer, descriptor: d, probeSource: .meanPattern) else {
-            return XCTFail("run(cube:, .meanPattern) returned nil")
-        }
-        XCTAssertEqual(meanFit.probeRadius, rMean, accuracy: 0.01, ".meanPattern must come from the MEAN pattern")
-    }
-
     // MARK: - The recorded probe-radius source (lineage key `probe_radius_source`)
 
     private func originNode(_ state: AppState) -> SessionLineage.Node? {
@@ -292,26 +257,6 @@ final class ProbeSizeTests: XCTestCase {
             measuredX: mx, measuredY: my, width: d.rx, height: d.ry, fitFunction: .plane)
         XCTAssertEqual(mask, recompute.kept,
                        "the product's mask must equal the trim's kept set")
-    }
-
-    /// The resident-cube variant `run(cube:)` has no production callers (see
-    /// `testResidentCubeRunMeasuresTheProbeOnTheMeanPattern`), so its own
-    /// `originValidity: fitted.kept` line needs its own pin or a mutation
-    /// reverting only it survives every gate.
-    func testResidentCubeRunCarriesTheOriginValidityMask() async throws {
-        let source = DisplacedBeamFourDDataSource()
-        let d = try await source.discoverPrimaryDataset()
-        let cube = await source.fullCube()
-        let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(
-            bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
-        guard let fit = try OriginCalibration.run(cube: buffer, descriptor: d) else {
-            return XCTFail("run(cube:) returned nil")
-        }
-        let mask = try XCTUnwrap(fit.origin.originValidity,
-                                 "run(cube:) dropped the validity mask")
-        for i in DisplacedBeamFourDDataSource.displacedIndices {
-            XCTAssertFalse(mask[i], "the trim must exclude displaced position \(i)")
-        }
     }
 
     // MARK: - Friedel origin method end-to-end (v3.1)

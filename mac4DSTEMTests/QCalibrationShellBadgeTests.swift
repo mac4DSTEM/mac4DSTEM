@@ -144,7 +144,7 @@ final class QCalibrationShellBadgeTests: XCTestCase {
     /// `qShellCaveat` assignment in `calibrateQFromCrystal`.
     func testACrystalWithOneShellLeavesAnUncheckedCaveatOnTheQRow() async throws {
         let state = try await stateReadyToCalibrateQ()
-        state.acomSession.customStructure = .sc
+        state.acomSession.customStructure = .simpleCubic
         state.acomSession.customLatticeA = 0.5
         state.acomSession.customZ = 13
         state.acomSession.modelSelection = .customCubic

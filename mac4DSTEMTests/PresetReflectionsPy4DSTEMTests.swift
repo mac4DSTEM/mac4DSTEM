@@ -24,9 +24,9 @@ final class PresetReflectionsPy4DSTEMTests: XCTestCase {
     }
 
     private static let presets: [String: CrystalStructure] = [
-        "aluminum": Crystal.aluminum, "gold": Crystal.gold, "nickel": Crystal.nickel, "copper": Crystal.copper,
-        "iron": Crystal.iron, "silicon": Crystal.silicon, "magnesium": Crystal.magnesium,
-        "betaDoublePrime": Crystal.betaDoublePrime, "tungstenDisulfide": Crystal.tungstenDisulfide,
+        "aluminum": CrystalPresets.aluminum, "gold": CrystalPresets.gold, "nickel": CrystalPresets.nickel, "copper": CrystalPresets.copper,
+        "iron": CrystalPresets.iron, "silicon": CrystalPresets.silicon, "magnesium": CrystalPresets.magnesium,
+        "betaDoublePrime": CrystalPresets.betaDoublePrime, "tungstenDisulfide": CrystalPresets.tungstenDisulfide,
     ]
 
     private func oracle() throws -> Oracle {

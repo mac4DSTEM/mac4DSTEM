@@ -10,6 +10,7 @@ import XCTest
 import DiffractoOrientation
 import DSTEMCore
 import simd
+import DiffractoCore
 @testable import mac4DSTEM
 
 final class ACOMKitCallSiteTests: XCTestCase {
@@ -18,7 +19,7 @@ final class ACOMKitCallSiteTests: XCTestCase {
     /// exactly the results of the kit's `[[ACOMPeak]]` call over the whole scan. Mutation (hand the kit the peaks of the wrong
     /// position, e.g. a row-major index off by the scan width): positions differ and this goes red.
     func testCPUScanEqualsOneKitCallOverTheWholeScan() throws {
-        let crystal = Crystal.gold
+        let crystal = CrystalPresets.gold
         let plan = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, nRadial: 12, nAzimuthal: 64,
                                                           zoneAxisCount: 12, wavelengthAngstrom: 0.0251))
         // A small library: the tests build in Debug, where the kit's scalar correlation is slow, and what is under test is
@@ -69,7 +70,7 @@ final class ACOMKitCallSiteTests: XCTestCase {
         let token = AnalysisCancellationToken()
         let calls = FractionLog()
         let cancelled = OrientationPlan.generate(
-            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24, cancellation: token,
+            crystal: CrystalPresets.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24, cancellation: token,
             progress: { fraction in
                 calls.record(fraction)
                 if calls.values.count == 3 { token.cancel() }
@@ -79,18 +80,18 @@ final class ACOMKitCallSiteTests: XCTestCase {
 
         let done = FractionLog()
         let plan = try XCTUnwrap(OrientationPlan.generate(
-            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24,
+            crystal: CrystalPresets.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24,
             cancellation: AnalysisCancellationToken(), progress: { done.record($0) }))
         XCTAssertEqual(done.values.count, plan.count)
         XCTAssertEqual(done.values.last ?? 0, 1, accuracy: 1e-12)
         // A token cancelled before the call builds nothing.
         let early = AnalysisCancellationToken(); early.cancel()
-        XCTAssertNil(OrientationPlan.generate(crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 24, cancellation: early))
+        XCTAssertNil(OrientationPlan.generate(crystal: CrystalPresets.gold, kMax: 1.2, zoneAxisCount: 24, cancellation: early))
     }
 
     /// The kit draws the polar image of ONE peak (0.7.0; `match` still needs two): the app's `[BraggPeak]` spelling reaches it.
     func testOnePeakHasAPolarImageButNoMatch() throws {
-        let plan = try XCTUnwrap(OrientationPlan.generate(crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32,
+        let plan = try XCTUnwrap(OrientationPlan.generate(crystal: CrystalPresets.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32,
                                                           zoneAxisCount: 12))
         let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         let one = [BraggPeak(x: 70, y: 64, intensity: 1)]
@@ -105,7 +106,7 @@ final class ACOMKitCallSiteTests: XCTestCase {
     /// sphere is flat. A curved plan's templates differ from the flat plan's.
     /// Mutation (drop the `excitation:` argument in `OrientationPlan.generate`): both plans are flat and this goes red.
     func testWavelengthSelectsTheAppCurvatureModel() throws {
-        let crystal = Crystal.gold
+        let crystal = CrystalPresets.gold
         let curved = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 24,
                                                             wavelengthAngstrom: 0.0251))
         let flat = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 24))

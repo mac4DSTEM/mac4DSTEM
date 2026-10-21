@@ -263,8 +263,8 @@ package nonisolated enum PtychographyPreparer {
         //   this app, RotationCalibration.swift:86-95: `x'` (from `a = cx`)
         //     is differenced at `i ± 1` — the scan COLUMN, stride 1 with
         //     `width = rx` — and `y'` at `i ± width`, the scan row.
-        // plus the detector side, Shaders/CenterOfMass.metal:59-67, where
-        // `sumIX` accumulates over the inner `p.qx` loop: `cx` is the COLUMN.
+        // plus the detector side (the former CenterOfMass.metal; CuboKit's `CenterOfMass`
+        // keeps the convention), where `sumIX` accumulates over the inner `qx` loop: `cx` is the COLUMN.
         //
         // Consequence for the raster below: py4DSTEM's `meshgrid(indexing="ij")`
         // ravels axis-0-major, which under this mapping is COLUMN-major, while

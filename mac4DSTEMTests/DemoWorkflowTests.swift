@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoCore
 @testable import mac4DSTEM
 
 final class DemoWorkflowTests: XCTestCase {
@@ -26,7 +27,7 @@ final class DemoWorkflowTests: XCTestCase {
         )
 
         let plan = try XCTUnwrap(OrientationPlan.generate(
-            crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
+            crystal: CrystalPresets.gold, kMax: 1.2, zoneAxisCount: 96
         ))
         let map = try XCTUnwrap(OrientationMatching.matchAll(
             bragg: vectors, plan: plan,

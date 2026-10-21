@@ -51,9 +51,9 @@ final class ACOMKitSwitchFreezeTests: XCTestCase {
     }
 
     private static let cases: [Case] = [
-        Case(key: "gold", crystal: Crystal.gold, symmetry: .cubic),
-        Case(key: "ws2", crystal: Crystal.tungstenDisulfide, symmetry: .hexagonal),
-        Case(key: "beta", crystal: Crystal.betaDoublePrime, symmetry: .monoclinic),
+        Case(key: "gold", crystal: CrystalPresets.gold, symmetry: .cubic),
+        Case(key: "ws2", crystal: CrystalPresets.tungstenDisulfide, symmetry: .hexagonal),
+        Case(key: "beta", crystal: CrystalPresets.betaDoublePrime, symmetry: .monoclinic),
     ]
 
     private let wavelength = 0.0251
@@ -103,11 +103,7 @@ final class ACOMKitSwitchFreezeTests: XCTestCase {
     private static let cpuFull: [String: String] = [
         "gold": "8a51188d89a98361", "ws2": "d0921010667479c9", "beta": "0a926f8bab004874",
     ]
-    private static let metalFull: [String: String] = [
-        "gold": "c04503878c0369eb", "ws2": "c77c2d7d329b61c8", "beta": "425d725c37a2c64f",
-    ]
     private static let cpuPreview = "c5dc0928b0e4b339", cpuSquare = "262ba16be670334f"
-    private static let metalPreview = "dca4086b45e46953", metalSquare = "cdba09175dee33cb"
 
     func testPlansAreBitEqualToTheRecording() throws {
         for c in Self.cases {
@@ -125,22 +121,19 @@ final class ACOMKitSwitchFreezeTests: XCTestCase {
         }
     }
 
-    func testMetalFullScanIsBitEqualToTheRecording() throws {
-        for c in Self.cases {
-            let map = try run(c, backend: .metal)
-            XCTAssertEqual(Self.digest(map), Self.metalFull[c.key], "\(c.key) Metal")
-            XCTAssertTrue(map.results.contains { $0.mirrored }, "\(c.key) has a mirrored winner")
-        }
-    }
-
-    func testPreviewAndSquareSelectionsAreBitEqualToTheRecording() throws {
+    func testPreviewAndSquareSelectionsAreBitEqualToTheRecordingOnCPUAndMatchItOnMetal() throws {
         let gold = Self.cases[0]
         XCTAssertEqual(Self.digest(try run(gold, backend: .cpu, selection: .preview(maxDimension: 3))), Self.cpuPreview)
         XCTAssertEqual(Self.digest(try run(gold, backend: .cpu, selection: .square(centerX: 3, centerY: 2, radius: 1))),
                        Self.cpuSquare)
-        XCTAssertEqual(Self.digest(try run(gold, backend: .metal, selection: .preview(maxDimension: 3))), Self.metalPreview)
-        XCTAssertEqual(Self.digest(try run(gold, backend: .metal, selection: .square(centerX: 3, centerY: 2, radius: 1))),
-                       Self.metalSquare)
+        // Metal is DiffractoKit's (0.7.1); its digests moved with the switch (D12), so the selections are held to the CPU within Float rounding.
+        for selection in [ACOMScanSelection.preview(maxDimension: 3), .square(centerX: 3, centerY: 2, radius: 1)] {
+            let cpu = try run(gold, backend: .cpu, selection: selection), gpu = try run(gold, backend: .metal, selection: selection)
+            for (a, b) in zip(cpu.results, gpu.results) {
+                XCTAssertEqual(a.templateIndex, b.templateIndex)
+                XCTAssertEqual(a.score, b.score, accuracy: 1e-5)
+            }
+        }
     }
 
     /// The Metal route's scores equal the CPU route's within Float rounding; the template agrees (the mirror flag is

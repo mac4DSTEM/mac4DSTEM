@@ -13,7 +13,7 @@ final class OrientationPlanRefusalMessageTests: XCTestCase {
     private let kMax = 1.2
 
     /// fcc Al in a 150 A cube: about 2.4e7 reflections at 1.2 A^-1, over the kit's 10 000 000 (cellTooLargeOrInvalid).
-    private func hugeCell() -> CrystalStructure { Crystal.cubic(.fcc, a: 150, z: 13) }
+    private func hugeCell() -> CrystalStructure { CrystalPresets.cubic(.fcc, a: 150, z: 13) }
 
     func testALargeCellIsNamedAsTooLargeForTheKRange() throws {
         let text = try XCTUnwrap(OrientationPlan.refusalReason(crystal: hugeCell(), kMax: kMax))
@@ -25,11 +25,11 @@ final class OrientationPlanRefusalMessageTests: XCTestCase {
     }
 
     func testAnOrdinaryCellHasNoRefusal() {
-        XCTAssertNil(OrientationPlan.refusalReason(crystal: Crystal.cubic(.fcc, a: 4.05, z: 13), kMax: kMax))
+        XCTAssertNil(OrientationPlan.refusalReason(crystal: CrystalPresets.cubic(.fcc, a: 4.05, z: 13), kMax: kMax))
     }
 
     func testAnUnsupportedElementIsNamedByTheKit() throws {
-        let text = try XCTUnwrap(OrientationPlan.refusalReason(crystal: Crystal.cubic(.fcc, a: 4.05, z: 150), kMax: kMax))
+        let text = try XCTUnwrap(OrientationPlan.refusalReason(crystal: CrystalPresets.cubic(.fcc, a: 4.05, z: 150), kMax: kMax))
         XCTAssertTrue(text.contains("150"), text)
     }
 

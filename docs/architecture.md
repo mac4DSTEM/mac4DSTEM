@@ -167,7 +167,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | App-side reader adapters over FormatoKit, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
 | Metal engine, matrix-DFT correlation, cancellation (the FFTs are ImagoKit's) | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
-| Crystal model, CIF and Materials Project import, the ACOM orientation plan and Metal matcher (cells, scattering factors and the matcher are DiffractoKit's) | `mac4DSTEM/Core/Crystal/` |
+| Crystal model, CIF and Materials Project import, the ACOM orientation plan and backend choice (cells, presets, scattering factors and the CPU and Metal matcher are DiffractoKit's) | `mac4DSTEM/Core/Crystal/` |
 | Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `mac4DSTEM/Resources/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |

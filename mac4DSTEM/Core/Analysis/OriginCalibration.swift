@@ -1,8 +1,8 @@
 //
 //  OriginCalibration.swift
 //  Role: The origin-calibration workflow (py4DSTEM: get_probe_size,
-//        get_origin, fit_origin). GPU kernels do the per-pattern work
-//        (DPStatistics.metal, OriginMeasure.metal); this file holds the
+//        get_origin, fit_origin). The GPU kernel does the per-pattern work
+//        (OriginMeasure.metal; the max and mean patterns are CuboKit's); this file holds the
 //        small CPU-side pieces — probe-size estimation on the mean pattern
 //        and the smooth 2D fit of the measured origin maps — plus the
 //        orchestration that ties them into a `Calibration`.
@@ -181,34 +181,6 @@ package nonisolated enum OriginCalibration {
         return (Float(estimate.radius), Float(estimate.centerColumn), Float(estimate.centerRow))
     }
 
-    // MARK: - Origin fit (py4DSTEM fit_origin)
-
-    /// Fit the measured origin maps with a smooth 2D function and return the
-    /// fitted maps evaluated at every scan position. Scan coordinates are
-    /// normalized to [0, 1] before fitting for numerical conditioning.
-    package nonisolated static func fitOrigin(measuredX: [Float], measuredY: [Float],
-                          width: Int, height: Int,
-                          fitFunction: OriginFitFunction = .plane)
-        -> (fittedX: [Float], fittedY: [Float]) {
-        (fit2D(measuredX, width: width, height: height, function: fitFunction),
-         fit2D(measuredY, width: width, height: height, function: fitFunction))
-    }
-
-    /// `fitOrigin` restricted to a subset of scan positions, evaluated
-    /// everywhere. Exposed (rather than left as `fit2D`'s private parameter)
-    /// so the trimmed fit's own uncertainty can be measured against the SHIPPED
-    /// fitter instead of a second copy in a harness — the 2026-08-17 lesson
-    /// about lists that drift applies to estimators too. // v2 S13
-    package nonisolated static func fitOrigin(
-        measuredX: [Float], measuredY: [Float],
-        width: Int, height: Int,
-        fitFunction: OriginFitFunction = .plane,
-        included: [Bool]
-    ) -> (fittedX: [Float], fittedY: [Float]) {
-        (fit2D(measuredX, width: width, height: height, function: fitFunction, included: included),
-         fit2D(measuredY, width: width, height: height, function: fitFunction, included: included))
-    }
-
     // MARK: - Robust origin fit (v2 S13)
 
     /// Outcome of an iteratively-trimmed origin fit.
@@ -301,83 +273,26 @@ package nonisolated enum OriginCalibration {
         trimSigma: Float = 3, rounds: Int = 3
     ) -> TrimmedFit {
         let count = measuredX.count
-        var kept = [Bool](repeating: true, count: count)
-        var fittedX = measuredX, fittedY = measuredY
-        // A mismatch used to return `fittedX = measuredX` (n) beside
-        // `fittedY = measuredY` (m ≠ n) — an `OriginMaps` whose two fitted
-        // arrays differ in length, reading as a clean fully-supported fit,
-        // which `meanOrigin` would then have averaged (Gate B, 2026-08-28).
-        // Return a degenerate-but-consistent pair instead.
-        guard count > 0, measuredY.count == count else {
-            let empty = [Float]()
-            return TrimmedFit(fittedX: empty, fittedY: empty, kept: [],
-                              keptResidual: .nan, fullScanResidual: .nan)
+        // A mismatch used to return `fittedX = measuredX` (n) beside `fittedY = measuredY` (m != n), an `OriginMaps`
+        // whose two fitted arrays differ in length, reading as a clean fully-supported fit (Gate B, 2026-08-28). Return
+        // a degenerate-but-consistent empty pair instead; so for a map the kit refuses (no finite position, a shape
+        // that is not width * height).
+        let empty = TrimmedFit(fittedX: [], fittedY: [], kept: [], keptResidual: .nan, fullScanResidual: .nan)
+        guard count > 0, measuredY.count == count else { return empty }
+        let model: OriginFitModel
+        switch fitFunction {
+        case .constant: model = .constant
+        case .plane: model = .plane
+        case .parabola: model = .parabola
         }
-
-        func residuals(_ fx: [Float], _ fy: [Float]) -> [Float] {
-            (0..<count).map { index in
-                let dx = measuredX[index] - fx[index], dy = measuredY[index] - fy[index]
-                return (dx * dx + dy * dy).squareRoot()
-            }
-        }
-
-        // The loop fits on `kept`, then updates it. The FIRST version left the
-        // last update unpaired, so `fittedX/Y` came from round n's mask while
-        // `kept`, `excludedFraction` and `keptResidual` all described round
-        // n+1's — measured divergence up to 9.86 px between the reported
-        // surface and a refit on the reported set (Gate B, 2026-08-28). The
-        // final refit below closes it: whatever `kept` says at exit is what
-        // produced the surface.
-        for _ in 0..<max(rounds, 1) {
-            let mask = kept
-            // The masked fit: the kept positions only, evaluated everywhere (a constant is the kept mean).
-            fittedX = fit2D(measuredX, width: width, height: height, function: fitFunction, included: mask)
-            fittedY = fit2D(measuredY, width: width, height: height, function: fitFunction, included: mask)
-            let residual = residuals(fittedX, fittedY)
-            let centre = median(residual)
-            let deviation = 1.4826 * median(residual.map { abs($0 - centre) })
-            // A zero MAD means the residuals are degenerate (every position
-            // identical, or a scan too small to have a spread). Cutting at
-            // `centre` alone would then exclude half the scan for no reason, so
-            // stop trimming instead. // v2 S13
-            //
-            // **This is also where the trim gives up on an exactly bimodal
-            // residual distribution** — a flat truth with a third of positions
-            // thrown a constant distance makes every majority deviation equal,
-            // so the MAD is exactly 0 and the loop breaks having excluded
-            // nothing. Found while trying to build a control for the masked
-            // `.constant` branch, 2026-08-28. It is the same failure Gate B
-            // measured at the 50% breakdown point, arriving earlier for this
-            // shape, and it reports `excludedFraction == 0` — which the refusal
-            // text must therefore not read as "the whole scan is failing".
-            guard deviation.isFinite, deviation > 0 else { break }
-            let cutoff = centre + trimSigma * deviation
-            let next = residual.map { $0 <= cutoff }
-            if !next.contains(true) { break }
-            if next == kept { kept = next; break }
-            kept = next
-        }
-
-        // Final refit on the mask actually being reported.
-        if kept.contains(true) {
-            let refit = fitOrigin(measuredX: measuredX, measuredY: measuredY,
-                                  width: width, height: height,
-                                  fitFunction: fitFunction, included: kept)
-            fittedX = refit.fittedX
-            fittedY = refit.fittedY
-        }
-
-        let residual = residuals(fittedX, fittedY)
-        let keptIndices = (0..<count).filter { kept[$0] }
-        func rms(_ indices: [Int]) -> Float {
-            guard !indices.isEmpty else { return .nan }
-            let total = indices.reduce(Float(0)) { $0 + residual[$1] * residual[$1] }
-            return (total / Float(indices.count)).squareRoot()
-        }
+        // The fit is CuboKit's `OriginFit.fitTrimmed` (0.6.0; Double, Householder QR, py4DSTEM's `fit_2D` surfaces); the app's
+        // Float copy of the loop is gone. The Float surfaces below are the kit's Double ones rounded.
+        guard let fit = try? OriginFit.fitTrimmed(
+            originRow: measuredX.map(Double.init), originColumn: measuredY.map(Double.init),
+            rows: height, columns: width, model: model, trimSigma: Double(trimSigma), rounds: rounds) else { return empty }
         return TrimmedFit(
-            fittedX: fittedX, fittedY: fittedY, kept: kept,
-            keptResidual: rms(keptIndices), fullScanResidual: rms(Array(0..<count))
-        )
+            fittedX: fit.fittedRow.map(Float.init), fittedY: fit.fittedColumn.map(Float.init), kept: fit.kept,
+            keptResidual: Float(fit.keptResidual), fullScanResidual: Float(fit.fullScanResidual))
     }
 
     private nonisolated static func median(_ values: [Float]) -> Float {
@@ -387,44 +302,6 @@ package nonisolated enum OriginCalibration {
         return sorted.count.isMultiple(of: 2)
             ? (sorted[middle - 1] + sorted[middle]) / 2
             : sorted[middle]
-    }
-
-    /// The least-squares surface of one measured map (constant, plane or parabola over the scan), evaluated at every
-    /// position: CuboKit's `OriginFit.fit` (Householder QR in Double on [0, 1] coordinates, py4DSTEM's `fit_2D`).
-    ///
-    /// `included`, when given, restricts the fit to the marked scan positions; the surface is still evaluated
-    /// everywhere, which is what makes a trimmed refit usable — the excluded positions get a fitted origin derived from
-    /// the positions that measured well. // v2 S13
-    ///
-    /// Kept in the app, because the kit does not do it: a degenerate fit (a scan one position wide, or fewer included
-    /// positions than the model has terms) falls back to the mean OF THE INCLUDED positions, where the kit would
-    /// project onto the design's column space. Averaging positions the trim just excluded would silently undo the trim
-    /// on exactly the scans where the system is worst conditioned. // v2 S13
-    ///
-    /// Differences from the app's former normal-equation solver, which the kit makes: a non-finite included measurement
-    /// is left out of the fit instead of making every fitted value NaN, and a rank-deficient but sufficiently large
-    /// included set (three collinear positions for a plane) is projected where the app averaged.
-    private nonisolated static func fit2D(_ z: [Float], width: Int, height: Int, function: OriginFitFunction,
-                                          included: [Bool]? = nil) -> [Float] {
-        let used = z.indices.filter { included?[$0] ?? true }
-        let source = used.isEmpty ? Array(z.indices) : used
-        func meanSurface() -> [Float] {
-            guard let m = try? OriginFit.fit(source.map { Double(z[$0]) }, rows: source.count, columns: 1, model: .constant),
-                  let value = m.first else { return [Float](repeating: .nan, count: z.count) }
-            return [Float](repeating: Float(value), count: z.count)
-        }
-        let model: OriginFitModel
-        let terms: Int
-        switch function {
-        case .constant: return meanSurface()
-        case .plane: model = .plane; terms = 3
-        case .parabola: model = .parabola; terms = 6
-        }
-        guard width > 1, height > 1, used.count >= terms else { return meanSurface() }
-        var values = [Double](repeating: .nan, count: z.count)
-        for index in used { values[index] = Double(z[index]) }
-        guard let surface = try? OriginFit.fit(values, rows: height, columns: width, model: model) else { return meanSurface() }
-        return surface.map { Float($0) }
     }
 
     // MARK: - Workflow
@@ -682,54 +559,4 @@ package nonisolated enum OriginCalibration {
         return (kernel, statistics.meanDP, size.r, size.x0, size.y0)
     }
 
-    /// Full origin calibration on a resident cube:
-    /// probe size (`probeSource`) → per-pattern measurement → smooth fit.
-    /// Returns the calibration pieces plus the max/mean patterns (useful as
-    /// display modes, and the mean DP documents what the fit was based on).
-    /// NOTE: this variant has no callers in the repo; `ProbeSizeTests` pins its
-    /// probe-radius source. Deleting it instead is an owner option.
-    package nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
-                    fitFunction: OriginFitFunction = .plane,
-                    rscale: Float = 1.2,
-                    probeSource: ProbeRadiusSource = .maxPattern,
-                    cancellation: AnalysisCancellationToken? = nil) throws
-        -> (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float])? {
-        guard cancellation?.isCancelled != true else { return nil }
-        let engine = MetalEngine.shared
-        let dims = CubeDims(d)
-
-        let (maxDP, meanDP) = try engine.dpStatistics(cube: cube, dims: dims)
-        guard cancellation?.isCancelled != true else { return nil }
-        guard let probe = probeSize(dp: probeSource.pattern(max: maxDP, mean: meanDP), qy: d.qy, qx: d.qx) else {
-            throw OriginCalibrationError.probeNotMeasurable
-        }
-        let r = probe.r
-
-        let measured = try engine.measureOrigins(
-            cube: cube,
-            params: OriginParams(ry: dims.ry, rx: dims.rx, qy: dims.qy, qx: dims.qx,
-                                 r: r, rscale: rscale))
-        guard cancellation?.isCancelled != true else { return nil }
-
-        let n = d.ry * d.rx
-        var mx = [Float](repeating: 0, count: n)
-        var my = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            if cancellation?.isCancelled == true { return nil }
-            mx[i] = measured[2 * i]
-            my[i] = measured[2 * i + 1]
-        }
-
-        let fitted = fitOriginTrimmed(measuredX: mx, measuredY: my,
-                                      width: d.rx, height: d.ry,
-                                      fitFunction: fitFunction)
-        guard cancellation?.isCancelled != true else { return nil }
-        let maps = OriginMaps(width: d.rx, height: d.ry,
-                              measuredX: mx, measuredY: my,
-                              fittedX: fitted.fittedX, fittedY: fitted.fittedY,
-                              excludedFraction: fitted.excludedFraction,
-                              robustResidual: fitted.keptResidual,
-                              originValidity: fitted.kept)
-        return (r, maps, maxDP, meanDP)
-    }
 }

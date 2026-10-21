@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoCore
 @testable import mac4DSTEM
 
 /// Backlog #46. `calibrateQFromCrystal` derived a Q pixel size from an origin
@@ -125,7 +126,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
     ///
     /// - `DemoFourDDataSource.pattern` draws **{110} at 45° and {200} on-axis**
     ///   — a SIMPLE-CUBIC [001] zone, confirmed from the fixture's own pixel
-    ///   centroids — on a gold lattice constant. `Crystal.gold.reflections`
+    ///   centroids — on a gold lattice constant. `CrystalPresets.gold.reflections`
     ///   returns **zero** reflections at any permutation of (110).
     /// - The demo's declared 0.02 Å⁻¹/px is honoured by the geometry: the outer
     ///   ring is gold's {200} at that scale to **0.09%**.

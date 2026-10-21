@@ -145,7 +145,7 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     return (selected.templateIndex, negatedBin, selected.score, selected.secondScore)
 }
 
-let crystal = Crystal.gold
+let crystal = CrystalPresets.gold
 guard let plan = OrientationPlan.generate(
     crystal: crystal, kMax: 1.2, zoneAxisCount: 96
 ) else { fail("plan generation") }
@@ -193,7 +193,7 @@ guard maximumScoreError < 2e-4, maximumReliabilityError < 2e-4 else {
 print("PASS: Metal choices exact; score \(maximumScoreError), reliability \(maximumReliabilityError)")
 print("PASS: Automatic backend remains measured Accelerate CPU")
 
-let magnesium = Crystal.magnesium
+let magnesium = CrystalPresets.magnesium
 guard let hexPlan = OrientationPlan.generate(
     crystal: magnesium, kMax: 1.2, zoneAxisCount: 48, symmetry: .hexagonal
 ) else { fail("hexagonal magnesium plan generation") }

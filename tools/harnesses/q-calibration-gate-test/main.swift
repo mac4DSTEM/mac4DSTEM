@@ -14,7 +14,7 @@
 //  leave this fixture GREEN**. Its 39 checks cover approximately one path
 //  through `fitOriginTrimmed` — `.plane`, one outlier magnitude, one scan
 //  shape — and the following are provably unguarded: the `.constant` and
-//  `.parabola` branches, the `fitOrigin(included:)` overload, `trimSigma` and
+//  `.parabola` branches, the masked ordinary fit, `trimSigma` and
 //  the 1.4826 MAD factor in the loosening direction, two of three loop exits,
 //  the reference-origin precedence order, every user-facing percentage, and
 //  NaN anywhere at all.
@@ -23,7 +23,20 @@
 //  is "it went green", which is what this file taught the session that wrote it.
 //
 
+import CuboCore
 import Foundation
+
+/// The ordinary (untrimmed) plane surface of one map, evaluated everywhere; `included` leaves the other positions out of the fit.
+/// CuboKit's `OriginFit.fit` (the app's former `fitOrigin` was this call on both maps).
+func ordinaryPlane(measuredX: [Float], measuredY: [Float], width: Int, height: Int,
+                   included: [Bool]? = nil) -> (fittedX: [Float], fittedY: [Float]) {
+    func surface(_ z: [Float]) -> [Float] {
+        var values = z.map(Double.init)
+        if let included { for i in values.indices where !included[i] { values[i] = .nan } }
+        return (try! OriginFit.fit(values, rows: height, columns: width, model: .plane)).map(Float.init)
+    }
+    return (surface(measuredX), surface(measuredY))
+}
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
@@ -81,10 +94,9 @@ struct QCalibrationGateTest {
             }
         }
 
-        let ordinary = OriginCalibration.fitOrigin(
+        let ordinary = ordinaryPlane(
             measuredX: measuredX, measuredY: measuredY,
-            width: width, height: height, fitFunction: .plane
-        )
+            width: width, height: height)
         let trimmed = OriginCalibration.fitOriginTrimmed(
             measuredX: measuredX, measuredY: measuredY,
             width: width, height: height, fitFunction: .plane
@@ -606,9 +618,9 @@ struct QCalibrationGateTest {
         let marginalFit = OriginCalibration.fitOriginTrimmed(
             measuredX: marginalX, measuredY: marginalY,
             width: width, height: height, fitFunction: .plane)
-        let refitOnReported = OriginCalibration.fitOrigin(
+        let refitOnReported = ordinaryPlane(
             measuredX: marginalX, measuredY: marginalY,
-            width: width, height: height, fitFunction: .plane, included: marginalFit.kept)
+            width: width, height: height, included: marginalFit.kept)
         var worstDivergence: Float = 0
         for index in 0..<count {
             let dx = marginalFit.fittedX[index] - refitOnReported.fittedX[index]
@@ -659,7 +671,7 @@ struct QCalibrationGateTest {
         // NOT COVERED, and stated rather than papered over: the in-loop
         // `.constant` branch's use of the mask. Removing it leaves this fixture
         // GREEN, because the final refit added after Gate B recomputes the
-        // surface from the reported `kept` through `fitOrigin(included:)` — a
+        // surface from the reported `kept` through a masked ordinary fit — a
         // different function, which IS covered by (d) — so the in-loop branch
         // can now only influence which positions get excluded, not the surface
         // that ships. No input was found where it changes even that.
@@ -696,21 +708,21 @@ struct QCalibrationGateTest {
                 "and a plane must NOT — if both do, the two branches use the same term count "
                 + "and swapping them is invisible. Got \(curvedPlane.keptResidual)")
 
-        // (d) The `fitOrigin(included:)` overload, whose only other caller is a
+        // (d) The masked ordinary fit, whose only other caller is a
         // NON-gating harness — the one that produced this session's §2 numbers.
         var halfMask = [Bool](repeating: false, count: count)
         for index in 0..<count where index % 2 == 0 && !plantedOutliers.contains(index) {
             halfMask[index] = true
         }
-        let masked = OriginCalibration.fitOrigin(
+        let masked = ordinaryPlane(
             measuredX: measuredX, measuredY: measuredY,
-            width: width, height: height, fitFunction: .plane, included: halfMask)
+            width: width, height: height, included: halfMask)
         require(maximumDeviationFromTruth(masked.fittedX, masked.fittedY) < 0.01,
                 "a masked fit must ignore the excluded positions entirely — dropping `included:` "
                 + "lets the 40 px outliers back in and the surface moves 8 px")
-        let unmasked = OriginCalibration.fitOrigin(
+        let unmasked = ordinaryPlane(
             measuredX: measuredX, measuredY: measuredY,
-            width: width, height: height, fitFunction: .plane)
+            width: width, height: height)
         require(maximumDeviationFromTruth(unmasked.fittedX, unmasked.fittedY) > 5,
                 "control: the SAME data without a mask really is dragged, so (d) is not vacuous")
 

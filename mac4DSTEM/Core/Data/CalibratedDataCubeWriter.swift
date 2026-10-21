@@ -8,8 +8,8 @@ import CuboCore
 //  CalibratedDataCubeWriter.swift
 //  Role: the Preprocess export: a real-space crop, optional scan stride and integer detector bin streamed into a canonical
 //        float32 py4DSTEM DataCube, bounded by `tileRows`, with the hot-pixel filter, the calibration re-expressed in the file's
-//        frame and the derivation and replay stamps. No kit writes a 4D datacube of this shape yet, so it stays on
-//        `HDF5WriteLibrary`. Split out of BraggVectorEMDWriter.swift (2026-10-20).
+//        frame and the derivation and replay stamps. FormatoKit 0.7.0 has an EMD datacube writer (`EMDDatacubeWriter`); this one stays on
+//        `HDF5WriteLibrary` until the writers move together with the sidecar writes (open-items, FormatoKit). Split out of BraggVectorEMDWriter.swift (2026-10-20).
 //
 
 nonisolated extension BraggVectorEMDWriter {

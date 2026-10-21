@@ -117,7 +117,7 @@ enum WS2CrystalTest {
         else {
             fail("WS₂ shell order is not (0002), (0004), (10-10): got \(shells.prefix(4))")
         }
-        let mgShells = distinctShells(Crystal.magnesium, kMax: 1.0)
+        let mgShells = distinctShells(CrystalPresets.magnesium, kMax: 1.0)
         guard let mgFirst = mgShells.first,
               approx(mgFirst, hexG(1, 0, 0, a: 3.2094, c: 5.2108), rel: 1e-6) else {
             fail("Mg first shell is not in-plane (10-10) — the inversion check lost its control")
@@ -183,7 +183,7 @@ enum WS2CrystalTest {
         func variant(zS: Double = 0.6225, a va: Double = 3.1532, c vc: Double = 12.323,
                      swapSpecies: Bool = false, sOccupancy: Double = 1.0) -> CrystalStructure {
             let (zW, zChalc) = swapSpecies ? (16, 74) : (74, 16)
-            return Crystal.structure(
+            return CrystalPresets.structure(
                 a: va, b: va, c: vc, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
                 sites: [
                     AtomSite(z: zW, fractional: [1.0 / 3.0, 2.0 / 3.0, 0.25]),

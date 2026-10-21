@@ -1338,7 +1338,7 @@ private struct ACOMSections: View {
         }
         InspectorRow("Structure") {
             Picker("Structure", selection: $session.customStructure) {
-                ForEach(Crystal.CubicStructure.allCases) { structure in
+                ForEach(CrystalPresets.CubicFamily.allCases, id: \.self) { structure in
                     Text(structure.rawValue).tag(structure)
                 }
             }

@@ -495,13 +495,13 @@ package enum ReplayStepPlan: Equatable {
             package var importedIDs: Set<String>
             /// `contentFingerprint` by imported id, for the content check.
             package var importedFingerprints: [String: String]
-            package var customStructure: Crystal.CubicStructure
+            package var customStructure: CrystalPresets.CubicFamily
             package var customLatticeA: Double
             package var customZ: Int
 
             // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
             package nonisolated init(importedIDs: Set<String>, importedFingerprints: [String: String] = [:],
-                                     customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
+                                     customStructure: CrystalPresets.CubicFamily, customLatticeA: Double, customZ: Int) {
                 self.importedIDs = importedIDs
                 self.importedFingerprints = importedFingerprints
                 self.customStructure = customStructure

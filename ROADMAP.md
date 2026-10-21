@@ -8,7 +8,7 @@ released kits (exact pins in `Package.swift`). What is live: `docs/status.md`. E
 
 | Owner | Holds |
 |---|---|
-| **App** (`mac4DSTEM/`) | rooms and SwiftUI, `AppState`, Metal image view and Metal engines (virtual detector, ACOM backend `MetalACOMMatcher`), lineage/replay/marks, session sidecar writes, calibration orchestration, precipitates, Materials Project fetch glue, 4D x spectroscopy correlation |
+| **App** (`mac4DSTEM/`) | rooms and SwiftUI, `AppState`, Metal image view and the Metal kernels the kits lack (selected-area sum, per-position origin), lineage/replay/marks, session sidecar writes, calibration orchestration, precipitates, Materials Project fetch glue, 4D x spectroscopy correlation |
 | **CuboKit 0.6.0** | virtual imaging, CoM and origins (`OriginFit`, Friedel, beamstop), probe size, disk detection (`CuboBragg`), strain (`CuboStrain`), DPC/iDPC (`CuboPhase`), parallax aberration/depth/position correction, ptychography probe, PCA/k-means, hot-pixel mask, calibration re-reference |
 | **DiffractoKit 0.7.1** | cells, CIF, symmetry, structure factors, ring and ellipse fit, vector matching and phase mapping, Euler/orientation symmetry, ACOM library and matcher, Materials Project decode |
 | **FormatoKit 0.7.0** | HDF5 reader and libhdf5 frameworks, sidecar reads and the peak-grid EMD read, DM4/DM3 (not the 4D gather), MIB, EMPAD, Velox EMD |

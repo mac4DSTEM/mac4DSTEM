@@ -264,7 +264,7 @@ extension AppState {
     /// `FourDArray.scanTileRows` uses. Bin 1: it is the view's extent, so the
     /// rows are unchanged.
     /// No number depends on the grouping: both kernels sum one scan position's
-    /// own pattern (VirtualAperture.metal, VirtualMask.metal).
+    /// own pattern (CuboKit's virtual-image reducers).
     /// `static` and not private so `ReviewTileBudgetSiblingsTests` can pin it.
     static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
         let readHeight = view.readDetectorCrop?.height ?? view.source.qy

@@ -555,52 +555,6 @@ package nonisolated enum VirtualDetector {
         return output
     }
 
-    // MARK: Fast path — analytic annulus (interactive dragging)
-
-    /// Dispatch the annular-sum kernel over the whole cube.
-    /// - Returns: a real-space `FloatImage` of shape [Rx × Ry].
-    package nonisolated static func run(cube: MTLBuffer,
-                    descriptor d: DatasetDescriptor,
-                    aperture a: Aperture) throws -> FloatImage {
-        let params = ApertureParams(
-            ry: UInt32(d.ry), rx: UInt32(d.rx),
-            qy: UInt32(d.qy), qx: UInt32(d.qx),
-            cx: a.centerX, cy: a.centerY,
-            rInner: a.inner, rOuter: a.outer
-        )
-        let pixels = try MetalEngine.shared.virtualDetector(cube: cube, params: params)
-        return FloatImage(width: d.rx, height: d.ry, pixels: pixels)
-    }
-
-    // MARK: General path — arbitrary detector mask
-
-    /// Virtual image for any detector geometry, via the mask kernel.
-    package nonisolated static func image(cube: MTLBuffer,
-                      descriptor d: DatasetDescriptor,
-                      shape: DetectorShape) throws -> FloatImage {
-        let mask = makeMask(shape: shape, qy: d.qy, qx: d.qx)
-        let pixels = try MetalEngine.shared.virtualImage(cube: cube,
-                                                         dims: CubeDims(d),
-                                                         mask: mask)
-        return FloatImage(width: d.rx, height: d.ry, pixels: pixels)
-    }
-
-    // MARK: Virtual diffraction (real-space region → summed pattern)
-
-    /// Sum the diffraction patterns of the scan positions selected by `region`
-    /// (in scan coordinates) into a single pattern — selected-area diffraction.
-    package nonisolated static func diffraction(cube: MTLBuffer,
-                                        descriptor d: DatasetDescriptor,
-                                        region: DetectorShape) throws -> DiffractionPattern {
-        // The region is a mask over the SCAN grid (Ry × Rx), so reuse makeMask
-        // with the scan dimensions in place of the detector dimensions.
-        let mask = makeMask(shape: region, qy: d.ry, qx: d.rx)
-        let pixels = try MetalEngine.shared.virtualDiffraction(cube: cube,
-                                                              dims: CubeDims(d),
-                                                              scanMask: mask)
-        return DiffractionPattern(qy: d.qy, qx: d.qx, pixels: pixels)
-    }
-
     /// Build the binary detector-space mask for a geometry, [Qy*Qx] row-major.
     /// Radial shapes match py4DSTEM's `make_detector` predicates exactly:
     /// circle r² < rOut²; annulus rIn² < r² < rOut².

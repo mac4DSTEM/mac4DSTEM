@@ -19,8 +19,7 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
   smoothed-surface entry. **Strain:** a `LatticeStrain` diagnostics entry for the `initialBasis` path.
 - **Embedding:** sklearn `svd_flip` signs (the kit's provisional sign, largest entry positive, flips saved embeddings; CHANGELOG).
 - **Origin:** `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred, the kit's half-pixel for odd
-  sides, which changes sim_Au counts), a mask hook for the measured sigmoid kernel, fit `kept`/residual outputs (the app's
-  `fitOriginTrimmed` keeps median + 3 MAD rounds); a CPU `OriginMeasurement` beside the GPU CoM path; per-position origins (C3).
+  sides, which changes sim_Au counts), a mask hook for the measured sigmoid kernel; a GPU form of `OriginMeasurement` (the app's `measureOrigin` kernel is Metal, the kit's is CPU); per-position origins (C3).
 
 ### FormatoKit (next: 0.8)
 - **Single-pattern HDF5 read, 0.5 ms.** The kit opens the file per call: a one-pattern read of Au_sim.h5 went 49 us -> 540 us
@@ -36,7 +35,6 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
   and beam energy are not read, so GMS absorption is refused (also SpectroKit).
 
 ### DiffractoKit
-- **Metal ACOM backend:** selection and preview expansion for Metal stay app-side (`MetalACOMMatcher`).
 - **Q calibration:** a linear-scale-from-reference-ring helper (the app's `KnownCrystalQCalibration` has no camera length L; the
   kit's `RingCalibration.q` needs it). The pre-cut list peaks about 800 MB for a 30 A cell at kMax 2.5.
 - **Phase matching:** `minimumVectors` = 2 makes "matrix" by exclusion and the cross-phase winner ignores completeness
@@ -116,6 +114,8 @@ Ordered as the ROADMAP takes them.
 
 ## Drop
 
+- Switched 2026-10-21 onto the pinned kits: `fitOriginTrimmed` is `OriginFit.fitTrimmed` (CuboKit 0.6.0; `kept` and both residuals are the kit's); the preset crystals are `CrystalPresets`; the Metal ACOM backend is `ACOMMatcher.matchAll(backend: .metal)` (the kit's selection and preview expansion, `MetalACOMMatcher` and its shader gone); the virtual image, mean/max and centre-of-mass Metal one-shots and their four shaders are gone (CuboKit's reducers). Stays: the selected-area sum (`virtualDiffraction`; the kit's `VirtualDiffraction.pattern` is CPU-only) and the per-position origin kernel (`measureOrigin`).
+- Learned detector training and refine stay in the app, not ready for a kit (Paul, 2026-10-21 12:29; ADR 071).
 - Kit asks after session 5, "Done and ticked" list (Float32 detection, fillNonFinite, HotPixelFilter.Replacer, ptycho probe, parallax correction/depth/position, streamed PCA, strain diagnostics, ACOM, Materials Project, DM4/DM3, HDF5 chunk/float16/bool, MIB, EMPAD): done in session 5.
 - "Kept in the app on purpose" (lineage and marks, header-less MIB, rank-3 reshape): restated in the kit asks above.
 - Release-build signing and FormatoKit 0.4.0 HDF5 frameworks: Developer ID archive was done 2026-10-20; the open proof is App work 1.

@@ -309,7 +309,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     func testModelValidationByCellMetric() throws {
         func model(alpha: Double, beta: Double, gamma: Double) -> CrystalModel {
             CrystalModel(id: "t", displayName: "t",
-                         structure: Crystal.structure(a: 15.16, b: 4.05, c: 6.74, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma,
+                         structure: CrystalPresets.structure(a: 15.16, b: 4.05, c: 6.74, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma,
                                           sites: [AtomSite(z: 12, fractional: SIMD3(0, 0, 0))]),
                          symmetry: .monoclinic, source: .imported)
         }

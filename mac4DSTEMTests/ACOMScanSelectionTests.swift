@@ -3,6 +3,7 @@ import DSTEMCore
 import DSTEMSession
 import DiffractoOrientation
 import simd
+import DiffractoCore
 @testable import mac4DSTEM
 
 final class ACOMScanSelectionTests: XCTestCase {
@@ -50,7 +51,7 @@ final class ACOMScanSelectionTests: XCTestCase {
     /// is the winner's neighbour and not a different orientation.
     private func reliabilityFixture(distinctDegrees: Double) throws -> (library: ACOMTemplateLibrary, matcher: ACOMMatcher) {
         let plan = try XCTUnwrap(OrientationPlan.generate(
-            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 40,
+            crystal: CrystalPresets.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 40,
             distinctOrientationDeg: distinctDegrees))
         return (plan.library, try XCTUnwrap(ACOMMatcher(library: plan.library)))
     }
@@ -117,7 +118,7 @@ final class ACOMScanSelectionTests: XCTestCase {
     /// measured orientation error from 3° to 32° on synthetic patterns.
     func testPeaksSurviveRadialErrorSmallerThanABin() throws {
         let plan = try XCTUnwrap(OrientationPlan.generate(
-            crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
+            crystal: CrystalPresets.gold, kMax: 1.2, zoneAxisCount: 96
         ))
         let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         let templateIndex = 23

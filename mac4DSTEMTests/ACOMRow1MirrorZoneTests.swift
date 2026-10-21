@@ -3,6 +3,7 @@ import simd
 import DiffractoScattering
 import DSTEMCore
 import DiffractoOrientation
+import DiffractoCore
 
 /// Review 2026-09-30 row 1. The ACOM bank samples the mirror-reduced direction
 /// triangle (cubic z ≥ x ≥ y ≥ 0), but orientation equivalence is the proper
@@ -72,7 +73,7 @@ final class ACOMRow1MirrorZoneTests: XCTestCase {
     /// mirrored win (right template and flag, orientation 26–35° off — the
     /// first fix attempt, mirror-fixed.log 2026-10-01).
     func testMirrorTriangleAxesAreRecoveredAndFlaggedSampledOnesAreNot() throws {
-        let crystal = Crystal.aluminum
+        let crystal = CrystalPresets.aluminum
         let plan = try XCTUnwrap(OrientationPlan.generate(
             crystal: crystal, kMax: 1.2, zoneAxisCount: 600, symmetry: .cubic,
             wavelengthAngstrom: Self.wavelength))

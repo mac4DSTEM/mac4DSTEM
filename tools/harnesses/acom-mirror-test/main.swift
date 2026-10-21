@@ -11,6 +11,7 @@
 // independent proper-group operator list. Reports CPU time per pattern and
 // CPU/Metal agreement so the second pass is measured, not assumed.
 import Foundation
+import DiffractoCore
 import ImagoFFT
 import DiffractoScattering
 import DiffractoOrientation
@@ -132,7 +133,7 @@ func run(hexagonal: Bool, wavelength: Double?) -> Bool {
     let tag = "\(family) \(wavelength == nil ? "flat-Ewald" : String(format: "λ %.5f Å", wavelength!))"
     let ops = operators(hexagonal: hexagonal)
     require(ops.count == (hexagonal ? 12 : 24) && ops.allSatisfy(proper), "independent symmetry group")
-    let crystal = hexagonal ? Crystal.tungstenDisulfide : Crystal.aluminum
+    let crystal = hexagonal ? CrystalPresets.tungstenDisulfide : CrystalPresets.aluminum
     let symmetry: ACOMCrystalSymmetry = hexagonal ? .hexagonal : .cubic
     let kMax = hexagonal ? 1.6 : 1.2, scale = 0.008, origin = 256.0
     guard let plan = OrientationPlan.generate(crystal: crystal, kMax: kMax, zoneAxisCount: 600,

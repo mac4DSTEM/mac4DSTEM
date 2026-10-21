@@ -40,7 +40,7 @@ final class CrystalMathTests: XCTestCase {
             AtomSite(z: 14, fractional: SIMD3(0.99, 0.5, 0.5)),
             AtomSite(z: 14, fractional: SIMD3(0.01, 0.5, 0.5)),
         ]
-        let crystal = Crystal.structure(a: 5, b: 5, c: 5, sites: sites)
+        let crystal = CrystalPresets.structure(a: 5, b: 5, c: 5, sites: sites)
         let model = CrystalModel(
             id: "wrap-test", displayName: "wraparound test", structure: crystal,
             symmetry: .cubic, source: .builtIn)

@@ -3,20 +3,15 @@ import Metal
 import simd
 import DiffractoScattering
 import DSTEMCore
+import DiffractoCore
 @testable import mac4DSTEM
 
-/// Refuter D, item 6: the autorelease pool in MetalACOMMatcher.runBatch, tried on a plan the lane did not use (hexagonal WS2,
+/// Refuter D, item 6: the autorelease pool in the Metal ACOM batch loop (DiffractoKit's since 2026-10-21), tried on a plan the lane did not use (hexagonal WS2,
 /// 24 x 256 polar grid, 150 templates, a 150 x 80 scan with empty positions among them) and on an early cancel mid-loop.
-/// Output equality is held by a digest recorded from the pooled build (the unpooled build must give the same digest).
+/// Output equality is held against the CPU reference within Float rounding.
 final class ACOMMetalPoolRefuterTests: XCTestCase {
-    private static func fnv(_ values: [UInt64]) -> UInt64 {
-        var h: UInt64 = 0xcbf29ce484222325
-        for v in values { for i in 0..<8 { h ^= (v >> (8 * UInt64(i))) & 0xff; h = h &* 0x100000001b3 } }
-        return h
-    }
-
     func testHexagonalPlanMemoryFlatAndOutputsUnchanged() throws {
-        let crystal = Crystal.tungstenDisulfide
+        let crystal = CrystalPresets.tungstenDisulfide
         let plan = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.6, nRadial: 24, nAzimuthal: 256,
                                                           zoneAxisCount: 150, symmetry: .hexagonal))
         let reflections = try crystal.kinematicReflections(kMax: 1.6).kept
@@ -40,21 +35,19 @@ final class ACOMMetalPoolRefuterTests: XCTestCase {
         else { throw XCTSkip("Metal matcher unavailable") }
         let s = sampler.values
         let growthMB = s.count > 12 ? Double(s[s.count - 1] - s[10]) / 1_048_576 : -1
-        var words: [UInt64] = []
-        for r in map.results {
-            words += [UInt64(bitPattern: Int64(r.templateIndex)), UInt64(r.score.bitPattern), UInt64(r.secondScore.bitPattern),
-                      UInt64(r.inPlaneAngle.bitPattern), r.mirrored ? 1 : 0]
-        }
-        let digest = String(format: "%016llx", Self.fnv(words))
         XCTAssertGreaterThanOrEqual(s.count, 180)
         XCTAssertLessThan(growthMB, 3.0, "device memory grew \(growthMB) MB over \(s.count) batches")
-        // Recorded with the pool (growth 0.0 MB) and without it (growth 33.125 MB): the same digest, so the pool moves no output.
-        XCTAssertEqual(digest, "c27a13757e5decdd")
+        // The pool moves no output: Metal equals the CPU reference within Float rounding (the digest recorded on the app's own matcher moved with the kit's, D12).
+        let cpu = try XCTUnwrap(OrientationMatching.matchAll(bragg: vectors, plan: plan, originX: 80, originY: 80, invAngstromPerPixel: scale, backend: .cpu))
+        for (a, b) in zip(cpu.results, map.results) {
+            XCTAssertEqual(a.templateIndex, b.templateIndex)
+            XCTAssertEqual(a.score, b.score, accuracy: 1e-5)
+        }
     }
 
     /// An early cancel returns nil from inside the batch loop (between pools): no crash, and the next full run is unaffected.
     func testCancelMidLoopReturnsNilAndALaterRunStillWorks() throws {
-        let crystal = Crystal.gold
+        let crystal = CrystalPresets.gold
         let plan = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, zoneAxisCount: 40))
         let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let spots = OrientationPlan.project(reflections: reflections, zoneAxis: plan.zoneAxes[3], sgWidth: 0.03, sgMax: 0.1, intensityPower: 1)

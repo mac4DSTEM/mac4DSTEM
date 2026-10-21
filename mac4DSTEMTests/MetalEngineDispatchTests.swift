@@ -1,9 +1,9 @@
 //
 //  MetalEngineDispatchTests.swift
 //  Hygiene audit row 10-lite (2026-09-16): `MetalEngine.virtualDiffraction`
-//  and `MetalEngine.dpStatistics` had zero test references (code-metrics.md
-//  table D2), despite both being GPU dispatches with a plain CPU definition
-//  (selected-area sum; per-pixel max/mean over scan positions). A tiny
+//  had zero test references (code-metrics.md table D2), despite being a GPU
+//  dispatch with a plain CPU definition (the selected-area sum; the per-pixel
+//  max/mean moved to CuboKit's `VirtualDiffraction`, 2026-10-21). A tiny
 //  synthetic cube with hand-picked values lets the expected result be
 //  written out by hand and checked against `MetalEngine.shared`.
 //
@@ -79,32 +79,6 @@ final class MetalEngineDispatchTests: XCTestCase {
         XCTAssertEqual(result.count, expected.count)
         for i in 0..<expected.count {
             XCTAssertEqual(result[i], expected[i], accuracy: 1e-4, "pixel \(i)")
-        }
-    }
-
-    /// Max and mean per detector pixel over ALL four scan positions,
-    /// checked against the same reduction done on the CPU.
-    func testDPStatisticsMatchesCPUMaxAndMean() throws {
-        let (buffer, dims, patterns) = try makeCube()
-
-        let (maxDP, meanDP) = try MetalEngine.shared.dpStatistics(cube: buffer, dims: dims)
-
-        let pixelCount = patterns[0].count
-        var expectedMax = [Float](repeating: -.infinity, count: pixelCount)
-        var expectedSum = [Float](repeating: 0, count: pixelCount)
-        for pattern in patterns {
-            for p in 0..<pixelCount {
-                expectedMax[p] = max(expectedMax[p], pattern[p])
-                expectedSum[p] += pattern[p]
-            }
-        }
-        let expectedMean = expectedSum.map { $0 / Float(patterns.count) }
-
-        XCTAssertEqual(maxDP.count, pixelCount)
-        XCTAssertEqual(meanDP.count, pixelCount)
-        for i in 0..<pixelCount {
-            XCTAssertEqual(maxDP[i], expectedMax[i], accuracy: 1e-4, "max pixel \(i)")
-            XCTAssertEqual(meanDP[i], expectedMean[i], accuracy: 1e-4, "mean pixel \(i)")
         }
     }
 }

@@ -15,6 +15,7 @@ import DiffractoOrientation
 import Observation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import DiffractoCore
 #endif
 
 @Observable
@@ -60,7 +61,7 @@ package final class ACOMSession {
     package var customZ: Int = 79 {
         didSet { if customZ != oldValue { invalidatePlan() } }
     }
-    package var customStructure: Crystal.CubicStructure = .fcc {
+    package var customStructure: CrystalPresets.CubicFamily = .fcc {
         didSet { if customStructure != oldValue { invalidatePlan() } }
     }
     package var customLatticeA: Double = 4.08 {

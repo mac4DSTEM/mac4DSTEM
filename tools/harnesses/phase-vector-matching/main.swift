@@ -193,7 +193,7 @@ enum Harness {
 
     // A1 — aluminium fcc down [001]. |g(200)| = 2/a, |g(220)| = 2√2/a, and the
     // forbidden 100/110 must be absent: fcc extinguishes mixed-parity hkl.
-    let al = Crystal.aluminum
+    let al = CrystalPresets.aluminum
     let alVectors = PhaseReferenceLibrary.projectedVectors(
         reflections: (try! al.kinematicReflections(kMax: kMax).kept), crystal: al,
         zoneAxis: SIMD3(0, 0, 1), settings: settings)
@@ -217,7 +217,7 @@ enum Harness {
 
     // A2 — β″, monoclinic C2/m, down [001]. The reciprocal metric of a b-unique
     // monoclinic cell: a* = 1/(a sinβ), c* = 1/(c sinβ), cos β* = −cos β.
-    let beta = Crystal.betaDoublePrime
+    let beta = CrystalPresets.betaDoublePrime
     check("P7 β″ expands to 22 atoms",
           beta.sites.count == 22
           && beta.sites.filter({ $0.z == 12 }).count == 10
@@ -515,8 +515,8 @@ enum Harness {
     // The template-matched route scored Au 0.98758 against Al 0.97949 and returned
     // GOLD, because one radial bin was 0.05 Å⁻¹ and the two differ by 6 % of it.
 
-    let au = Crystal.gold
-    let si = Crystal.silicon
+    let au = CrystalPresets.gold
+    let si = CrystalPresets.silicon
     func metalLibrary(_ s: PhaseReferenceSettings) throws -> PhaseReferenceLibrary {
         try PhaseReferenceLibrary.build(phases: [
             PhaseDefinition(id: "si", displayName: "Si", crystal: si,

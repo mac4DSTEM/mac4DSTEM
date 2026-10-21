@@ -261,19 +261,19 @@ package nonisolated enum CrystalModelLibrary {
     /// built-in model by id (`ws2_2h`, `au_fcc`, …) depend on it.
     package static let models: [CrystalModel] = [
         CrystalModel(id: "au_fcc", displayName: "Gold (FCC)",
-                     structure: Crystal.gold, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.gold, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "al_fcc", displayName: "Aluminium (FCC)",
-                     structure: Crystal.aluminum, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.aluminum, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "ni_fcc", displayName: "Nickel (FCC)",
-                     structure: Crystal.nickel, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.nickel, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "cu_fcc", displayName: "Copper (FCC)",
-                     structure: Crystal.copper, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.copper, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "fe_bcc", displayName: "Iron (BCC)",
-                     structure: Crystal.iron, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.iron, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "si_diamond", displayName: "Silicon (diamond)",
-                     structure: Crystal.silicon, symmetry: .cubic, source: .builtIn),
+                     structure: CrystalPresets.silicon, symmetry: .cubic, source: .builtIn),
         CrystalModel(id: "mg_hcp", displayName: "Magnesium (HCP)",
-                     structure: Crystal.magnesium, symmetry: .hexagonal, source: .builtIn),
+                     structure: CrystalPresets.magnesium, symmetry: .hexagonal, source: .builtIn),
         // W4a (2026-08-31). Built-in rather than import-only on purpose: the
         // replay record stores only a materialModelID, and an .imported model
         // does not survive into a new session — so an ACOM step recorded
@@ -281,7 +281,7 @@ package nonisolated enum CrystalModelLibrary {
         // makes a WS₂ recipe replayable at all. Lattice citation on the
         // Crystal definition.
         CrystalModel(id: "ws2_2h", displayName: "Tungsten disulfide (2H-WS₂)",
-                     structure: Crystal.tungstenDisulfide, symmetry: .hexagonal, source: .builtIn),
+                     structure: CrystalPresets.tungstenDisulfide, symmetry: .hexagonal, source: .builtIn),
     ]
 
     package static func model(id: String) -> CrystalModel? {
@@ -289,13 +289,13 @@ package nonisolated enum CrystalModelLibrary {
     }
 
     package static func customCubic(
-        structure: Crystal.CubicStructure, latticeA: Double, atomicNumber: Int
+        structure: CrystalPresets.CubicFamily, latticeA: Double, atomicNumber: Int
     ) -> CrystalModel {
         let symbol = Element.symbol(forAtomicNumber: atomicNumber) ?? "Z\(atomicNumber)"
         return CrystalModel(
             id: "custom_cubic_\(structure.provenanceID)_z\(atomicNumber)",
             displayName: "\(symbol) \(structure.rawValue), a = \(String(format: "%.4g", latticeA)) Å",
-            structure: Crystal.cubic(structure, a: latticeA, z: atomicNumber),
+            structure: CrystalPresets.cubic(structure, a: latticeA, z: atomicNumber),
             symmetry: .cubic,
             source: .custom
         )

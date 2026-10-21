@@ -74,7 +74,7 @@ func analytic(hexagonal: Bool) {
     let label = hexagonal ? "WS2" : "Au"
     let ops = operators(hexagonal: hexagonal)
     checkOracle(ops, count: hexagonal ? 12 : 24)
-    let crystal = hexagonal ? Crystal.tungstenDisulfide : Crystal.structure(
+    let crystal = hexagonal ? CrystalPresets.tungstenDisulfide : CrystalPresets.structure(
         a: 4.08, b: 4.08, c: 4.08,
         sites: [SIMD3<Double>(0,0,0), SIMD3(0,0.5,0.5), SIMD3(0.5,0,0.5), SIMD3(0.5,0.5,0)]
             .map { AtomSite(z: 79, fractional: $0) })
@@ -196,7 +196,7 @@ func frozenReference(_ path: String) throws {
     let sites = zip(x.siteFractional, x.siteAtomicNumbers).map {
         AtomSite(z: $1, fractional: SIMD3($0[0], $0[1], $0[2]))
     }
-    let crystal = Crystal.structure(a: x.cellAAngstrom, b: x.cellAAngstrom, c: x.cellAAngstrom, sites: sites)
+    let crystal = CrystalPresets.structure(a: x.cellAAngstrom, b: x.cellAAngstrom, c: x.cellAAngstrom, sites: sites)
     guard let plan = OrientationPlan.generate(crystal: crystal, kMax: x.kMaxInvAngstrom,
         zoneAxisCount: x.zoneAxisCount, symmetry: .cubic, wavelengthAngstrom: x.wavelengthAngstrom,
         intensityPower: x.intensityPower, radialKernelInvAngstrom: x.radialKernelInvAngstrom,

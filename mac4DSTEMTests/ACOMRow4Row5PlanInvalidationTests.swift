@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoCore
 @testable import mac4DSTEM
 
 /// Review 2026-09-30 rows 4 and 5: two edits that change what the orientation
@@ -17,7 +18,7 @@ import DSTEMSession
 final class ACOMRow4Row5PlanInvalidationTests: XCTestCase {
 
     private func imported(_ id: String, a: Double) -> CrystalModel {
-        CrystalModel(id: id, displayName: id, structure: Crystal.cubic(.fcc, a: a, z: 13),
+        CrystalModel(id: id, displayName: id, structure: CrystalPresets.cubic(.fcc, a: a, z: 13),
                      symmetry: .cubic, source: .imported)
     }
 
