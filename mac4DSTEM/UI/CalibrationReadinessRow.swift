@@ -218,6 +218,7 @@ enum CalibrationReadinessRow {
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
                     help: PrepareSettings.manualScaleHelp(status: status, otherwise: "Or enter the reciprocal pixel size by hand."),
+                    status: status,
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -231,6 +232,7 @@ enum CalibrationReadinessRow {
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
                     identifier: "calibration.action.qManual",
                     help: PrepareSettings.manualScaleHelp(status: status, otherwise: qScaleUnavailableReason),
+                    status: status,
                     onChange: appState.setManualQPixelSize,
                     onUnitChange: appState.setManualQPixelUnits
                 )
@@ -246,6 +248,7 @@ enum CalibrationReadinessRow {
                 unitOptions: CalibrationUnitConversion.editableRealUnits,
                 identifier: "calibration.action.rManual",
                 help: PrepareSettings.manualScaleHelp(status: status, otherwise: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters."),
+                status: status,
                 onChange: appState.setManualRPixelSize,
                 onUnitChange: appState.setManualRPixelUnits
             )
@@ -257,6 +260,37 @@ enum CalibrationReadinessRow {
     /// minimum width.
     @ViewBuilder
     static func manualScale(
+        name: String,
+        value: Double?, units: String, unitOptions: [String], identifier: String,
+        help: String,
+        status: CalibrationReadinessStatus,
+        onChange: @escaping (Double) -> Void,
+        onUnitChange: @escaping (String) -> Void
+    ) -> some View {
+        // A scale that is already in force (the file's, a restored session's) shows its value in the row above; the
+        // editor sits behind "Override" so the one visible source is the one in use, and typing there is a knowing
+        // act (design review 2026-10-21: "From file" beside an always-editable Manual field). A missing or manual
+        // value shows the editor open, as before.
+        if needsOverrideDisclosure(status: status) {
+            DisclosureGroup("Override") {
+                manualScaleFields(name: name, value: value, units: units, unitOptions: unitOptions,
+                                  identifier: identifier, help: help, onChange: onChange, onUnitChange: onUnitChange)
+            }
+            .accessibilityIdentifier(identifier + ".override")
+        } else {
+            manualScaleFields(name: name, value: value, units: units, unitOptions: unitOptions,
+                              identifier: identifier, help: help, onChange: onChange, onUnitChange: onUnitChange)
+        }
+    }
+
+    /// Whether the manual editor hides behind "Override": a ready value that is not the person's own.
+    static func needsOverrideDisclosure(status: CalibrationReadinessStatus) -> Bool {
+        guard case .ready(let provenance) = status else { return false }
+        return provenance != .manual
+    }
+
+    @ViewBuilder
+    private static func manualScaleFields(
         name: String,
         value: Double?, units: String, unitOptions: [String], identifier: String,
         help: String,
