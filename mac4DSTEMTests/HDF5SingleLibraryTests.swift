@@ -4,7 +4,7 @@
 //  libhdf5 / libsz / libaec of its own (owner 2026-10-15): the only copies are FormatoKit's three dynamic frameworks FormatoLibHDF5,
 //  FormatoLibSZ and FormatoLibAEC, which Xcode embeds in `Contents/Frameworks` and signs with the app's identity. libhdf5 is built Threadsafety OFF, so a process that mapped two copies
 //  would have two libraries (and two sets of global state) behind the one `HDF5Serial` lock. The app's own `H5Reader` /
-//  `BraggVectorEMDWriter`, `H5Reader`'s `HDF5LegacyProbe` (the chunk shape of a dataset; it dlopens by itself) and FormatoKit's HDF5Reader and
+//  `BraggVectorEMDWriter`, `H5Reader`'s `HDF5LegacyProbe` (an h5py bool-enum attribute; it dlopens by itself) and FormatoKit's HDF5Reader and
 //  Velox reader all use ONE candidate list (`HDF5LibraryCandidates`, FormatoKit's `SharedHDF5.loadStandard` order); this runs each of them
 //  and lists what dyld mapped.
 //
@@ -49,8 +49,7 @@ final class HDF5SingleLibraryTests: XCTestCase {
         try BraggVectorEMDWriter.mergeCalibration(calibration, qWidth: 64, qHeight: 64, to: sidecar)
         XCTAssertNotNil(try BraggVectorEMDWriter.loadSession(from: sidecar).calibration, "the writer's file reads back through the same library")
 
-        // 1b. The app's reader on a CHUNKED file: H5Reader.describe reads the chunk shape through HDF5LegacyProbe, which loads libhdf5 by
-        // itself. The export below writes a chunked cube (one pattern per chunk).
+        // 1b. The app's reader on a CHUNKED file: H5Reader.describe reads the chunk shape through FormatoKit's HDF5Reader. The export below writes a chunked cube (one pattern per chunk).
         let cube = directory.appendingPathComponent("chunked.h5")
         let demo = DemoFourDDataSource()
         let demoDescriptor = try await demo.discoverPrimaryDataset()
@@ -60,7 +59,7 @@ final class HDF5SingleLibraryTests: XCTestCase {
         let chunkedReader = try H5Reader(path: cube.path)
         let described = try await chunkedReader.discoverPrimaryDataset()
         XCTAssertEqual(described.chunkShape, [1, 1, 64, 64], "the shim read the chunk shape")
-        // ... and a pattern read, which holds its own file handle (HDF5SlabFile) on the same library.
+        // ... and a pattern read, through the same loader.
         let pattern = try await chunkedReader.readPattern(LoadView(fullExtentOf: described), ry: 1, rx: 2)
         XCTAssertEqual(pattern.count, 64 * 64)
         XCTAssertTrue(pattern.allSatisfy(\.isFinite))

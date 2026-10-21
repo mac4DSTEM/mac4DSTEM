@@ -361,7 +361,7 @@ with h5py.File(root / "d1_multielement_attributes.h5", "w") as f:
     cal.attrs.create("R_pixel_size", np.float64(3.0))                           # scalar, must read
     cal.attrs.create("R_pixel_units", "nm")                                     # scalar, must read
 
-# f1 — a float16 cube: HDF5Reader refuses float16, so the app reads it through libhdf5's own conversion (H5Reader's HDF5LegacyProbe).
+# f1 — a float16 cube: FormatoKit 0.7.0's HDF5Reader reads float16 datasets as float32 (datasetInfo still reports it as unsupported).
 with h5py.File(root / "f1_float16.h5", "w") as f:
     f.create_group("lab/session/scan_07/cube").create_dataset("data", data=cube((3, 4, 6, 5), np.float16))
 

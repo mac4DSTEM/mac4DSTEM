@@ -252,7 +252,7 @@ func fail(_ message: String) -> Never {
             expect(await firstPixel(reader, d, ry: 1, rx: 2) == 180, "f1 pixels")
             let tile = try! await reader.readScanTile(LoadView(fullExtentOf: d), yRange: 1..<3)
             expect(tile.pixels.count == 2 * 4 * 30 && tile.pixels[0] == 120 && tile.pixels.last == 359, "f1 tile")
-            print("PASS: a float16 datacube reads through libhdf5's conversion (kit ask recorded)")
+            print("PASS: a float16 datacube reads through the kit (HDF5Reader.readDataset, 0.7.0)")
         }
 
         // f2 — float16 scalars and an origin map are read (the kit refuses float16), not silently dropped.
@@ -262,7 +262,7 @@ func fail(_ message: String) -> Never {
             expect(calibration?.qSize == 0.25 && calibration?.rSize == 2.0, "f2 scalars \(String(describing: calibration))")
             expect(calibration?.originMaps?.fittedQX == [Double](repeating: 1.5, count: 6)
                    && calibration?.originMaps?.fittedQY == [Double](repeating: 2.5, count: 6), "f2 origin maps")
-            print("PASS: float16 calibration scalars and origin maps are read through libhdf5's conversion")
+            print("PASS: float16 calibration scalars and origin maps are read through the kit (float16 read as float32)")
         }
 
         // g1 — every stored type reads as the numpy float32 cast of it, bit for bit (signed and unsigned widths, 64-bit beyond float

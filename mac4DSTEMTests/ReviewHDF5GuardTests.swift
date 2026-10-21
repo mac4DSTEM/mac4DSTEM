@@ -60,8 +60,8 @@ final class ReviewHDF5GuardTests: XCTestCase {
         XCTAssertNotNil(calibration.ellipseA)
     }
 
-    /// h5py/py4DSTEM write `QR_flip` as an int8 enum, which `HDF5Reader` refuses by name: the sidecar reader takes it through the
-    /// libhdf5 integer conversion (`HDF5LegacyProbe`). Mutation it catches: the enum branch of `boolDataset` removed (a throw).
+    /// h5py/py4DSTEM write `QR_flip` as an int8 enum, which `HDF5Reader.readDataset` refuses by name: the sidecar reader takes it through the
+    /// kit's `HDF5Reader.readBooleans`. Mutation it catches: the enum branch of `boolDataset` removed (a throw).
     func testAnH5pyBoolEnumQRFlipReadsThroughTheShim() throws {
         for flag in [true, false] {
             try CalibrationDatasetPatcher.replace("QR_flip", with: .boolEnum(flag), in: sidecar)

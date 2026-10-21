@@ -110,11 +110,8 @@ nonisolated extension BraggVectorEMDWriter {
                     throw Self.failure("reading dataset \(name)", error)
                 }
             case .unsupported(let kind) where kind == "enum":
-                // delete at FormatoKit 0.6: an enum/bool read in HDF5Reader (the shim is H5Reader.swift's HDF5LegacyProbe)
-                guard let value = HDF5LegacyProbe.integerScalar(filePath: url.path, path: path, attribute: nil) else {
-                    throw WriterError.hdf5("reading dataset \(name)")
-                }
-                return value != 0
+                // h5py's bool: an int8-based enum
+                do { return try reader.readBooleans(path).first ?? false } catch { throw WriterError.hdf5("reading dataset \(name)") }
             default:
                 throw WriterError.hdf5("reading dataset \(name)")
             }
