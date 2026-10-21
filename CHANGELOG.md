@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Re-pin SpectroKit 0.8.2 (additive: the pooled fit's k, line energies and take-off angle are public). The wt% / at% maps now use the pooled fit's own k (computed or typed) and the absorption correction when a thickness is typed and the file states its detector geometry (one weighted take-off angle; the tile footer names it, and says why when it is off). No migration. The unit tests still import SpectroKit `@testable` (the proposer, unlisted-line and window internals are `package`; filed in `docs/open-items.md`).
+
 - 2026-10-21 Spectroscopy › Export: "Composition by Class…" (Pool by Class): one pooled fit per phase pool with the room's method, written as a CSV (class, pixels pooled, element, wt%, at%, σ, method hash; `validation: none`). Needs a phase map on a scan registered to the spectrum image. Unverified on screen.
 
 - 2026-10-21 Precipitates: "Objects on panes" draws every object as an ellipse glyph (phase colour; counted only, labels, table-selected outlined) over the scan panes (virtual image, phase map). Off by default; unverified on screen. The same glyphs on the EDX map tiles and the hover readout come next.

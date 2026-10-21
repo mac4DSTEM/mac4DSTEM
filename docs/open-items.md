@@ -148,3 +148,5 @@ Ordered as the ROADMAP takes them.
 - Process items (registrations, Gate B/D wording, lane G gate work, drive block, dead-code pass): retired 2026-10-15 or done 2026-10-21.
 
 - Probe radius (2026-10-21, supersedes the 2026-10-19 max-pattern decision for the STORED radius): the calibration radius is measured on the mean pattern (py4DSTEM `DataCube.get_probe_size`) and never replaces a file, session or typed value; the origin window keeps the max-pattern radius (`get_origin`). `ProbeRadiusSource` now names the window source only. The ellipse-fit residual refusal on the demo (no ring in the annulus) is correct.
+
+- SpectroKit `package` reach left in the unit tests (after 0.8.2): `UnlistedLineCheck`, `ElementCandidate`, `ProposalResult`, `LineWindow` / `ResolvedWindow` initialisers, `SpectrumDetectorSegment` init, `PooledQuantificationInput.method` and the proposer fields (`lines`, `names`, `candidates`, `withholds`, `moves`, `sigmaScopeLine`). Public accessors or fixtures builders are a kit ask; the app code itself uses none of them.

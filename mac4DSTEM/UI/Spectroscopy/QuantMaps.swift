@@ -4,10 +4,9 @@
 //        `EDXQuantification.quantifyMaps` (SpectroKit 0.8.1); this file holds only the app's side: the method mapping, the
 //        navigation mask, the tile snapshots and the words. No numerics.
 //
-//  Gaps in the kit's public API (noted, not worked around in the app):
-//   * a computed k set (`KFactorSource.computed`) is `package` (`PooledQuantification.kSet`), so the maps take typed k only;
-//   * the line energies and the Velox take-off angle are not public either, so the maps run without the absorption
-//     correction and say so on the tile.
+//  Since SpectroKit 0.8.2 the pooled fit's k (`PooledQuantification.kFactors`, computed or typed), each row's line energy and the
+//  file's take-off angle are public, so the maps use the same k as the pooled number and the absorption correction when a thickness
+//  is typed and the file states its geometry.
 //
 
 import Foundation
@@ -38,21 +37,62 @@ nonisolated struct QuantMapsSummary: Sendable, Equatable {
     var absorptionNote: String
 }
 
+nonisolated struct QuantMapsPlan: Sendable, Equatable {
+    var setup: EDXQuantificationSetup
+    /// What the tile footers say about the absorption correction.
+    var absorptionNote: String
+}
+
 nonisolated enum QuantMapsSetup {
-    /// The method's typed k, in the order of `elements` (the quantified elements in tile order), as the kit's setup.
-    static func setup(method: QuantificationMethod, elements: [String]) -> Result<EDXQuantificationSetup, QuantMapsRefusal> {
-        guard method.kFactorSource == .typed else {
-            return .failure(QuantMapsRefusal(text: "wt% and at% maps need typed k-factors for now: choose \u{201C}typed\u{201D} in Quantification. (The kit does not yet expose its computed set.)"))
-        }
+    /// The kit setup for the maps, from the very k-factors the pooled fit used (`PooledQuantification.kFactors`, computed or typed),
+    /// in the order of `elements` (the quantified elements in tile order). Absorption is on when the method asks for it, a thickness
+    /// is typed and the file's geometry gives a take-off angle (`EDXQuantification.takeOffDegrees`); otherwise the maps run without
+    /// it and the note says why.
+    static func plan(method: QuantificationMethod, elements: [String], fit: PooledQuantification?,
+                     metadata: SpectrumImageMetadata) -> Result<QuantMapsPlan, QuantMapsRefusal> {
         var k: [Double] = []
-        for e in elements {
-            guard let t = method.typedK.first(where: { $0.element == e }), t.k > 0, t.k.isFinite else {
-                return .failure(QuantMapsRefusal(text: "No typed k for \(e): type it in Quantification."))
+        if let fit, let factors = fit.kFactors {
+            for e in elements {
+                guard let f = factors.first(where: { $0.element == e }) else {
+                    return .failure(QuantMapsRefusal(text: "The fit has no k for \(e): quantify it in the pooled fit first."))
+                }
+                k.append(f.k)
             }
-            k.append(t.k)
+        } else if method.kFactorSource == .typed {
+            for e in elements {
+                guard let t = method.typedK.first(where: { $0.element == e }), t.k > 0, t.k.isFinite else {
+                    return .failure(QuantMapsRefusal(text: "No typed k for \(e): type it in Quantification."))
+                }
+                k.append(t.k)
+            }
+        } else {
+            return .failure(QuantMapsRefusal(text: "wt% and at% maps use the k of the pooled fit: run Quantify first and give it at least two elements."))
         }
-        return .success(EDXQuantificationSetup(elements: elements,
-                                               method: .cliffLorimer(kFactors: k, thicknessNm: method.thickness?.nanometres)))
+        var absorption: EDXAbsorptionSetting?
+        var note = "no absorption correction"
+        if method.absorptionCorrection {
+            if method.thickness == nil {
+                note = "no absorption correction (no thickness typed)"
+            } else {
+                do {
+                    let angle = try EDXQuantification.takeOffDegrees(metadata: metadata)
+                    let energies = elements.map { e in fit?.rows.first { $0.element == e }?.lineEnergyKeV }
+                    if energies.allSatisfy({ $0 != nil }) {
+                        absorption = EDXAbsorptionSetting(takeOffDegrees: angle, lineEnergiesKeV: energies.compactMap { $0 })
+                        note = String(format: "absorption corrected, one take-off angle %.1f\u{00B0} (the pooled fit averages the detector segments)", angle)
+                    } else {
+                        note = "no absorption correction (a line energy is unknown)"
+                    }
+                } catch {
+                    note = "no absorption correction (" + ((error as? LocalizedError)?.errorDescription ?? "\(error)") + ")"
+                }
+            }
+        }
+        return .success(QuantMapsPlan(
+            setup: EDXQuantificationSetup(elements: elements,
+                                          method: .cliffLorimer(kFactors: k, thicknessNm: method.thickness?.nanometres),
+                                          absorption: absorption),
+            absorptionNote: note))
     }
 }
 
@@ -94,9 +134,9 @@ nonisolated enum QuantMapsPass {
         }
     }
 
-    static func summary(_ maps: EDXQuantificationMaps, masked: Int = 0) -> QuantMapsSummary {
+    static func summary(_ maps: EDXQuantificationMaps, masked: Int = 0, absorptionNote: String = "no absorption correction") -> QuantMapsSummary {
         QuantMapsSummary(failedPixels: maps.failures.reduce(0) { $0 + ($1 == nil ? 0 : 1) }, maskedPixels: masked,
-                         validation: maps.validation, absorptionNote: "no absorption correction")
+                         validation: maps.validation, absorptionNote: absorptionNote)
     }
 
     /// A composition tile: 0...1 of the tile's own maximum, a failed pixel (NaN) drawn as 0, the raw percent kept for the export.

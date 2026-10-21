@@ -763,7 +763,7 @@ final class SpectroscopyRoomController {
     }
 
     enum QuantMapsOutcome: Sendable {
-        case maps(EDXQuantificationMaps, elements: [String], masked: Int, hash: String, minimumCounts: Double)
+        case maps(EDXQuantificationMaps, elements: [String], masked: Int, hash: String, minimumCounts: Double, absorptionNote: String)
         case failed(String)
     }
 
@@ -872,14 +872,14 @@ final class SpectroscopyRoomController {
         var out = Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
                          fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
         if r.compositionMode != nil, let q = r.quantify {
-            out.quantMaps = quantMaps(windows: windows, maps: maps, method: q.method, width: r.source.nx, height: r.source.ny, minimumCounts: r.minimumCounts)
+            out.quantMaps = quantMaps(windows: windows, maps: maps, method: q.method, fit: fit, metadata: q.metadata, width: r.source.nx, height: r.source.ny, minimumCounts: r.minimumCounts)
             if cancelled() { return nil }
         }
         return out
     }
 
     /// The wt% / at% maps: the quantified elements' summed net maps (as the tiles take them) into `EDXQuantification.quantifyMaps`.
-    nonisolated static func quantMaps(windows: [LineWindow], maps: [[Double]?], method: QuantificationMethod,
+    nonisolated static func quantMaps(windows: [LineWindow], maps: [[Double]?], method: QuantificationMethod, fit: PooledQuantification? = nil, metadata: SpectrumImageMetadata,
                                       width: Int, height: Int, minimumCounts: Double = 0) -> QuantMapsOutcome {
         let quantified = Set(method.elements.filter { $0.role == .quantify }.map(\.symbol))
         var elements: [String] = [], inputs: [[Double]] = []
@@ -891,14 +891,15 @@ final class SpectroscopyRoomController {
             }
             elements.append(w.element); inputs.append(map)
         }
-        switch QuantMapsSetup.setup(method: method, elements: elements) {
+        switch QuantMapsSetup.plan(method: method, elements: elements, fit: fit, metadata: metadata) {
         case .failure(let why): return .failed(why.text)
-        case .success(let setup):
+        case .success(let plan):
+            let setup = plan.setup
             let request = QuantMapsRequest(setup: setup, rows: height, columns: width, minimumCounts: minimumCounts, methodHash: method.hash)
             do {
                 let result = try QuantMapsPass.run(request, netMaps: inputs)
                 return .maps(result, elements: elements, masked: QuantMapsPass.maskedCount(request, netMaps: inputs), hash: request.methodHash,
-                             minimumCounts: minimumCounts)
+                             minimumCounts: minimumCounts, absorptionNote: plan.absorptionNote)
             } catch { return .failed((error as? LocalizedError)?.errorDescription ?? "\(error)") }
         }
     }
@@ -973,8 +974,8 @@ final class SpectroscopyRoomController {
             case .failed(let why):
                 m.quantMapsFailure = why
                 tiles = []
-            case .maps(let result, let elements, let masked, let hash, let minimum):
-                let summary = QuantMapsPass.summary(result, masked: masked)
+            case .maps(let result, let elements, let masked, let hash, let minimum, let absorption):
+                let summary = QuantMapsPass.summary(result, masked: masked, absorptionNote: absorption)
                 m.quantMapsProvenance = QuantMapsPass.provenance(summary, methodHash: hash, minimumCounts: minimum)
                 for i in tiles.indices {
                     guard let e = elements.firstIndex(of: PeriodicLayout.symbol(tiles[i].z)),
