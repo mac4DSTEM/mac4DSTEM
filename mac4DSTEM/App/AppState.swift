@@ -287,6 +287,15 @@ final class AppState {
     func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
     var precipitateOverlay = PrecipitateOverlaySettings()
+    /// The object under the pointer on a scan pane (the overlay writes its readout beside it).
+    private(set) var precipitateHoverID: Int?
+    func updatePrecipitateHover(x: Int?, y: Int?) {
+        var id: Int?
+        if let x, let y, precipitateOverlay.onPanes, let set = cachedPrecipitateGlyphSet() {
+            id = set.hit(x: Double(x), y: Double(y), settings: precipitateOverlay)?.id
+        }
+        if id != precipitateHoverID { precipitateHoverID = id }
+    }
     /// The glyphs for the scan panes, remembered per (classification run, minimum size).
     @ObservationIgnored private let glyphSetCache = LastValueCache<GlyphKey, PrecipitateGlyphSet?>()
     private struct GlyphKey: Equatable { var source: UUID?; var minimum: Int }

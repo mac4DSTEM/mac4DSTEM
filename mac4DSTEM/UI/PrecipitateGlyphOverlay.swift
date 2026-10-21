@@ -7,11 +7,15 @@
 //
 
 import SwiftUI
+import DSTEMCore
+import DSTEMSession
 
 struct PrecipitateGlyphOverlay: View {
     let set: PrecipitateGlyphSet
     let settings: PrecipitateOverlaySettings
     let selected: Set<Int>
+    /// The object under the pointer (readout drawn beside it); nil: none.
+    var hover: Int? = nil
     let colour: @Sendable (Int32) -> Color
     let zoom: CGFloat
 
@@ -33,7 +37,10 @@ struct PrecipitateGlyphOverlay: View {
                     context.stroke(path, with: .color(.black.opacity(0.6)), lineWidth: 2.5 / zoom)
                     context.stroke(path, with: .color(base), lineWidth: 1.25 / zoom)
                 }
-                if settings.labels {
+                if g.id == hover {
+                    let text = Text(g.readout).font(.system(size: 11 / zoom).weight(.semibold)).foregroundStyle(.white)
+                    context.draw(context.resolve(text), at: CGPoint(x: p.centre.x + a, y: p.centre.y + b), anchor: .topLeading)
+                } else if settings.labels {
                     let text = Text("#\(g.id)").font(.system(size: 10 / zoom)).foregroundStyle(.white)
                     context.draw(context.resolve(text), at: CGPoint(x: p.centre.x + a, y: p.centre.y - b), anchor: .bottomLeading)
                 }
@@ -41,5 +48,33 @@ struct PrecipitateGlyphOverlay: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+extension PrecipitateGlyphOverlay {
+    /// The class's colour on the phase map, as the object table's swatch has it.
+    static func phaseColour(report: PrecipitateObjectReport?, label: Int32) -> Color {
+        let c = report?.color(of: label) ?? PhaseMapPresentation.color(phaseIndex: Int(label), matrixPhaseIndex: -1)
+        return Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+    }
+}
+
+/// The glyphs on a Spectroscopy map tile: only where the spectrum image is registered by identity to the 4D scan the objects come
+/// from (the app states no other registration) and the two grids agree. Same transform as every pane: fractions of the picture.
+struct PrecipitateGlyphTileLayer: View {
+    @Environment(AppState.self) private var appState: AppState?   // absent in a bare render (previews, tests)
+    @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
+    let gridWidth: Int
+    let gridHeight: Int
+
+    var body: some View {
+        if let appState, appState.spectroscopy.registration != nil, let set = appState.cachedPrecipitateGlyphSet(),
+           set.width == gridWidth, set.height == gridHeight {
+            let report = appState.precipitateObjectReport
+            PrecipitateGlyphOverlay(
+                set: set, settings: appState.precipitateOverlay,
+                selected: tableSelection.flatMap { $0.sourceID == set.sourceID ? $0.objectIDs : nil } ?? [],
+                colour: { PrecipitateGlyphOverlay.phaseColour(report: report, label: $0) }, zoom: 1)
+        }
     }
 }

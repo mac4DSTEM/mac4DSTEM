@@ -1216,10 +1216,8 @@ struct RealSpacePane: View {
                         PrecipitateGlyphOverlay(
                             set: glyphs, settings: appState.precipitateOverlay,
                             selected: tableSelection.flatMap { $0.sourceID == glyphs.sourceID ? $0.objectIDs : nil } ?? [],
-                            colour: { label in
-                                let c = report?.color(of: label) ?? PhaseMapPresentation.color(phaseIndex: Int(label), matrixPhaseIndex: -1)
-                                return Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
-                            },
+                            hover: appState.precipitateHoverID,
+                            colour: { PrecipitateGlyphOverlay.phaseColour(report: report, label: $0) },
                             zoom: effZoom)
                             .frame(width: imageBox.width, height: imageBox.height)
                     }
@@ -1246,8 +1244,10 @@ struct RealSpacePane: View {
                         let y = min(dims.height - 1, max(0,
                             Int(location.y / max(imageBox.height, 1) * CGFloat(dims.height))))
                         cursor.sample = appState.displayedProduct?.sample(x: x, y: y)
+                        appState.updatePrecipitateHover(x: x, y: y)
                     case .ended:
                         cursor.sample = nil
+                        appState.updatePrecipitateHover(x: nil, y: nil)
                     }
                 }
                 .rotationEffect(.degrees(orientation.degrees))

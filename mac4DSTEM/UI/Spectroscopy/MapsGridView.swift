@@ -184,6 +184,9 @@ struct MapTileView: View {
             let size = geo.size
             ZStack(alignment: .topLeading) {
                 canvas(size)
+                if map == .colorMix || { if case .element = map { true } else { false } }() {
+                    PrecipitateGlyphTileLayer(gridWidth: model.gridSize.w, gridHeight: model.gridSize.h)
+                }
                 if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) }) {
                     // A small label on a glass capsule (spec 2 D-8: glass only over a map).
                     Text("Pick elements to map").font(.callout).lineLimit(1).minimumScaleFactor(0.7)

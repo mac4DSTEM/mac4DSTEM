@@ -67,4 +67,12 @@ final class PrecipitateGlyphOverlayTests: XCTestCase {
     func testOverlayIsOffByDefault() {
         XCTAssertFalse(PrecipitateOverlaySettings().onPanes)
     }
+
+    func testHoverIsNilWhileTheOverlayIsOff() {
+        let state = AppState()
+        state.updatePrecipitateHover(x: 3, y: 2)
+        XCTAssertNil(state.precipitateHoverID)
+        state.updatePrecipitateHover(x: nil, y: nil)
+        XCTAssertNil(state.precipitateHoverID)
+    }
 }
