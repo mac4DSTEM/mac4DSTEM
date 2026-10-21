@@ -18,8 +18,8 @@ final class PrepareJourney: Journey {
         step("the probe radius is still the file's") {
             // The one read of a label: the readiness row states the radius and where it came from in one sentence.
             let probe = app.descendants(matching: .any)
-                .matching(NSPredicate(format: "label CONTAINS 'Probe: 4.5' OR value CONTAINS 'Probe: 4.5'")).firstMatch
-            XCTAssertTrue(probe.waitForExistence(timeout: 30), "the readiness row no longer says Probe: 4.5")
+                .matching(NSPredicate(format: "label MATCHES '.*Probe: 4[.,]5.*' OR value MATCHES '.*Probe: 4[.,]5.*'")).firstMatch
+            XCTAssertTrue(probe.waitForExistence(timeout: 30), "the readiness row no longer says Probe: 4.5 (or 4,5)")
         }
     }
 }

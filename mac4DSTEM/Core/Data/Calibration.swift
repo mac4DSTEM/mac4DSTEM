@@ -338,7 +338,8 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
 
     package static func make(
         calibration: Calibration,
-        provenance: CalibrationProvenance
+        provenance: CalibrationProvenance,
+        locale: Locale = .autoupdatingCurrent
     ) -> CalibrationReadinessReport {
         let originSource = calibration.originProvenance.readinessProvenance
         let validProbe = calibration.probeRadius.map {
@@ -354,15 +355,16 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } else {
             originProbeSource = .mixed
         }
+        // One number path for the whole row (the reader's locale, as the Q and R scales below), and the words that belong together
+        // joined with no-break spaces so the row never wraps inside "Imported from file" or "Fit RMS".
+        func keepTogether(_ text: String) -> String { text.replacingOccurrences(of: " ", with: "\u{00A0}") }
         let probeDetail = validProbe
-            ? String(
-                format: "%.3g px (%@)", calibration.probeRadius!,
-                provenance.probe?.rawValue ?? "Unknown source"
-            )
+            ? "\(CalibrationUnitConversion.displayNumber(Double(calibration.probeRadius!), digits: 3, locale: locale))\u{00A0}px "
+                + "(\(keepTogether(provenance.probe?.rawValue ?? "Unknown source")))"
             : "Not set"
         var originDetail = "Origin: \(originSource?.stateLabel ?? "Not set") · Probe: \(probeDetail)"
         if let originResidual {
-            originDetail += String(format: " · Fit RMS %.4g px", originResidual)
+            originDetail += " · Fit\u{00A0}RMS\u{00A0}\(CalibrationUnitConversion.displayNumber(Double(originResidual), digits: 4, locale: locale))\u{00A0}px"
             // The excluded fraction reaches the reader who sees the NUMBER,
             // which is the reader who would otherwise over-trust it — the
             // owner's §6a decision, 2026-08-28. Shown whether the fit passed or
@@ -415,7 +417,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } != nil
         var qDetail: String
         if validQ, let size = calibration.qPixelSize, let units = calibration.qPixelUnits {
-            qDetail = "\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px"
+            qDetail = "\(CalibrationUnitConversion.displayNumber(size, locale: locale)) \(CalibrationUnitConversion.displayLabel(units))/px"
             // A caveat, not a verdict: the row keeps `.ready(.measuredInApp)`.
             if provenance.qScale == .measuredInApp, let caveat = provenance.qShellCaveat,
                caveat.pixelSize == size {
@@ -424,18 +426,18 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } else if positiveQ, let size = calibration.qPixelSize {
             let units = calibration.qPixelUnits ?? "no units"
             qDetail = CalibrationUnitConversion.isPixelUnit(calibration.qPixelUnits)
-                ? "Reciprocal dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px)"
+                ? "Reciprocal dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size, locale: locale)) \(CalibrationUnitConversion.displayLabel(units))/px)"
                 : "Reciprocal scale lacks supported physical units (\(units))"
         } else {
             qDetail = "Reciprocal dimensions remain in pixels"
         }
         let rDetail: String
         if validR, let size = calibration.rPixelSize, let units = calibration.rPixelUnits {
-            rDetail = "\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px"
+            rDetail = "\(CalibrationUnitConversion.displayNumber(size, locale: locale)) \(CalibrationUnitConversion.displayLabel(units))/px"
         } else if positiveR, let size = calibration.rPixelSize {
             let units = calibration.rPixelUnits ?? "no units"
             rDetail = CalibrationUnitConversion.isPixelUnit(calibration.rPixelUnits)
-                ? "Real-space dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px)"
+                ? "Real-space dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size, locale: locale)) \(CalibrationUnitConversion.displayLabel(units))/px)"
                 : "Real-space scale lacks supported physical units (\(units))"
         } else {
             rDetail = "Real-space dimensions remain in pixels"

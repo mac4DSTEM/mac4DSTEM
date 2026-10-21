@@ -152,3 +152,5 @@ Ordered as the ROADMAP takes them.
 - SpectroKit `package` reach left in the unit tests (after 0.8.2): `UnlistedLineCheck`, `ElementCandidate`, `ProposalResult`, `LineWindow` / `ResolvedWindow` initialisers, `SpectrumDetectorSegment` init, `PooledQuantificationInput.method` and the proposer fields (`lines`, `names`, `candidates`, `withholds`, `moves`, `sigmaScopeLine`). Public accessors or fixtures builders are a kit ask; the app code itself uses none of them.
 
 - Velox single spectra (task 6): `VeloxSpectrumSignals` maps no `live_time` / `real_time` for `fei_emd_spectrum.emd` (Velox v4; `DetectorMetadata.LiveTime` is not where that file keeps them), so the one-pixel spectrum opens without them. FormatoKit ask: find the v4 location (the file has them, h5py) and map it. The app reads the two keys when present.
+
+- Number formatting (2026-10-21 UI check): the colorbar values on the image panes (0.88 / 96.11, 1.16e+04) use periods beside locale-formatted scale bars (0,2 A^-1, 1 nm); one formatter for the pane overlays is open.

@@ -282,7 +282,7 @@ struct PrepareSettings: View {
             }
 
             if let radius = calibration.probeRadius {
-                InspectorValueRow("Probe radius", String(format: "%.1f px", radius))
+                InspectorValueRow("Probe radius", CalibrationUnitConversion.displayNumber(Double(radius), digits: 3) + "\u{00A0}px")
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("calibration.probeRadius")
                     .accessibilityValue(String(format: "%.1f", radius))
