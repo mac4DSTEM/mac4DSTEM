@@ -5,6 +5,17 @@ import SpectroCore
 
 
 // MARK: - HDF5 dynamic binding
+//
+// delete at FormatoKit <next>: the session-sidecar WRITER (this binding, HDF5WritePrimitives.swift, SessionSidecarWriting.swift and
+// `BraggVectorEMDWriter.publish` / `temporaryPublishURL`) is not switched in the 0.7.0 round. FormatoKit 0.7.0 has the pieces: `HDF5NewFile.write`
+// (item-replacement scratch and an atomic publish, so `temporaryPublishURL` goes), `writeEMDFileHeader` / `createEMDRoot` /
+// `writeEMDCalibration` / `writeEMDScalarMap` / `writeEMDRGBAMap`, `writeText` / `writeBool` / `setVariableLengthTextAttribute`,
+// `copyObject(from:_:to:replace:)` for the carried-over objects, and `BraggVectorsEMD.write` for the variable-length peak grid (its
+// sandbox fix is that item-replacement build). What is left is not a drop-in: `writeFile` is one function that holds the new file's
+// handle, an `H5Ocopy` handle on the file it replaces and the app's `mac4dstem_*` attributes in a fixed order, so it has to be
+// rewritten onto a session, and its output compared object by object (every dataset's bytes, every attribute, link order) with the
+// former writer's over the sidecar variants (`tools/harnesses/sidecar-result-test`, the sidecar-parity gate). `write(vectors:)` has
+// no production caller, so it is not the place to start.
 
 nonisolated let h5DefaultProperty: hid_t = 0
 nonisolated let h5EntireDataspace: hid_t = 0
