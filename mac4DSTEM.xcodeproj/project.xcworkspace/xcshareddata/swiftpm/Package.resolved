@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/FormatoKit",
       "state" : {
-        "revision" : "018abf59bc6609e77e6ca620bf46d3ea64e266e8",
-        "version" : "0.5.0"
+        "revision" : "80b11b7079ceb9b4199dd594a629f00f9e9c81c2",
+        "version" : "0.7.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",
       "state" : {
-        "revision" : "1669bf13cfbcad459978ac4501ec937ef54f75e6",
-        "version" : "0.7.0"
+        "revision" : "e35268fa7ff2e08db9fdfc22288128c77df20eca",
+        "version" : "0.7.1"
       }
     }
   ],
