@@ -1,8 +1,9 @@
 //
 //  ACOMKitCallSiteTests.swift
-//  Tier 1 (orientation numbers): the app's call sites of DiffractoKit's ACOM route. `OrientationMatching.matchAll` feeds the
-//  kit's scan loop in chunks of 8192 positions, and `OrientationPlan.generate` maps the beam wavelength to the kit's
-//  excitation model. Both are the app's own glue, so both are pinned here.
+//  Tier 1 (orientation numbers): the app's call sites of DiffractoKit's ACOM route. `OrientationMatching.matchAll` hands the
+//  kit's scan loop a lazy view of the app's peaks (`matchAll(peaksAt:)`, DiffractoKit 0.7.0), and `OrientationPlan.generate`
+//  maps the beam wavelength to the kit's excitation model and its cancellation and progress to the kit's. Both are the app's
+//  own glue, so both are pinned here.
 //
 
 import XCTest
@@ -13,10 +14,10 @@ import simd
 
 final class ACOMKitCallSiteTests: XCTestCase {
 
-    /// A scan of more than one chunk (91 x 91 = 8281 > 8192): the chunked CPU path gives, position by position, exactly the
-    /// results of one kit call over the whole scan. Mutation (scatter a chunk's results to the wrong positions or restart
-    /// something per chunk): a position of the second chunk differs and this goes red.
-    func testChunkedCPUScanEqualsOneKitCallOverTheWholeScan() throws {
+    /// A 91 x 91 scan (8281 positions, the size of the former two chunks): the app's CPU path gives, position by position,
+    /// exactly the results of the kit's `[[ACOMPeak]]` call over the whole scan. Mutation (hand the kit the peaks of the wrong
+    /// position, e.g. a row-major index off by the scan width): positions differ and this goes red.
+    func testCPUScanEqualsOneKitCallOverTheWholeScan() throws {
         let crystal = Crystal.gold
         let plan = try XCTUnwrap(OrientationPlan.generate(crystal: crystal, kMax: 1.2, nRadial: 12, nAzimuthal: 64,
                                                           zoneAxisCount: 12, wavelengthAngstrom: 0.0251))
@@ -53,12 +54,51 @@ final class ACOMKitCallSiteTests: XCTestCase {
         XCTAssertEqual(app.results.count, width * height)
         var differing = 0
         for index in app.results.indices where app.results[index] != kit.results[index] { differing += 1 }
-        XCTAssertEqual(differing, 0, "\(differing) positions differ between the chunked run and one kit call")
+        XCTAssertEqual(differing, 0, "\(differing) positions differ between the app run and one kit call")
         XCTAssertTrue(app.results.contains { $0.templateIndex >= 0 }, "the scan must have matched something")
         XCTAssertTrue(app.results.contains { $0.templateIndex < 0 }, "the empty positions stay unmatched")
         let seen = fractions.values
         XCTAssertEqual(seen.last ?? 0, 1, accuracy: 1e-9, "progress ends at 1 over the whole selection")
-        XCTAssertTrue(zip(seen, seen.dropFirst()).allSatisfy { $0 <= $1 + 1e-12 }, "progress never goes back across chunks")
+        XCTAssertTrue(zip(seen, seen.dropFirst()).allSatisfy { $0 <= $1 + 1e-12 }, "progress never goes back")
+    }
+
+    /// A cancellation token reaches the kit's library build (DiffractoKit 0.7.0 `isCancelled`): a token cancelled at the third
+    /// beam direction stops the build there (no plan), a live token gives the plan, and `progress` ends at 1.
+    /// Mutation (drop the `isCancelled:` argument): the build runs to the end, a plan comes back and this goes red.
+    func testGenerateStopsInsideTheBuildWhenCancelledAndReportsProgress() throws {
+        let token = AnalysisCancellationToken()
+        let calls = FractionLog()
+        let cancelled = OrientationPlan.generate(
+            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24, cancellation: token,
+            progress: { fraction in
+                calls.record(fraction)
+                if calls.values.count == 3 { token.cancel() }
+            })
+        XCTAssertNil(cancelled)
+        XCTAssertEqual(calls.values.count, 3, "no beam direction is built after the cancel")
+
+        let done = FractionLog()
+        let plan = try XCTUnwrap(OrientationPlan.generate(
+            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 24,
+            cancellation: AnalysisCancellationToken(), progress: { done.record($0) }))
+        XCTAssertEqual(done.values.count, plan.count)
+        XCTAssertEqual(done.values.last ?? 0, 1, accuracy: 1e-12)
+        // A token cancelled before the call builds nothing.
+        let early = AnalysisCancellationToken(); early.cancel()
+        XCTAssertNil(OrientationPlan.generate(crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 24, cancellation: early))
+    }
+
+    /// The kit draws the polar image of ONE peak (0.7.0; `match` still needs two): the app's `[BraggPeak]` spelling reaches it.
+    func testOnePeakHasAPolarImageButNoMatch() throws {
+        let plan = try XCTUnwrap(OrientationPlan.generate(crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32,
+                                                          zoneAxisCount: 12))
+        let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
+        let one = [BraggPeak(x: 70, y: 64, intensity: 1)]
+        let image = try XCTUnwrap(matcher.experimentalPolarImage(peaks: one, originX: 64, originY: 64, invAngstromPerPixel: 0.05))
+        XCTAssertEqual(image.count, 8 * 32)
+        XCTAssertTrue(image.contains { $0 != 0 })
+        XCTAssertNil(matcher.experimentalPolarImage(peaks: [], originX: 64, originY: 64))
+        XCTAssertEqual(matcher.match(peaks: one, originX: 64, originY: 64, invAngstromPerPixel: 0.05).templateIndex, -1)
     }
 
     /// The beam wavelength reaches the kit as the app's curved Ewald sphere; without one (or with a non-positive one) the

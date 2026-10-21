@@ -98,7 +98,7 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     var correlationReal = [Float](repeating: 0, count: na)
     var correlationImaginary = [Float](repeating: 0, count: na)
     // Per-template scores are retained, then reduced by the same
-    // selectOrientation the production matcher uses — the runner-up has to be
+    // winner rule the production matcher uses (`ACOMMatcher.result(scores:bins:mirrored:)`) — the runner-up has to be
     // a template far enough away to be a different orientation.
     var templateScores = [Float](repeating: 0, count: plan.count)
     var templateBins = [UInt32](repeating: 0, count: plan.count)
@@ -136,12 +136,13 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
             }
         }
     }
-    let selected = selectOrientation(
-        zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
-        distinctOrientationRad: plan.distinctOrientationRad
+    guard let matcher = ACOMMatcher(library: plan.library) else { fail("matcher") }
+    let selected = matcher.result(
+        scores: templateScores, bins: templateBins, mirrored: [Bool](repeating: false, count: plan.count)
     )
-    return (selected.template, (na - selected.bin) % na,
-            selected.score, selected.secondScore)
+    // The result's in-plane angle is the negated bin (no mirrored winner is asked for here), so the bin returns by rounding.
+    let negatedBin = Int((selected.inPlaneAngle / (2 * .pi) * Float(na)).rounded()) % na
+    return (selected.templateIndex, negatedBin, selected.score, selected.secondScore)
 }
 
 let crystal = Crystal.gold

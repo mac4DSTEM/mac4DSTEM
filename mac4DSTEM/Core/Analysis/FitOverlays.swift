@@ -225,7 +225,7 @@ package nonisolated enum FitOverlays {
             // The direct beam is the origin marker, not a template spot.
             guard radiusPx > 0.5 else { continue }
             // A mirrored win matched the azimuth-reversed template: the stored
-            // angle is phi0 + pi (DiffractoKit ACOMMatcher.makeResult; MetalACOMMatcher's makeOrientationResult) and
+            // angle is phi0 + pi (DiffractoKit ACOMMatcher.makeResult, also behind `result(scores:bins:mirrored:)` for the Metal batch) and
             // the pattern satisfies E(a) = T(-a - phi0), so a spot at template
             // azimuth t sits at -t - phi0 = pi - (t + stored angle).
             let azimuth = result.mirrored

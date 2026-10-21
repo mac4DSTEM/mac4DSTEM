@@ -56,8 +56,8 @@ package nonisolated struct OrientationPlan {
     /// a structure it refuses), and so does `.identity`, which has no fundamental zone. `refusalReason` names the cause the
     /// Generate button shows.
     ///
-    /// The kit's generation takes no cancellation token, so a token is honoured before and after the build, not inside it.
-    // delete at DiffractoKit 0.6: ACOMTemplateLibrary.generate has no cancellation hook (a 600-template build is seconds).
+    /// Cancellation is polled by the kit before every beam direction (DiffractoKit 0.7.0, `ACOMError.cancelled`), so a token
+    /// stops the build inside it; `progress` is the fraction of beam directions done, from the calling thread.
     package static func generate(crystal: CrystalStructure,
                          kMax: Double,
                          nRadial: Int = 32,
@@ -72,7 +72,8 @@ package nonisolated struct OrientationPlan {
                          radialPower: Double = 0,
                          radialKernelInvAngstrom: Double = 0.08,
                          distinctOrientationDeg: Double = 10,
-                         cancellation: AnalysisCancellationToken? = nil) -> OrientationPlan? {
+                         cancellation: AnalysisCancellationToken? = nil,
+                         progress: (@Sendable (Double) -> Void)? = nil) -> OrientationPlan? {
         guard cancellation?.isCancelled != true, let laueClass = symmetry.laueClass else { return nil }
         // A structure the kit refuses (an element outside the scattering table, an invalid or too large cell) has no
         // plan: nil, as an empty reflection list always was. Only the reflections above the |F| cut are kept.
@@ -90,9 +91,10 @@ package nonisolated struct OrientationPlan {
             azimuthalBlurBins: azimBlurBins, intensityPower: intensityPower, radialPower: radialPower,
             radialKernel: radialKernelInvAngstrom, distinctOrientationDegrees: distinctOrientationDeg,
             excitation: excitation)
+        let isCancelled: (@Sendable () -> Bool)? = cancellation.map { token in { token.isCancelled } }
         guard let library = try? ACOMTemplateLibrary.generate(
-            reflections: reflections, kMax: kMax, laueClass: laueClass, settings: settings),
-              cancellation?.isCancelled != true else { return nil }
+            reflections: reflections, kMax: kMax, laueClass: laueClass, settings: settings,
+            isCancelled: isCancelled, progress: progress) else { return nil }
         return OrientationPlan(library: library, symmetry: symmetry)
     }
 

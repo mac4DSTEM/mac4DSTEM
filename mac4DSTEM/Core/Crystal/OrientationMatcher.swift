@@ -2,9 +2,10 @@
 //  OrientationMatcher.swift
 //  Role: ACOM orientation matching in the app. The CPU matcher (a pattern's peaks to a polar image, the azimuthal FFT
 //        correlation against every template, the forward and the mirrored pass, the distinct runner-up, the symmetry
-//        reduction) and the scan loop with its selection, workers, progress and cancellation are DiffractoKit's since
-//        0.5.0 (`ACOMMatcher`, `ACOMMatcher.matchAll`, `ACOMScanSelection`, `ACOMScanResults`). What stays here is what the
-//        kit does not offer: the Metal backend (`MetalACOMMatcher`: the batched correlation on the GPU, reading the kit
+//        reduction), the choice of a winner from per-template scores a caller computed (`ACOMMatcher.result(scores:...)`)
+//        and the scan loop with its selection, workers, progress and cancellation are DiffractoKit's (`ACOMMatcher`,
+//        `ACOMMatcher.matchAll(peaksAt:)`, `ACOMScanSelection`, `ACOMScanResults`; 0.7.0). What stays here is what the kit
+//        does not offer: the Metal backend (`MetalACOMMatcher`: the batched correlation on the GPU, reading the kit
 //        library's template FFTs), the choice of backend, and the adapters from the app's `BraggPeak` / `BraggVectors`
 //        and `OrientationMap`.
 //
@@ -48,64 +49,6 @@ extension ACOMMatcher {
         experimentalFFT(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
                         invAngstromPerPixel: invAngstromPerPixel)
     }
-}
-
-// MARK: - Winner and result of a GPU batch
-
-/// Pick the winning template and the best *distinct* runner-up from the scores a Metal batch produced: the rule of the
-/// kit's CPU matcher (templates within the distinct angle of the winner are not an alternative), applied to the GPU's scores.
-// delete at DiffractoKit 0.6: `ACOMMatcher.selectOrientation` is `package` there; the Metal backend needs a public
-// result-from-scores entry (winner, runner-up, orientation matrix, symmetry reduction) so this and `makeOrientationResult`
-// can go.
-package nonisolated func selectOrientation(
-    zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
-    distinctOrientationRad: Double
-) -> (template: Int, bin: Int, score: Float, secondScore: Float) {
-    var best: Float = -.greatestFiniteMagnitude
-    var bestTemplate = -1
-    for t in 0..<scores.count where scores[t] > best {
-        best = scores[t]; bestTemplate = t
-    }
-    guard bestTemplate >= 0 else { return (-1, 0, 0, 0) }
-
-    let winner = zoneAxes[bestTemplate]
-    let cosLimit = cos(distinctOrientationRad)
-    var second: Float = -.greatestFiniteMagnitude
-    for t in 0..<scores.count where t != bestTemplate {
-        if simd_dot(zoneAxes[t], winner) > cosLimit { continue }
-        if scores[t] > second { second = scores[t] }
-    }
-    // A bank too coarse to hold any distinct alternative cannot express doubt.
-    if second == -.greatestFiniteMagnitude { second = 0 }
-    return (bestTemplate, Int(bins[bestTemplate]), best, second)
-}
-
-/// The result for a GPU-selected winner, as the kit's CPU matcher builds it: the correlation peaks at -theta, so the
-/// pattern rotation is the negated bin; a mirrored win carries py4DSTEM's extra half turn and the beam flip (both inside
-/// `ACOMTemplateLibrary.orientationMatrix`); then the symmetry reduction.
-private nonisolated func makeOrientationResult(
-    plan: OrientationPlan,
-    bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float,
-    mirrored: Bool = false
-) -> OrientationResult {
-    guard bestTemplate >= 0 else { return .empty }
-    let azimuthalCount = plan.geometry.nAzimuthal
-    let bin = (azimuthalCount - bestBin) % azimuthalCount
-    var angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
-    if mirrored {
-        angle = (angle + .pi).truncatingRemainder(dividingBy: 2 * .pi)
-    }
-    let orientationMatrix = plan.library.orientationMatrix(
-        templateIndex: bestTemplate, inPlaneAngle: angle, mirrored: mirrored)
-    let reduced = plan.symmetry.reduce(orientationMatrix)
-    return OrientationResult(
-        templateIndex: bestTemplate,
-        euler: EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix),
-        inPlaneAngle: angle,
-        score: max(bestScore, 0), secondScore: max(secondScore, 0), phaseID: 0,
-        symmetryDisorientationRad: reduced.disorientationRad,
-        mirrored: mirrored
-    )
 }
 
 private nonisolated struct ACOMMetalParams {
@@ -239,18 +182,9 @@ package nonisolated final class MetalACOMMatcher {
                     bins[t] = mirror.bins[offset + t]
                     mirrored[t] = true
                 }
-                // Identical selection to the CPU path, including the
-                // distinct-orientation rule for the runner-up.
-                let selected = selectOrientation(
-                    zoneAxes: plan.zoneAxes, scores: scores, bins: bins,
-                    distinctOrientationRad: plan.distinctOrientationRad
-                )
-                map.results[lower + local] = makeOrientationResult(
-                    plan: plan,
-                    bestTemplate: selected.template, bestBin: selected.bin,
-                    bestScore: selected.score, secondScore: selected.secondScore,
-                    mirrored: selected.template >= 0 && mirrored[selected.template]
-                )
+                // The kit's own winner, distinct runner-up and symmetry reduction from the GPU's scores (DiffractoKit
+                // 0.7.0 `ACOMMatcher.result(scores:bins:mirrored:)`), so the choice is the CPU path's by construction.
+                map.results[lower + local] = preparer.result(scores: scores, bins: bins, mirrored: mirrored)
             }
             progress?(Double(upper) / Double(total))
         }
@@ -367,10 +301,6 @@ package nonisolated final class MetalACOMMatcher {
 
 package enum OrientationMatching {
 
-    /// Positions per chunk of the CPU path: the peaks of one chunk are converted to the kit's peak type at a time, so the
-    /// copy never holds a whole large scan twice.
-    private static let cpuChunk = 8192
-
     /// Match the requested scan positions against the plan. Full scans, preview and region work only touch their
     /// selected source positions. Progress is the requested work, not the full dataset size.
     package nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
@@ -420,31 +350,22 @@ package enum OrientationMatching {
             return nil
         }
         guard let matcher = ACOMMatcher(library: plan.library) else { return nil }
+        let isCancelled: @Sendable () -> Bool = { cancellation?.isCancelled == true }
+        // The kit's scan loop over the whole scan: the selected positions only, workers dealt round-robin, progress in
+        // 1 % batches over the selection, cancellation polled before each position. The peaks of a position are a lazy
+        // view of the app's `BraggPeak`s (DiffractoKit 0.7.0 `matchAll(peaksAt:)`): no `[[ACOMPeak]]` is built.
+        guard let scan = matcher.matchAll(
+            width: bragg.scanWidth, height: bragg.scanHeight,
+            originX: originX, originY: originY, invAngstromPerPixel: invAngstromPerPixel,
+            selection: selection, maxWorkers: nil, isCancelled: isCancelled, progress: progress,
+            peaksAt: { bragg.peaks[$0].lazy.map(ACOMPeak.init) }
+        ) else { return nil }
         var map = OrientationMap(
             width: bragg.scanWidth, height: bragg.scanHeight,
             matchingBackend: .cpu, symmetry: plan.symmetry, templateCount: plan.count
         )
-        let isCancelled: @Sendable () -> Bool = { cancellation?.isCancelled == true }
-        let total = selectedIndices.count
-        for lower in stride(from: 0, to: total, by: cpuChunk) {
-            if isCancelled() { return nil }
-            let chunk = selectedIndices[lower..<min(total, lower + cpuChunk)]
-            let peaks = chunk.map { bragg.peaks[$0].map(ACOMPeak.init) }
-            // The kit's scan loop over the chunk as a one-row scan: every selected position, workers dealt round-robin,
-            // progress in 1 % batches (rescaled here to the whole selection), cancellation polled before each position.
-            guard let part = matcher.matchAll(
-                peaks: peaks, width: chunk.count, height: 1,
-                originX: originX, originY: originY, invAngstromPerPixel: invAngstromPerPixel,
-                selection: .full, maxWorkers: nil, isCancelled: isCancelled,
-                progress: progress.map { report in
-                    { @Sendable fraction in
-                        report((Double(lower) + fraction * Double(chunk.count)) / Double(total))
-                    }
-                }
-            ) else { return nil }
-            for (k, source) in chunk.enumerated() { map.results[source] = part.results[k] }
-        }
-        return isCancelled() ? nil : expanded(map, selection: selection)
+        map.results = scan.results
+        return map
     }
 
     /// `preview` copies each matched block's top-left result over the block (the kit's rule); other selections unchanged.

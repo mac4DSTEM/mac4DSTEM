@@ -44,63 +44,68 @@ final class ACOMScanSelectionTests: XCTestCase {
         XCTAssertEqual(ACOMQualityPreset.best.templateCount, 400)
     }
 
-    // MARK: Reliability runner-up selection
+    // MARK: Reliability runner-up selection (the kit's `ACOMMatcher.result(scores:bins:mirrored:)`, DiffractoKit 0.7.0)
 
-    /// Four zone axes: the winner, a near-duplicate 2° away that scores almost
-    /// as well *because* it is a near-duplicate, and two genuinely different
-    /// orientations. Reliability must be measured against a real alternative,
-    /// not against the winner's own neighbour.
-    private func reliabilityFixture() -> (axes: [SIMD3<Double>], scores: [Float]) {
-        let twoDegrees = 2.0 * .pi / 180
-        return (
-            axes: [
-                SIMD3(0, 0, 1),
-                simd_normalize(SIMD3(sin(twoDegrees), 0, cos(twoDegrees))),
-                simd_normalize(SIMD3(1, 0, 1)),
-                simd_normalize(SIMD3(1, 1, 1)),
-            ],
-            scores: [0.90, 0.89, 0.40, 0.20]
-        )
+    /// A real gold library of 40 beam directions and a matcher over it. `distinctDegrees` is the angle within which a template
+    /// is the winner's neighbour and not a different orientation.
+    private func reliabilityFixture(distinctDegrees: Double) throws -> (library: ACOMTemplateLibrary, matcher: ACOMMatcher) {
+        let plan = try XCTUnwrap(OrientationPlan.generate(
+            crystal: Crystal.gold, kMax: 1.2, nRadial: 8, nAzimuthal: 32, zoneAxisCount: 40,
+            distinctOrientationDeg: distinctDegrees))
+        return (plan.library, try XCTUnwrap(ACOMMatcher(library: plan.library)))
     }
 
-    func testRunnerUpSkipsTemplatesTooCloseToBeADifferentOrientation() {
-        let fixture = reliabilityFixture()
-        let selected = selectOrientation(
-            zoneAxes: fixture.axes, scores: fixture.scores,
-            bins: [0, 0, 0, 0], distinctOrientationRad: 10 * .pi / 180
-        )
-        XCTAssertEqual(selected.template, 0)
-        XCTAssertEqual(selected.score, 0.90, accuracy: 1e-6)
-        // 0.89 belongs to the 2° neighbour and must be skipped; the best
-        // genuinely different orientation scores 0.40.
-        XCTAssertEqual(selected.secondScore, 0.40, accuracy: 1e-6)
-        let reliability = 1 - selected.secondScore / selected.score
-        XCTAssertGreaterThan(reliability, 0.5,
-                             "a clear winner must report high confidence")
+    /// Scores: template 0 wins with 0.90; every other template within the limit of it (its neighbours) scores 0.89 *because*
+    /// it is a near-duplicate; the one template farthest from it scores `farthest`; the rest 0.1. Returns the scores and
+    /// whether the library has a neighbour and a different orientation at all.
+    private func scores(_ library: ACOMTemplateLibrary, distinctDegrees: Double, farthest: Float)
+        -> (scores: [Float], neighbours: Int) {
+        let winner = library.zoneAxes[0]
+        let limit = cos(distinctDegrees * .pi / 180)
+        var scores = [Float](repeating: 0.1, count: library.count)
+        scores[0] = 0.90
+        var neighbours = 0, far = 0, farDot = 2.0
+        for t in 1..<library.count {
+            let d = simd_dot(library.zoneAxes[t], winner)
+            if d > limit { scores[t] = 0.89; neighbours += 1 }
+            if d < farDot { farDot = d; far = t }
+        }
+        scores[far] = farthest
+        return (scores, neighbours)
     }
 
-    func testZeroSeparationReproducesTheOldUnusableRunnerUp() {
-        let fixture = reliabilityFixture()
-        let selected = selectOrientation(
-            zoneAxes: fixture.axes, scores: fixture.scores,
-            bins: [0, 0, 0, 0], distinctOrientationRad: 0
-        )
-        XCTAssertEqual(selected.secondScore, 0.89, accuracy: 1e-6)
-        // This is the failure being fixed: an unambiguous match reporting
-        // near-zero confidence because its own neighbour was the runner-up.
-        XCTAssertLessThan(1 - selected.secondScore / selected.score, 0.02)
+    func testRunnerUpSkipsTemplatesTooCloseToBeADifferentOrientation() throws {
+        let (library, matcher) = try reliabilityFixture(distinctDegrees: 25)
+        let (s, neighbours) = scores(library, distinctDegrees: 25, farthest: 0.40)
+        XCTAssertGreaterThan(neighbours, 0, "the fixture needs near-duplicates of the winner")
+        let result = matcher.result(scores: s, bins: [UInt32](repeating: 0, count: s.count),
+                                    mirrored: [Bool](repeating: false, count: s.count))
+        XCTAssertEqual(result.templateIndex, 0)
+        XCTAssertEqual(result.score, 0.90, accuracy: 1e-6)
+        // 0.89 belongs to the neighbours and must be skipped; the best genuinely different orientation scores 0.40.
+        XCTAssertEqual(result.secondScore, 0.40, accuracy: 1e-6)
+        XCTAssertGreaterThan(result.reliability, 0.5, "a clear winner must report high confidence")
     }
 
-    func testGenuinelyAmbiguousMatchStillReportsLowConfidence() {
-        var fixture = reliabilityFixture()
-        fixture.scores[2] = 0.88          // a far-away orientation nearly ties
-        let selected = selectOrientation(
-            zoneAxes: fixture.axes, scores: fixture.scores,
-            bins: [0, 0, 0, 0], distinctOrientationRad: 10 * .pi / 180
-        )
-        XCTAssertEqual(selected.secondScore, 0.88, accuracy: 1e-6)
-        XCTAssertLessThan(1 - selected.secondScore / selected.score, 0.05,
-                          "a real tie must still read as low confidence")
+    func testZeroSeparationReproducesTheOldUnusableRunnerUp() throws {
+        let (library, matcher) = try reliabilityFixture(distinctDegrees: 0)
+        let (s, neighbours) = scores(library, distinctDegrees: 25, farthest: 0.40)
+        XCTAssertGreaterThan(neighbours, 0)
+        let result = matcher.result(scores: s, bins: [UInt32](repeating: 0, count: s.count),
+                                    mirrored: [Bool](repeating: false, count: s.count))
+        XCTAssertEqual(result.secondScore, 0.89, accuracy: 1e-6)
+        // This is the failure being fixed: an unambiguous match reporting near-zero confidence because its own
+        // neighbour was the runner-up.
+        XCTAssertLessThan(result.reliability, 0.02)
+    }
+
+    func testGenuinelyAmbiguousMatchStillReportsLowConfidence() throws {
+        let (library, matcher) = try reliabilityFixture(distinctDegrees: 25)
+        let (s, _) = scores(library, distinctDegrees: 25, farthest: 0.88)    // a far-away orientation nearly ties
+        let result = matcher.result(scores: s, bins: [UInt32](repeating: 0, count: s.count),
+                                    mirrored: [Bool](repeating: false, count: s.count))
+        XCTAssertEqual(result.secondScore, 0.88, accuracy: 1e-6)
+        XCTAssertLessThan(result.reliability, 0.05, "a real tie must still read as low confidence")
     }
 
     // MARK: Radial deposition
@@ -148,14 +153,13 @@ final class ACOMScanSelectionTests: XCTestCase {
         )
     }
 
-    func testBankWithNoDistinctAlternativeCannotClaimDoubt() {
-        let twoDegrees = 2.0 * .pi / 180
-        let selected = selectOrientation(
-            zoneAxes: [SIMD3(0, 0, 1),
-                       simd_normalize(SIMD3(sin(twoDegrees), 0, cos(twoDegrees)))],
-            scores: [0.9, 0.89], bins: [0, 0],
-            distinctOrientationRad: 10 * .pi / 180
-        )
-        XCTAssertEqual(selected.secondScore, 0)
+    func testBankWithNoDistinctAlternativeCannotClaimDoubt() throws {
+        let (library, matcher) = try reliabilityFixture(distinctDegrees: 179)   // every template is the winner's neighbour
+        var s = [Float](repeating: 0.89, count: library.count)
+        s[0] = 0.9
+        let result = matcher.result(scores: s, bins: [UInt32](repeating: 0, count: s.count),
+                                    mirrored: [Bool](repeating: false, count: s.count))
+        XCTAssertEqual(result.templateIndex, 0)
+        XCTAssertEqual(result.secondScore, 0)
     }
 }
