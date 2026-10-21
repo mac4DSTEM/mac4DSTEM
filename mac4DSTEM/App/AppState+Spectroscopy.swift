@@ -318,7 +318,8 @@ enum DemoSpectrumImageSource {
     /// The launch flag's once-guard, process-wide (`DatasetWindow`).
     static var openedAtLaunch = false
 
-    static func make() -> LoadedSpectrumImage {
+    /// `beamEnergyKeV` nil keeps the metadata the goldens were recorded with; the launch flag states 200 kV so Auto ID and Quantify can run.
+    static func make(beamEnergyKeV: Double? = nil) -> LoadedSpectrumImage {
         let ny = 32, nx = 32, channels = 1024
         var counts = [UInt32](repeating: 0, count: ny * nx * channels)
         var state: UInt64 = 0x9E3779B97F4A7C15
@@ -340,6 +341,7 @@ enum DemoSpectrumImageSource {
                                          channelCount: channels, energyOffsetEV: 0, energyDispersionEV: 10,
                                          scanPixelSize: 1, scanPixelUnit: "nm")
         meta.origin = nil
+        meta.beamEnergyKeV = beamEnergyKeV
         return LoadedSpectrumImage(image: DenseSpectrumImage(ny: ny, nx: nx, channels: channels, counts: counts), metadata: meta,
                                    energyAxis: EnergyAxis(offset: 0, scale: 0.01, size: channels))
     }

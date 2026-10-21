@@ -149,7 +149,7 @@ private struct DatasetWindow: View {
             guard !DemoSpectrumImageSource.openedAtLaunch,
                   ProcessInfo.processInfo.arguments.contains("--demo-spectrum-fixture") else { return }
             DemoSpectrumImageSource.openedAtLaunch = true
-            appState.openSpectrumImage(DemoSpectrumImageSource.make())
+            appState.openSpectrumImage(DemoSpectrumImageSource.make(beamEnergyKeV: 200))
         }
         #endif
     }

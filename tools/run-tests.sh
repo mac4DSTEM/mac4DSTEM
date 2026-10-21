@@ -379,8 +379,11 @@ ui_tests() (
   sha="$(git -C "$ROOT" rev-parse --short HEAD)"
   mkdir -p "$gate"
   rm -rf "$gate/ui.xcresult"
-  if [[ $# -eq 0 ]]; then only=(-only-testing:mac4DSTEMUITests); else
-    for j in "$@"; do only+=(-only-testing:mac4DSTEMUITests/$j); done
+  # No argument: every functional journey (the per-landing set). `Performance` runs the measured journey, `all` runs everything.
+  if [[ $# -eq 0 ]]; then only=(-only-testing:mac4DSTEMUITests -skip-testing:mac4DSTEMUITests/PerformanceJourney)
+  elif [[ "$1" == all ]]; then only=(-only-testing:mac4DSTEMUITests)
+  else
+    for j in "$@"; do [[ "$j" == Performance ]] && j=PerformanceJourney; only+=(-only-testing:mac4DSTEMUITests/$j); done
   fi
   cd "$ROOT"
   # One screen, one mouse, one UI-test session: macTEM's and mac4DSTEM's runs take the same machine-wide lock (lockf blocks until it
