@@ -1,6 +1,7 @@
 //
 //  MatrixDFTCorrelation.swift
 //  Shared py4DSTEM-compatible subpixel correlation refinement.
+//  delete at CuboKit 0.7 with ParallaxAlignment.swift's Float path (CuboParallax has the Double form; see that file for the misfit).
 //
 
 import Foundation

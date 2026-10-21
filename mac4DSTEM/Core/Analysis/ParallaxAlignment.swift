@@ -3,6 +3,12 @@
 //  Immutable coarse-to-fine alignment levels from py4DSTEM
 //  Parallax.reconstruct, including factor-8 matrix-DFT refinement.
 //
+//  delete at CuboKit 0.7: CuboParallax 0.6.0 has the Fourier shift (`ParallaxFourierShifter`), the spectrum-level estimate
+//  (`correlationShift`) and the matrix-DFT peak this file and MatrixDFTCorrelation.swift carry, and agrees with them (factor 1
+//  exactly, factor 8 to 8.2e-5 px; ParallaxKitSwitchTests), but its Double 2-D FFT is about 5x slower than ImagoCore's Float FFT2D:
+//  the whole 5-level alignment of 121 bright-field images on a 160 x 160 stack took 0.58 s here and 2.71 s through the shifter
+//  (2026-10-21, one core; a 1.9 ms shift against 0.4 ms). Ask of the kit: a faster Double FFT (vDSP-backed) or a Float shifter.
+//
 
 import Accelerate
 import Foundation

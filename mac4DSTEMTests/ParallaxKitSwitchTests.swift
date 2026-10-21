@@ -109,4 +109,84 @@ final class ParallaxKitSwitchTests: XCTestCase {
         XCTAssertEqual(all.values.first ?? 0, 0.2 + 0.7 / 3, accuracy: 1e-12)
         XCTAssertEqual(all.values.last, 1)
     }
+
+    // MARK: - Alignment stays on the app's Float path (CuboKit 0.6.0's Double shifter is 4.7x slower)
+
+    private struct AlignmentFixture: Decodable {
+        struct Level: Decodable { let bin: Int; let group: [Double]; let total: [Double]; let aligned: [Double]? }
+        let f1: [Level]; let f8: [Level]
+    }
+
+    private func levels(factor: Int) throws -> [ParallaxAlignmentResult] {
+        let (pre, _) = syntheticParallax()
+        var options = ParallaxAlignmentOptions()
+        options.upsampleFactor = factor
+        var previous: ParallaxAlignmentResult?
+        var out = [ParallaxAlignmentResult]()
+        while true {
+            let next = try ParallaxAligner.alignNextLevel(preprocessing: pre, previous: previous, options: options)
+            out.append(next); previous = next
+            if next.isComplete { return out }
+        }
+    }
+
+    /// The app's Float alignment against what CuboKit 0.6.0's `ParallaxFourierShifter` (Double) gives inside the same level logic, on a
+    /// textured stack shifted by a known linear field: integer peaks (factor 1) exactly, factor 8 within 2e-4 px (measured 8.2e-5, the
+    /// Float matrix-DFT refinement), the aligned image within 5e-5 (measured 8e-6). This is the guard for the day the kit's shifter is
+    /// fast enough to take over (`ParallaxAlignment.swift`, "delete at CuboKit 0.7"). Mutation: flip a shift sign or the running-average
+    /// weights -> red.
+    func testTheFloatAlignmentAgreesWithTheKitShifterOnAKnownField() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/Parallax/kit-alignment-synthetic.json")
+        let fixture = try JSONDecoder().decode(AlignmentFixture.self, from: Data(contentsOf: url))
+        for (factor, expected, tolerance, imageTolerance) in [(1, fixture.f1, 1e-6, 5e-5), (8, fixture.f8, 2e-4, 5e-5)] {
+            let actual = try levels(factor: factor)
+            XCTAssertEqual(actual.map(\.alignmentBin), expected.map(\.bin))
+            for (level, kit) in zip(actual, expected) {
+                let group = level.groupShifts.flatMap { [Double($0.row), Double($0.column)] }
+                let total = level.totalShifts.flatMap { [Double($0.row), Double($0.column)] }
+                XCTAssertEqual(group.count, kit.group.count)
+                XCTAssertEqual(total.count, kit.total.count)
+                XCTAssertLessThanOrEqual(zip(group, kit.group).map { abs($0 - $1) }.max() ?? 0, tolerance, "factor \(factor) bin \(kit.bin) group shifts")
+                XCTAssertLessThanOrEqual(zip(total, kit.total).map { abs($0 - $1) }.max() ?? 0, tolerance, "factor \(factor) bin \(kit.bin) total shifts")
+                if let image = kit.aligned {
+                    XCTAssertLessThanOrEqual(zip(level.alignedBF, image).map { abs(Double($0) - $1) }.max() ?? 0, imageTolerance, "aligned image")
+                }
+            }
+        }
+    }
+}
+
+private struct SynthLCG { var s: UInt64
+  mutating func next() -> Double { s = s &* 6364136223846793005 &+ 1442695040888963407; return Double(s >> 11) / Double(1 << 53) } }
+
+/// Bright-field images of a periodic texture shifted by a linear aberration field: 7x7 detector pixels, 40x40 padded stack.
+private func syntheticParallax() -> (pre: ParallaxPreprocessResult, truth: [ParallaxScanShift]) {
+  let h = 40, w = 40, scan = 24, n = 7
+  var g = SynthLCG(s: 99)
+  var waves: [(kr: Double, kc: Double, a: Double, p: Double)] = []
+  for _ in 0..<14 { waves.append((Double(Int(g.next() * 7) - 3), Double(Int(g.next() * 7) - 3), 0.2 + g.next(), g.next() * 2 * .pi)) }
+  var indices: [ParallaxDetectorIndex] = [], vectors: [ParallaxVector] = [], truth: [ParallaxScanShift] = []
+  var stack: [Float] = []
+  for qx in 0..<n { for qy in 0..<n {
+    let cx = Double(qx - 3), cy = Double(qy - 3)
+    let sr = 0.62 * cx + 0.21 * cy, sc = -0.18 * cx + 0.55 * cy
+    indices.append(ParallaxDetectorIndex(qx: qx, qy: qy)); vectors.append(ParallaxVector(qx: Float(cx), qy: Float(cy)))
+    truth.append(ParallaxScanShift(row: Float(sr), column: Float(sc)))
+    for r in 0..<h { for c in 0..<w {
+      var v = 2.0
+      for wv in waves { v += wv.a * cos(2 * .pi * (wv.kr * (Double(r) - sr) / Double(h) + wv.kc * (Double(c) - sc) / Double(w)) + wv.p) }
+      stack.append(Float(v))
+    } }
+  } }
+  let plane = h * w, count = n * n
+  var mean = [Float](repeating: 0, count: plane)
+  for b in 0..<count { for p in 0..<plane { mean[p] += stack[b * plane + p] / Float(count) } }
+  let pre = ParallaxPreprocessResult(
+    scanHeight: scan, scanWidth: scan, detectorHeight: n, detectorWidth: n, stackHeight: h, stackWidth: w,
+    calibration: ParallaxPhysicalCalibration(scanSamplingAngstrom: 0.5, reciprocalSamplingInvAngstrom: 0.01, energyEV: 200_000, wavelengthAngstrom: 0.025079, originQX: 0, originQY: 0, rotationRad: 0, transpose: false),
+    thresholdIntensity: 0.8, detectorMask: [Bool](repeating: true, count: count), detectorIndices: indices,
+    reciprocalVectors: vectors, probeAnglesMrad: vectors, edgeWindow: [Float](repeating: 1, count: scan * scan),
+    normalizedStack: stack, unshiftedStack: stack, incoherentBF: mean, initialError: 0.1)
+  return (pre, truth)
 }
