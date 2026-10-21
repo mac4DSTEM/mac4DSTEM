@@ -157,6 +157,8 @@ package nonisolated struct OrientationMap {
     private func plane(_ pixels: [Float]) -> FloatImage { FloatImage(width: width, height: height, pixels: pixels) }
 
     package var reliabilityImage: FloatImage { plane(OrientationMapAnalysis.reliabilityPlane(results)) }
+    /// 1 at a mirrored match, 0 elsewhere (`OrientationMapAnalysis.mirroredPlane`): the plane the in-plane angle needs to be read with.
+    package var mirroredImage: FloatImage { plane(OrientationMapAnalysis.mirroredPlane(results).map(Float.init)) }
     package var scoreImage: FloatImage { plane(OrientationMapAnalysis.scorePlane(results)) }
     /// In-plane rotation angle at each position, in [0, 1) (radians / 2π), for a cyclic colormap.
     package var inPlaneAngleImage: FloatImage { plane(OrientationMapAnalysis.inPlaneAnglePlane(results)) }

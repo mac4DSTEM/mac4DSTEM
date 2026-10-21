@@ -57,6 +57,7 @@ package enum OrientationMatching {
                                      invAngstromPerPixel: Double = 1,
                                      backend: ACOMMatchingBackend = .automatic,
                                      selection: ACOMScanSelection = .full,
+                                     refinesInPlaneAngle: Bool = false,
                                      cancellation: AnalysisCancellationToken? = nil,
                                      progress: (@Sendable (Double) -> Void)? = nil) -> OrientationMap? {
         guard cancellation?.isCancelled != true else { return nil }
@@ -64,7 +65,9 @@ package enum OrientationMatching {
             width: bragg.scanWidth, height: bragg.scanHeight
         )
         guard !selectedIndices.isEmpty else { return nil }
-        guard let matcher = ACOMMatcher(library: plan.library) else { return nil }
+        // `refinesInPlaneAngle` (DiffractoKit 0.9, default off): the CPU scan places the in-plane angle at the vertex of the parabola
+        // through the correlation peak; the Metal backend carries the bin.
+        guard let matcher = ACOMMatcher(library: plan.library, refinesInPlaneAngle: refinesInPlaneAngle) else { return nil }
         let isCancelled: @Sendable () -> Bool = { cancellation?.isCancelled == true }
         // The kit's scan loop over the whole scan: the selected positions only, workers dealt round-robin, progress in
         // 1 % batches over the selection, cancellation polled before each position. `.automatic` is the CPU reference: the

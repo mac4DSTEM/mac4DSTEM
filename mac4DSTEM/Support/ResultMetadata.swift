@@ -110,6 +110,7 @@ extension AppState {
             case .disorientation:
                 baseKind = "acom_\(acomSession.orientationMap?.symmetry.rawValue ?? "symmetry")_fz_angle"
             case .inPlane:     baseKind = "acom_in_plane"
+            case .mirrored:    baseKind = "acom_mirrored"
             case .phi1:        baseKind = "acom_phi1"
             case .Phi:         baseKind = "acom_Phi"
             case .phi2:        baseKind = "acom_phi2"

@@ -249,6 +249,7 @@ extension AppState {
             if let reason = replayScaleRefusal(acomPlan) { return .refused(reason) }
             acomSession.scope = acomPlan.scope
             acomSession.quality = acomPlan.quality
+            acomSession.refinesInPlaneAngle = acomPlan.refinesInPlaneAngle
             if let reason = replayRefusal(for: .acom) { return .refused(reason) }
             return .ran(await runACOM(replaying: true))
         }

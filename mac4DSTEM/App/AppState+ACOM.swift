@@ -278,6 +278,7 @@ extension AppState {
         )
         let modelRevision = model.revisionID
         let backend = acomSession.effectiveBackend
+        let refinesInPlane = acomSession.refinesInPlaneAngle
         let epoch = datasetSession.epoch
         let map = await Task.detached(priority: .userInitiated) { [self] in
             OrientationMatching.matchAll(bragg: calibrated.vectors, plan: plan,
@@ -285,6 +286,7 @@ extension AppState {
                                          invAngstromPerPixel: scale,
                                          backend: backend,
                                          selection: selection,
+                                         refinesInPlaneAngle: refinesInPlane,
                                          cancellation: cancellation) { fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
@@ -324,7 +326,7 @@ extension AppState {
         recordReplayStep(kind: "acom",
                          parameters: ReplayStepPlan.ACOMReplayPlan.recordedParameters(
                              model: model, scale: scale, backend: map.matchingBackend.rawValue,
-                             scope: scope, quality: quality),
+                             scope: scope, quality: quality, refinesInPlaneAngle: refinesInPlane),
                          replaying: replaying)
         acomSession.lastRunScope = scope
         acomSession.lastRunQuality = quality
@@ -368,6 +370,7 @@ extension AppState {
         case .disorientation: payload = .scalar(map.symmetryDisorientationImage); baseKind = "acom_\(map.symmetry.rawValue)_fz_angle"
         case .score:          payload = .scalar(map.scoreImage);                  baseKind = "acom_score"
         case .inPlane:        payload = .scalar(map.inPlaneAngleImage);           baseKind = "acom_in_plane"
+        case .mirrored:       payload = .scalar(map.mirroredImage);               baseKind = "acom_mirrored"
         case .phi1:           payload = .scalar(map.phi1Image);                   baseKind = "acom_phi1"
         case .Phi:            payload = .scalar(map.PhiImage);                    baseKind = "acom_Phi"
         case .phi2:           payload = .scalar(map.phi2Image);                   baseKind = "acom_phi2"
@@ -392,6 +395,8 @@ extension AppState {
             qualityFields: [
                 ProductQualityField(name: "reliability", units: "dimensionless", image: map.reliabilityImage),
                 ProductQualityField(name: "score", units: "dimensionless", image: map.scoreImage),
+                // The mirror flag travels with every ACOM map (the in-plane angle is relative to the mirror image where it is 1).
+                ProductQualityField(name: "mirrored", units: "flag", image: map.mirroredImage),
             ],
             overlays: [ProductOverlayDescriptor(
                 kind: "matched_template", provenance: "selected ACOM orientation template")])

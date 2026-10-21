@@ -268,7 +268,7 @@ package enum ReplayRecordFrameMap {
             // would drop every custom-phase recipe from a binned export
             // (refuter, Gate D).
             case "material", "matching_backend", "scope", "quality", "lattice_a",
-                 "material_fingerprint": .invariant
+                 "material_fingerprint", "refines_in_plane": .invariant
             case "scale_inv_angstrom_per_pixel": .perPixelScale
             default: nil
             }
@@ -488,6 +488,8 @@ package enum ReplayStepPlan: Equatable {
 
         package var scope: ACOMRunScope
         package var quality: ACOMQualityPreset
+        /// DiffractoKit 0.9 in-plane refinement; recorded only when on (a record without the key ran the kit default, off).
+        package var refinesInPlaneAngle = false
 
         /// What the session holds that a recorded material id can resolve
         /// against. Library models are global and need no field.
@@ -514,7 +516,8 @@ package enum ReplayStepPlan: Equatable {
         /// path is pinned by the same tests that pin the parser. `lattice_a`
         /// comes from the model that ran, not from the selection.
         package static func recordedParameters(model: CrystalModel, scale: Double, backend: String,
-                                       scope: ACOMRunScope, quality: ACOMQualityPreset) -> [String: String] {
+                                       scope: ACOMRunScope, quality: ACOMQualityPreset,
+                                       refinesInPlaneAngle: Bool = false) -> [String: String] {
             var p = [
                 "material": model.id,
                 "scale_inv_angstrom_per_pixel": String(scale),
@@ -524,6 +527,7 @@ package enum ReplayStepPlan: Equatable {
             ]
             if model.source == .custom { p["lattice_a"] = String(model.structure.cell.a) }
             if model.source == .imported { p["material_fingerprint"] = model.contentFingerprint }
+            if refinesInPlaneAngle { p["refines_in_plane"] = "true" }
             return p
         }
 
@@ -534,9 +538,11 @@ package enum ReplayStepPlan: Equatable {
         /// a `model: CrystalModel?` overload of the same name is ambiguous
         /// against the non-optional one even at an unwrapped call site.
         package static func currentSignatureIfResolved(model: CrystalModel?, scale: Double, backend: String,
-                                       scope: ACOMRunScope, quality: ACOMQualityPreset) -> [String: String]? {
+                                       scope: ACOMRunScope, quality: ACOMQualityPreset,
+                                       refinesInPlaneAngle: Bool = false) -> [String: String]? {
             guard let model else { return nil }
-            return recordedParameters(model: model, scale: scale, backend: backend, scope: scope, quality: quality)
+            return recordedParameters(model: model, scale: scale, backend: backend, scope: scope, quality: quality,
+                                      refinesInPlaneAngle: refinesInPlaneAngle)
         }
 
         package enum MaterialResolution: Equatable {
@@ -861,12 +867,16 @@ package enum ReplayPlanner {
                 guard !text.isEmpty else { return refused(step, key: "material_fingerprint", value: text) }
                 fingerprint = text
             }
-            return .success(.acom(.init(materialID: material,
-                                        latticeA: latticeA,
-                                        materialFingerprint: fingerprint,
-                                        scaleInvAngstromPerPixel: scale,
-                                        scope: scope,
-                                        quality: quality)))
+            // Optional: absent means off; present must be "true".
+            var refines = false
+            if let text = p["refines_in_plane"] {
+                guard text == "true" else { return refused(step, key: "refines_in_plane", value: text) }
+                refines = true
+            }
+            var plan = ReplayStepPlan.ACOMReplayPlan(materialID: material, latticeA: latticeA, materialFingerprint: fingerprint,
+                                      scaleInvAngstromPerPixel: scale, scope: scope, quality: quality)
+            plan.refinesInPlaneAngle = refines
+            return .success(.acom(plan))
 
         default:
             // A kind this build does not know — a newer app's recipe, or a

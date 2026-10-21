@@ -472,6 +472,8 @@ extension AppState {
         // .provenanceAdditions`'s own doc comment for why the shipped
         // default's provenance string must not move.
         out.merge(PhaseMappingRuleDefaults.provenanceAdditions(for: run.matching)) { current, _ in current }
+        // DiffractoKit 0.9 `minimumMatrixEvidence`: off at 0 (a hidden setting, not in the UI); named when a run used it.
+        if run.matching.minimumMatrixEvidence > 0 { out["minimum_matrix_evidence"] = String(run.matching.minimumMatrixEvidence) }
         if run.matrixInPlaneDegrees.isFinite {
             // Recorded with what it means: the in-plane angle is determined
             // only modulo the projected symmetry of the phase, which the gated

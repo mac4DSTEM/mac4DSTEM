@@ -44,6 +44,11 @@ package final class ACOMSession {
         didSet { if exploratoryScale != oldValue { invalidateResult() } }
     }
     package var backend: ACOMMatchingBackend = .automatic
+    /// DiffractoKit 0.9 `ACOMMatcher(refinesInPlaneAngle:)`: the in-plane angle at the vertex of the parabola through the correlation peak
+    /// instead of the 128-bin step. Off by default (the kit's default); CPU scan only. A change invalidates the result.
+    package var refinesInPlaneAngle = false {
+        didSet { if refinesInPlaneAngle != oldValue { invalidateResult() } }
+    }
     package var quality: ACOMQualityPreset = .balanced {
         didSet { if quality != oldValue { invalidatePlan() } }
     }

@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 ACOM (DiffractoKit 0.9): a "Mirrored match" map (1 where the best match is the mirror image) and a `mirrored` quality plane on every ACOM product, so the in-plane angle can be read with it; an opt-in "Refine in-plane angle" switch (off by default, CPU scan only, recorded in the recipe only when on) that places the angle at the vertex of the correlation parabola; on 40 planted off-grid patterns the refined angle is closer than the 64-bin one. `minimumMatrixEvidence` is named in the phase provenance when a run uses it (hidden, 0). Orientation numbers with the switch off do not move. Unverified on screen.
+
 - 2026-10-21 A Velox `.emd` that holds only single EDS spectra opens in the Spectroscopy room as a one-pixel spectrum image (first spectrum; the kit maps no live or real time for the v4 file yet, an open item). Unverified on screen.
 
 - 2026-10-21 Precipitates: the glyphs also draw on the Spectroscopy map tiles (element tiles and the ColorMix) when the spectrum image is registered by identity to the 4D scan and the grids agree, and a scan-pane hover names the object ("#12 β″ 23 nm"). Unverified on screen.

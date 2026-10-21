@@ -13,6 +13,8 @@ package enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     case Phi = "Euler Φ"
     case phi2 = "Euler φ₂"
     case score = "Score"
+    /// 1 where the best match is the template's mirror image (`OrientationResult.mirrored`), 0 elsewhere (DiffractoKit 0.9).
+    case mirrored = "Mirrored match"
     package var id: String { rawValue }
 
     /// The in-plane map publishes each win's angle relative to its matched

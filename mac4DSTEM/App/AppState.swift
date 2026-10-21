@@ -1057,7 +1057,8 @@ final class AppState {
         if let pathOnly = lineagePathOnlySignature(for: mode) { return pathOnly }
         let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
             model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,
-            backend: acomSession.effectiveBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality)
+            backend: acomSession.effectiveBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality,
+            refinesInPlaneAngle: acomSession.refinesInPlaneAngle)
         return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: resultPresentation.virtualShape.rawValue, aperture: aperture,
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),

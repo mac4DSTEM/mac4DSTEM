@@ -1367,6 +1367,12 @@ private struct ACOMSections: View {
             .labelsHidden()
         }
         InspectorValueRow("Will use", appState.acomSession.effectiveBackend.rawValue)
+        Toggle("Refine in-plane angle", isOn: $session.refinesInPlaneAngle)
+            .help("Places the in-plane angle at the vertex of a parabola through the correlation peak instead of the 128-bin step (DiffractoKit 0.9; off by default). Measured on planted off-grid patterns: fewer wrong orientations. Not validated on real data.")
+            .accessibilityIdentifier("acom.refineInPlane")
+        if appState.acomSession.refinesInPlaneAngle, appState.acomSession.effectiveBackend == .metal {
+            InspectorNote("Refinement runs on the CPU scan only: the Metal engine keeps the bin.")
+        }
         if appState.acomSession.backend == .automatic {
             InspectorNote("Automatic currently uses the real-data-verified Accelerate CPU backend.")
         }
