@@ -10,8 +10,8 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 |---|---|---|---|
 | 001 | Layering: DSTEMCore/DSTEMSession packages | 09-02, 09-03 | live |
 | 002 | `AppState` composition root and size budget | 08-17, 09-03/07/16 | live (09-07 form superseded) |
-| 003 | Gate D | 08-18, 09-04 | live |
-| 004 | Gate B independent review | 08-18, 08-31, 09-02 | live |
+| 003 | Gate D | 08-18, 09-04 | superseded 10-21: retired 10-15 by the suite process; `/diagnose` remains |
+| 004 | Gate B independent review | 08-18, 08-31, 09-02 | superseded 10-21: retired 10-15; one second-lane review per change |
 | 005 | Inventory is the review | 09-02 | live |
 | 006 | py4DSTEM pin and DEVIATION notes | 09-03, 09-14 | live |
 | 007 | Versioning and release naming; a raised system requirement is a major; the v4.1 train ships as 4.5.0, EDX is 5.0.0 | 09-02, 09-03, 09-11, 09-22, 10-05 | live |
@@ -77,7 +77,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 067 | SpectroKit builds optimised in the owner's Run: the scheme runs a "Develop" configuration (a Debug copy whose name Xcode maps to the package's Release mode; measured, undocumented, guarded by the pre-push hook); the unit gate passes `SWIFT_OPTIMIZATION_LEVEL=-O`; 936 MB Velox read 20.3 s → 1.03 s | 10-13 | decided in S4 (delegated; overrule on sight) |
 | 068 | Card M2 (the ring fit on noisy rings), owner **d**: no held diff lands (a, b, ab failed their registration); one new Gate D item — the owner's cubes measured first, then two starts keeping the lower cost, the floor guard and a seed-consistency check with a measured threshold, each also alone; the Fit stays as it is until it passes | 10-14 | live |
 | 069 | Card M3 (the ring fit), owner **b**: two starts (py4DSTEM's and the half-maximum width, the lower cost kept) and the floor guard land; one failed registered clause and a worse gapped-tail niche accepted; the seed check does not land; a threshold-free annulus guard is registered next | 10-14 | live |
-| 070 | The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D` (the app's copy was its origin, same arithmetic), pinned at 0.1.0; `FFT1D` and the parallax logic stay; FFT2D tests stay as consumer tests | 10-15 | decided |
+| 070 | The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D` (the app's copy was its origin, same arithmetic), pinned at 0.1.0; `FFT1D` and the parallax logic stay; FFT2D tests stay as consumer tests | 10-15 | decided (pin now 0.4.0, 10-21) |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

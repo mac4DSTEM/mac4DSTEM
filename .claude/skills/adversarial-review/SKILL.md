@@ -1,79 +1,15 @@
 ---
 name: adversarial-review
-description: Run mac4DSTEM's Gate B adversarial review on a science-affecting or Core/ change. Use whenever a change touches Core/, calibration, py4DSTEM-ported math, or anything that could alter a scientific number — before it is called done, and always when a session brief names Gate B. Never let the model that wrote such a change be the only one to approve it.
+description: The one review a mac4DSTEM change gets before it is committed, by a second lane (Sonnet) that did not write it. Use whenever a change touches Core/, calibration, py4DSTEM-ported math, or anything that could alter a scientific number, and before any commit of such a change.
 ---
 
-# Gate B — adversarial review + fixture
+# One review by a second lane
 
-The rule: a separate agent briefed to REFUTE, plus a `tools/` fixture.
-Twice a fix here passed every test written for it — including one verified
-to fail without it — and was still wrong. The reviewer's job is not
-approval; it is refutation, and a review that finds nothing must say what
-it *tried* and failed to break.
+The suite process (`../CLAUDE.md`, "How we work") replaced Gate B on 2026-10-15: one review per change, correctness, the tests and the docs touched. For a change that can move a scientific number the reviewer's job is still refutation, not approval; a review that finds nothing says what it tried and failed to break.
 
-1. Spawn a fresh agent — never the one that wrote the change. Its brief:
-   refute that the change matches py4DSTEM (source-locked in
-   `References/py4DSTEM-dev`; cite file:line) and that its stated claims
-   hold. Hand it the diagnosis and the primary evidence, not just the diff
-   — review the diagnosis, not only the code.
-1b. **When the change IS the fixture, ask the one question that pays:
-   "what transformation of the app's code leaves every check green while
-   producing wrong science?"** Name it explicitly in the brief and require
-   the reviewer to actually apply and run its candidates. On 2026-08-19 that
-   single question produced the two best findings of the S2 review — a
-   vertical flip of the binned detector output, and a constant bias in the
-   measured origin, both invisible to a harness of 201 checks. "Does the
-   fixture look thorough" produces nothing; "here is the mutation that
-   survives it" produces the missing assertion. Watch in particular for a
-   check that is *vacuous on this fixture* — comparing background to
-   background — and require an anti-vacuity guard rather than a comment.
-   Mutation-passing suites can also be collectively blind at symmetric test
-   constants — pin sign-discriminating angles (37.2°, not 90°) and prove the
-   wrong variant differs on the fixture
-   (`docs/decisions/030-lessons-promoted-from-the-archive.md`, the S8 lesson).
-2. The fixture lives in `tools/` and joins `run-tests.sh scientific` when
-   it should gate. Ground truth is analytic or py4DSTEM itself — never the
-   code under test's own output. Self-consistency proves nothing: the L3
-   harness passed a transposed decode because both sides transposed
-   together.
-3. Negative controls: each one names the line it breaks and why the failure
-   follows. "It went red" is not evidence — L4 carried a control everyone
-   believed had teeth, and it could not fail.
-4. Port deviations from py4DSTEM get an inline `DEVIATION` note with the
-   reason (repo hard rule).
-5. Record what the review could and could not refute. A claim the review
-   corrects gets corrected in the docs — not defended.
-5b. **Break the refuter's proposed remedy before trusting it, exactly as you
-   would a new test.** A recommendation is a hypothesis, and a reviewer who
-   found a real defect can still be wrong about the fix. On 2026-08-31 a
-   refuter correctly showed that a projection transpose is invisible to every
-   gated ACOM harness, and proposed a one-line in-plane-angle assertion. It was
-   implemented — and **both mutations still passed**, because the fixture
-   generates its experimental pattern through the same `project()` that builds
-   the templates, so the cancellation preserves the relative angle as well as
-   the score. Re-running the reviewer's own mutations against the fix is what
-   caught it. Had it been taken on authority, the session would have shipped an
-   assertion advertised as closing a severe blind spot that closes nothing —
-   which is worse than the open item, because it stops anyone looking again.
-6. **Do not commit while a refuter is running, and never with `git add -A`.**
-   A refuter mutates the tree to find out whether controls bite, so at any
-   moment the working tree may contain a deliberate defect. On 2026-08-28 a
-   session ran `git add -A && git commit` during a ~25-second mutation window
-   and shipped `enc.setBuffer(cube, offset: 0)` into `main` under a message
-   that read "Docs only; nothing under `mac4DSTEM/` touched" — the reviewer's
-   later `git checkout --` then faithfully restored the mutation, because it
-   had become HEAD. It cost that reviewer half its session to chase, and the
-   only reason it did not reach the public repo is that nothing had been
-   pushed.
-   Three rules, each of which alone would have stopped it: **stage named paths,
-   never `-A`**; **read the diff you are about to commit**; and **never assert
-   in a message what a change does NOT touch** unless you just looked. If the
-   tree must be committed while a review is in flight, wait — the refuter
-   finishing is worth more than the commit being prompt.
-   **When the change under review is UNCOMMITTED, the refuter must not use
-   `git checkout`/`restore`/`stash` at all** — those "restore" commands would
-   destroy the very work being reviewed. Give it pristine byte copies of every
-   file it may mutate (made before it starts) and have it restore from those,
-   then verify at handback that the files are `cmp`-identical to the copies
-   and `git diff --stat` matches the pre-review list. Worked 2026-09-01 (CIF
-   pair review: 12 mutations applied and unwound this way, zero tree damage).
+1. Spawn a fresh lane (Sonnet), never the one that wrote the change. Hand it the diagnosis and the primary evidence (logs, fixture output), not only the diff. Brief it to check the change against the pinned py4DSTEM (`References/py4DSTEM-dev`, cite file:line) and the claims in the commit message and docs.
+2. Ask the one question that pays: "what transformation of the code leaves every test green while producing wrong science?" Have the reviewer apply and run its candidates (a flipped axis, a constant bias, a transposed decode). Watch for a check that is vacuous on its fixture (background against background) and for a suite blind at symmetric constants: pin sign-discriminating values (37.2 degrees, not 90).
+3. Ground truth is analytic or py4DSTEM, never the code under test's own output; self-consistency proves nothing (a transposed decode passed because both sides transposed). Tolerances are written per function and not widened to hide a bug (`CLAUDE.md`, Numbers).
+4. Break the reviewer's proposed remedy before trusting it: a recommendation is a hypothesis.
+5. A claim the review corrects is corrected in the docs, not defended.
+6. A reviewer that mutates the tree makes the tree dangerous to commit: stage named paths, never `git add -A`, read the diff you commit, and while the change under review is uncommitted give the reviewer byte copies to restore from instead of `git checkout`, `restore` or `stash`.

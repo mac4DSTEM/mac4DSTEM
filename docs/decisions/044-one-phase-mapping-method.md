@@ -1,5 +1,7 @@
 # 044 — Vector matching is the app's one phase-mapping method; Thronsen's four are references
 
+> Moved (2026-10-21): phase mapping (`PhaseVectorMatching`, `PhaseReferenceLibrary`) is DiffractoKit's (`PhaseVectorMatcher`, `PhaseReferenceLibrary`); the decision stands, the source files cited below left this repo.
+
 Dates: 2026-09-28
 
 Status: live. Owner's decision ("yes to vector matching"), taken on the board's "The path" section.

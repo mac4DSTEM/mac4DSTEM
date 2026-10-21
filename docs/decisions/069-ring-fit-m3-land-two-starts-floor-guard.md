@@ -1,5 +1,7 @@
 # 069 — Card M3: the ring fit lands two starts and the floor guard; an annulus guard is registered next
 
+> Moved (2026-10-21): the ring and ellipse fit (`EllipseCalibration`) is DiffractoKit's; the decision stands, the file cited below left this repo.
+
 **Date:** 2026-10-14 · **Status:** decided by the owner (card M3, option **b**, as recommended; relayed by the suite
 coordinator and confirmed in the session's chat) · **Follows:** 068, the record `../_archive/mac4DSTEM/docs/archive/v5/ring-fit-two-start-gateD-2026-10-14.md`
 

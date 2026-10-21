@@ -106,7 +106,6 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private(set) var lastFit: PooledQuantification?
     /// The whole-map comparison line, shown with the region's fit (A2: the check blanks no at%, so it gates nothing; `present`).
     @ObservationIgnored private var heldWholeLine: String?
-    @ObservationIgnored private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// The window's operation hooks (spec 2 D-12), set by `AppState`: the controller holds no `AppState`. `operation` begins a
     /// cancellable operation (the infobar's bar, elapsed time and Stop) and returns its token; `finishOperation` ends it. Nil

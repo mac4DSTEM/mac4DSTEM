@@ -1,5 +1,7 @@
 # 003 — Gate D: trigger, exemptions, refuter, fixture
 
+> Superseded (2026-10-21): the suite's standard process retired Gate D on 2026-10-15 (`../CLAUDE.md`, "How we work"); the diagnose-before-fixing practice survives as the `/diagnose` skill, with no registration or refuter gate.
+
 Dates: 2026-08-18, 2026-09-04
 
 Status: live

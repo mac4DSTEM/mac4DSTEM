@@ -201,40 +201,6 @@ extension AppState {
             present(error)
         }
     }
-    func openManualPath(_ datasetPath: String) {
-        guard let reader = datasetSession.reader else {
-            present(SimpleError("Open a file before entering a dataset path."))
-            return
-        }
-
-        Task {
-            operationCenter.setBusy(true)
-            defer { operationCenter.setBusy(false) }
-
-            do {
-                guard let h5 = reader as? H5Reader else {
-                    present(SimpleError("Manual dataset paths are only supported for HDF5 files."))
-                    return
-                }
-                let descriptor = try await h5.describe(path: datasetPath)
-                datasetSession.addDatasetIfNeeded(descriptor)
-                // Bracketed for the same reason as `selectDataset` above: every
-                // stage line, the preview sampling and the resident preload
-                // are gated on `datasetSession.isLoading` — without this the
-                // whole open runs silently while `activate` reports
-                // "Loaded …" with the bar at 1.0 (the same #36 stall, one
-                // layer down).
-                // Unreachable today (nothing calls `openManualPath`), fixed
-                // anyway so the trap does not wait for whoever wires it to a
-                // control (found by `/code-review ultra`).
-                let load = beginDatasetLoading("Opening \(descriptor.datasetPath)…")
-                await activate(descriptor: descriptor, reader: h5)
-                finishDatasetLoading(owner: load)
-            } catch {
-                present(error)
-            }
-        }
-    }
 
     /// The reader for a URL, by extension. Extracted so the configured open and
     /// the direct open cannot drift apart on which formats they accept.

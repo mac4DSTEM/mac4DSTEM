@@ -1,5 +1,7 @@
 # 004 — Gate B: independent review of science; review the diagnosis
 
+> Superseded (2026-10-21): the suite's standard process retired Gate B on 2026-10-15; every change now gets one review by a second lane (`/adversarial-review`), and numbers are covered by pinned regression tests (`CLAUDE.md`, Numbers).
+
 Dates: 2026-08-18, 2026-08-31, 2026-09-02
 
 Status: live

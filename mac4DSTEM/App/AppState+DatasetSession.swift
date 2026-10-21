@@ -114,20 +114,4 @@ extension AppState {
         cancelDatasetLoad()
         if spectroscopyRoom.model.isLive { spectroscopyRoom.unbind() }
     }
-
-    func selectDataset(_ descriptor: DatasetDescriptor) {
-        guard let reader = datasetSession.reader else { return }
-        Task {
-            // Bracketed as a load, the way openFileAsync does it: `activate`
-            // preloads the resident cube, and the preload's progress callback
-            // is gated on `datasetSession.isLoading`. Without this bracket,
-            // switching to a multi-gigabyte dataset sets statusText to
-            // "Loaded …" with the bar at 1.0 and then reads the whole cube in
-            // complete silence — open-items #36's stall, reintroduced one
-            // layer down.
-            let load = beginDatasetLoading("Opening \(descriptor.datasetPath)…")
-            await activate(descriptor: descriptor, reader: reader)
-            finishDatasetLoading(owner: load)
-        }
-    }
 }

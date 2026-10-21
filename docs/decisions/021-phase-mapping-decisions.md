@@ -1,5 +1,7 @@
 # 021 — Phase mapping lands unvalidated; matrix stated by the user; β″ built in; angle modulo symmetry; chance guard; completeness
 
+> Moved (2026-10-21): phase mapping (`PhaseVectorMatching`, `PhaseReferenceLibrary`) is DiffractoKit's (`PhaseVectorMatcher`, `PhaseReferenceLibrary`); the decision stands, the source files cited below left this repo.
+
 Dates: 2026-09-11, 2026-09-12
 Status: live
 

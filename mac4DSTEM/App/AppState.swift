@@ -1026,12 +1026,6 @@ final class AppState {
     // `recordedReplayStep(for:)` — which run a task's product is judged by — is
     // lineage logic and lives in `AppState+Lineage.swift`.
 
-    /// The whole recorded pipeline, read-only — the bottom workspace's
-    /// Lineage tab (ADR 034). `replay` itself carries mutation (`record`,
-    /// `adopt`) that a view has no business calling, so it gets this forwarder
-    /// rather than reaching `appState.replay.record.steps` directly.
-    var replaySteps: [SessionReplayRecord.Step] { replay.record.steps }
-
     /// A kind with no settings signature (phase mapping, groups) is judged by the lineage path
     /// (`lineagePathOnlySignature`); `currentReplaySignature` (AppState+Lineage) adds calibration.
     func settingsReplaySignature(for mode: AnalysisMode) -> [String: String]? {

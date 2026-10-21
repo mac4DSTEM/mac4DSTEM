@@ -104,6 +104,7 @@ especially useful.
 ## Building
 
 Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme.
+SwiftPM resolves the science kits (SpectroKit, FormatoKit, DiffractoKit, CuboKit, ImagoKit) at the exact tags in `Package.swift`.
 
 Architecture and supported formats: [`docs/architecture.md`](docs/architecture.md).
 What is live now: [`docs/status.md`](docs/status.md).

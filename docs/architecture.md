@@ -33,8 +33,7 @@ instead. A `Session/` file missing from that list is compiled into both
 check `mac4DSTEM.SwiftFileList` under DerivedData. Declarations use the `package` access level throughout (app
 and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`); a file compiled into
 both the app target and a standalone `tools/` harness guards the imports
-with `#if canImport(DSTEMCore) import DSTEMCore import DSTEMSession #endif`
-(56 files today). `tools/run-tests.sh inventory` backs the UI half: it greps
+with `#if canImport(DSTEMCore) import DSTEMCore import DSTEMSession #endif`. `tools/run-tests.sh inventory` backs the UI half: it greps
 `UI/*.swift` for `import AppKit` and for
 `HSplitView`/`VSplitView`/`NSSplitView`/`NSSplitViewController` and fails if
 any appear — the app once aborted at launch in AppKit's update-constraints guard.
@@ -63,8 +62,8 @@ Cancel, and reports in the infobar.
 
 **Data and display.** HDF5 (`.h5`/`.hdf5`/`.emd` — py4DSTEM, Gatan, HyperSpy
 and arbitrary EMD layouts via link traversal), Gatan DM3/DM4
-(`dm4-format.md`), Preview-tier EMPAD RAW/XML and Merlin MIB, loaded at
-runtime via `dlopen` (HDF5 notes, below). Open with options: scan crop,
+(`../_archive/mac4DSTEM/docs/dm4-format.md`), Preview-tier EMPAD RAW/XML and Merlin MIB. The
+format parsing is FormatoKit's; `Core/Data/` keeps the app's adapters (HDF5 notes, below). Open with options: scan crop,
 detector crop, detector bin; streaming residency bounds peak memory
 independent of scan size. GPU-rendered viewers with colormap LUTs, log
 scaling, per-view contrast/gamma, calibrated 1-2-5 scale bars.
@@ -75,7 +74,7 @@ real-space ROIs drive selected-area diffraction.
 **Calibration.** Origin (py4DSTEM `get_probe_size` → `get_origin` →
 `fit_origin`), R–Q rotation via CoM-curl minimisation with explicit 180°
 flip, elliptical distortion (conic and 11-parameter amorphous-ring), Q
-calibration against a known crystal (`q-calibration-design.md`). Every value
+calibration against a known crystal (`../_archive/mac4DSTEM/docs/q-calibration-design.md`). Every value
 carries provenance; a fit that fails its gate reports "not quantitative"
 rather than a number. Calibration from a different frame is re-referenced or
 refused (`SessionCalibrationFramePolicy`).
@@ -84,8 +83,8 @@ refused (`SessionCalibrationFramePolicy`).
 projected phase only when origin, rotation and both samplings are present.
 **Bragg disk detection.** Port of `find_Bragg_disks` with synthetic or
 measured probe kernel, hybrid cross-correlation, and pixel / parabolic /
-DFT-upsampled subpixel refinement; `FFT2D` is an exact Bluestein transform
-for any detector length. Staleness tracking keeps changed settings from
+DFT-upsampled subpixel refinement; `ImagoCore.FFT2D` (ImagoKit) is an exact Bluestein
+transform for any detector length. Staleness tracking keeps changed settings from
 silently feeding strain or ACOM.
 
 **Strain mapping.** py4DSTEM `process/strain`: consensus or manual g₁/g₂,
@@ -127,7 +126,7 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
    `ResidentCube`, gated by `Session/DatasetResidency.swift` ("nothing
    outside may set `isResident`").
 5. **Compute.** Per-mode analysis in `Core/Analysis/` and `Core/Crystal/`.
-   Some paths run pure CPU (Accelerate/vDSP `FFT2D`); others dispatch to
+   Some paths run pure CPU (Accelerate/vDSP, ImagoKit's `FFT2D`); others dispatch to
    `Core/Compute/MetalEngine.swift`, whose GPU calls are **synchronous and
    blocking** (`commit()` + `waitUntilCompleted()` — call only from a
    background `Task`); its parameter structs stay byte-identical to their
@@ -165,10 +164,10 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 |---|---|
 | App entry, window state (`AppState`), pending load, workspace vocabulary | `mac4DSTEM/App/` |
 | Session state with no UI: replay, sidecars, gates, products, residency, recovery | `mac4DSTEM/Session/` (package `DSTEMSession`) |
-| Readers, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
-| Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
+| App-side reader adapters over FormatoKit, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
+| Metal engine, matrix-DFT correlation, cancellation (the FFTs are ImagoKit's) | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
-| Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
+| Crystal model, CIF and Materials Project import, the ACOM orientation plan and Metal matcher (cells, scattering factors and the matcher are DiffractoKit's) | `mac4DSTEM/Core/Crystal/` |
 | Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `mac4DSTEM/Resources/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
@@ -193,17 +192,16 @@ arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
 file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
-Standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`) and the file readers with the HDF5 lock
-(`DM4Experiment`/`DM4Error`, `VeloxEMDReader`, `HDF5Serial`) are FormatoKit's, both imported at exact tags (0.6.0, 0.3.0). 4D × spectroscopy correlation stays here
+Science with a kit equivalent is the kit's, imported at exact tags (`Package.swift` is the truth for versions): standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
 (`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
-SpectroKit and arrives by a tag bump.
+SpectroKit and arrives by a tag bump; the same holds for each kit (`CLAUDE.md`, The kits).
 
 ## Ownership today and where it is going
 
 The `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
 complete 2026-09-18) moved every feature's state into one `@Observable`
 owner in `Session/` plus one orchestration extension in `App/`; `AppState`
-(`App/AppState.swift`, 1603 lines at HEAD) now composes those owners plus
+(`App/AppState.swift`, 1642 lines at HEAD) now composes those owners plus
 the window, publishing glue and the dataset epoch, rather than holding
 feature state directly, and `ContentView` reconstructs workflow rules from
 it. Current owners (`mac4DSTEM/Session/`): `ACOMSession`, `ACOMWorkflow`,
@@ -229,7 +227,7 @@ runs and replay. That unification is not built — the per-feature owner
 pattern above is the seams plan's actual, shipped shape.
 Rules while extending: no new stored state in `AppState`; a feature names its
 owner first; numerical code is split only at scientifically meaningful
-boundaries. `AppState.swift` + `Support/ResultExport.swift` (1601 lines) are
+boundaries. `AppState.swift` + `Support/ResultExport.swift` (3315 lines together) are
 size-tracked by `inventory` against the previous commit (`HEAD^` on a clean
 tree, `HEAD` on a dirty one): growth is allowed where one of these two files
 is the honest home for the state, and a commit that grows them says in its
@@ -321,7 +319,7 @@ again and no flag selects it. Six rules, the first three enforced by
 ## Tools and harnesses
 
 `tools/run-tests.sh {unit|scientific|core|inventory|campaign|all}`
-is the one discoverable entry point over ~70 directories. Every directory
+is the one discoverable entry point over the 54 harness directories. Every directory
 must appear in exactly one of five arrays at the top of that script —
 `scientific` (CI-gated), `diagnostic` (needs gitignored/machine-local data,
 never gated), `owner_only`, `retired`, `support` (`lib`, `release`, `hooks`) — plus `real-data-acceptance`/`package-test`, gated
@@ -352,7 +350,7 @@ with the app's identity by Xcode since FormatoKit 0.4.0), then dyld's bare-name 
 are FormatoKit's, not the app's own. The app runs in the App Sandbox with user-selected
 read/write and app-scoped bookmarks. Release enables Hardened Runtime; local
 Debug builds leave it off so macOS accepts the separately signed closure.
-Distribution always uses hardened Release (`releasing.md`). HDF5 access is
+Distribution always uses hardened Release (`tools/release/README.md`). HDF5 access is
 serialised process-wide by a lock, not an actor: `HDF5Serial`
 (FormatoKit's `HDF5Serial`, public in `FormatoHDF5`; one lock per process, `HDF5SingleLibraryTests`) is acquired and released around every
 `H5Reader` public method's body, recursive so a nested entry does not

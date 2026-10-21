@@ -143,7 +143,6 @@ final class SpectroscopyRoomModel {
     var regionSettings = RegionSettings()
     var quantify = QuantifySettings()
     var export = ExportSettings()
-    var mapLabel = "ColorMix"
     /// The live region's colour: its outline on the ColorMix, its curve in the spectrum and its capsule share it (pins keep their tints).
     /// A fixed hue, not the accent: the accent is the person's (it is also the fit's blue by default, and a selection's), and a
     /// region that changed colour with a System Settings choice would collide with the model curve (UI audit 2026-10-14,
@@ -154,9 +153,6 @@ final class SpectroscopyRoomModel {
         self.series = series
         self.viewport = SpectrumViewport(domain: series.domain, minimumSpan: 2 * series.energyStep)
     }
-
-    /// Map units shown in the map header.
-    var mapUnits: String { mapMode.units }
 
     // MARK: Auto ID
 

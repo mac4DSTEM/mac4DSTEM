@@ -66,6 +66,7 @@ automatically. Layering, ownership and where a new file goes: `docs/architecture
   fixture on purpose, in its own commit, with the reason.
 - **One focused change per commit**, with a clear message.
 - **CI must be green.** Run `tools/run-tests.sh unit` before you push.
+- Science that has a kit equivalent (EDX, file readers, crystallography, the 4D core, FFTs) is fixed in the kit and arrives by a tag bump (`CLAUDE.md`, The kits).
 - Mark every deviation from py4DSTEM with an inline `DEVIATION` note, keep Metal parameter structs byte-identical to
   their `.metal` counterparts, and never loosen a check that fails silently.
 

@@ -1,503 +1,140 @@
 # Open items
 
-Live defects, debts, owed runs and open questions only — status is `docs/status.md`, history is `../_archive/mac4DSTEM/docs/archive/`. Grouped
-(2026-09-30, S1) by where each is taken: **Science** one Gate D at a time in the handoff's order (a landed change to a
-scientific output cuts a release); **Polish** by the Session queue's room (`ROADMAP.md`, S3–S6); **Waits** on hardware or
-the owner; **Code hygiene** rides with the session that touches its file. Each entry is ≤ 12 lines and dated: what is
-wrong, the pinning evidence, the trap, the owner. No narrative. Closed items and every sentence trimmed out (the whole
-pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`](../../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md); earlier trims are the
-`open-items-*.md` files in `../_archive/mac4DSTEM/docs/archive/` and its `v3/`, `v4/` folders.
+Triaged 2026-10-21 (clean slate after the kit switches, pins SpectroKit 0.7.1, FormatoKit 0.7.0, DiffractoKit 0.7.1,
+CuboKit 0.6.0, ImagoKit 0.4.0). Three lists: **Kit asks** (the kit ships it, the app re-pins), **App work** (the app's own
+defects and debts), **Drop** (done, obsolete or retired, one line each). Status is `docs/status.md`; the full pre-triage
+text is in git history and `../_archive/mac4DSTEM/docs/archive/`. Each item <= 4 lines. Kit-side copies that wait for an ask
+carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"`).
 
-## Science & parity
+## Kit asks
 
-### Kit asks after session 5 (2026-10-21; the switches landed on CuboKit 0.6.0, FormatoKit 0.7.0, DiffractoKit 0.7.1, ImagoKit 0.4.0, SpectroKit 0.7.1; every kept copy carries a `// delete at <Kit> <version>` marker)
-Done and ticked: Float32 disk detection (BraggPrecision.single), fillNonFinite, HotPixelFilter.Replacer, ptychography probe terms, parallax correction/depth sectioner/position correction, streamed PCA + binnedVector + k-means cancel, strain diagnostics, ACOM cancel/progress/result(scores:)/matchAll, Materials Project, DM4/DM3, HDF5Reader chunk shape / float16 / bool datasets, MIB pixel code and header sizes, EMPAD scan_resolution/raw-only.
-- **CuboKit 0.7:** a Float path with cancellation and progress for the ptychography engine (the kit's Double engine is 4.2x slower and twice the memory, so `SingleslicePtychography` stays; agreement 3.4e-6 pinned in `PtychographyKitSwitchTests`); a faster Double FFT or Float shifter for parallax alignment (kit 2.71 s against 0.58 s on 121 images at 160x160, so `ParallaxAlignment` and `MatrixDFTCorrelation` stay); disk detection: an option that keeps the integer position on a non-finite refinement, a pointer/stride `fillNonFinite`, a smoothed-surface entry; a `LatticeStrain` diagnostics entry for the `initialBasis` path; sklearn `svd_flip` signs (the embedding keeps the kit's provisional signs, see CHANGELOG).
-- **FormatoKit 0.8:** a handle-holding slab read (a single-pattern read of Au_sim.h5 went 49 us -> 540 us, tile and row reads equal); a link walk with object identity (`HDF5LegacyProbe.linkInfo` stays: the kit's `descendants` lists aliases twice and throws at a cycle); h5py bool-enum attributes; an EMPAD precedence option (pix_x/pix_y against scan_resolution); the sidecar writes (`SessionSidecarWriting` still on the app's HDF5 writer: a rewrite onto `HDF5WriteSession`, needs the sidecar-parity gate); rank-3 scan-shaped DM objects and more than four dimensions.
-- **DiffractoKit:** the Metal backend stays the app's (the kit's own is not used): selection and preview expansion for Metal are app-side.
-- **Kept in the app on purpose:** lineage and marks records, header-less MIB, `small_datacube.dm4`'s rank-3 reshape.
-- **Not run in session 5:** sidecar-parity (~35 GB) and indexing-parity (~31 GB) were not run: no switched code feeds them (no harness of those names exists under `tools/harnesses`).
-- **Release build on this Mac:** an ad-hoc signed Release build (Hardened Runtime) does not launch (library validation, FormatoLibHDF5 and the app have no common Team ID); the Develop configuration does. A Developer ID archive is the proof (already done 2026-10-20).
+### CuboKit (next: 0.7)
+- **Ptychography engine, Float path with cancel and progress.** The kit's Double engine is 4.2x slower and twice the memory, so
+  `SingleslicePtychography` stays (agreement 3.4e-6, `PtychographyKitSwitchTests`). A measuring thread owns the numbers.
+- **Parallax alignment, a faster Double FFT or Float shifter.** Kit 2.71 s against 0.58 s (about 5x) on 121 images at 160x160, so
+  `ParallaxAlignment` and `MatrixDFTCorrelation` stay.
+- **Hot-pixel filter.** `HotPixelFilter.filter()` accumulates the mean in Float32, the app's Double mean stays beside the kit's
+  `mask` / `replacing` (numpy is float32; the 060 cube matches py4DSTEM exactly, margin unmeasured).
+- **Disk detection options:** keep the integer position on a non-finite refinement; pointer/stride `fillNonFinite`; a
+  smoothed-surface entry. **Strain:** a `LatticeStrain` diagnostics entry for the `initialBasis` path.
+- **Embedding:** sklearn `svd_flip` signs (the kit's provisional sign, largest entry positive, flips saved embeddings; CHANGELOG).
+- **Origin:** `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred, the kit's half-pixel for odd
+  sides, which changes sim_Au counts), a mask hook for the measured sigmoid kernel, fit `kept`/residual outputs (the app's
+  `fitOriginTrimmed` keeps median + 3 MAD rounds); a CPU `OriginMeasurement` beside the GPU CoM path; per-position origins (C3).
 
-### The kit switches (2026-10-15) — what they leave
-- **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
-  `RotationCalibration`'s refinement is in Double on CuboKit's `curve()` since `8d23dba5`; owed: a test that fails on the old
-  Float refinement, and the Al–Mg–Si angle measured against py4DSTEM's float64 −82.6° (the field is not in the repo). C3 (per-position origins, `get_origin`) registered,
-  not built. FriedelOrigin and BeamstopMask are the kit's since 2026-10-16; the app's ProbeKernel still shadows the kit's, and adopting that moves
-  disk detection. A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
-  0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
-- **HDF5 signing**: answered by FormatoKit 0.4.0 (pinned since 2026-10-20; now 0.5.0): the three libraries are frameworks Xcode embeds in
-  Contents/Frameworks and signs with the app's identity. Open: the Developer ID archive proof (Hardened Runtime load, notarisation).
-- **DiffractoKit (pinned 0.5.0)**: `requireRingEvidence` stays off on the detector ellipse (owner's card with the annulus guard). The
-  kit holds the full pre-cut list: a 30 Å cell at kMax 2.5 peaks ~800 MB (kit ask). The polar ±c of a 6mm structure is
-  invisible to the kinematic map: never claimed.
-- **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
-  recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
-  (the staleness signature compares the scale string; honest, one re-run clears it).
-- **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
-  spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
-  normalised image-pair registration in Double. FFT1D is `ImagoFFT.FFT1D` (ACOM's ring FFTs, now inside DiffractoKit's `ACOMTemplateLibrary`/`ACOMMatcher`).
-- **`hdf5-exit-race-test` flake** (2026-10-20): in the batch-2 scientific gate (heavy load: nine lanes and two gates on 16 jobs) 1 of 200 race runs ended with status 70, which none of the probe's own exits (0, 2, 3) produce; 1200 reruns the same evening (600 on batch 2, 600 on `dc203ece`) were clean. Not caused by that batch (no HDF5 change). Cause open; rerun the harness alone before treating a single abnormal run as a regression.
-- **Test-run traps** (2026-10-15 night): `KitSwitchFreezeTests`' preset digests pass in the full parallel suite and fail when the
-  class runs alone, even at DiffractoKit 0.1.0 (per-reflection values are identical: a run-context dependence, cause open);
-  `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so objects left by another pin break the link
-  (delete that folder after a pin change, or make kit_module clear it).
-- **Owed**: the dead-code pass; the drive block; lane G's gate work (scoped gates, nightly split, parallel harnesses, oracle cache). From 2026-10-15 evening the suite's process is a focused commit with tests
-  and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
+### FormatoKit (next: 0.8)
+- **Single-pattern HDF5 read, 0.5 ms.** The kit opens the file per call: a one-pattern read of Au_sim.h5 went 49 us -> 540 us
+  (tile and row reads equal). Ask: a handle-holding slab read; the app's `HDF5LegacyProbe` shim stays until then.
+- **Link walk with object identity** (`descendants` lists aliases twice and throws at a cycle); h5py bool-enum attributes.
+- **Sidecar writes:** `SessionSidecarWriting` and the app's HDF5 writer binding onto `HDF5WriteSession` (needs a sidecar-parity
+  run, about 35 GB); `write(vectors:)` is too wide for 0.5's append writer.
+- **DM4:** lazy 4D gather (the kit's `DM4Datacube` was 7.6x slower on a float32 whole-scan tile and always maps non-local volumes),
+  DM3 / declared length 0, rank-3 scan-shaped objects, more than four dimensions. `DM4Reader` stays.
+- **MIB / EMPAD:** header-less MIB; an EMPAD precedence option (`scan_resolution` against `pix_x/pix_y`).
+- **Velox:** live/real times (`/Data/SpectrumImage`) are not read; allocation from file sizes is unbounded for `markersPerFrame` and
+  the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes`; GMS EDS geometry (`Stage tilt`, multi-segment list)
+  and beam energy are not read, so GMS absorption is refused (also SpectroKit).
 
+### DiffractoKit
+- **Metal ACOM backend:** selection and preview expansion for Metal stay app-side (`MetalACOMMatcher`).
+- **Q calibration:** a linear-scale-from-reference-ring helper (the app's `KnownCrystalQCalibration` has no camera length L; the
+  kit's `RingCalibration.q` needs it). The pre-cut list peaks about 800 MB for a 30 A cell at kMax 2.5.
+- **Phase matching:** `minimumVectors` = 2 makes "matrix" by exclusion and the cross-phase winner ignores completeness
+  (`completenessAwareCrossPhaseRanking` off, byte-identical on the demo cube). Diagnose before any edit (`/diagnose`).
+- **ACOM mirror:** `inPlaneAngle` of a mirrored win is angle + pi, published raw in `acom_in_plane` with no per-pixel flag; and
+  `selectOrientation` compares forward and mirrored in-plane bins (secondScore/reliability only). Zone axis misses up to 12.8
+  degrees beyond the bank sampling; off-grid self-recovery fails 37-43 of 200 at 1.4 degrees; the mirror pass costs about 7/144 trials.
+- **CIF symmetry:** a list shorter than the IT group is refused, but a group named by H-M alone is unchecked, a partial list in a
+  primitive-looking cell passes, a primitive C-monoclinic cell with beta = 90.00 is falsely refused.
 
-### Phase 2: the rest of Core/ onto the kits (plan 2026-10-16; per file, from `../_archive/mac4DSTEM/inventory-Core-2026-10-16.md`)
+### SpectroKit
+- **Public initialiser for `LineConflict`** (`autoid-velox-check --replay` is off without it); 18 app test files reach `package`
+  API through `@testable import` (a Debug-only build); `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (rename moves a golden).
+- **Fit on real Al alloys:** the continuum absorbs the Al K alpha high-side misfit; a weak Mg K alpha reads about 300 counts low and
+  Si 8.7 % low (the owner's pure-Al spectrum is the remedy); sigma is 5-12 % small on weak lines; unlisted strong lines (Ge, Cu, Ga)
+  hold Ti at 0; the order-5 upper segment is stiff. Fix F2/F3 refuted, needs a new registration.
+- **Auto ID:** proposes Eu/Hf/Ho on Al pools, misses Mg in 37 of 38 Al-Mg-Si files; the beside-K drop and R2 were refuted; a Lu M alpha
+  proposal sits on the Al K notch; sum-peak phantoms still absorb pile-up; a line-case `rankDeficient` (La K alpha = Cd K alpha + Tl L alpha) remains.
+- **Quantification:** at% needs a K line per element; live-time normalisation is not applied; the refined axis is poor below about 10^4
+  counts; `Data Order Swapped` = 1 on an EDS SI is refused; the detector resolution is assumed 130 eV at Mn K alpha; a negative live time should count as corrupt.
 
-Runs on the pinned tags (SpectroKit 0.7.0, FormatoKit 0.5.0, DiffractoKit 0.5.0, CuboKit 0.4.0). Each is a focused commit with its
-test; where a kit has both the reference behaviour and a named app option, the app option is used so no pinned number moves
-unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
-- **CuboKit:** Parallax x6 + MatrixDFTCorrelation -> CuboParallax; SingleslicePtychography + PtychographyPreparation's
-  `PtychographyProbe` -> CuboPtycho (the `PtychographyPreparer` bridge stays); StrainMapping -> CuboStrain; DPC remainder (iDPC,
-  physical calibration) -> CuboPhase; `HotPixelFilter` -> `CuboCore.HotPixelFilter` (in the kit's main, not in 0.2.0; use the named
-  app option); `CalibrationReReference` (origin re-reference under crop and bin) with C3, below; `DiskDetection`'s numeric core
-  + `ProbeRingHint`; `DiffractionEmbedding` (PCA, k-means). Stays: UI controls, provenance, tiling, settings.
-- **FormatoKit:** `H5Reader` onto FormatoHDF5 (drops the private dlsym wrapper); `DM4Reader` lazy 4D gather; `VendorRawReaders`
-  (EMPAD, MIB); `BraggVectorEMDWriter`: split first, only the peak-grid write and the atomic publish move, the `mac4dstem_*`
-  attributes, lineage and replay stamping stay.
-- **DiffractoKit:** `OrientationResult` symmetry and `OrientationMatcher`/`OrientationPlan` are DONE (2026-10-20, DiffractoKit 0.5.0; the facade `ACOMCrystalSymmetry`, `OrientationMap`, `OrientationPlan` as the kit library plus symmetry, and the Metal dispatch stay). Open: `MaterialsProjectImport` (JSON fetch glue stays).
-- **FormatoKit:** done 2026-10-20: `H5Reader` onto HDF5Reader (shims for what the kit lacks), `VendorRawReaders` (MIB, EMPAD with fallbacks), the sidecar READS, the writer file split. Not done: `DM4Reader` (kit asks below), the sidecar writes and `write(vectors:)` (0.5.0's append writer is too narrow).
-- **DiffractoKit:** `OrientationResult` symmetry (cubic, hexagonal, monoclinic, `ACOMCrystalSymmetry`, `OrientationMap`),
-  `OrientationMatcher`/`OrientationPlan` (Metal dispatch and service stay), `MaterialsProjectImport` (JSON fetch glue stays).
-- **SpectroKit:** `MaskTransport`, `PoolBuilder` (grouping and edge counts).
-- **Per-position origins (C3), located 2026-10-16:** measurement is `OriginCalibration.tiledRun` (CoM per position through
-  `VirtualDetector.tiledMeasuredOrigins` / `MetalEngine`, Friedel per position at `OriginCalibration.swift` ~L692-760);
-  fits are `fitOrigin` and `fitOriginTrimmed`; storage is `OriginMaps` (`Data/Calibration.swift` L494, measured and fitted
-  qx0/qy0 maps, `originValidity`), `Calibration.originProvenance` and `ReferenceOrigin` (L762-781); py4DSTEM-file maps are
-  `PixelOriginMaps` (`FourDDataSource.swift`, read by `H5Reader` L850, written by `BraggVectorEMDWriter` L2201+ as `qx0_shift`);
-  re-reference under crop/bin is `Data/CalibrationReReference.swift`.
-- **QCalibration vs `RingCalibration+Q` (compared 2026-10-16): not the same computation, not switched.** The app's
-  `KnownCrystalQCalibration.estimate` returns a linear scale in Å⁻¹/px (reference q / median observed radius, shell check
-  from a second ring); the kit's `RingCalibration.q(radius:cameraLengthPixels:wavelengthAngstroms:)` is the exact flat-detector
-  q = 2 sin(½ atan(R/L))/λ and needs the camera length L, which the app does not have at this point. The two agree to
-  O((R/L)²) only where L is known. Ask for a kit: a linear-scale-from-reference-ring helper, or the app supplies L.
+## App work
 
-### Probe radius from the max pattern (owner, 2026-10-19; done 2026-10-20)
-The radius for origin measurement and detection is measured from the **max** pattern, py4DSTEM's `dp_max` default
-(`OriginCalibration.ProbeRadiusSource.maxPattern`). The mean-pattern radius is `.meanPattern` (`CalibrationSession.probeRadiusSource`; **no UI**), a named option with its DEVIATION note
-(SPED_MgO: 14.1 px from the max, 5.4 from the mean; the max grows with scan area and diffraction strength). The GPU measurement
-(`MetalEngine.measureOrigins`, `VirtualDetector.tiledMeasuredOrigins`) stays. Open: OriginCalibration's CPU origin measurement is
-not yet CuboKit's `OriginMeasurement` (the centre-of-mass path is GPU-only today; a CPU option beside it is unwritten).
+Ordered as the ROADMAP takes them.
+1. **Notarisation (the Developer ID archive itself was verified 2026-10-20).** An ad-hoc Release build (Hardened Runtime) does not launch (library validation: FormatoLibHDF5 and the app
+   share no Team ID); Develop does. Run the archive, notarisation and the Hardened Runtime load as the release proof.
+2. **Number density N_V with thickness** (study item). v2 refuted as registered 2026-10-15 (P1' failed by one cell, P4' by two); nothing
+   landed (ADR 050). Needs a new registration; thickness comes typed +- sigma until SpectroKit EELS t/lambda lands.
+3. **Phase mapping object bar (ADR 040):** FAIL on theta-prime edge-on raw spurious 7 > 5; T1 edges called Al (204) mostly where the truth
+   draws the edge; no global or narrow guard shipped. Ships badged unvalidated; the matrix verdict is by exclusion (see DiffractoKit).
+4. **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** (Q 12.5-13.5 % low, shell ratio 1.37-1.43 vs 1.155); only
+   "Shell ratio unchecked" ships. The fix (ring-sequence assignment) needs a design pass; 2H-WS2 selects (0002), no l-filter; the caveat is not persisted.
+5. **Origin fit holes:** which statistic gates `originFitIsSane`; the trimmed fit is blind to clustered contamination >= 50 %; the coarse block
+   seed lands 0.5-2.8 px off on noisy cubes (`windowSensitivityPixels` is not surfaced); the ellipse fit leaves a ring outside its annulus
+   (Au_ref) and `fit1D` ends `didNotConverge` in 54 of 150 contiguous arcs (a refusal, never a wrong fit).
+6. **Rotation calibration:** a test that fails on the old Float refinement, and the Al-Mg-Si angle against py4DSTEM's float64 -82.6 degrees; the
+   rotation null loses power at the highest noise ("measured -67.5" recurs about 1 in 30); the ptychography rotation branch is unchecked.
+7. **Lineage and replay residuals:** Clear Calibration makes no calibration node; a Q edit deletes the ACOM map instead of marking it stale;
+   a sidecar-restored map has no task-row verdict; replay contracts live in three places (`ProductWorkflow.currentReplaySignature`,
+   `ReplayRecordFrameMap.role`, `ReplayPlanner.parse`); strain, ACOM and DPC steps publish under the current mode's keys; `learned_model_sha256`
+   is read live at record time; parallax/ptychography are not in the replay record; a user analysis mid-replay steals Cancel.
+8. **Session file shared by stem:** `scan.dm4` and `scan.h5` map to one `scan.mac4dstem.h5`, so opening one adopts the other's calibration
+   (a 2x-binned conversion: Q off by 2). An identity check is built and archived, not shipped; a schema-5 sidecar's stored disks are refused.
+9. **room-switch defects:** after an ACOM preview Imaging shows the ACOM map; Strain "No Result Yet" after an Orientation visit;
+   the ptychography pane titled "Parallax aligned BF" before a run; stored Bragg disks restore at a same-size crop's positions (D3 b).
+10. **Crash after Compute Strain:** an AppKit layout exception (`_layoutSubtreeWithOldSize`) once after a label export and Detect All; not
+    reproduced. Also: ⌘O / Preprocess Raw Data… opens a second window; ⌘6 with no spectrum image opens an empty room; a hidden window
+    tab's `.onDisappear` is unverified; shrinking the window to its floor collapses the sidebar for good.
+11. **Spectroscopy room, owner's drive owed:** shell glass, the 18-column table, EDX products for an EMD opened alone, per-line fitting; the
+    cube's kV is captured once at attach; the weak-line sentence; a locked GMS axis shows a trivial +-0.0 % statement; below 0.2 keV the Expert field resets silently.
+12. **HDF5 and DM4 robustness:** `hdf5-exit-race-test` aborted with status 70 in 1 of 200 runs under heavy load (cause open; 1200 reruns
+    clean); quit waits for an HDF5 call in flight (30 s from a slow drive, unbounded on a stalled volume); a DM4 on a disconnected disk refuses every later read
+    until reopened; HDF5 runs under one lock with thread-safety resting on a 2026-08-19 `nm` inspection.
+13. **Test-run traps:** `KitSwitchFreezeTests` preset digests pass in the full suite and fail when the class runs alone (run-context
+    dependence); `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so delete that folder after a pin change;
+    the learned detector refuses a Mac with no Neural Engine and re-runs a 0.3 s check per live preview.
+14. **Number-field and presentation nits:** typing exactly the shown text of a finer stored value is a no-op; the ACOM Q read-out decimal point; `ACOMSession.estimatedDuration` is ~2x optimistic under the x2 CPU pass (AppState.swift:616,625).
+    Annulus with inner 0 excludes the centre pixel (py4DSTEM convention unchecked); region circle radius takes centres up to 1/2 px outside the ring (R 5: 97 px vs 81);
+    `QuantitativeBadge` ignores the origin gate outside ACOM; on-screen `Colorbar` takes the nearest LUT entry; no colourbar in figures.
+15. **Data and export:** a strided or detector-cropped export carries no replay recipe; the bin's float32 sum order is not numpy's (<= 1.14e-4);
+    a session voltage above 1000 kV reopens divided by 1000; scan-fastest DM4 detector pair order unverified against GMS (owner: leave it);
+    `DatasetPreviewBuilder.stride` and the "Streamed" figures count post-bin bytes; the phase-contrast budget does not sum held products.
+16. **Accessibility and SwiftUI:** re-read the VoiceOver values fixed 2026-10-13 on screen; the detector panes' crop is drag-only; the lineage focus
+    ring; `RoomAccessibilityText.steppedZoom` is used only by its test; Swift 6 mode (64 diagnostics, about 3.5-6 sessions, the owner schedules it);
+    ⌘R's readiness predicate and the toolbar's `primaryActionEnabled` are two copies; rename `residentMemoryMB` to `appMemoryMiB`.
+17. **Refactors parked:** `ResultExport` and `BraggVectorEMDWriter` splits (the latter's file split landed; the dataset-kind split remains);
+    a shared harness `fail` helper (second-lane review); the >1000-line harness mains; five `median` bodies stay separate (ADR 015, do not merge).
+18. **Harness gaps:** `compare.py` peak positions pinned on this Mac's GPU only, 4 datasets UNPINNED, `if not actual:` unkillable, the runner aborts at
+    the first red harness; some tests still assert numerics exactly where a written tolerance is owed (D12); `sidecar-parity` and `indexing-parity` harnesses do not exist.
+19. **Owed on screen:** the four failure paths to the status strip, the disk-centre label round trip, the Train Model… drive (owner's build), the
+    sandbox warning when no grant, Reduce Transparency on the glass shell. No automated visual baseline exists.
+20. **Learned detector and training:** the #18 training campaign cannot reproduce the app's Si_SiGe strain; learned detector above 256 px
+    unchanged, below 256 px with an off-centre probe still scales by the crop maximum; the inter-labeller check on 370 centres; bullseye
+    detection accepts noise; twisted bilayer graphene finds only the beam; T1 [0 -4 1] has 252 not-indexed positions (detection noise).
+21. **Smaller trust items:** an unmarked pre-2026-09-28 export keeps its R-Q reading (`Si-SiGe_calibrated.h5` is one); ACOM Euler angles differ from
+    py4DSTEM/orix by a frame rotation (relabel or convert, then a second-lane review); a file ellipse with a non-positive semi-axis is dropped silently, not refused by name.
 
-### Phase mapping under the T4 object bar (ADR 040) — one metric short
-Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
-(782 / 10 / 4 px) are that dataset's, never an app default. First scored run: FAIL on θ′ edge-on raw spurious 7 > 5.
-B1 (`../_archive/mac4DSTEM/docs/archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`): 3 are edge calls 1–2 px from truth
-needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
-The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
-S10 (2026-09-30): candidate A refuted at step 0; B (noise hit) refuted at the bar (error 1.31 → 4.41 %); the metric ships as a quantity (ADR 048). T1's [0 -4 1] entry holds
-30 first-order-Laue-zone reflections (`../_archive/mac4DSTEM/docs/archive/v4/s10-s11-gateD-2026-09-30.md`).
+## Drop
 
-### Tiled GPU memory — gated flat; residuals
-Detect All (classical and learned) and the six virtual-detector paths are gated flat (`tools/harnesses/tiled-detection-memory-test`,
-`tools/harnesses/virtual-detector-memory-test`). Open: resident-cube paths unmeasured; on Thronsen A 662.7 MB of "Malloc Large (empty)" (two 331 MB
-tiles) stays between passes — an observation, no mechanism.
-
-### The 2026-09-09 register — residuals (every reachable candidate fixed 2026-09-30; `../_archive/mac4DSTEM/docs/archive/2026-09-09-review/triage-2026-09-29.md`)
-Clear Calibration makes no calibration node (a run after Clear records the old nodes as inputs — needs a "cleared" lineage state; a map
-on the first fit stays stale after Restore); a Q edit deletes the ACOM map instead of marking it stale; D069 (an unresolved ACOM model
-compares no settings); a restored product is not labelled as saved anywhere.
-
-### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
-DiffractoKit 0.3.1, `Sources/DiffractoOrientation/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:947`), so a position is "matrix" when almost
-nothing survives removal; the best entry per phase is chosen by mean distance alone (Gate B 2026-09-15: 0.004 two-vector
-beats 0.012 ten-vector). The count-aware candidate (`completenessAwareCrossPhaseRanking`, `:182`, off) is byte-identical on
-the demo cube on or off; Thronsen is not a valid second measurement; step 3 stride-3 sits outside every threshold tried.
-Gate D before any edit. Owner: unclaimed. Detail: `../_archive/mac4DSTEM/docs/archive/v3/step3-2026-09-16.md`.
-
-### Origin validity mask: disclosure, D4 count and (S23, 2026-09-30 night) the Prepare wash; still `validation:"none"`
-`OriginMaps.originValidity` carries the robust trim's `kept` mask (ADR 033). In Prepare, with Fit overlay on, the real-space pane
-greys the excluded positions with "N of M positions excluded by the origin fit's robust trim" (`FitOverlays.originTrimOverlay`);
-seen on screen on sim_Au: 891 of 8400, Positions used 7509 (drive 1, 2026-09-30 night). Residuals: an imported or restored origin
-has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen); no standalone origin-map product.
-
-### ACOM / zone-axis science residuals — three measured gaps, no fix attempted
-- **Zone axis up to 12.8° beyond the bank's own sampling** (2026-09-15): winner outscores truth by 0.6–10 %, worst ⟨122⟩; next:
-  dump the winner's and the true axis's templates for one failing case.
-- **Off-grid self-recovery** (S20, 2026-09-30): 37–43 of 200 fail at 1.4°. Candidate F (exact azimuth + 4× shifts) is After v4.1
-  (`../_archive/mac4DSTEM/docs/archive/v4/slot1-q-record-2026-09-30.md`: 3.8× CPU cost); grain B (6.50°, winner t84) — mechanism open (the quantisation reading refuted
-  2026-10-01, `../_archive/mac4DSTEM/docs/archive/v4/slot2-sb-refuter-2026-10-01.md`).
-- **ACOM mirror pass (row 1) — residuals** (landed 2026-10-01, owner's card): (i) the pass costs ≈ 7/144 Au trials to the half-turn
-  class (no pass: 40-set mean 132.1; with it ≈ 125, min 118; the gate's fixed set 116, pinned) — mechanism open; (ii) the linear
-  sub-bin deposit as a parity step, predicted neutral ±1 on paired seeded sets (`../_archive/mac4DSTEM/docs/archive/v4/slot2-sb-subbin-deposit-2026-10-01.patch`);
-  (iii) the experiment-side py4DSTEM port (shell grid, arc-length kernel, ring mean in) vs an independent truth; (iv)
-  `ACOMSession.estimatedDuration` ≈ 2× optimistic under the ×2 CPU pass. Predictions quote counts as distributions over angle sets.
-  (v) code review 2026-10-01: for a mirrored win `inPlaneAngle` is "angle + π relative to the mirrored template" (DiffractoKit 0.5.0 `ACOMMatcher.makeResult`, and `makeOrientationResult` in `OrientationMatcher.swift` for the Metal path); the `acom_in_plane` map and its export publish it raw with no
-  per-pixel mirrored flag, so pixels across a mirror boundary are not comparable (Euler, IPF and FitOverlays handle the flag) — a
-  convention to settle (map the mirrored win to its proper-rotation equivalent, or export the flag), Gate D before any number moves — labelled 2026-10-02 (owner S2 a: Info › Mirrored and the in-plane note name py4DSTEM's +π); the convention waits for after v4.1.
-  (vi) code review round 3: `selectOrientation` compares forward and mirrored in-plane bins in the runner-up "distinct orientation" test
-  (DiffractoKit `ACOMMatcher.selectOrientation`; the Metal path's copy in `OrientationMatcher.swift`) — can shift `secondScore`/reliability only, never the winner.
-- **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
-  night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
-  (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell
-  case reads "Shell ratio unchecked" (threshold-free); a "disagrees" line did not ship — the pre-registered rule flips on one number
-  on each side (healthy n = 1: 2.4 % measured, 4.07 % recorded; WS₂ 13.3 % is the same failure class until an (00l) filter exists),
-  so on his cube the Q row still reads "Measured" with the ratio beside it — the owner's card. The fix (ring-sequence assignment) is
-  diagnosed in the record: recovers his cube to +0.45 % (ellipse) / +2.5 %, but the fcc √2 self-similarity needs a bounded N or the
-  zone's own ring count — a design pass, not a patch. The caveat is lost on rewind, sidecar restore and re-reference (not persisted).
-  Q1b (owner: measure first, 2026-10-01; `../_archive/mac4DSTEM/docs/archive/v4/q1b-healthy-cubes-2026-10-01.md`): three healthy cubes, app vs py4DSTEM on the same peaks —
-  Si-SiGe +1.36 / +1.40 %, sim_Au −2.72 / −1.12 %, Au_ref −4.41 / −5.30 %; the alias did not occur, but Au_ref's shell ratio is 10.6 % off
-  (healthy side now {1.7, 2.4, 10.6} %, undiagnosed); NiCu_COPL excluded (file Q 3.57× the app's, undiagnosed). No rule proposed.
-- **Rotation null loses power at the highest noise**: 3/12 refused at sd 0.05 vs 0/60 shuffle null; the demo cube (sd≈0.010) is
-  certified 2/60 — "measured −67.5°" recurs ~1 in 30.
-Detail: `../_archive/mac4DSTEM/docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Origin-fit and Q-calibration open holes
-- **Origin gate** (2026-09-05): which statistic gates `originFitIsSane` (full-scan RMS can't see bias; the robust residual of
-  2026-08-28 passes a 15 px-displaced fit); the trimmed fit is blind to clustered contamination ≥ 50 % (a 40 px-off quarter →
-  100 % kept, 20.6 px error). Owner: a design pass, `../_archive/mac4DSTEM/docs/q-calibration-design.md`.
-- **Coarse block seed lands on the wrong blob on noisy cubes** (Gate B refuter, §9; S14/S14-D, `../_archive/mac4DSTEM/docs/archive/v4/s14*`): 0.5–2.8 px off on
-  Si_SiGe_exp, both bullseye cubes and Au_ref; no fixed refine window ships (the demo fixture moves 1.70 px at k = 2).
-  `tiledRun.windowSensitivityPixels` measures it (compact ≤ 0.07 px, bullseye 3.8, Au_ref 5.3) but is not surfaced; the demo fixture
-  reads 3.36 px and was not re-measured; its origin is pinned by no harness.
-- **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
-  score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
-
-### The ellipse Fit: what two starts and the floor guard leave (landed 2026-10-14, ADR 069)
-Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955 vs 0.971–0.985 elsewhere). The annulus guard g was refuted as
-registered on 2026-10-14 night (R2: three WS2 annuli whose fit sits 0.7–1.2 px past the outer radius with its width at the 64 px
-ceiling; `../_archive/mac4DSTEM/docs/archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a new item (a margin, or the width-at-ceiling flag, on fresh
-plants) is the owner's card. Also left: a ring-less fit with live widths (`grains_12`, b/a right there); gapped low-count 1/r²
-rings 14 → 16 wrong. Record: `../_archive/mac4DSTEM/docs/archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
-
-### Number density N_V with thickness — v2 refuted as registered (2026-10-15)
-v2 (each plate / ρ(hᵢ, t); `../_archive/mac4DSTEM/docs/archive/v5/number-density-thickness-v2-registration-2026-10-15.md`) built in a lane, tests first, 14 of 14
-mutations red, run on the fresh seeds: 53 of 54 cells inside 5 %, 54 of 54 in their ±0.05 bands, P2', P3', P5' held; P1' failed by one
-cell (θ′ CV 0.3 d 190 t 50: 1.050069 ± 0.0043, bar 1.05) and P4' (T1 d 190 σ_P/N 0.31–0.51, two below 0.35). Nothing lands (ADR 050);
-patches and logs in `../_archive/mac4DSTEM/docs/archive/v5/number-density-thickness-v2-2026-10-15/`. The oracle refuter (true chords) was not run. Card for the owner.
-
-### UI audit 2026-10-14 — left after the night's lanes S and C
-List `../_archive/mac4DSTEM/docs/archive/v5/mac4dstem-ui-audit-2026-10-14.md`. Landed 2026-10-14 night (unverified on screen): the Spectroscopy rows (lane S)
-and the Results comparison and leftovers (lane C); status.md's gate rows. Open: Info rows duplicate the typed aperture rows
-(frozen); the readout's q comes from the global mean origin on ROI/mean/max patterns; no colourbar in figures; the colormap
-popover's system glass shows the pattern through the histogram (drive 15); `RoomAccessibilityText.steppedZoom` is used only by its
-test. Decided, overrule on sight: ⌘. cancels (not Esc); region outlines on every exported map; a new folder per Maps export; lane
-S's region purple (not the accent); the 2/m colour key (hue 2φ, saturation from b).
-
-### Other named science residuals
-One line each; full wording in `../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md` (2026-09-30) and `../_archive/mac4DSTEM/docs/archive/v4/open-items-detail-2026-09-25.md`.
-- T1 [0 -4 1]: 252 not-indexed positions are detection noise (a Friedel pair 2.5–5.2° off); levers (centroiding, tolerance, accept) are the owner's.
-- R–Q (ADR 040): an unmarked mac4DSTEM export (before 2026-09-28) keeps today's reading and its R–Q row says the sign is unrecorded (S15;
-  `../_archive/mac4DSTEM/docs/archive/v4/s15-rq-legacy-exports-2026-09-30.md`); `Si-SiGe_calibrated.h5` is one (app-measured: re-export it to mark it).
-- Al-Mg-Si peak set: 39 % explained by the best Al orientation (2026-09-12) — detection, not the matcher.
-- Region circle radius: the mask takes centres up to ½ px outside the drawn ring (`R + 0.5`, strict `<`; R 5: 97 px vs `d ≤ R` 81, py4DSTEM 69) — own Gate D (D025 refuter).
-- Bullseye detection accepts noise: outer-edge probe size for structured probes open.
-- Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.
-- Ellipse `fit1D` on a contiguous arc fitted anyway still ends `didNotConverge` in 54 of 150 of a refuter's arcs (2026-10-12): slow descent,
-  ~68 accepted steps in 100 passes — not the roundoff stop fixed that day (`../_archive/mac4DSTEM/docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md`); a refusal, never a wrong fit.
-- Learned detector above 256 px: the anchor measured 2026-09-29, no change (same disks; a zeroed probe channel bit-identical); < 256 px with an off-centre probe still scales by the crop's maximum (kept for byte-identity) — owner.
-- #18 training campaign can't reproduce the app's Si_SiGe strain — two candidate fixes, own Gate B.
-- CIF symmetry (S13, 2026-09-30, `CIFImport.spaceGroupOrder`): a list shorter than the named IT group's order is refused; residuals — a group
-  named by H-M symbol alone is not checked, a partial list in a primitive-looking cell passes, a primitive C-monoclinic cell with β = 90.00 is falsely refused.
-- ACOM exported Euler angles differ from py4DSTEM/orix by frame rotation `P` — relabel-vs-convert, then Gate B.
-- Lane F-B (2026-10-01, review rows 9/29/24; `../_archive/mac4DSTEM/docs/archive/v4/slot2-fb-refuter-2026-10-01.md`): (a) a file ellipse with a non-positive semi-axis is now
-  dropped silently by the importers ("No detector-distortion correction"), not refused by name — owner: make it a named refusal
-  (recommended yes; py4DSTEM's `_transform` and `set_ellipse` validate nothing, so a refusal is stricter than py4DSTEM). (b) The
-  count of non-finite pixels filled in both origin paths is not written into provenance (recommended: leave). (c) closed 2026-10-16: the odd-N wrap alias in `ProbeKernel` went with the arithmetic to CuboKit's `ProbeKernel` (symmetric wrap).
-
-### Other named presentation and trust residuals
-One line each; full wording as above.
-- Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
-- Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
-- Export Data… (S8): py4DSTEM.read takes the RealSlice's dims as pixel indices ("pixels") and its data units as "intensity" — the existing bundle writer's layout; the true sampling and units are in `dim0`/`dim1` and the `mac4dstem_*` attributes (`../_archive/mac4DSTEM/docs/archive/v4/polish-i-2026-10-02/`).
-- Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
-- Ptychography rotation branch (Slot 1 R1 refuter; review b1, 2026-10-02, `../_archive/mac4DSTEM/docs/archive/v4/review-c-rotation-gateD-2026-10-02/`): the defocus sign (−C1) holds on the fit's branch; nothing checks the calibrated rotation is on it — the seed status prints the angle apart, both in py4DSTEM's sign (measured: the parallax fit reports py4DSTEM's sign at ±37°). Both solvers fold to a half-circle, so ≈ 180° apart arises only from an imported or hand-set rotation or near ±90°, where the fit's fold flips C1. No 180° case measured on data with truth.
-- Phase-contrast budget (review d2, 2026-10-02): held products after the fit (KDE, depth planes, correction) and ptychography's prepared amplitudes plus its reconstruct working set are not summed; refusal threshold only.
-- Session file shared by stem (review a2; owner card D1 c, 2026-10-02 — left for v4.1): `scan.dm4` and `scan.h5` in one folder map to one `scan.mac4dstem.h5`, so opening one adopts the other's calibration (a 2×-binned conversion: Q off by 2) and a save replaces the other's recipe, lineage and labels. An identity check (source name + native shape stamped, a shape mismatch refused) is built and archived, not shipped: `../_archive/mac4DSTEM/docs/archive/v4/review-sidecar-identity-2026-10-02.patch`; naming by full file name is the alternative (plan §8).
-- Binned views, tile budget (review d1, 2026-10-02, `../_archive/mac4DSTEM/docs/archive/v4/review-d-tile-budget-gateD-2026-10-02.md`): `FourDArray.scanTileRows` now budgets at the pre-bin read extent; the binned mean pattern moves by up to 8–10 float32 ulps (~1e-6 relative, one cube; max pattern bit-identical; bin 1 byte-identical). The virtual-image progress tiles and parallax preprocessing size at the read extent too (lane L; products bit-identical for any grouping). Left: `DatasetPreviewBuilder.stride` sizes a 64 MB I/O budget from post-bin bytes (b² more disk read on binned views, no transient), and the "Streamed" byte figures (`AppState+ResultPresentation`, `SystemMonitor`) show post-bin bytes, b² under the bytes read.
-- HDF5 at quit (2026-10-02, `../_archive/mac4DSTEM/docs/archive/v4/review-k-hdf5-exit-2026-10-02/`): quitting during an HDF5 call crashed in teardown (probe 198/200 on the old code); quit now waits for the call in flight — one tile read at the scan-tile budget, 1–2 s on NVMe, ~30 s from a 150 MB/s external drive, unbounded on a stalled volume (Force Quit is safe: publishes are temp + rename). Not reproduced: the 10-01 abort in H5FL at exit with no thread in HDF5 — that process was the pre-push hook's unsigned build, which LaunchServices launches like the app (the hook can rebuild an app the owner is running).
-- Owner cards D2/D3 residuals (lane I, 2026-10-02): stored Bragg disks are not a "carried result" — after a relabelling save (rehearsal A with disks saved → Open with Options… a same-size crop B → Save Calibration, allowed since no result maps) a reopen restores A's disks at B's positions (same shape, other offset passes `SessionPeakRestore.refusal`); no fix without a Remove for disks (card D3 b). The open-window registry withdraws on `.onDisappear`; whether a hidden window tab fires it is unverified (it re-enrols on `.onAppear`).
-- Review lane F residuals (2026-10-02): ⌘R's readiness predicate and the toolbar's private `primaryActionEnabled`/title are two copies (unify in a frozen-shell session; lane F pinned the imaging arm to agree); iDPC carries no `dpc_frame`; a detector-frame DPC angle keeps the Quantitative badge with its frame stated, as strain does (owner S1 b).
-- **Crash after Compute Strain** (re-drive 2026-10-02, `../_archive/mac4DSTEM/docs/archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
-  `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
-  after a label export and Detect All; not reproduced on a fresh launch, nor in drive 7 (2026-10-08: Detect All then Compute Strain, no label export). Cause not established — Gate D before any fix.
-- **Residuals (2026-10-02/04)**: a window that resized itself (unreproduced). The virtual detector's toolbar verb (Compute Image) is
-  back since ADR 059 (owner, 2026-10-07); the "No Result Yet" after another room cleared the image is answered by it.
-- Number fields (lane N, 2026-10-04, a declared trade-off): while a finer value is stored, typing exactly the text the field shows (0,03 over 0.0275) is a no-op; 0,030 or 0.03 set it.
-- Lane R residuals (2026-10-04): Origin calibration in Prepare still runs the remembered task's analysis (`AppState+Calibration.swift` ~:130 — under Disks the Bragg map replaces the virtual image). Decided by the session (overrule on sight): a map restored from the sidecar at open is covered by the opening virtual image under every remembered task, as it already was under Virtual detector; it stays in the Results list.
-- Room switches, seen on lane N's drive (2026-10-04, scratch build of a841f9ae, shots 44 and 50 in `../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/lane-N-drive/`; deferred by the owner for cost, Gate D before any fix): after an ACOM preview, Imaging › Virtual imaging kept showing the ACOM map; with an ACOM full scan held (exploratory Q), Crystal Maps › Strain → Orientation showed "No Result Yet" (`presentProductForEnteredMode` has no `.virtualDetector` case; the Orientation branch unexplained). The polish drive (2026-10-04, `../_archive/mac4DSTEM/docs/archive/v4/polish-drive-2026-10-04/`) saw both again plus Go to Imaging showing the Bragg vector map, Strain "No Result Yet" after an Orientation visit with no result (3×), and the ptychography pane titled "Parallax aligned BF" over "No Result Yet" before a run.
-- Polish drive finds (2026-10-04, minor, `../_archive/mac4DSTEM/docs/archive/v4/polish-drive-2026-10-04/`): the ADF preset falls back to detector fractions silently when 3r reaches the edge (graphene: 16–35 px, inside the BF disk); the ptychography seed line cuts at "defo…" (hover holds it; it is the one-line status bar in the frozen `WorkspaceView`, so wrapping it is the owner's call); the ACOM Q-scale read-out uses a decimal point beside comma fields (fixed 2026-10-08, c01deeac, unverified on screen); shrinking the window to its floor collapses the sidebar for good; after File › Reopen under a DPC task Prepare shows no annulus overlay; the Preprocess form at the window floor shows 2–3 rows (owner's call: shrink the previews on short sheets, or one scroll view, or leave).
-- Lane M residuals (2026-10-04): ⌘O / Preprocess Raw Data… with Settings or the object table key open a second dataset window (`openWindow` always creates one, as New Dataset Window does there); `PhaseClaimOverlay`'s legend and note sat inside the zoomed layer (moved to the unzoomed slot 2026-10-08, d67145f7, unverified on screen); rename `residentMemoryMB` → `appMemoryMiB` when the frozen shell next opens.
-- Lane F-C (2026-10-01, review rows 8/25/27; `../_archive/mac4DSTEM/docs/archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; the disk, diffraction-groups and phase-map steps 2026-10-02, lane E; strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
-  rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
-  never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:
-  record a VD step, change mode, replay). (2) `learned_model_sha256` / `learned_model_*` are read live at record time
-  (`LearnedDetection.replayParameters`); a model swap during Detect All would record the new hash for an old-model run. (3) fixed 2026-10-01 (lane FC2: VD runs numbered at start; an older run never lands over a newer one).
-
-## Polish — the Session queue's rooms (S3–S6)
-
-### S4 Phases & precipitates: residuals (the zone-axis stale check, the busy line, a challenged matrix position)
-- The zone-axis ranking's stale check (Q, origin, ellipse, and since S12 the matrix phase and tolerance) does not cover the
-  reference settings, direct-beam radius or maximum vector `fitZoneAxis` also reads (`PhaseVectorMatching.swift:728-750`).
-- At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
-  covers ~110 pt of the phase map (original wording, `../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`): metrics get truncation priority,
-  split fraction constant.
-- A challenge-turned matrix position shows its disks as unexplained in the claimed-disks overlay (the challenger's axis is not recorded; named in the evidence line since S12).
-- Not reached on screen (Slot 1 P drive, 2026-09-30): the "Positions used" percentage fallback (> 2 % excluded).
-
-### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
-- **Sidecar access**: with no grant, Allow Access… (sidebar, Dataset menu) asks once and remembers (driven 2026-09-30); since 2026-10-04
-  the warning names the sandbox and the remedy, the raw line goes to the Log — unverified on screen (needs a Mac without the grant). A
-  related-item declaration was refused (the sidecar's extension is the dataset's `.h5`).
-- S18 residuals (2026-09-30): a schema-5 sidecar's stored disks are refused even at whole file (v1.0.0 disks no longer restore — owner);
-  an uncancelled superseded tail still runs on (unreachable by click); parallax/ptychography are not in the replay record; a user
-  analysis mid-replay steals Cancel; replay contracts live in three places (`ProductWorkflow.currentReplaySignature`,
-  `ReplayRecordFrameMap.role`, `ReplayPlanner.parse`) — a design change.
-- **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
-  `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
-
-## Ready on the new hardware (owner, 2026-09-30) — and what still waits on the owner
-
-### The new Mac (M5 Pro, 64 GB): brought up 2026-09-30 — the hardware lanes
-Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" retired) — `../_archive/mac4DSTEM/docs/archive/v4/newmac-gateD-2026-09-30/record.md`
-(chip vs OS for the MPSGraph bug stays open: the old Mac is retired). **Done 2026-09-30 night:** the 28 GB `--parity` run
-(`../_archive/mac4DSTEM/docs/archive/v4/parity-28gb-2026-09-30.md`: the app's raw read is right; the "unfiltered" bin-4 cubes are hot-pixel filtered at 15
-detector pixels incl. the direct beam — the owner's files, not the app; the > 2 GB read rule is retired for mapped local
-volumes); the parallax/ptychography cost (`../_archive/mac4DSTEM/docs/archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
-not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene cube, 2026-10-01 (R4 + DC, `../_archive/mac4DSTEM/docs/archive/v4/r4-*`, `dc-*`):** the aligned BF matches py4DSTEM to 3.6e-5
-(the vignette was a Float32 stack-mean reduce; C1 663.42 vs 664.05 Å); the (2,1) pair's ≈ 600 Å is py4DSTEM's basis-origin offset on an
-exactly linear shift field — unobservable in both with the default alignment, the app's 0 labelled (owner 2026-10-01: the higher-order
-toggle removed; `regularize_shifts` not offered); the difference map is removed (α = 0 alternating projections with it); the |O| ≤ 1 clamp is on by
-default — GD's gap to py4DSTEM 8.6 → 1.7 % at 8 iterations, growing after (2.3e-2 at 32), `fix_probe_com` still off (5e-4); the object
-still correlates 0.69 with py4DSTEM's. Archived scripts that call `ptycho dmap` or an unflagged `ptycho gd` reproduce only at their commit.** C5's 500-step run done headless
-(`../_archive/mac4DSTEM/docs/archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
-65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
-grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A DM4 whose disk is disconnected refuses
-every later read until reopened (Slot 4⅞ lane D: a held descriptor + latch, measured on HFS+/APFS/exFAT RAM disks,
-`../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/`); a read in flight at the yank can still crash; the probe is unit-blind — any change to
-the reader's held descriptor re-runs `lane-D-probe/drive.sh`; after the latch each pattern click re-presents the alert (no dedupe).
-Network volumes keep the full read.
-
-### Scan-fastest DM4 detector pair: order unverified against GMS — a named limit (2026-09-05; owner 2026-09-30: leave it)
-`Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448) with one axis order for the
-scan pair and the other for the detector pair; a transposed pattern would silently flip strain axes and R–Q rotation. The owner
-declined the GMS check (ADR 050). Not on the v4.1 path; a session that touches the reader pins an ncempy checksum first.
-Detail: `../_archive/mac4DSTEM/docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Owed on screen from earlier drives (2026-09-09)
-Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh, configurator single-pattern preview,
-"No preview available") reaching the status strip, the disk-centre label round trip (the owner's hand), and the bounded
-promote run. There is no automated visual baseline; drives are the evidence (standing note archived 2026-09-30).
-
-## Data, harnesses & code hygiene
-
-### Preprocessing export (Slot 2 lane X, 2026-10-01): four named residuals
-Stride, detector crop and py4DSTEM's hot-pixel filter landed (`../_archive/mac4DSTEM/docs/archive/v4/slot2-x-record-2026-10-01.md`, `-refuter-`). (1) The
-bin's float32 sum order is not numpy's: ≤ 1.14e-4 relative on the 28 GB cube, never bit-identical — owner's call whether to match
-it. (2) The filter's mean is Double where numpy's is float32 (DEVIATION): numpy is 45–230 counts off at 2e5 against thresh 8, so
-inside a bright direct disk py4DSTEM's own mask is partly an accumulation artefact; the 060 match (exactly the 15) is one dataset
-with an unmeasured margin — `--export-parity` could print it. (3) A strided or detector-cropped export carries no replay recipe
-(named in the status line when there is one to omit). (4) Since Slot 4⅞ lane V the export carries the
-accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: the sheet's short scroll area (the 1-px crop steppers went with the old sheet, `de05c943`).
-
-### Velox `.emd` opened as a one-row cube — fixed in v5.0 (WP2 R2), not driven
-`openFileAsync` / `openFileForConfiguration` now ask `SpectrumImageOpener.kind` first: a Velox EMD (and a DM4 whose only 3D object is
-an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; every other file reaches the 4D open untouched. Gate B
-(Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
-
-### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
-`../_archive/mac4DSTEM/tools/velox-parity` checks FormatoKit's `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
-frame counts; since 2026-10-12 also every frame of the 27 image stacks via `images()` / `readImageFrame`) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
-Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
-truth arrays are cached as fixtures. Also: FormatoKit's `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines); a fix goes to FormatoKit.
-Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is capped at 16 MiB (0db86192); still unbounded:
-`markersPerFrame` (`FrameLocationTable` rows) and the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes` (`dims[1]`).
-
-### Spectroscopy room (ADR 056 + spec 2 / ADR 057, 2026-10-07): live gaps
-- **State:** spec 2 landed and driven by the session (`../_archive/mac4DSTEM/docs/archive/v5/room-drive-3-2026-10-07.md`; gate row in `status.md`). Owner's own
-  look owed, and his pictures: shell glass, a wider inspector for the 18-column table, "Compute Image", EDX products in the
-  Results room / Save to Session for an EMD opened alone, per-line fitting (`../_archive/mac4DSTEM/docs/archive/v5/ux-spec-2-2026-10-06.md` §4).
-- **Auto ID on real Al pools:** misses Si and Mg, proposes Eu/Hf/Ho — and since spec 2 it APPLIES its picks, so SI 1339 opens with
-  seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho) — since ADR 058 the L/M-line picks (Eu, Hf, Ho) land as Fit only, so at% is computed at once; the person unpicks. F3.2 refuted as a default; next: a new registration. The
-  sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
-- **Owner's drive of ADR 058 (2026-10-07 12:30, `../_archive/mac4DSTEM/docs/archive/v5/owner-drive-findings-2026-10-07.md`) → ADR 059**, landed unverified on screen by the
-  session (his copy was running): Compute Image back; flat columns, glass buttons; spectrum weight and one colour per region; the Show menu
-  as an inspector section; zoom gestures; scale bars on every map and in exports; line families = Velox's 20 keV boundary (defaults move for
-  Z ≥ 45 only) with α/β per element for maps and markers; Auto ID measured against Velox's selections (`../_archive/mac4DSTEM/docs/archive/v5/autoid-velox-check-2026-10-07.md`).
-  Kα+Kβ of one element: the later window is clipped so no channel counts twice (Gate B, supervisor). Live-region colour = the accent, the
-  same as a tile's in-mix outline (lane L8 noted the clash; a drive decides).
-- **Drive 5 (2026-10-07 midday, ADR 058 landing, `../_archive/mac4DSTEM/docs/archive/v5/room-drive-5-2026-10-07.md`):** every drive-4 finding but one is closed
-  (smoothed maps, fit-only picks, named peaks, Absorption, the 4D verb); the ⚠ beside element names carries `.help` in code and was not
-  hovered with a real mouse. The live-time Info row was removed: the reader's segment LiveTime is "as read, semantics unverified" (sheet
-  row 4a, a reader change). The cursor's candidate list is by distance only (Ac Mα can lead on an Al alloy; the person picks). Not yet
-  seen: Reduce Transparency on the glass shell (light appearance seen in drive 7, 2026-10-08: readable, chip on/off distinct). Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
-- **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
-  live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
-  its own gate); the weak-line note quoted Mg's ≈ 300 counts also when only Si was the neighbour (fixed 2026-10-08: such a fit quotes Si's −164 of 1 879).
-- Regions: rectangle, ellipse and polygon, on the ColorMix only; ⌫ removes the live one.
-- **Plain mouse wheel does not zoom** (SwiftUI limit; pinch, ⌃-wheel, a drag in the keV row, ⌘-drag box and "Zoom to range" do, ADR 059).
-  A wheel would need an AppKit event view: the owner decided 2026-10-07 14:45 "zoom is fine like this, no AppKit in this app" — closed, not a defect.
-- **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
-  withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
-- **`Data Order Swapped` = 1 on an EDS object is refused** (its meaning for an SI is unmeasured); a real joint file that sets it
-  needs the layout measured. Counts must be whole numbers (a float-averaged SI is refused). Detector resolution for the windows is
-  assumed 130 eV at Mn Kα until the file or WP3 supplies it.
-- **A line whose background windows hold at least its signal (s·B >= G) shows "—" and the reason**, whichever other elements are
-  selected (since R10 it is still ticked into the mix; the note stays). Seen on the owner's `References/EDX` file, which is NOT Al-Mg-Si (Velox mapped O,
-  Si, Ti, Ni, Ge, In, Sn): Al is absent there, so its windows sit on Ge/Si peaks and its net is negative; "Mg" there is mostly Ge Lα.
-  Those numbers are not Al-Mg-Si results. The merge of neighbouring background windows moved the Mg and Si numbers, not the Al sign.
-- **A GMS EDS SI with `Data Order Swapped` = 1 is refused until one is measured** (expected for real GMS files, which write the tag).
-- **Window rule:** a window holding a 4D cube sends a Velox/EDS file open to a NEW window (as a spectrum-only window does for a cube);
-  the joint GMS attach is the one exception. A Velox file with `/Data/SpectrumImage` but no stream is routed too and refused with the
-  pruned-file message (before routing it would have opened as a cube).
-- **GMS EDS geometry is not read yet:** `DM4EDSDetectorTags` reads azimuth/elevation/solid angle but not `EDS.Detector Info.Stage
-  tilt` nor a multi-segment list, so a GMS EDS shows one detector and no tilt; WP3's absorption needs both for GMS files.
-
-### Quantify verb wired (R3, 2026-10-06): unverified on screen and known gaps
-- **Driven 2026-10-06:** the verb, fit curves, residual, warnings, Beam energy row and Expert seen; the Typed k sheet not.
-- **The fit is fragile on real spectra (diagnosed, refuted, pre-registered as WP3b):** unlisted strong lines (Ge, Cu, Ga) are
-  absorbed by the continuum and hold Ti at 0; the order-5 upper segment is too stiff to 80 keV; the segments are uncoupled
-  at a fixed Al-edge split (a collapse at 1.557 keV); σ is counting only (~±20 % model spread). Fixes F1–F3:
-  `../_archive/mac4DSTEM/docs/registrations/wp3b-fit-robustness-preregistration-2026-10-06.md`. F2/F3 refuted 2026-10-06 (addendum there): the
-  continuum fix needs a new registration; F1 continues. F1 landed: after each fit the proposer names unlisted lines
-  (incl. sum-peak questions) and at% waits for it; at% is withheld when a refit with them moves a listed net by > σ
-  (margins: 26.7–33 σ when missing; 0.3–0.9 σ for a chance or real harmless extra — the planted Ca case sits at 0.9 σ).
-  Open: a Lu Mα proposal sits on the Al-K-split notch on every synthetic run (count it on real Al-free data);
-  "Dismiss" = Off, so a hand-toggled Off element is also excluded; each element click with Quantify active starts a
-  5–20 s proposer run (cancelled by the next).
-- **WP3c landed:** the default fit stops at min(axis end, beam, 20 keV), named in the footer; Expert "Fit to" types
-  another; above 20 keV a named statement says how much each line moves if fitted to the axis end. A replayed step
-  recorded on an 80 keV axis before WP3c re-fits at 20 keV (same method hash; the footer shows the range). Open: on the
-  GMS demo (axis 20.03 keV) locking the axis turns on a trivial ±0.0 % statement; below 0.2 keV the Expert field
-  silently resets to the default (Core's refusal with a reason is unreachable from it).
-- **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
-  against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
-  rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.
-- **GMS: no beam energy or tilt reaches the method.** The EDS reader sets no `beamEnergyKeV` (the room asks for it, typed, in Quantify)
-  and the absorption is refused for every GMS file until the tilt and the four segments are read. at% is then computed WITHOUT absorption,
-  and every row and the footer say so.
-- **at% needs a K line per quantified element** (the computed k covers K lines only); an element with only an L group (Ga) is Fit only.
-- **Live-time normalisation (ADR 054 item 5) is not applied** in the quantification (it is a region-comparison control; Regions' Compare row
-  still names its basis only). The absorption σ term is the spread between the weighted and the geometric mean transmission.
-- **Axis-refinement recovery is unpre-registered (S1).** Pre-register recovery-versus-counts on lane S's dose ladder before any refined axis is trusted below ~10⁴ counts; the σ terms carry no axis term.
-- **Absorption checked against truth (A4):** on the simulator's 80 nm recipe-A pool, exact areas recover truth within a derived bound (Si −13.2 % uncorrected → −0.3 %), and on fitted areas the app's T matches the simulator's own path integral (4 seeds). The "absorption model spread (AM vs GM)" stays a proxy kept out of the σ; a real term needs a sourced σ_μ.
-- **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
-
-### Element proposer + Auto ID (2026-10-06): unvalidated on real data
-SpectroKit's `Sources/SpectroCore/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
-add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
-on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
-- **Auto ID vs Velox (WP4 ADR 060, WP4b ADR 062):** shipped: never Z ≥ 89 (34,1 → 39,6 % precision on the owner's 78 files). WP4b refuted
-  both held rules on sets that test their risk (`../_archive/mac4DSTEM/docs/archive/v5/wp4b-results-2026-10-07.md`): the beside-K drop with an evidence guard drops true
-  Hf beside Cu and Pt beside Ga (an L family's L_D is larger at equal area, so net/L_D is not comparable across families); R2 lost 4 Velox hits
-  in-sample, while DTSA-II's Qual set favours it (precision 53,9 → 81,3 %, 8 hard-class hits lost). Next registrations, if wanted: a beside-K
-  test on β-line or line-shape evidence; R2 on independent 200 kV truth. Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in
-  the pool; H4 was selection-biased).
-- **Duplicate sum-peak columns (2026-10-08):** six Velox entries failed Auto ID with `rankDeficient` (two pile-up pairs at one table
-  energy). Fixed for exact sum–sum duplicates (77c12faa; the 0.06 keV rule was refuted first, `../_archive/mac4DSTEM/docs/archive/v5/sum-column-dedup-results-2026-10-08.md`).
-  The refuter's "sum = another element's line" case was not reproduced (those groups are multi-line, never an identical column); a
-  narrower one was: a candidate's single-line Si-escape column at an exact pile-up energy (V Kα escape 3.2125 = Tb Mα + Ir Mα) throws
-  `rankDeficient` at every amplitude, reachable only when the axis tops out between ≈ 5.0 and 5.4 keV (not on the owner's 20 keV files);
-  sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `../_archive/mac4DSTEM/docs/archive/v5/sum-escape-only-results-2026-10-12/`);
-  the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
-  `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
-- **SpectroKit (2026-10-13):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
-  re-baselines the golden); `SpectroscopyExport`'s default title still names the app (injectable, default kept); `MAC4DSTEM_HDF5_PATH` is no longer read by the app (2026-10-20: `FORMATO_HDF5_PATH`, FormatoKit's list);
-  public API: 438 declarations, ζ `package`. Since S4 (ADR 067): 18 staying test files reach SpectroKit `package` API by
-  `@testable import SpectroCore` / `SpectroEDX` (memberwise inits of `ElementCandidate`, `LineWindow`, …; `EDSFit`),
-  so they compile only against a testable (Debug) SpectroKit; a later tag could make those public. The Run configuration's
-  name `Develop` is what makes Xcode build the kits optimised (an undocumented mapping; the pre-push hook checks SpectroCore and FormatoEMD).
-  `../_archive/mac4DSTEM/tools/velox-parity`, `edx-pins`, `demo-edx`, `autoid-velox-check` read the pinned checkouts (SpectroKit 0.4.0 + FormatoKit 0.0.3, 2026-10-15; `autoid-velox-check --replay` is off there: `LineConflict.init` is internal in SpectroEDX, a public initialiser is SpectroKit's to add).
-  The app's own root dylibs are removed (owner, 2026-10-15 14:44): FormatoKit's libhdf5 is the only one. Answered by FormatoKit 0.4.0 (2026-10-20): it ships as the frameworks FormatoLibHDF5, FormatoLibSZ and FormatoLibAEC, which Xcode embeds in `Contents/Frameworks` and signs with the app's identity, so a hardened-runtime app loads them (no owner decision left; the Developer ID archive is still to be run).
-- **Stale VoiceOver values (drives 8, 9, 13, 14), fixed 2026-10-13:** `.textSelection(.enabled)` wraps a Text in an outer element
-  whose value never updates (measured on a scratch app); `selectableText(_:)` gives it an explicit value (inspector value rows,
-  aberration coefficients, provenance values and differences). Four dimmed buttons now give their reason. Not yet re-read on screen.
-- **Drive 13 (2026-10-13):** ⌘O opened a second window each time. The main window that "left the screen and the AX tree" was
-  seen again on 2026-10-13 off the current Space (CG: present, not on screen) while the owner used Mail: likely a Space switch, not a
-  defect. A doubled VoiceOver name ("X, X") is fixed at five sites: on macOS an `.accessibilityLabel` is APPENDED to the title of a
-  checkbox Toggle, a pop-up or a segmented Picker, a Stepper (measured on a scratch app; Buttons, text fields, switches, Menus and a
-  Picker in a Form replace it). A new control names itself through its hidden title, not an extra label.
-- **E1 pools (2026-10-13):** with a cube but no registration the Phases section shows the registration sentence, not the Crystal Maps
-  line; `PoolCatalogue.isUnvalidated` repeats Core's predicate; membership is ≥ ½ beside no class (moot under the identity). Undriven.
-- **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
-- **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
-  by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
-- **Look-elsewhere:** ≈ 0.055 chance elements per spectrum at 114 groups (measured 7/162); stated in the notes.
-- **Sum-peak phantoms** (Rh, Sn, Sr at 300 counts/px) go to `sumPeakQuestions`, never `proposed`; their single-candidate
-  test still lets the candidate absorb the pile-up (`.union([g.id])`), and a sum label attaches on energy coincidence alone.
-- **Kβ/Kα excess makes phantoms** (Lu Mα, Re Mα on the simulator, whose forward model depletes Kα parents only); real
-  absorption can do the same on the owner's pools. Join order can ban a candidate silently.
-
-Statistics nits carried:
-- A negative live time should be treated as corrupt (fall back with the reason).
-- The "coverage 0.68 even at net 0" note was measured at B = 100.
-
-### Real Al-Si-Mg check (2026-10-06): WP3d run; at% now shown with a caveat (A2); the fit's Al-alloy misfit is open
-Headless app path on three of the owner's Velox SIs (private, read in place). Maps: Al and Si match Velox's map SHAPE
-(Spearman ρ ≥ .83; Velox exports 8-bit RGB, no count parity). WP3d (`../_archive/mac4DSTEM/docs/archive/v5/wp3d-results-2026-10-06/`): the fitted
-continuum is 1.2–1.7× the data over 1.65–2.4 keV; ~55–65 % of the matrix deficit is unweighted LS absorbing the Al Kα
-high-side misfit (ML, a 1.55–1.66 keV mask and a tied column are one lever); a 1.839 keV step is 8–18 % on one pool
-(2.2–3.4 σ), unmeasured on pure Al. The Al Kα excess is a +82…+90 eV feature of 1.1–1.4 % of Al Kα in 9/9 pools, absent
-on Si/Cu and on one other Al spectrum. B1 (sibling-family bar) dropped: sibling nets sit at the NNLS bound.
-**A2 landed (Fable decision, owner overrules on sight):** an unlisted candidate within ±2 FWHM of a listed group's α line
-(±1 of a split edge) is "unexplained excess beside Al Kα", never an element, never refit; at% is never blanked — a caveat
-names what is unlisted and the largest move. The F1 > σ bar did not separate on real pools (threshold rule). Not landed
-until the owner's pure-Al spectrum: the Al K column, LS→ML, a Si step. The unlisted check costs 23–437 s per real pool.
-Auto ID proposes implausible elements on real data (Eu/Hf/Co/Ho on file 1339; drive 2026-10-06), unvalidated-badged.
-
-### Weak lines beside Al Kα read low in the WP3 fit (2026-10-06) — badged, unmeasured on real data
-The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al K edge) recovers a weak Mg Kα about 300
-counts low per pooled spectrum on both synthetic generators (30 seeds; laneF report2/3: A −295 ± 31 / −402 ± 33 at
-0.3 % / 1 %, lane S's simulator −310 ± 23). On the simulator the whole deficit is the unmodelled Al Kα incomplete-charge
-tail (supplying the true tail as a reference shape: −301 → +35). Si Kα also reads low: −164 of 1879 counts (−8.7 %) on
-A4's recipe-A pool (4 seeds; measured there only; the room's sentence quotes it when Si is the only weak neighbour). The fit's warnings carry the Mg number. The remedy is
-measured: the owner's pure-Al reference spectrum (tail shape and tie fraction). Q2 (the owner's matrix pool: flat
-residual AND continuum vs poly-6 vs window agree within σ) is still owed. The reported σ is a passive-set sandwich
-(lane Σ): it matches the scatter of a strong line (SD/σ 1.035), but is 5–8 % small on a weak Mg line under LS and ~12 %
-small under Poisson-ML (one fixture; mechanism and an ML scatter test owed). A bound line keeps the full-design σ.
-
-### Misc data-layer items, low priority
-C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
-(`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
-both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need multi-GB data and stay diagnostics.
-
-### Acceptance-harness gaps — red gate names the symptom, counts not positions, thin infrastructure (2026-09-02/09)
-- S19 (2026-09-30): `compare.py` collects every mismatch, peak positions are pinned per sampled position (0.05 px, measured on
-  this Mac's GPU only), no data is a FAIL, `scientific` reaches the harness (`CI`/`MAC4DSTEM_NO_REAL_DATA` skip it loudly; `all`
-  has no opt-out); `--check-data` is existence-only; 4 datasets stay UNPINNED.
-- **Infrastructure**: the 15 s budget gates the pinned datasets only; virtual-image `abs_tol` exceeds one
-  fixture's range; `rel_tol` on `diskProbeRadiusPixels` is inert below 50 px; `if not actual:` is unkillable; the runner aborts
-  at the first red harness.
-- **Learned detector on the Neural Engine (2026-09-30 night, Gate D + two refuter passes, `../_archive/mac4DSTEM/docs/archive/v4/ane-return-2026-09-30/`):**
-  the load asks for `.cpuAndNeuralEngine` and refuses a model the Neural Engine did not run; the parity test is green for the
-  right reason. Residuals: measured on this Mac only (M5 Pro, macOS 27.0.1); a machine with no Neural Engine now refuses the
-  learned detector (was: ran on other numerics unannounced) and re-runs the 0.3 s check on every live preview; the fine-tuning
-  candidate's unit and a partial Neural Engine plan are not pinned by a test; at threshold 0.9 the unit moves up to 5 % of
-  accepted peaks (0.45 % at the shipped 0.7). CI's unit job stays paused (ADR 040); every green gate is local.
-
-### Accessibility (does NOT block a release — owner decision, 2026-09-11)
-The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` never recurred (full AX probe 2026-09-30); its cause was never
-established. Advanced detection shares one identifier (`disk.advancedDisclosure`). Everything newer is in the 2026-10-07 entry below.
-
-### SwiftUI review residuals, drives and audits (2026-10-07)
-Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`../_archive/mac4DSTEM/docs/archive/v5/swift6-cost-2026-10-07.md`); the owner schedules it or not. If yes, order: D+E statics/conformance (0.5), A counters via `Mutex` (1), B+C `nonisolated` + pointer box in Origin/RotationCalibration (1.5, Gate B, bit-compare), then v6 one module at a time (Training already builds; the v6 error count is a first wave only). Tests and `tools/` measured 2026-10-08 (`../_archive/mac4DSTEM/docs/archive/v5/swift6-cost-tests-tools-2026-10-08.md`): tests 364 sites, 331 of them one XCTest class-isolation family (1–2 sessions, wave 2 unmeasured); tools 47 sites (0.5–1); all in ≈ 3.5–6 sessions.
-2026-10-12 lanes (owner: fix the rest; Swift 6 out; non-pointer routes as VoiceOver actions only, no new surface) closed the review's other rows: the Info tab's and ACOM scope's per-scrub re-reads, a number field's unit spoken twice, the spectrum's candidate menu (1st #26), scan crop (1st #21), Label centres (3.1), the comparison sample (6.4), disabled reasons (3.3, 6.6); checks R1–R8 of `../_archive/mac4DSTEM/docs/archive/v5/swiftui-review-verification-2026-10-07.md` (unverified on screen). Closed with no change, overrule on sight: P4b (zoom badge and scale-bar strings: the badge text changes every pinch tick and an Equatable wrapper cannot skip the parent body) and the region drag (2.4: the region sits on the scan position, which the panes' Move scan actions already move, one position a step). Open: Swift 6; the detector panes' crop is drag-only (found 2026-10-12); the lineage focus ring (7.3) and visible wording (2.4, 4.8, 1st #20) wait for his word. Audits: `../_archive/mac4DSTEM/docs/archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`. `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn. Drive 9 (2026-10-12): read from outside, the inspector's accessibility tree went stale after scrubbing and room switches; whether VoiceOver hears the stale values is open — compare with a1cea5c2 before any fix (Gate D).
-Apple-docs checks 2026-10-08 (drafts by Haiku readers, citations spot-checked): `../_archive/mac4DSTEM/docs/archive/v5/liquid-glass-check-2026-10-08.md` (glass used as
-documented; light appearance seen in drive 7 (per-process `-NSRequiresAquaSystemAppearance YES`); Reduce Transparency owed; map-overlay glass vs the content-layer rule is the owner's D-8),
-`api-deprecation-sweep-2026-10-08.md` (nothing deprecated the compiler misses; 6 Number/DateFormatters → FormatStyle, display only, done by lane V; 4 AppKit
-uses vs the SwiftUI-only rule: the swatch and the label-import panel are SwiftUI since lane A2; MetalImageView stays; Reveal in Finder keeps
-`NSWorkspace.activateFileViewerSelecting` (no SwiftUI call selects a file in Finder; decided for the owner, overrule on sight)), `coreml-vs-coreai-2026-10-08.md` (answered: Core ML stays, ADR 063).
-
-### The audit's refactor list, rows 4–13 — most parked
-Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
-**resultexport-split and braggvector-emd-writer-split**, each prepared and parked (the HDF5-adjacent split: four
-ResultExport files, `sessionPixelCalibration` single-sourced; the writer by dataset kind, each file `nonisolated`-verified by a
-cold build) — a session with Gate B support; row 12 (the >1 000-line harness mains). **Row 9 is a do-not:** five `median`
-bodies in Core stay separate until a Gate D shows they should agree (ADR 015). Detail: `../_archive/mac4DSTEM/docs/archive/open-items-detail-2026-09-18.md`.
-
-### Minor tooling/hygiene residuals
-`../_archive/mac4DSTEM/tools/free-space.sh` (archived): the temp prefix is spelled by producer and reaper separately and the MCP root is hardcoded — a `tools/lib/`
-constants file is deliberately NOT taken (a bad line there kills every gate). `.fixedSize()` in `UI/` (20 call sites counted
-2026-09-29) against the constraint-loop rule: the one suspect, the zoom badge (`ImagePanes.swift:662`, in the header's
-`ViewThatFits`), is not armed by reading — monospaced digits, so its width changes only when the digit count does, and it
-is inserted once per pinch, not per tick; never seen to abort. Unverified on screen; the rule stays a review item.
-Colour (2026-10-12, from macTEM): exports sample the LUT as the shader does (291fe352); the on-screen `Colorbar`
-(`PaneOverlays.swift:226`, 128 entries) and categorical legend (`:1245`) still take the nearest entry (cosmetic).
-Tooling (2026-10-14 night): `../_archive/mac4DSTEM/tools/velox-parity/run.sh` needs a venv with rsciio and sparse (its header line; none of the conda
-envs has both) — run through the data link with one in the scratchpad: 20 cases, 27 stacks, 0 failures. Dependabot #1 (torch
-2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`../_archive/mac4DSTEM/tools/disk-detector/README.md`).
-- **CuboKit gaps kept in the app (2026-10-16).** `OriginCalibration.fitOriginTrimmed` keeps its trim (median + 3 x 1.4826 MAD of the position residuals, up to three rounds, the S12 constants): `OriginFit`'s robust loop cuts squared residuals at a multiple of their mean, not the same rule; only the least squares under it is the kit's (`fit2D`). The measurement stays on the Metal tiled path (`VirtualDetector.tiledMeasuredOrigins`; `OriginMeasurement.measure` is CPU Double). Ask for the kit: `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred; the kit's is half-pixel for odd sides), a mask hook for the measured sigmoid kernel, and fit `kept` / residual outputs.
+- Kit asks after session 5, "Done and ticked" list (Float32 detection, fillNonFinite, HotPixelFilter.Replacer, ptycho probe, parallax correction/depth/position, streamed PCA, strain diagnostics, ACOM, Materials Project, DM4/DM3, HDF5 chunk/float16/bool, MIB, EMPAD): done in session 5.
+- "Kept in the app on purpose" (lineage and marks, header-less MIB, rank-3 reshape): restated in the kit asks above.
+- Release-build signing and FormatoKit 0.4.0 HDF5 frameworks: Developer ID archive was done 2026-10-20; the open proof is App work 1.
+- Phase 2 plan per kit (CuboKit, FormatoKit, DiffractoKit, SpectroKit lists, C3 locations, QCalibration compare): executed or restated as kit asks; plan retired.
+- CuboKit "Rules serve the app" bullet (FriedelOrigin, BeamstopMask, negative radius, 0.08 s resident image): switched 2026-10-16; a resident-cube image cost was CuboKit 0.2.1's, gone.
+- DiffractoKit pinned 0.5.0 note, replay scale guard constant, ParallaxAlignment-not-ImagoKit note: history; the facts live in the code and the kit-ask lines.
+- Probe radius from the max pattern: done 2026-10-20 (CHANGELOG).
+- Tiled GPU memory (gated flat; two untracked residuals), origin validity mask disclosure, 2026-09-09 register residuals other than item 7: observations, no live defect.
+- ACOM mirror residual (ii) sub-bin deposit; Q1b healthy-cube table; NiCu_COPL: measured records, no rule proposed.
+- Number density v2 patches and logs, ellipse two-start record, annulus guard g: refuted records in the archive; the live item is App work 2 and 5.
+- UI audit 2026-10-14 leftovers: rooms redriven since; the live pieces are in App work 14, 16.
+- Velox `.emd` as one-row cube, Velox parity diagnostic: fixed in v5.0 / tool archived to `../_archive/mac4DSTEM/tools/velox-parity`.
+- Region mouse-wheel zoom: closed by the owner 2026-10-07 (no AppKit).
+- R3 Quantify drive notes, WP3c, A2, A4 and drive 5/9/13 narratives: landed and recorded in ADRs 056-062; live gaps are in Kit asks, SpectroKit.
+- Lane F-B (b)(c), F-C (3), review lane F pinning note, S4/S5 wording residuals: fixed 2026-10-01/16 or merged into App work above.
+- Scan-fastest DM4 pair, HDF5 at quit, Velox allocation caps: kept above in one line each; the long write-ups are history.
+- Acceptance-harness S19 and ANE return detail: kept in App work 18 and 13; ADR 040 pause note retired.
+- New-Mac bring-up (28 GB parity, parallax cost, py4DSTEM graphene comparison, C5 training run): done 2026-09-30 to 10-01, recorded in `../_archive/mac4DSTEM/docs/archive/v4/`.
+- Accessibility `EXC_BAD_ACCESS` 2026-09-08: never recurred; `disk.advancedDisclosure` shared identifier left as is.
+- Swift 6 cost lanes, Apple-docs checks (liquid glass, deprecation sweep, Core ML vs CoreAI), `.fixedSize()` audit: decided or measured; the schedule is App work 16.
+- Minor tooling (free-space.sh constants, velox-parity venv, Dependabot torch 2.13 block): the tools are archived; the torch pin stays 2.11.0.
+- Process items (registrations, Gate B/D wording, lane G gate work, drive block, dead-code pass): retired 2026-10-15 or done 2026-10-21.

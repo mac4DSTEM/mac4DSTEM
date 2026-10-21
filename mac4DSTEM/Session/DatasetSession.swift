@@ -69,12 +69,6 @@ package final class DatasetSession {
         self.datasets = datasets
     }
 
-    package func addDatasetIfNeeded(_ descriptor: DatasetDescriptor) {
-        if !datasets.contains(where: { $0.datasetPath == descriptor.datasetPath }) {
-            datasets.append(descriptor)
-        }
-    }
-
     package func publishPreview(_ preview: DatasetPreview?) {
         self.preview = preview
     }

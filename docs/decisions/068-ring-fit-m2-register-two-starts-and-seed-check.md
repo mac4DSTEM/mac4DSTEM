@@ -1,5 +1,7 @@
 # 068 — Card M2: no held ring-fit fix lands; one new Gate D item, measured on the owner's cubes first
 
+> Moved (2026-10-21): the ring and ellipse fit (`EllipseCalibration`) is DiffractoKit's; the decision stands, the file cited below left this repo.
+
 **Date:** 2026-10-14 · **Status:** decided by the owner (card M2, option **d**, as recommended) · **Follows:** the ring-fit
 Gate D record `../_archive/mac4DSTEM/docs/archive/v5/ring-sigma-start-gateD-2026-10-13.md` (registered `ce245821`, step 2 `5594d2db`), ADR 050
 (a failed reproduction gate closes an item; a new registration is a new item), ADR 065 (M1)

@@ -1,5 +1,7 @@
 # 070 — The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D`, pinned at 0.1.1
 
+> Updated (2026-10-21): the pin is now ImagoKit 0.4.0 (`Package.swift`), not 0.1.0/0.1.1 as written below; `FFT1D` is `ImagoFFT.FFT1D`, and `ParallaxAlignment` keeps its own Float path, marked for deletion at CuboKit 0.7.
+
 **Date:** 2026-10-15 · **Status:** decided 2026-10-15 (prepared by ImagoKit's session; applied here with the unit and scientific suites through the kit and one review) · **Follows:** 064 (the kit pattern)
 
 ## Context

@@ -23,7 +23,6 @@ nonisolated let h5FileTruncate: UInt32 = 0x0002
 nonisolated let h5FileReadOnly: UInt32 = 0x0000
 nonisolated let h5ScalarDataspace: Int32 = 0
 nonisolated let h5CompoundClass: Int32 = 6
-nonisolated let h5StringClass: Int32 = 3
 nonisolated let h5UTF8CharacterSet: Int32 = 1
 nonisolated let h5SelectSet: Int32 = 0
 nonisolated let h5IndexByName: Int32 = 0
