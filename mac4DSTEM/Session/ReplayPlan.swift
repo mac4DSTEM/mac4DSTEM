@@ -62,7 +62,7 @@ package enum ReplayParameterFrame: Equatable {
     /// name. The payload carries the actual crop, never a flag: two same-bin
     /// crops at DIFFERENT offsets are different frames, and collapsing them
     /// to one would map every position with the wrong offset.
-    case detectorReduced(bin: Int, crop: AxisCrop?)
+    case detectorReduced(bin: Int, crop: DSTEMCore.AxisCrop?)
     /// Steps recorded under two different detector frames in one record
     /// (adopt under one specification, re-record under another). Never
     /// un-mixes — conservative on purpose.

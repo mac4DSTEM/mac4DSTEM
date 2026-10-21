@@ -890,7 +890,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.5.0;
+				version = 0.7.1;
 			};
 		};
 		30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */ = {
@@ -898,7 +898,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/CuboKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.4.0;
+				version = 0.6.0;
 			};
 		};
 		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {
@@ -914,7 +914,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.2.0;
+				version = 0.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
