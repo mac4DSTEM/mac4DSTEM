@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Precipitates: "Objects on panes" draws every object as an ellipse glyph (phase colour; counted only, labels, table-selected outlined) over the scan panes (virtual image, phase map). Off by default; unverified on screen. The same glyphs on the EDX map tiles and the hover readout come next.
+
 - 2026-10-21 Fixture move: the known-wrong demo Q scale in `QCalibrationOriginGateTests` is 0.024440 Å⁻¹/px again (was 0.021001 under the max-pattern radius), because the stored probe radius is the mean pattern's.
 
 - 2026-10-21 Re-calibrate Origin no longer overwrites a file's probe radius (the demo's 4.5 px was replaced by 9.56 px, the max pattern's estimate). The stored probe radius is now measured on the MEAN pattern, as py4DSTEM's `DataCube.get_probe_size` does, and only when no file, session or typed value (or vacuum-probe kernel) stands; the origin window keeps py4DSTEM's max-pattern radius (`get_origin`). A radius measured by Re-calibrate Origin on a file without one therefore moves from the max pattern's to the mean pattern's value (demo: 9.56 to 6.93 px). The lineage node records `origin_window_radius_px` and `probe_radius_mean_px`.

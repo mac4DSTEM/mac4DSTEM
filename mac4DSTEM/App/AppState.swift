@@ -281,6 +281,18 @@ final class AppState {
     /// `validation: "none"` badge covers what is read off it. Views read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
+    /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
+    var precipitateOverlay = PrecipitateOverlaySettings()
+    /// The glyphs for the scan panes, remembered per (classification run, minimum size).
+    @ObservationIgnored private let glyphSetCache = LastValueCache<GlyphKey, PrecipitateGlyphSet?>()
+    private struct GlyphKey: Equatable { var source: UUID?; var minimum: Int }
+    /// The glyph set of the current objects report, nil without one. Cheap after the first read per run and minimum size.
+    func cachedPrecipitateGlyphSet() -> PrecipitateGlyphSet? {
+        guard precipitateOverlay.onPanes, let source = precipitateClassification.sourceID else { return nil }
+        return glyphSetCache.value(for: GlyphKey(source: source, minimum: precipitateClassification.minimumObjectAreaPx)) {
+            precipitateObjectReport.map(PrecipitateGlyphSet.make)
+        }
+    }
     /// Session S5: whether a Materials Project API key is stored, and the
     /// save/remove actions the Settings scene drives — composition only, no
     /// forwarding properties (`Session/MaterialsProjectSettings.swift`). This

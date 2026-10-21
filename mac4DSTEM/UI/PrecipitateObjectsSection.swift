@@ -53,6 +53,7 @@ struct PrecipitateObjectsSection: View {
     private func content(_ report: PrecipitateObjectReport,
                          classification: PrecipitateClassificationProduct) -> some View {
         @Bindable var classification = classification
+        @Bindable var appState = appState
 
         Label {
             Text("From the unvalidated phase map above.")
@@ -90,6 +91,16 @@ struct PrecipitateObjectsSection: View {
             InspectorNote(excluded)
         }
 
+        Toggle("Objects on panes", isOn: $appState.precipitateOverlay.onPanes)
+            .help("Draw every object as an ellipse on the scan panes (virtual image, phase map): counted in their phase colour, "
+                  + "edge and small ones dimmed when counted-only is off, table-selected ones outlined in white.")
+            .accessibilityIdentifier("precipitates.overlayOnPanes")
+        if appState.precipitateOverlay.onPanes {
+            Toggle("Counted only", isOn: $appState.precipitateOverlay.countedOnly)
+                .accessibilityIdentifier("precipitates.overlayCountedOnly")
+            Toggle("Labels", isOn: $appState.precipitateOverlay.labels)
+                .accessibilityIdentifier("precipitates.overlayLabels")
+        }
         InspectorRow("Minimum size") {
             NumericField("Minimum size", value: $classification.minimumObjectAreaPx,
                          format: .number, unit: "px")

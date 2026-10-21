@@ -1210,6 +1210,20 @@ struct RealSpacePane: View {
                             .allowsHitTesting(false)
                     }
 
+                    // Precipitate objects as ellipse glyphs on every scan-grid pane (Precipitates section › Objects on panes).
+                    if let glyphs = appState.cachedPrecipitateGlyphSet(), glyphs.width == dims.width, glyphs.height == dims.height {
+                        let report = appState.precipitateObjectReport
+                        PrecipitateGlyphOverlay(
+                            set: glyphs, settings: appState.precipitateOverlay,
+                            selected: tableSelection.flatMap { $0.sourceID == glyphs.sourceID ? $0.objectIDs : nil } ?? [],
+                            colour: { label in
+                                let c = report?.color(of: label) ?? PhaseMapPresentation.color(phaseIndex: Int(label), matrixPhaseIndex: -1)
+                                return Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+                            },
+                            zoom: effZoom)
+                            .frame(width: imageBox.width, height: imageBox.height)
+                    }
+
                     // Objects selected in the object table (an overlay, not a
                     // published product: never saved or compared).
                     if let tableSelection {
