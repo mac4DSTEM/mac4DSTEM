@@ -3,6 +3,10 @@
 //  First CPU reference engine: py4DSTEM single-slice complex-object
 //  gradient-descent forward/Fourier/adjoint operators, full-batch semantics.
 //
+//  delete at CuboKit 0.7: CuboPtycho 0.6.0's SingleslicePtychography has every option this engine has (constrainObjectAmplitude
+//  included) and agrees with it to 3.4e-6 (PtychographyKitSwitchTests), but is Double (4.2x slower measured, 2x the memory) and has no
+//  cancellation or progress. Misfit asked of the kit: a Float path (shift ramps computed once per position) with isCancelled/progress.
+//
 
 import Foundation
 import ImagoCore
