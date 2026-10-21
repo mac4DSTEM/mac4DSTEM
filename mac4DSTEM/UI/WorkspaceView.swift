@@ -664,14 +664,12 @@ struct StatusBar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(appState.statusText)
-                // Truncates FIRST (S4, 2026-09-30): at ~1000 pt a busy run
-                // clipped this text on the left and gave the metrics zero
-                // width. The order under compression is now the run's numbers
-                // (`runReadout`, 1), the standing glance (0), this message
-                // (-1); `.help` carries the rest of it. Priorities are
-                // constant, so nothing here changes the strip's own minimum
-                // (the constraint-loop rule).
-                .layoutPriority(-1)
+                // The message is the line that says what just happened, so it keeps its width longest after the run's
+                // numbers: under compression the order is the run's numbers (`runReadout`, 1), this message (0), then
+                // the "Last run" line and the standing glance (-1) give way (design review 2026-10-21: the message was
+                // the part cut, "Strain ✓ 89%…", while the machine column kept its full width). `.help` carries the rest.
+                // Priorities are constant, so nothing here changes the strip's own minimum (the constraint-loop rule).
+                .layoutPriority(0)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: LayoutPolicy.infobarItemSpacing)
@@ -689,10 +687,12 @@ struct StatusBar: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .layoutPriority(-1)
                     .accessibilityIdentifier("status.footer.lastRun")
             }
 
             systemGlance
+                .layoutPriority(-1)
 
             if appState.hasDataset && !appState.datasetSession.isLoading {
                 Toggle(isOn: paneBinding(.output)) {
