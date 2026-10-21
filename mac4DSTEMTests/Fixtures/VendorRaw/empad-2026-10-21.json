@@ -1,0 +1,413 @@
+{
+  "absent.xml" : {
+    "refusal" : "cannotOpen"
+  },
+  "absolute_dir.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "acquire_first.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "acquire_last.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "acquire.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "ambiguous.raw" : {
+    "refusal" : "unsupported"
+  },
+  "bare_resolution.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "both.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "empty.raw" : {
+    "refusal" : "unsupported"
+  },
+  "missing_raw.xml" : {
+    "refusal" : "cannotOpen"
+  },
+  "no_raw.xml" : {
+    "refusal" : "malformed"
+  },
+  "no_scan.xml" : {
+    "refusal" : "malformed"
+  },
+  "not_xml.xml" : {
+    "refusal" : "malformed"
+  },
+  "one.raw" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "one.raw",
+    "full.patterns" : [
+      16384,
+      "8df53f54094d413d329d7d3a0561cc2d58cae17bd0b5b46c25f1499a84c0dd24"
+    ],
+    "full.rows" : "8df53f54094d413d329d7d3a0561cc2d58cae17bd0b5b46c25f1499a84c0dd24",
+    "full.tiles" : "8df53f54094d413d329d7d3a0561cc2d58cae17bd0b5b46c25f1499a84c0dd24",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "shape" : [
+      1,
+      1,
+      128,
+      128
+    ]
+  },
+  "other.bin" : {
+    "refusal" : "unsupported"
+  },
+  "paired.raw" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "paired.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "pix_column.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "shape" : [
+      6,
+      1,
+      128,
+      128
+    ]
+  },
+  "pix_row.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      19845,
+      "510a798dd1c72f8e72217a56b3c5be74f15046b5f006f0f7e7a734ea97ba6d9a"
+    ],
+    "reduced.rows" : "510a798dd1c72f8e72217a56b3c5be74f15046b5f006f0f7e7a734ea97ba6d9a",
+    "reduced.tiles" : "510a798dd1c72f8e72217a56b3c5be74f15046b5f006f0f7e7a734ea97ba6d9a",
+    "shape" : [
+      1,
+      6,
+      128,
+      128
+    ]
+  },
+  "pix.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "ragged.raw" : {
+    "refusal" : "malformed"
+  },
+  "ragged6.raw" : {
+    "refusal" : "malformed"
+  },
+  "relative_dir.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "scan_x3_y2.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "scan_x3_y2.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "short.xml" : {
+    "refusal" : "malformed"
+  },
+  "single_quotes.xml" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "empad.raw",
+    "full.patterns" : [
+      98304,
+      "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da"
+    ],
+    "full.rows" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "full.tiles" : "d795f0ebff19929e862b59d52476cf84c57a2a814c448b0b729b8a63b3a107da",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      15876,
+      "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c"
+    ],
+    "reduced.rows" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "reduced.tiles" : "fa19d2e308ba5b69f812e349d85fd57258cefb9959f1e4cf197edf690798368c",
+    "shape" : [
+      2,
+      3,
+      128,
+      128
+    ]
+  },
+  "square4.raw" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "square4.raw",
+    "full.patterns" : [
+      65536,
+      "2f173d1a0866e3b4f2a1b2ca863fe6a7d4629932b1b71e8a6a4ccea70379bd36"
+    ],
+    "full.rows" : "2f173d1a0866e3b4f2a1b2ca863fe6a7d4629932b1b71e8a6a4ccea70379bd36",
+    "full.tiles" : "2f173d1a0866e3b4f2a1b2ca863fe6a7d4629932b1b71e8a6a4ccea70379bd36",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      7938,
+      "89dd6874a764c33085809f578f132477eb39a303f5c3e790e3c3c7c489ee1aec"
+    ],
+    "reduced.rows" : "89dd6874a764c33085809f578f132477eb39a303f5c3e790e3c3c7c489ee1aec",
+    "reduced.tiles" : "89dd6874a764c33085809f578f132477eb39a303f5c3e790e3c3c7c489ee1aec",
+    "shape" : [
+      2,
+      2,
+      128,
+      128
+    ]
+  },
+  "square9.raw" : {
+    "dtype" : "float32 little-endian (EMPAD)",
+    "file" : "square9.raw",
+    "full.patterns" : [
+      147456,
+      "55f0564ac3db352eefe4d02896d85f3fe7624ba313447085b44c8a1716300622"
+    ],
+    "full.rows" : "55f0564ac3db352eefe4d02896d85f3fe7624ba313447085b44c8a1716300622",
+    "full.tiles" : "55f0564ac3db352eefe4d02896d85f3fe7624ba313447085b44c8a1716300622",
+    "path" : "\/EMPAD\/raw",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      23814,
+      "be0405b68df16e33a8bcaca4285ab283da184babb71dcaca7aaed50a691fd913"
+    ],
+    "reduced.rows" : "be0405b68df16e33a8bcaca4285ab283da184babb71dcaca7aaed50a691fd913",
+    "reduced.tiles" : "be0405b68df16e33a8bcaca4285ab283da184babb71dcaca7aaed50a691fd913",
+    "shape" : [
+      3,
+      3,
+      128,
+      128
+    ]
+  },
+  "wrong_count.xml" : {
+    "refusal" : "malformed"
+  },
+  "zero.xml" : {
+    "refusal" : "malformed"
+  }
+}

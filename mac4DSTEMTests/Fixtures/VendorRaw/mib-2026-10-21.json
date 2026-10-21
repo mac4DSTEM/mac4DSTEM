@@ -1,0 +1,383 @@
+{
+  "absent.mib" : {
+    "refusal" : "unsupported"
+  },
+  "assembly_2x2.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "assembly_2x2.mib",
+    "full.patterns" : [
+      262144,
+      "2313f210c4755970046ab79b489f8896f71ea6c08c179a07579c4e4e91cdab34"
+    ],
+    "full.rows" : "2313f210c4755970046ab79b489f8896f71ea6c08c179a07579c4e4e91cdab34",
+    "full.tiles" : "2313f210c4755970046ab79b489f8896f71ea6c08c179a07579c4e4e91cdab34",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "shape" : [
+      1,
+      1,
+      512,
+      512
+    ]
+  },
+  "assembly_2x2g.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "assembly_2x2g.mib",
+    "full.patterns" : [
+      264196,
+      "829e8913d6ca37eebb2cbb833efa79f91c1288e78b485394f6de05e6a3b81eb4"
+    ],
+    "full.rows" : "829e8913d6ca37eebb2cbb833efa79f91c1288e78b485394f6de05e6a3b81eb4",
+    "full.tiles" : "829e8913d6ca37eebb2cbb833efa79f91c1288e78b485394f6de05e6a3b81eb4",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "shape" : [
+      1,
+      1,
+      514,
+      514
+    ]
+  },
+  "assembly_mismatch.mib" : {
+    "refusal" : "malformed"
+  },
+  "assembly_unknown.mib" : {
+    "refusal" : "unsupported"
+  },
+  "bad_hdr.mib" : {
+    "refusal" : "malformed"
+  },
+  "h512_u08.mib" : {
+    "dtype" : "U08 big-endian (MIB)",
+    "file" : "h512_u08.mib",
+    "full.patterns" : [
+      131072,
+      "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf"
+    ],
+    "full.rows" : "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf",
+    "full.tiles" : "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0"
+    ],
+    "reduced.rows" : "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0",
+    "reduced.tiles" : "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "h512.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "h512.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "h768.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "h768.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "h4096.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "h4096.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "h65536.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "h65536.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "hdr_mismatch.mib" : {
+    "refusal" : "malformed"
+  },
+  "no_hdr.mib" : {
+    "refusal" : "unsupported"
+  },
+  "nodetector_384.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "nodetector_384.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "nodetector_512.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "nodetector_512.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "nodetector_u32.mib" : {
+    "dtype" : "U32 big-endian (MIB)",
+    "file" : "nodetector_u32.mib",
+    "full.patterns" : [
+      131072,
+      "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c"
+    ],
+    "full.rows" : "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c",
+    "full.tiles" : "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5"
+    ],
+    "reduced.rows" : "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5",
+    "reduced.tiles" : "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "offset_not_size.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "offset_not_size.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "r64.mib" : {
+    "refusal" : "unsupported"
+  },
+  "ragged_header.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "ragged_header.mib",
+    "full.patterns" : [
+      131072,
+      "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a"
+    ],
+    "full.rows" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "full.tiles" : "df4c2311f8a5e06848ac7c21a1ffdbb3ab35c285db72c3df351c9da9dfd6584a",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc"
+    ],
+    "reduced.rows" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "reduced.tiles" : "7cf5f344c5ae516544722fc7444a201f301435dd0f0f784eca2eb91a9d5398dc",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "tiny.mib" : {
+    "refusal" : "malformed"
+  },
+  "truncated.mib" : {
+    "refusal" : "malformed"
+  },
+  "u08.mib" : {
+    "dtype" : "U08 big-endian (MIB)",
+    "file" : "u08.mib",
+    "full.patterns" : [
+      131072,
+      "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf"
+    ],
+    "full.rows" : "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf",
+    "full.tiles" : "1855652c9e946e34d1a3021a2edd95bf47274e23330ba597c9df9c2476abf7cf",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0"
+    ],
+    "reduced.rows" : "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0",
+    "reduced.tiles" : "f10ab0511279310c093c561409c054b000cdf03883b13e040f939328e46b33f0",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "u16.mib" : {
+    "dtype" : "U16 big-endian (MIB)",
+    "file" : "u16.mib",
+    "full.patterns" : [
+      393216,
+      "4bf8d8282b920cb5406ae02355d47bd228b65b6a00814e4b3abe42711b6108c7"
+    ],
+    "full.rows" : "4bf8d8282b920cb5406ae02355d47bd228b65b6a00814e4b3abe42711b6108c7",
+    "full.tiles" : "4bf8d8282b920cb5406ae02355d47bd228b65b6a00814e4b3abe42711b6108c7",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      64516,
+      "ecdc089d265bfc0f3455e8d16ce9e25176015c5eb5770294ab60019bda41e1ec"
+    ],
+    "reduced.rows" : "ecdc089d265bfc0f3455e8d16ce9e25176015c5eb5770294ab60019bda41e1ec",
+    "reduced.tiles" : "ecdc089d265bfc0f3455e8d16ce9e25176015c5eb5770294ab60019bda41e1ec",
+    "shape" : [
+      2,
+      3,
+      256,
+      256
+    ]
+  },
+  "u32.mib" : {
+    "dtype" : "U32 big-endian (MIB)",
+    "file" : "u32.mib",
+    "full.patterns" : [
+      131072,
+      "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c"
+    ],
+    "full.rows" : "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c",
+    "full.tiles" : "bff18e9c95a193b89fe9fd7c9300ac19e6ab8008142467df7a25554656a0e18c",
+    "path" : "\/Merlin\/MIB",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "reduced.patterns" : [
+      16129,
+      "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5"
+    ],
+    "reduced.rows" : "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5",
+    "reduced.tiles" : "06043d30b1decb716d40de1bc18d5b71ccd8fcb67f54a77f89ca7b3ab51d34a5",
+    "shape" : [
+      1,
+      2,
+      256,
+      256
+    ]
+  },
+  "u64.mib" : {
+    "refusal" : "unsupported"
+  },
+  "zero_scan.mib" : {
+    "refusal" : "malformed"
+  }
+}
