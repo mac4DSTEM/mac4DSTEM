@@ -9,7 +9,7 @@
 the rest) was written in this repository and is the origin of ImagoKit's `ImagoCore.FFT2D`. The kit's copy is the same
 arithmetic with `public` where this repository had `package`, and one added protocol conformance (`FFT2DTransform`) with its
 `Scalar` typealias; a comparison of the two files' code, ignoring access modifiers and comments, shows no other difference.
-The kit's registration (docs/registration-slice-1.md in ImagoKit, section 6) compares it with the apps' code bit for bit on
+The kit's registration (ImagoKit design note, archived in the suite's private folder, section 6) compares it with the apps' code bit for bit on
 every planted case. Thirteen analysis files (DPC, disk detection, Friedel origin, origin calibration, the parallax family,
 probe kernels, ptychography preparation, single-slice ptychography, rotation calibration, the matrix-DFT correlation) call it.
 

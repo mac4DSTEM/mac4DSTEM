@@ -15,7 +15,7 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
   (CPU Double reference kept, Metal against CPU 1e-5) and a kit cube type that can be held GPU-resident; then the app deletes its four.
 - **Kit audit and visibility (owner, 2026-10-21):** one audit session per kit, in parallel, against the Python reference's documented
   API (code and docs read, not a web pass), implementing what is missing so the apps are free to develop; and, like the Python packages,
-  show capabilities (parity table, examples, API docs). Written down in CuboKit `docs/status.md`.
+  show capabilities (parity table, examples, API docs). Written down in CuboKit's status, now archived.
 - **Parallax shifts on sizes vDSP's DFT does not take** (CuboKit 0.7.0): alignment of a stack whose padded size is not 2^n x {1, 3, 5, 15}
   (133 + 32 = 165, the usual case) runs the kit's Double Bluestein path, about 1.9x slower than the Float `FFT2D` it replaced (whole 5-level
   schedule, 49 images at 165 x 165: 0.33 s then, 0.66 s now; sizes vDSP takes are 20 % faster). Ask: a Float or vDSP-backed Bluestein shifter.
