@@ -1,9 +1,8 @@
 # Open items
 
-Triaged 2026-10-21 (clean slate after the kit switches, pins SpectroKit 0.7.1, FormatoKit 0.7.0, DiffractoKit 0.7.1,
-CuboKit 0.6.0, ImagoKit 0.4.0). Three lists: **Kit asks** (the kit ships it, the app re-pins), **App work** (the app's own
-defects and debts), **Drop** (done, obsolete or retired, one line each). Status is `docs/status.md`; the full pre-triage
-text is in git history and `../_archive/mac4DSTEM/docs/archive/`. Each item <= 4 lines. Kit-side copies that wait for an ask
+Triaged 2026-10-21 (pins SpectroKit 0.7.1, FormatoKit 0.8.0, DiffractoKit 0.8.1, CuboKit 0.7.1, ImagoKit 0.5.0). Three lists:
+**Kit asks** (the kit ships it, the app re-pins), **App work** (the app's own defects and debts), **Drop** (done, obsolete or
+retired, one line each). Status is `docs/status.md`; earlier text is in git history. Kit-side copies that wait for an ask
 carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"`).
 
 ## Kit asks
@@ -136,13 +135,13 @@ Ordered as the ROADMAP takes them.
 - ACOM mirror residual (ii) sub-bin deposit; Q1b healthy-cube table; NiCu_COPL: measured records, no rule proposed.
 - Number density v2 patches and logs, ellipse two-start record, annulus guard g: refuted records in the archive; the live item is App work 2 and 5.
 - UI audit 2026-10-14 leftovers: rooms redriven since; the live pieces are in App work 14, 16.
-- Velox `.emd` as one-row cube, Velox parity diagnostic: fixed in v5.0 / tool archived to `../_archive/mac4DSTEM/tools/velox-parity`.
+- Velox `.emd` as one-row cube, Velox parity diagnostic: fixed in v5.0; the parity tool is archived.
 - Region mouse-wheel zoom: closed by the owner 2026-10-07 (no AppKit).
 - R3 Quantify drive notes, WP3c, A2, A4 and drive 5/9/13 narratives: landed and recorded in ADRs 056-062; live gaps are in Kit asks, SpectroKit.
 - Lane F-B (b)(c), F-C (3), review lane F pinning note, S4/S5 wording residuals: fixed 2026-10-01/16 or merged into App work above.
 - Scan-fastest DM4 pair, HDF5 at quit, Velox allocation caps: kept above in one line each; the long write-ups are history.
 - Acceptance-harness S19 and ANE return detail: kept in App work 18 and 13; ADR 040 pause note retired.
-- New-Mac bring-up (28 GB parity, parallax cost, py4DSTEM graphene comparison, C5 training run): done 2026-09-30 to 10-01, recorded in `../_archive/mac4DSTEM/docs/archive/v4/`.
+- New-Mac bring-up (28 GB parity, parallax cost, py4DSTEM graphene comparison, C5 training run): done 2026-09-30 to 10-01, recorded in git history.
 - Accessibility `EXC_BAD_ACCESS` 2026-09-08: never recurred; `disk.advancedDisclosure` shared identifier left as is.
 - Swift 6 cost lanes, Apple-docs checks (liquid glass, deprecation sweep, Core ML vs CoreAI), `.fixedSize()` audit: decided or measured; the schedule is App work 16.
 - Minor tooling (free-space.sh constants, velox-parity venv, Dependabot torch 2.13 block): the tools are archived; the torch pin stays 2.11.0.

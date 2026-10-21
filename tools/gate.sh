@@ -1,8 +1,8 @@
 #!/bin/zsh
 # One gate entry: tools/gate.sh <unit|core|scientific|inventory|last> [log-path]
-# Takes the machine-wide test-host lock (suite CLAUDE.md "One test host at a
-# time"), logs to a file, prints the exit line, stamps green. Never waits:
-# when blocked it names the blocking lock files and exits 75.
+# `unit` takes the per-repo test-host lock and refuses while a `drive` file exists (an app drive in progress); the other
+# modes run unlocked. Logs to a file, prints the exit line, stamps green. Never waits: when blocked it names the blocking
+# lock files and exits 75.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -41,8 +41,8 @@ refuse() {
 
 # The test lock is per repo (suite rule, owner 2026-10-15 13:10): this repo's test hosts exclude each other
 # (unit-mac4dstem*, and unit-lane* that this repo's lanes take by hand); another repo's unit-* lock does not block, it
-# halves the workers so the machine stays at 8 jobs. Only `drive` blocks every test run.
-if [[ "$mode" == unit || "$mode" == scientific ]]; then
+# halves the workers so the machine stays at 8 jobs. `drive` blocks `unit`.
+if [[ "$mode" == unit ]]; then
   b=("$L"/unit-mac4dstem*(N) "$L"/unit-lane*(N))
   [[ -e "$L/drive" || ${#b} -gt 0 ]] && refuse "${b[@]}"
   mkdir "$L/unit-mac4dstem.$$" 2>/dev/null || refuse "$L/unit-mac4dstem.$$"
@@ -52,12 +52,6 @@ if [[ "$mode" == unit || "$mode" == scientific ]]; then
     rmdir "$mine" 2>/dev/null; mine=""
     refuse "${b[@]}"
   fi
-else
-  [[ -e "$L/drive" ]] && refuse
-  if mkdir "$L/heavy.1" 2>/dev/null; then mine="$L/heavy.1"
-  elif mkdir "$L/heavy.2" 2>/dev/null; then mine="$L/heavy.2"
-  else refuse "$L/heavy.1" "$L/heavy.2"; fi
-  if [[ -e "$L/drive" ]]; then rmdir "$mine" 2>/dev/null; mine=""; refuse; fi
 fi
 
 foreign=("$L"/unit-*(N)); foreign=("${foreign[@]:#$L/unit-mac4dstem*}"); foreign=("${foreign[@]:#$L/unit-lane*}")

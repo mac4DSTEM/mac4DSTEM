@@ -43,7 +43,7 @@ Each method is distilled from a specific incident that cost real time, named
 inline above, not a hygiene preference.
 
 ## Governs
-`CLAUDE.md`'s hard rules; `.claude/skills/diagnose`, `.claude/skills/adversarial-review`; `tools/run-tests.sh`.
+`CLAUDE.md`'s hard rules; `.claude/skills/diagnose`; `tools/run-tests.sh`.
 
 ## Sources
 `../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` lines 175/186/193 (three

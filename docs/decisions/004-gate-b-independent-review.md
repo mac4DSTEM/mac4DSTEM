@@ -24,7 +24,7 @@ that confirms its own author's hypothesis.
 
 ## Governs
 
-`.claude/skills/adversarial-review/SKILL.md`; any commit touching `Core/` or
+the retired adversarial-review skill; any commit touching `Core/` or
 `Session/` that can move a scientific number.
 
 ## Sources

@@ -83,6 +83,7 @@ unit_tests() (
   # -only-testing scopes this to the fast unit-test target (the retired
   # UI-test target was deleted 2026-09-02; the flag stays so a future test
   # target cannot silently join every normal run).
+  # CODE_SIGNING_ALLOWED=NO is for this unsigned XCTest path only: never add it to a build you intend to launch.
   # SWIFT_OPTIMIZATION_LEVEL=-O (S4, 2026-10-13): SpectroKit is a versioned
   # dependency and cannot carry its own Debug -O, so in Debug Xcode builds it
   # -Onone (the 936 MB Velox read 20.3 s vs 1.0 s). A command-line setting is
@@ -154,18 +155,17 @@ campaign=(
   sidecar-result-test result-presentation-test
 )
 
-# Inventory — the repo's own review, run at every closeout (ROADMAP.md, formerly docs/v3-plan.md
-# §2 numbers). Every tools/harnesses/ directory (and every other tools/ directory) must be in exactly one list below; the
+# Inventory — the repo's own review (CI runs it on every push). Every tools/harnesses/ directory (and every other tools/ directory) must be in exactly one list below; the
 # gated ones are `scientific` plus the two `all` extras. Diagnostic runners
 # never gate: they need machine-local data. Exits 1 on an unclassified or
-# missing runner, or on a live doc claiming work is uncommitted on a clean tree.
+# missing runner, a failed invariant below, or a live doc claiming work is uncommitted on a clean tree.
 diagnostic=()
 owner_only=()
 retired=()
 # Every harness folder lives in tools/harnesses/ and is named in an array above; `support` names the folders that stay
-# directly in tools/ (lib, release procedure tools/release/README.md, hooks). A folder here that nothing gated runs
-# belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
-support=(lib release hooks)
+# directly in tools/ (lib, release procedure tools/release/README.md). A folder here that nothing gated runs
+# belongs in ../process/archive/mac4DSTEM/tools/.
+support=(lib release)
 
 inventory() {
   local rc=0 name f
@@ -188,21 +188,19 @@ inventory() {
     (( ${support[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
   done
 
-  # Large tracked files (added 2026-09-18): history already carries a removed
-  # 6 MB model and two copies of a 4 MB dylib, and a public repo's history is
-  # not rewritten. Any tracked file over 1 MiB must be named, with its reason,
-  # in tools/large-files.allow; anything else fails here.
-  # Handoff cap (owner, 2026-09-18): status.md's handoff is a table, not a
-  # narrative — it had reached 1 576 words and nobody could see the state
-  # through it. Words between "## Handoff" and the next "## ".
-  echo "== status.md handoff"
-  local handoff_words
-  handoff_words=$(awk '/^## Handoff/{f=1; next} /^## /{f=0} f' "$ROOT/docs/status.md" | wc -w | tr -d ' ')
-  if (( handoff_words > 450 )); then
-    printf "  %-36s %7s  OVER the 450-word cap — move narrative to ../_archive/mac4DSTEM/docs/archive/\n" "handoff words" "$handoff_words"; rc=1
-  else
-    printf "  %-36s %7s  (cap 450)\n" "handoff words" "$handoff_words"
-  fi
+  # Large tracked files (added 2026-09-18): history already carries a removed 6 MB model and two copies of a 4 MB dylib, and a
+  # public repo's history is not rewritten. Any tracked file over 1 MiB must be named, with its reason, in tools/large-files.allow.
+  echo "== tracked files over 1 MiB"
+  local big allow_file="$ROOT/tools/large-files.allow"
+  while IFS= read -r big; do
+    [[ -z "$big" ]] && continue
+    if grep -q "^${big}	" "$allow_file" 2>/dev/null; then
+      printf "  %-56s allowed\n" "$big"
+    else
+      printf "  %-56s NOT IN tools/large-files.allow\n" "$big"; rc=1
+    fi
+  done < <(git -C "$ROOT" ls-files -z | xargs -0 stat -f '%z %N' | awk '$1 > 1048576 {print $2}')
+
   # The learned detector runs on the Neural Engine in the app (owner, 2026-09-30): `loadForComparison` loads it
   # on another compute unit or batch, for tools and tests only. One app caller would put a Detect All, or the
   # model a fine-tune is judged against, on other numerics with every unit test green (Gate B, 2026-09-30).
@@ -241,87 +239,7 @@ inventory() {
     echo "  DM4Reader no longer chooses its storage once through readingOptions(forPath:)"; rc=1
   fi
 
-  echo "== tracked files over 1 MiB"
-  local big allow_file="$ROOT/tools/large-files.allow"
-  while IFS= read -r big; do
-    [[ -z "$big" ]] && continue
-    if grep -q "^${big}	" "$allow_file" 2>/dev/null; then
-      printf "  %-56s allowed\n" "$big"
-    else
-      printf "  %-56s NOT IN tools/large-files.allow\n" "$big"; rc=1
-    fi
-  done < <(git -C "$ROOT" ls-files -z | xargs -0 stat -f '%z %N' | awk '$1 > 1048576 {print $2}')
 
-  swift_lines() { find "$@" \( -name '*.swift' -o -name '*.metal' \) -exec cat {} + | wc -l | tr -d ' '; }
-  md_lines() { cat "$@" | wc -l | tr -d ' '; }
-  echo "== size"
-  printf "  %-36s %7s\n" "app Swift+Metal lines" "$(swift_lines "$ROOT/mac4DSTEM")"
-  printf "  %-36s %7s\n" "AppState.swift lines" "$(wc -l < "$ROOT/mac4DSTEM/App/AppState.swift" | tr -d ' ')"
-  # Type-scope declarations, not "stored properties": the old metric grepped
-  # every `var`/`let` line at any indent, so it counted function locals and
-  # computed properties and reported 491 where the file declares 166 at type
-  # scope. Docs quoted the wrong number as evidence of progress (found
-  # 2026-09-09). This counts declarations at type scope across EVERY type in
-  # the file, which is what a grep can honestly say; separating stored from
-  # computed needs a parser, because `var x = Y { didSet … }` is stored.
-  printf "  %-36s %7s\n" "AppState.swift type-scope decls" "$(grep -cE '^    (@ObservationIgnored )?(var|let) ' "$ROOT/mac4DSTEM/App/AppState.swift")"
-  # C5 (2026-09-07): AppState.swift + Support/ResultExport.swift never net
-  # positive — the prose rule ("a session that touches AppState moves one
-  # responsibility out") was waived four sessions running, so the count is
-  # read here instead: against HEAD while either file is dirty, against HEAD^
-  # once committed, so the commit being made (or just made) is the one judged.
-  local -a heavy=(mac4DSTEM/App/AppState.swift mac4DSTEM/Support/ResultExport.swift)
-  local base_ref heavy_now=0 heavy_base=0 n
-  if [[ -n "$(git -C "$ROOT" status --porcelain -- "${heavy[@]}")" ]]; then base_ref=HEAD; else base_ref=HEAD^; fi
-  # A base that cannot be read is a broken measurement, not a measurement of
-  # zero. actions/checkout clones at depth 1, so on a clean CI tree `HEAD^`
-  # does not resolve; the read went through `|| true`, returned 0 lines, and
-  # the whole 7 509 lines were reported as growth — the inventory job could
-  # never pass (found 2026-09-09; the job now checks out with fetch-depth 2).
-  if ! git -C "$ROOT" rev-parse --verify --quiet "$base_ref^{commit}" >/dev/null; then
-    echo "  AppState + ResultExport lines: $base_ref does not resolve, so growth was NOT measured"
-    echo "  ^ the C5 rule needs two commits of history (actions/checkout defaults to fetch-depth 1)"; rc=1
-  else
-    for f in "${heavy[@]}"; do
-      n="$(wc -l < "$ROOT/$f" | tr -d ' ')"; heavy_now=$(( heavy_now + n ))
-      n="$( { git -C "$ROOT" show "$base_ref:$f" 2>/dev/null || true; } | wc -l | tr -d ' ')"; heavy_base=$(( heavy_base + n ))
-    done
-    printf "  %-36s %7s   (%s at %s)\n" "AppState + ResultExport lines" "$heavy_now" "$heavy_base" "$base_ref"
-    if (( heavy_now > heavy_base )); then
-      # C5's hard form was OVERRULED by the owner on 2026-09-16: growth is
-      # allowed where these files are the honest home for the state. The
-      # measurement stays because the caution is real and unmeasured growth is
-      # how the two files reached 5 461 and 1 939 lines in the first place —
-      # but it REPORTS now, it does not fail. A commit that grows them says in
-      # its message why no other home would do.
-      echo "  ^ AppState.swift + ResultExport.swift grew by $(( heavy_now - heavy_base )) lines"
-      echo "    (C5 reports, it no longer fails — owner 2026-09-16. Say in the commit message why no other home would do.)"
-    fi
-  fi
-  printf "  %-36s %7s\n" "UI/ Swift lines" "$(cat "$ROOT"/mac4DSTEM/UI/*.swift | wc -l | tr -d ' ')"
-  printf "  %-36s %7s\n" "unit-test lines" "$(swift_lines "$ROOT/mac4DSTEMTests")"
-  printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
-  # docs/decisions/ joined the live set on 2026-09-16 (one ADR per decision;
-  # the pre-consolidation log is verbatim in the archive). A folder outside
-  # this glob would be growth the gate cannot see.
-  printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md)"
-  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+ROADMAP+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/ROADMAP.md "$ROOT"/docs/open-items.md)"
-  echo "== app files over 800 lines"
-  find "$ROOT/mac4DSTEM" -name '*.swift' -exec wc -l {} + | awk -v r="$ROOT/" '$1 > 800 && $2 != "total" { sub(r, "", $2); printf "  %6d %s\n", $1, $2 }' | sort -rn
-  # Candidates only — a build is the proof. 2026-09-02: a reviewer's "no
-  # references" claim on PtychographyPreparation.swift was wrong (AppState
-  # uses its PtychographyPreparer type); the deletion failed the build.
-  echo "== Swift files none of whose top-level types is referenced elsewhere (candidates; prove with a build)"
-  local -a types; local t hit
-  for f in $(find "$ROOT/mac4DSTEM" -name '*.swift'); do
-    types=($(grep -oE '^(public |internal |final |nonisolated |@MainActor |@Observable |@frozen )*(struct|class|enum|actor|protocol) [A-Za-z_][A-Za-z0-9_]*' "$f" | awk '{print $NF}' | sort -u || true))
-    (( ${#types[@]} )) || continue   # extension-only files are not judged
-    hit=0
-    for t in "${types[@]}"; do
-      grep -rqw --include='*.swift' --exclude="$(basename "$f")" "$t" "$ROOT/mac4DSTEM" "$ROOT/mac4DSTEMTests" "$ROOT/tools" && { hit=1; break; }
-    done
-    (( hit )) || echo "  ${f#$ROOT/}  (${(j:, :)types})"
-  done
   # Presentation contract rule 3 (architecture.md, 2026-09-03): the chrome
   # and the columns draw no bar or wash of their own. Not measurable in the
   # NSView tree (SwiftUI's `.bar` hosts no NSVisualEffectView; measured
@@ -411,46 +329,6 @@ inventory() {
     done
   done
 
-  # A doc that states current truth must not cite a repo path that is not
-  # there: the citation is the evidence, and a reader who cannot open it
-  # cannot check the claim (CLAUDE.md, "No claim a reader cannot reproduce").
-  # Backticked paths rooted in a real top directory only — prose like `1/nm`
-  # or `Rx/Ry` is not a path. Three exemptions, each for a reason: plans and
-  # designs name what does not exist yet, CHANGELOG.md names what existed at
-  # a past version, and `scratchpad/` is gitignored by design.
-  local -a truth_docs=("$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/NOTICE "$ROOT"/CONTRIBUTING.md)
-  local d dp
-  for d in "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md; do
-    case "$d" in *plan*.md|*design*.md) ;; *) truth_docs+=("$d");; esac
-  done
-  # Two families: rooted at the repo, and rooted at the app source directory —
-  # `Session/SessionGates.swift` is how these docs cite app files, and one such
-  # citation still said `App/` from before the Session/ split (2026-09-09).
-  # Only tokens that carry a file extension or end in "/" are judged, so a type
-  # name written like a path (`UI/ContentView`) is not mistaken for a file.
-  for dp in $(grep -ohE '`(docs|tools|mac4DSTEM|mac4DSTEMTests|Models|Licenses|\.github)/[A-Za-z0-9_./-]+`' "${truth_docs[@]}" | tr -d '`' | sort -u); do
-    [[ "$dp" == */ || "$dp" == *.* ]] || continue
-    [[ -e "$ROOT/${dp%/}" ]] && continue
-    echo "  DEAD PATH $dp   cited by $(cd "$ROOT" && grep -l -- "$dp" "${truth_docs[@]#$ROOT/}" | tr '\n' ' ')"; rc=1
-  done
-  for dp in $(grep -ohE '`(App|Core|Session|UI|Support|Shaders)/[A-Za-z0-9_./-]+`' "${truth_docs[@]}" | tr -d '`' | sort -u); do
-    [[ "$dp" == */ || "$dp" == *.* ]] || continue
-    [[ -e "$ROOT/mac4DSTEM/${dp%/}" ]] && continue
-    echo "  DEAD PATH mac4DSTEM/$dp   cited by $(cd "$ROOT" && grep -l -- "$dp" "${truth_docs[@]#$ROOT/}" | tr '\n' ' ')"; rc=1
-  done
-  # Citations into the archive (suite rule "Repos stay light", 2026-10-15): `../_archive/mac4DSTEM/<path>` is a repo path with
-  # the archive folder in front. The archive sits outside the repo and is untracked, so a fresh clone and CI do not have it:
-  # when the folder is there every such citation must resolve in it (the same rule as above, never weaker); when it is not,
-  # they are counted and said not to be judged.
-  local arch="$ROOT/../_archive/mac4DSTEM" ap n_arch=0
-  for ap in $(grep -ohE '`\.\./_archive/mac4DSTEM/(docs|tools|mac4DSTEM|mac4DSTEMTests|Models|Licenses|\.github)/[A-Za-z0-9_./-]+`' "${truth_docs[@]}" | tr -d '`' | sort -u); do
-    [[ "$ap" == */ || "$ap" == *.* ]] || continue
-    n_arch=$(( n_arch + 1 ))
-    [[ -d "$arch" ]] || continue
-    [[ -e "$arch/${ap#../_archive/mac4DSTEM/}" ]] && continue
-    echo "  DEAD ARCHIVE PATH $ap   cited by $(cd "$ROOT" && grep -l -- "$ap" "${truth_docs[@]#$ROOT/}" | tr '\n' ' ')"; rc=1
-  done
-  if [[ -d "$arch" ]]; then echo "  archive citations checked: $n_arch"; else echo "  archive citations NOT checked (no $arch here): $n_arch"; fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.

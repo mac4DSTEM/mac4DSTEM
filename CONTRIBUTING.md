@@ -29,8 +29,8 @@ Xcode with the macOS 27 SDK (development is on Xcode-beta 27.0; the project's
 Apple Silicon, and a **full Xcode** — the Command Line Tools alone cannot
 build this project. GitHub CI's `macos-26` runner cannot build the app at all
 since the macOS 27 floor landed (`docs/open-items.md`); a macOS 27 runner
-image is awaited (`docs/status.md` § Handoff). Build and test
-commands: `CLAUDE.md` § Build / test.
+image is awaited. Build and test
+commands: `CLAUDE.md` § Build and test.
 
 Everything under `tools/` resolves its own toolchain via
 `tools/lib/developer-dir.sh`: an explicit `DEVELOPER_DIR` wins, then whatever
@@ -40,16 +40,8 @@ harnesses also need a Python with NumPy and py4DSTEM installed; set
 
 ## Pushing
 
-All work lands directly on `main`; there are no feature branches. Install the pre-push hook once per clone so a push
-that CI would reject never leaves the Mac — it runs the inventory check and an
-app-target build into `build/prepush/`, never into the bundle you may be
-running:
-
-```sh
-git config core.hooksPath tools/hooks
-```
-
-To push once without it (a full disk, an emergency): `touch .git/skip-prepush`.
+All work lands directly on `main`; there are no feature branches. CI builds the app host and runs the `unit`, `core` and
+`inventory` jobs on every push.
 
 ## Where code goes
 

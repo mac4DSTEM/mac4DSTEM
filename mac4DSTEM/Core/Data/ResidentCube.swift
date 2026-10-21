@@ -137,6 +137,7 @@ package nonisolated enum ResidencyAdmission {
     /// count: the app ships to Macs from 8 GB to 128 GB+, and the same cube
     /// must go resident on a large machine and stream on a small one, from one
     /// rule. Tuning it to make one particular dataset fit would be a defect.
+    /// Stays nil by decision (ADR 013): do not set it without the measured knee.
     package static let measuredWorkingSetFraction: Double? = nil
 
     /// Whether `descriptor` fits `fraction` of `workingSetSize`.

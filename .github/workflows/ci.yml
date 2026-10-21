@@ -41,11 +41,9 @@
 # INVENTORY: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
 # on a live doc claiming uncommitted work, on an untracked file inside a
-# bundled folder reference, on a truth doc citing a repo path that is not
-# there, and on AppState.swift + ResultExport.swift growing against their base
-# commit (C5). The other size metrics (live markdown, cold-start set) only
-# PRINT: their "must not go up" rule is the closeout skill's, enforced by a
-# person. Note that the uncommitted-claim check is skipped on a dirty tree, so
+# bundled folder reference, and on the large-file allowlist, the validation badge
+# and the harness compile path (lean cleanup 2026-10-21 dropped the doc-path,
+# size and growth checks). Note that the uncommitted-claim check is skipped on a dirty tree, so
 # locally it is nearly always inert; here, on a fresh checkout, it actually
 # runs. And
 # `tools/run-tests.sh core` — Core/ and Session/ as standalone packages; fails

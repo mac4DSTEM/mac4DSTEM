@@ -4,6 +4,8 @@ Dates: 2026-09-22
 
 Status: live
 
+> Superseded 2026-10-21: shell changes carry a screenshot for the owner's taste check; the freeze rule is retired.
+
 ## Decision
 
 The window shell — `UI/ContentView.swift`, `UI/WorkspaceView.swift`,
