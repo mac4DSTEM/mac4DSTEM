@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 A Velox `.emd` that holds only single EDS spectra opens in the Spectroscopy room as a one-pixel spectrum image (first spectrum; the kit maps no live or real time for the v4 file yet, an open item). Unverified on screen.
+
 - 2026-10-21 Precipitates: the glyphs also draw on the Spectroscopy map tiles (element tiles and the ColorMix) when the spectrum image is registered by identity to the 4D scan and the grids agree, and a scan-pane hover names the object ("#12 β″ 23 nm"). Unverified on screen.
 
 - 2026-10-21 Open routes by content (FormatoKit `FormatoLoader.sniff`) instead of by extension; a TIFF, an MRC or an unrecognised file is refused with a sentence naming it (before: an HDF5 error). An `.msa` spectrum opens in the Spectroscopy room as a one-pixel spectrum image, and the Export section writes the shown spectrum as `.msa` ("Spectrum MSA…"). Unverified on screen. Not covered: a Velox "DevelopersKit" fixture (none on this machine) and Velox single spectra in the room.

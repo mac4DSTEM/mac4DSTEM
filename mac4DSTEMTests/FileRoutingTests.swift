@@ -104,3 +104,35 @@ final class FileRoutingTests: XCTestCase {
         XCTAssertThrowsError(try FileRouting.spectrumImage(msaPath: path))
     }
 }
+
+// MARK: Velox single spectra (real files under References/, not committed: skipped when absent)
+
+@MainActor
+final class VeloxSingleSpectrumTests: XCTestCase {
+    private func reference(_ relative: String) throws -> String {
+        let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("References/velox-parity/" + relative).path
+        guard FileManager.default.fileExists(atPath: path) else { throw XCTSkip("References/velox-parity/\(relative) is not on this machine") }
+        return path
+    }
+
+    /// `fei_emd_spectrum.emd` (Velox v4, one 4096-channel EDX spectrum): a one-pixel spectrum image with the file's axis, its counts
+    /// and the beam energy it states; live and real time ride along when the kit maps them.
+    func testTheVeloxSpectrumOpensAsAOnePixelImageWithItsTimes() throws {
+        let path = try reference("fei_emd_files/fei_emd_spectrum.emd")
+        let opened = try XCTUnwrap(FileRouting.veloxSpectrum(path: path), "the kit reads one spectrum from this file")
+        XCTAssertEqual([opened.image.nx, opened.image.ny, opened.image.channels], [1, 1, 4096])
+        XCTAssertGreaterThan(opened.image.energyAxis.scale, 0)
+        XCTAssertGreaterThan(opened.image.sum(mask: nil).reduce(0, +), 0)
+        // The kit's single-spectrum reader maps no live or real time for this v4 file (its `Detector` metadata sits elsewhere): the
+        // times are nil here and stay a kit ask (`docs/open-items.md`); when the kit maps them they are non-negative and live <= real.
+        if let live = opened.liveTimeSeconds, let real = opened.realTimeSeconds { XCTAssertLessThanOrEqual(live, real * 1.0001) }
+        XCTAssertGreaterThan(opened.image.metadata.beamEnergyKeV ?? 0, 0, "the file states its beam energy")
+        XCTAssertEqual(opened.image.metadata.origin, .veloxEMD)
+    }
+
+    func testAnImageOnlyVeloxFileIsNotASingleSpectrum() throws {
+        let path = try reference("fei_emd_files/fei_emd_image.emd")
+        XCTAssertNil(FileRouting.veloxSpectrum(path: path))
+    }
+}

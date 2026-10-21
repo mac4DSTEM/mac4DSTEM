@@ -157,6 +157,15 @@ extension AppState {
         defer { if accessed { access.stop(url) } }
         let sniff = access.kind
         let kind = await Task.detached(priority: .userInitiated) { sniff(path) }.value
+        // A Velox file with only single spectra is not a spectrum image to the kit (`kind` is .other): its first spectrum opens as a
+        // one-pixel image, the detector's live and real time said in the status line and the session log.
+        if kind == .other, ext == "emd", let single = await Task.detached(priority: .userInitiated, operation: { FileRouting.veloxSpectrum(path: path) }).value {
+            openSpectrumImage(single.image)
+            let times = [single.liveTimeSeconds.map { String(format: "live time %.4g s", $0) },
+                         single.realTimeSeconds.map { String(format: "real time %.4g s", $0) }].compactMap { $0 }
+            if !times.isEmpty { activityLog.record("\(url.lastPathComponent): single spectrum, " + times.joined(separator: ", ")) }
+            return true
+        }
         guard kind != .other else { return false }
         // One window rule (owner's reverse case, R2 round 2): a window that holds a 4D cube does not take a spectrum image
         // from a file open either; it goes to a NEW window, as a 4D file does from a spectrum-only one. (The joint GMS

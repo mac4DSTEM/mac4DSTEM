@@ -9,6 +9,7 @@
 import Foundation
 import Formato
 import FormatoCore
+import FormatoEMD
 import FormatoMSA
 import SpectroCore
 
@@ -97,5 +98,35 @@ package nonisolated enum FileRouting {
         }
         let axis = FormatoAxis(name: "Energy", size: counts.count, scale: scaleKeV, offset: offsetKeV, units: "keV", navigate: false)
         return try MSAWriter.encode(FormatoSignal(title: title, signalType: "", axes: [axis], metadata: metadata, data: array))
+    }
+
+    // MARK: Velox single spectra
+
+    /// A Velox file's first single EDS spectrum (`Data/Spectrum`, FormatoKit's `VeloxSpectrumSignals`) as a 1 x 1 spectrum image, with
+    /// the detector's live and real time as the file states them (seconds). nil when the file holds none (an image-only or a
+    /// spectrum-image Velox file, or not a Velox file): the caller falls through to the other readers. The kit's energy axis is keV.
+    package static func veloxSpectrum(path: String) -> (image: LoadedSpectrumImage, liveTimeSeconds: Double?, realTimeSeconds: Double?)? {
+        guard FormatoLoader.sniff(path: path) == .veloxEMD,
+              let signal = (try? VeloxSpectrumSignals(path: path))?.signals.first,
+              let energy = signal.axes.last else { return nil }
+        var counts = signal.data.doubles()
+        // A stack of spectra: the first one.
+        if signal.axes.count == 2, let n = signal.data.shape.last, n > 0, counts.count >= n { counts = Array(counts[0..<n]) }
+        guard !counts.isEmpty, counts.allSatisfy({ $0.isFinite && $0 >= 0 }) else { return nil }
+        let toKeV = energy.units.lowercased() == "ev" ? 0.001 : 1.0
+        let axis = EnergyAxis(offset: energy.offset * toKeV, scale: energy.scale * toKeV, size: counts.count)
+        guard axis.scale > 0 else { return nil }
+        var meta = SpectrumImageMetadata(fileName: (path as NSString).lastPathComponent, filePath: path, scanWidth: 1, scanHeight: 1,
+                                         channelCount: counts.count, energyOffsetEV: axis.offset * 1000, energyDispersionEV: axis.scale * 1000)
+        meta.origin = .veloxEMD
+        if let beam = signal.metadata["Acquisition_instrument.TEM.beam_energy"]?.value.number, beam > 0 { meta.beamEnergyKeV = beam }
+        func seconds(_ key: String) -> Double? {
+            guard let v = signal.metadata[key]?.value else { return nil }
+            return v.number ?? v.text.flatMap(Double.init)
+        }
+        let image = LoadedSpectrumImage(
+            image: DenseSpectrumImage(ny: 1, nx: 1, channels: counts.count, counts: counts.map { UInt32(min($0.rounded(), Double(UInt32.max))) }),
+            metadata: meta, energyAxis: axis)
+        return (image, seconds("Acquisition_instrument.TEM.Detector.EDS.live_time"), seconds("Acquisition_instrument.TEM.Detector.EDS.real_time"))
     }
 }
