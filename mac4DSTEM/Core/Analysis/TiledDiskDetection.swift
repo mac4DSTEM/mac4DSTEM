@@ -91,6 +91,7 @@ extension DiskDetection {
         }
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
+        var failedPatterns = 0
 
         let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
             $0..<min(d.ry, $0 + rowsPerTile)
@@ -139,7 +140,7 @@ extension DiskDetection {
             // The `await` above stays outside the pool; nothing inside
             // suspends. Arithmetic is untouched: peaks are bit-identical.
             enum TileOutcome {
-                case peaks([[BraggPeak]])
+                case peaks([[BraggPeak]], failed: Int)
                 case bufferFailed
                 case detectorFailed
             }
@@ -159,7 +160,7 @@ extension DiskDetection {
                         )
                     }
                 ) else { return .detectorFailed }
-                return .peaks(detected.peaks)
+                return .peaks(detected.peaks, failed: detected.failedPatternCount)
             }
             switch outcome {
             case .bufferFailed:
@@ -177,7 +178,8 @@ extension DiskDetection {
                 // detector build. Not-cancelled therefore means the build.
                 guard cancellation?.isCancelled != true else { return nil }
                 throw FullScanError.detectorUnavailable
-            case .peaks(let detected):
+            case .peaks(let detected, let failed):
+                failedPatterns += failed
                 allPeaks.replaceSubrange(
                     lower * d.rx..<upper * d.rx,
                     with: detected
@@ -190,7 +192,8 @@ extension DiskDetection {
             scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks,
             detectionProvenance: params.provenance(
                 kernel: kernel, qy: d.qy, qx: d.qx
-            )
+            ),
+            failedPatternCount: failedPatterns
         )
     }
 }

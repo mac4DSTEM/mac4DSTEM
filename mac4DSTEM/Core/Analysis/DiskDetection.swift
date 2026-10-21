@@ -349,6 +349,10 @@ package nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable 
     /// Non-finite detector pixels replaced before correlation (D019) — so a
     /// pattern emptied by bad pixels is not mistaken for vacuum.
     package var nonFinitePixelCount = 0
+    /// Set when the kit refused the pattern (`CuboBraggError`, for instance a refinement that was not finite): the empty peak list
+    /// and zero funnel then mean "the detector failed here", not "nothing was found" (the D019 failure, an emptied pattern
+    /// mistaken for vacuum).
+    package var detectionFailure: String? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(localMaximumCount: Int, afterAbsoluteThresholdCount: Int, afterRelativeThresholdCount: Int, afterSpacingCount: Int, acceptedCount: Int, wasCountLimited: Bool, relativeReferenceIntensity: Float?, relativeReferenceWasAvailable: Bool, correlationMaximum: Float) {
@@ -390,9 +394,12 @@ package nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
     /// The thresholds the run used, so a warning can name the one that is
     /// most likely holding peaks back instead of saying "thresholds".
     package let parameters: DiskDetectionParams?
+    /// Positions where the detector failed (counted inside `zeroPeakPositionCount`, but not vacuum).
+    package let failedPositionCount: Int
 
     package init(vectors: BraggVectors, maximumPeaks: Int, parameters: DiskDetectionParams? = nil) {
         self.parameters = parameters
+        failedPositionCount = vectors.failedPatternCount
         let counts = vectors.peaks.map(\.count).sorted()
         positionCount = counts.count
         totalPeakCount = counts.reduce(0, +)
@@ -412,6 +419,9 @@ package nonisolated struct DiskDetectionScanSummary: Sendable, Equatable {
     package var warnings: [String] {
         guard positionCount > 0 else { return ["No scan positions were evaluated."] }
         var result: [String] = []
+        if failedPositionCount > 0 {
+            result.append("Detection failed at \(failedPositionCount) of \(positionCount) scan positions (a peak refinement was not finite); those positions are empty because the detector failed, not because they hold no disks.")
+        }
         if zeroPeakPositionCount * 2 > positionCount {
             result.append("More than half of scan positions contain no accepted peaks; inspect the kernel and intensity thresholds.")
         }
@@ -693,15 +703,20 @@ package nonisolated struct BraggVectors: Sendable {
     package let scanHeight: Int
     package let peaks: [[BraggPeak]]              // count == scanWidth * scanHeight
     package let detectionProvenance: [String: String]
+    /// Scan positions whose detection the kit refused (their entry in `peaks` is empty because the detector failed, not because the
+    /// pattern holds no disks). Zero for vectors that were loaded or built elsewhere.
+    package let failedPatternCount: Int
 
     package init(
         scanWidth: Int, scanHeight: Int, peaks: [[BraggPeak]],
-        detectionProvenance: [String: String] = [:]
+        detectionProvenance: [String: String] = [:],
+        failedPatternCount: Int = 0
     ) {
         self.scanWidth = scanWidth
         self.scanHeight = scanHeight
         self.peaks = peaks
         self.detectionProvenance = detectionProvenance
+        self.failedPatternCount = failedPatternCount
     }
 
     package var totalPeakCount: Int { peaks.reduce(0) { $0 + $1.count } }
@@ -779,7 +794,9 @@ package nonisolated struct BraggVectors: Sendable {
 /// `.single`. DEVIATION from the former detector: it ran Float32 everywhere; Double is more exact where it is used.
 ///
 /// The kit refuses a peak whose parabola or matrix DFT is not finite (`CuboBraggError.nonFiniteRefinement`); the former
-/// detector kept the integer position. Such a pattern now yields no peaks, with a zero funnel.
+/// detector kept the integer position and the kit has no option to. Such a pattern yields no peaks and a zero funnel, and says
+/// why: `DiskDetectionPatternDiagnostics.detectionFailure` is set, a full scan counts these in `BraggVectors.failedPatternCount`
+/// and `DiskDetectionScanSummary` warns, so a failed pattern is never read as vacuum.
 package nonisolated final class DiskDetector {
 
     private let detector: BraggDetector
@@ -807,7 +824,10 @@ package nonisolated final class DiskDetector {
         switch params.subpixel {
         case .pixel: o.subpixel = .pixel
         case .poly: o.subpixel = .parabolic
-        // The kit refuses an upsample factor of 2 or less for multicorr; the former detector skipped the refinement.
+        // DEVIATION: the kit refuses an upsample factor of 2 or less for multicorr (py4DSTEM would produce NaN or an error there);
+        // the former in-app detector skipped the refinement, so this facade runs the parabolic refinement instead, silently, and
+        // the peaks are the 'Parabolic' ones. The parameter validation (`validationIssues`) refuses this combination before a scan
+        // or a preview starts; only a direct caller reaches it. Pinned by DiskDetectorKitTests.
         case .multicorr: o.subpixel = params.upsampleFactor > 2 ? .multicorr : .parabolic
         }
         o.upsampleFactor = params.upsampleFactor
@@ -835,11 +855,16 @@ package nonisolated final class DiskDetector {
         pattern: UnsafePointer<Float>, params: DiskDetectionParams
     ) -> DiskDetectionPatternResult {
         let buffer = UnsafeBufferPointer(start: pattern, count: qy * qx)
-        guard let (peaks, funnel) = try? detector.detectWithFunnel(buffer, options: options(params)) else {
-            return DiskDetectionPatternResult(peaks: [], diagnostics: DiskDetectionPatternDiagnostics(
+        let peaks: [CuboBragg.BraggPeak], funnel: BraggFunnel
+        do {
+            (peaks, funnel) = try detector.detectWithFunnel(buffer, options: options(params))
+        } catch {
+            var failed = DiskDetectionPatternDiagnostics(
                 localMaximumCount: 0, afterAbsoluteThresholdCount: 0, afterRelativeThresholdCount: 0,
                 afterSpacingCount: 0, acceptedCount: 0, wasCountLimited: false, relativeReferenceIntensity: nil,
-                relativeReferenceWasAvailable: params.minRelativeIntensity == 0, correlationMaximum: 0))
+                relativeReferenceWasAvailable: params.minRelativeIntensity == 0, correlationMaximum: 0)
+            failed.detectionFailure = error.localizedDescription
+            return DiskDetectionPatternResult(peaks: [], diagnostics: failed)
         }
         var diagnostics = DiskDetectionPatternDiagnostics(
             localMaximumCount: funnel.localMaximumCount,
@@ -894,17 +919,22 @@ package nonisolated final class DiskDetector {
     package func correlation(
         pattern: UnsafePointer<Float>, params: DiskDetectionParams
     ) -> (raw: [Float], smoothed: [Float]) {
+        // The parameters are validated before any caller gets here, so the kit cannot refuse; if it ever does, the surfaces are
+        // zero (an empty input channel), which `correlationChecked` reports instead.
+        (try? correlationChecked(pattern: pattern, params: params))
+            ?? ([Float](repeating: 0, count: qy * qx), [Float](repeating: 0, count: qy * qx))
+    }
+
+    /// `correlation`, but a kit error (an invalid option, a smoothing failure) is thrown, not turned into zero surfaces.
+    package func correlationChecked(
+        pattern: UnsafePointer<Float>, params: DiskDetectionParams
+    ) throws -> (raw: [Float], smoothed: [Float]) {
         let o = options(params)
         let values = UnsafeBufferPointer(start: pattern, count: qy * qx).map(Double.init)
-        guard let image = try? CuboVirtual.DetectorImage(
-                detectorRows: qy, detectorColumns: qx, values: values, path: .cpu),
-              let correlation = try? detector.correlate(image, options: o) else {
-            return ([Float](repeating: 0, count: qy * qx), [Float](repeating: 0, count: qy * qx))
-        }
-        let raw = correlation.real
+        let image = try CuboVirtual.DetectorImage(detectorRows: qy, detectorColumns: qx, values: values, path: .cpu)
+        let raw = try detector.correlate(image, options: o).real
         let smoothed = o.correlationSigma > 0
-            ? ((try? CuboVirtual.GaussianFilter(sigma: o.correlationSigma)
-                .apply(raw, rows: qy, columns: qx, edge: .reflect)) ?? raw)
+            ? try CuboVirtual.GaussianFilter(sigma: o.correlationSigma).apply(raw, rows: qy, columns: qx, edge: .reflect)
             : raw
         return (raw.map { Float($0) }, smoothed.map { Float($0) })
     }
@@ -1027,6 +1057,7 @@ package enum DiskDetection {
         var results = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
         let rowsDone = NSLock()
         var doneCount = 0
+        var failedCount = 0
         // Progress counts PATTERNS, not scan rows: a tile of a few rows on a
         // wide scan moves the bar in ~8 % steps if counted that way. One lock
         // take per pattern costs nothing next to a
@@ -1054,7 +1085,10 @@ package enum DiskDetection {
                     for rx in 0..<d.rx {
                         if cancellation?.isCancelled == true { break }
                         let pat = slots.cubeBase + ry * rowPix + rx * patPix
-                        slots.ptr[ry * d.rx + rx] = det.detect(pattern: pat, params: params)
+                        let result = det.detectWithDiagnostics(pattern: pat, params: params)
+                        slots.ptr[ry * d.rx + rx] = result.peaks
+                        let failedHere = result.diagnostics.detectionFailure != nil
+                        if failedHere { rowsDone.lock(); failedCount += 1; rowsDone.unlock() }
                         if let progress {
                             rowsDone.lock()
                             doneCount += 1
@@ -1077,7 +1111,8 @@ package enum DiskDetection {
             scanWidth: d.rx, scanHeight: d.ry, peaks: results,
             detectionProvenance: params.provenance(
                 kernel: kernel, qy: d.qy, qx: d.qx
-            )
+            ),
+            failedPatternCount: failedCount
         )
     }
 }

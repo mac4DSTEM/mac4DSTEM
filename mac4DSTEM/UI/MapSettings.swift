@@ -418,6 +418,9 @@ private struct DiskDetectionRows: View {
                 InspectorNote(
                     "\(diagnostics.afterAbsoluteThresholdCount) pass the absolute threshold → \(diagnostics.afterRelativeThresholdCount) the relative → \(diagnostics.afterSpacingCount) after spacing"
                 )
+                if let failure = diagnostics.detectionFailure {
+                    InspectorWarning("Detection failed on this pattern (\(failure)); the empty result is a failure, not a pattern without disks.")
+                }
                 if diagnostics.wasCountLimited {
                     InspectorWarning("This pattern was truncated to the configured maximum peak count.")
                 }
