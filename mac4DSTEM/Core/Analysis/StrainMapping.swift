@@ -258,25 +258,23 @@ package nonisolated enum StrainMapping {
             mask[$0] && (referenceMask?[$0] ?? true)
         }
         guard !referenceCandidates.isEmpty else { return nil }
-        let referenceInliers = robustReferenceIndices(
-            candidates: referenceCandidates,
-            g1x: lg1x, g1y: lg1y, g2x: lg2x, g2y: lg2y
-        )
-        guard !referenceInliers.isEmpty else { return nil }
-        // The reference lattice is CuboStrain's `referenceMAD` over the candidates (the same MAD rejection and component
-        // median, Float32); `robustReferenceIndices` stays for the inlier count the diagnostics report.
-        // delete at CuboKit 0.5: referenceMAD returns the basis only (ask: also the inlier count or indices).
+        // DEVIATION from py4DSTEM: `get_reference_g1g2` (process/strain/latticevectors.py) takes the plain component-wise
+        // median of every position inside the caller's mask. CuboStrain's `referenceMADResult` first discards candidates
+        // whose fitted (g1, g2) deviate from that median by more than a MAD-derived threshold (all candidates are kept when
+        // fewer than half survive), so a strained or mis-indexed sub-region inside the reference mask cannot pull the
+        // reference lattice off the bulk; it also returns which candidates were kept (the count the diagnostics report).
         let candidateBases = referenceCandidates.map {
             LatticeBasis(g1: LatticeVector(row: Double(lg1x[$0]), column: Double(lg1y[$0])),
                          g2: LatticeVector(row: Double(lg2x[$0]), column: Double(lg2y[$0])))
         }
         guard cancellation?.isCancelled != true else { return nil }
-        let reference: LatticeBasis
-        do { reference = try LatticeStrain.referenceMAD(candidateBases) }
+        let referenceMAD: LatticeStrain.ReferenceMAD
+        do { referenceMAD = try LatticeStrain.referenceMADResult(candidateBases) }
         catch { onRefusal?("reference lattice: \(error.localizedDescription)"); return nil }
+        let reference = referenceMAD.reference
         let refG1 = (x: Float(reference.g1.row), y: Float(reference.g1.column))
         let refG2 = (x: Float(reference.g2.row), y: Float(reference.g2.column))
-        let valid = referenceInliers.count
+        let valid = referenceMAD.inlierCount
 
         // Strain per position vs reference.
         var exx = [Float](repeating: 0, count: n)
@@ -374,21 +372,15 @@ package nonisolated enum StrainMapping {
         return observations
     }
 
-    /// The automatic basis: CuboStrain's `LatticeStrain.chooseBasisConsensus` (clustering, bounded candidate pairs, consensus
-    /// scoring; pinned to this app's original Float32 source) chooses g1 and g2; the diagnostics that came with the old inline
-    /// search (observations, support, residual, condition, tolerance) are re-derived here from the chosen pair, with the same
-    /// functions the `initialBasis` path uses.
-    // delete at CuboKit 0.5: chooseBasisConsensus takes no cancellation token and returns the basis only (ask: a cancellation
-    // closure and the support/residual/condition it computed, so these diagnostics need no second scoring pass).
+    /// The automatic basis: CuboStrain's `LatticeStrain.chooseBasisConsensusResult` (clustering, bounded candidate pairs,
+    /// consensus scoring; pinned to this app's original Float32 source) chooses g1 and g2 and returns the observation and
+    /// support counts, residual, condition number and indexing tolerance the diagnostics report. Cancellation is asked
+    /// inside the kit's search (`CancellationError`).
     private nonisolated static func estimateLatticeBasis(
         bragg: BraggVectors, x0: Float, y0: Float, minRadius: Float = 2,
         cancellation: AnalysisCancellationToken?, onRefusal: ((String) -> Void)? = nil
     ) -> BasisEstimate? {
-        let observations = vectorObservations(
-            bragg: bragg, x0: x0, y0: y0,
-            minRadius: minRadius, cancellation: cancellation
-        )
-        guard cancellation?.isCancelled != true, observations.count >= 2 else { return nil }
+        guard cancellation?.isCancelled != true else { return nil }
         // Non-finite coordinates were ignored by the inline search (a NaN radius is never above minRadius); the kit rejects
         // them as invalid input, so they are dropped here. Intensity is not used by the selection; the kit wants it >= 0.
         let positions = bragg.peaks.map { peaks in
@@ -398,25 +390,22 @@ package nonisolated enum StrainMapping {
                                    intensity: p.intensity.isFinite ? max(Double(p.intensity), 0) : 0)
             }
         }
-        let chosen: LatticeBasis?
+        let chosen: LatticeStrain.ConsensusBasis?
         do {
-            chosen = try LatticeStrain.chooseBasisConsensus(
+            chosen = try LatticeStrain.chooseBasisConsensusResult(
                 positions, origin: LatticeVector(row: Double(x0), column: Double(y0)),
-                minimumRadius: Double(minRadius))
+                minimumRadius: Double(minRadius), isCancelled: { cancellation?.isCancelled == true })
+        } catch is CancellationError { return nil
         } catch { onRefusal?("lattice basis: \(error.localizedDescription)"); return nil }
-        guard let basis = chosen, cancellation?.isCancelled != true else { return nil }
-        let g1 = (x: Float(basis.g1.row), y: Float(basis.g1.column))
-        let g2 = (x: Float(basis.g2.row), y: Float(basis.g2.column))
-        guard let condition = conditionNumber(g1: g1, g2: g2) else { return nil }
-        let tolerance = indexingTolerance(g1: g1, g2: g2)
-        let score = scoreBasis(g1: g1, g2: g2, observations: observations, tolerance: tolerance)
+        guard let chosen, cancellation?.isCancelled != true else { return nil }
         return BasisEstimate(
-            g1: g1, g2: g2,
-            observationCount: observations.count,
-            supportCount: score.support,
-            residualPixels: score.residual,
-            conditionNumber: condition,
-            indexingTolerancePixels: tolerance
+            g1: (x: Float(chosen.basis.g1.row), y: Float(chosen.basis.g1.column)),
+            g2: (x: Float(chosen.basis.g2.row), y: Float(chosen.basis.g2.column)),
+            observationCount: chosen.observationCount,
+            supportCount: chosen.supportCount,
+            residualPixels: Float(chosen.residual),
+            conditionNumber: Float(chosen.conditionNumber),
+            indexingTolerancePixels: Float(chosen.indexingTolerance)
         )
     }
 
@@ -519,41 +508,6 @@ package nonisolated enum StrainMapping {
         }
         guard inliers.count >= minNumPeaks, inliers.count < peaks.count else { return initial }
         return fitLattice(inliers, refusals: &refusals) ?? initial
-    }
-
-    /// DEVIATION from py4DSTEM: `get_reference_g1g2` (process/strain/latticevectors.py)
-    /// takes the plain component-wise median of every position inside the caller's
-    /// mask. This is called first, and discards candidates whose fitted (g1, g2)
-    /// deviate from that median by more than a MAD-derived threshold (falling back
-    /// to the full candidate set when fewer than half of the candidates survive) —
-    /// the robust reference rejects distorted positions, per this file's own header
-    /// above, so a strained or mis-indexed sub-region inside the reference mask
-    /// cannot pull the reference lattice off the bulk.
-    private nonisolated static func robustReferenceIndices(
-        candidates: [Int],
-        g1x: [Float], g1y: [Float], g2x: [Float], g2y: [Float]
-    ) -> [Int] {
-        guard candidates.count > 2 else { return candidates }
-        let centerG1X = median(candidates.map { g1x[$0] }) ?? 0
-        let centerG1Y = median(candidates.map { g1y[$0] }) ?? 0
-        let centerG2X = median(candidates.map { g2x[$0] }) ?? 0
-        let centerG2Y = median(candidates.map { g2y[$0] }) ?? 0
-        let residuals = candidates.map { index in
-            hypot(g1x[index] - centerG1X, g1y[index] - centerG1Y)
-                + hypot(g2x[index] - centerG2X, g2y[index] - centerG2Y)
-        }
-        let center = median(residuals) ?? 0
-        let mad = median(residuals.map { abs($0 - center) }) ?? 0
-        let basisScale = (
-            hypot(centerG1X, centerG1Y) + hypot(centerG2X, centerG2Y)
-        ) / 2
-        let threshold = center + max(3 * 1.4826 * mad, 0.02 * basisScale)
-        let inliers = zip(candidates, residuals).compactMap { index, residual in
-            residual <= threshold ? index : nil
-        }
-        // Do not let aggressive rejection turn a broad but valid reference
-        // population into a tiny, overconfident subset.
-        return inliers.count * 2 >= candidates.count ? inliers : candidates
     }
 
     // MARK: - Linear algebra helpers
