@@ -7,7 +7,7 @@ upstream and by measurement, not assumed:
   CAN   PCA decomposition, against py4DSTEM's OWN Featurization.PCA, which
         accepts an arbitrary (positions x dims) matrix (featurization.py:86-94).
         Verified: its scores equal sklearn's transform to 9.8e-15.
-  CAN   symmetricEigenTop against numpy.linalg.eigh. This is the check that
+  CAN   kit PCA.fit(covariance:) against numpy.linalg.eigh. This is the check that
         would have caught the 2026-09-06 subspace-iteration defect, which
         returned one power step instead of converged eigenpairs; the PCA
         checks alone cannot, because explained-variance RATIOS hide a uniform
@@ -115,13 +115,13 @@ w, V = np.linalg.eigh(M)
 top = np.argsort(w)[::-1][:8]
 ours_vals = np.array(r["eigenValues"][:8])
 rel = np.abs(ours_vals - w[top]).max() / max(np.abs(w[top]).max(), 1e-300)
-check("S2a: symmetricEigenTop eigenvalues vs eigh", rel < 1e-12, rel, 1e-12, "numpy")
+check("S2a: kit PCA.fit(covariance:) eigenvalues vs eigh", rel < 1e-12, rel, 1e-12, "numpy")
 ours_vecs = np.array(r["eigenVectors"]).reshape(-1, d)[:8]
 cw = 1.0
 for i in range(8):
     u, v = ours_vecs[i], V[:, top[i]]
     cw = min(cw, abs(np.dot(u, v)) / (np.linalg.norm(u) * np.linalg.norm(v)))
-check("S2b: symmetricEigenTop eigenvectors vs eigh", 1 - cw < 1e-10, 1 - cw, 1e-10, "numpy")
+check("S2b: kit PCA.fit(covariance:) eigenvectors vs eigh", 1 - cw < 1e-10, 1 - cw, 1e-10, "numpy")
 
 # ---- k-means: PRINTED, NEVER GATED ----------------------------------------
 from sklearn.cluster import KMeans

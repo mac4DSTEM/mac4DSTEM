@@ -12,6 +12,7 @@
 //
 
 import XCTest
+import CuboEmbedding
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -475,7 +476,7 @@ final class DiffractionEmbeddingTests: XCTestCase {
     /// Catches: that single-iteration defect; any loss of descending order;
     /// and a `dsyevd_` call with a transposed argument, a wrong `uplo`, or an
     /// under-sized workspace (all of which corrupt the returned pairs).
-    func testSymmetricEigenTopReturnsTrueEigenpairs() {
+    func testKitPCAReturnsTrueEigenpairsOfAPlantedCovariance() {
         let d = 64
         let planted: [Double] = [100, 64, 41, 26, 17, 11, 7, 4.5]
         let floorEigenvalue = 0.5
@@ -510,9 +511,12 @@ final class DiffractionEmbeddingTests: XCTestCase {
             }
         }
 
-        let (vectors, values) = DiffractionEmbedding.symmetricEigenTop(
-            matrix: matrix, dimension: d, count: planted.count, cancellation: nil
-        )
+        // Since 2026-10-21 the eigensolver is CuboEmbedding's `PCA.fit(covariance:)`: the planted matrix is the
+        // covariance (its variances are the eigenvalues, so the ratio's denominator is irrelevant here).
+        let fit = try! PCA.fit(covariance: matrix, count: 1000, mean: [Double](repeating: 0, count: d),
+                               components: planted.count)
+        let values = fit.explainedVariance
+        let vectors = (0..<planted.count).map { Array(fit.components[($0 * d)..<(($0 + 1) * d)]) }
         XCTAssertEqual(values.count, planted.count)
         XCTAssertEqual(vectors.count, planted.count)
         XCTAssertEqual(values, values.sorted(by: >), "eigenvalues must be returned descending")

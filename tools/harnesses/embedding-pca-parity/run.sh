@@ -16,6 +16,8 @@
 # reported it if Package.swift and the harnesses ever drifted apart. Now
 # something does.
 #
+# (2026-10-21: the app's eigensolver, accumulator and embed are CuboEmbedding's now; the controls below were run
+# against the former app code.)
 # NEGATIVE CONTROLS -- all seven APPLIED AND RUN 2026-09-11, with the measured
 # outcome recorded. Four must go red; three must stay green, and recording THAT
 # is the point, because it is exactly where this harness is blind.

@@ -1,8 +1,10 @@
 import XCTest
+import CuboEmbedding
 import DSTEMCore
 
 /// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
-/// `embed` moved to Accelerate for finite patterns. The old `embed` is kept
+/// `embed` moved to Accelerate for finite patterns; since 2026-10-21 that path is CuboEmbedding 0.6.0's
+/// `DiffractionFeatures.binnedVector(implementation: .accelerate)` and the app's copy is gone. The old `embed` is kept
 /// here VERBATIM (from `DiffractionEmbedding.swift` at f940fb7) as the
 /// reference. P1: finite patterns agree to ≤ 1e-6 relative per binned value,
 /// AND at least one value differs in its last bits (anti-vacuity: proves the
@@ -10,9 +12,24 @@ import DSTEMCore
 /// exactly). P2: patterns with NaN / ±Inf take CuboEmbedding's `binnedVector` and agree with the old loop to 1e-5 relative (NaN cells exactly).
 final class DiffractionEmbeddingEmbedTests: XCTestCase {
 
+    /// The app's former `BinGeometry` (deleted 2026-10-21), kept here only for the reference loop.
+    private struct BinGeometry {
+        let binnedH: Int, binnedW: Int, boxY: Int, boxX: Int, offsetY: Int, offsetX: Int
+        static func compute(qy: Int, qx: Int, binnedSize: Int) -> BinGeometry {
+            func axis(_ size: Int) -> (bins: Int, box: Int, offset: Int) {
+                guard size > 0, binnedSize > 0 else { return (0, 0, 0) }
+                let bins = min(binnedSize, size), box = max(1, size / bins)
+                return (bins, box, (size - box * bins) / 2)
+            }
+            let y = axis(qy), x = axis(qx)
+            return BinGeometry(binnedH: y.bins, binnedW: x.bins, boxY: y.box, boxX: x.box,
+                               offsetY: y.offset, offsetX: x.offset)
+        }
+    }
+
     /// The pre-2026-09-28 `DiffractionEmbedding.embed`, unchanged.
     private static func referenceEmbed(
-        pixels: [Float], base: Int, qy: Int, qx: Int, geometry: DiffractionEmbedding.BinGeometry, binnedSize: Int
+        pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
     ) -> [Float] {
         let count = qy * qx
         var scaled = [Float](repeating: 0, count: count)
@@ -81,8 +98,9 @@ final class DiffractionEmbeddingEmbedTests: XCTestCase {
     }
 
     private func run(_ c: Case) -> (new: [Float], old: [Float]) {
-        let g = DiffractionEmbedding.BinGeometry.compute(qy: c.qy, qx: c.qx, binnedSize: c.binned)
-        return (DiffractionEmbedding.embed(pixels: c.pattern, base: 0, qy: c.qy, qx: c.qx, geometry: g, binnedSize: c.binned),
+        let g = BinGeometry.compute(qy: c.qy, qx: c.qx, binnedSize: c.binned)
+        return (try! DiffractionFeatures.binnedVector(pattern: c.pattern, rows: c.qy, columns: c.qx,
+                                                      binnedSize: c.binned, implementation: .accelerate),
                 Self.referenceEmbed(pixels: c.pattern, base: 0, qy: c.qy, qx: c.qx, geometry: g, binnedSize: c.binned))
     }
 

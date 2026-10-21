@@ -6,36 +6,23 @@
 //        VirtualDetector/TiledDiskDetection: bounded scan-row tiles via
 //        TilePrefetcher, cooperative cancellation, fractional progress.
 //
-//  Eigen decomposition: Accelerate's LAPACK `dsyevd_` (divide-and-conquer,
-//  real symmetric), replacing the hand-written subspace iteration this file
-//  used until 2026-09-06. That earlier revision justified avoiding LAPACK by
-//  saying there was no build available to verify the Fortran-ABI boundary.
-//  The reason no longer holds — the branch builds — and the hand-written
-//  loop was WRONG: its convergence test started `previousValues` at
-//  `.infinity`, so `abs(v - .infinity) / .infinity` is NaN, `max(0, .nan)`
-//  is 0 in Swift, and the loop broke after exactly ONE subspace iteration on
-//  every input. Everything past the dominant direction was an unconverged
-//  Ritz pair, and the reported explained variance for those components ran
-//  20-36 % low. Diagnosis, refutation and the discriminating fixture:
+//  Covariance and eigen decomposition: CuboEmbedding's `PCACovarianceAccumulator` (streamed
+//  per scan tile, Chan/Welford in Double) and `PCA.fit(covariance:count:mean:components:)`
+//  (LAPACK `dsyevd_` underneath, exact and deterministic). They replaced the app's own
+//  sum-of-outer-products accumulator and `symmetricEigenTop` on 2026-10-21 (CuboKit 0.6.0).
+//  The hand-written subspace iteration used until 2026-09-06 was WRONG (its convergence test
+//  broke after one iteration, so components past the first came back 20-36 % low); diagnosis:
 //  ../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md.
-//
-//  `dsyevd_` computes the FULL spectrum of the d×d covariance (d = binnedSize²,
-//  ≤ 1024) exactly and deterministically; `symmetricEigenTop` keeps the top
-//  `components` pairs in descending eigenvalue order. The matrix is
-//  symmetric, so the row-major Swift buffer already IS the column-major
-//  Fortran matrix LAPACK expects and no transpose is needed; on return,
-//  eigenvector j is the contiguous slice a[j*d ..< (j+1)*d]. The workspace is
-//  sized by LAPACK's own query (lwork = liwork = -1) rather than a guessed
-//  constant. The non-deprecated declarations (`lapack.h`, `__LAPACK_int`)
-//  are behind `-DACCELERATE_NEW_LAPACK`, set in Package.swift's DSTEMCore
-//  swiftSettings and in the Xcode project's OTHER_SWIFT_FLAGS.
 //
 //  DEVIATION (py4DSTEM parity, PCA): py4DSTEM's classification featurisation
 //  — References/py4DSTEM-dev/py4DSTEM/process/classification/featurization.py
 //  :366-373 — calls sklearn's `PCA`, i.e. an exact, mean-centred,
-//  variance-ordered decomposition (LAPACK underneath). `dsyevd_` on the
-//  mean-centred covariance agrees with that; the subspace iteration it
-//  replaced did not.
+//  variance-ordered decomposition (LAPACK underneath). The kit's PCA on the
+//  mean-centred covariance agrees with that (scikit-learn 1.4.2, 2e-12 on components); the subspace iteration did not.
+//  DEVIATION (component sign): the app's former LAPACK call left each axis with an arbitrary sign. The kit
+//  fits from a covariance, which has no scores for scikit-learn's `svd_flip`, so each axis takes the sign that makes
+//  its largest-magnitude entry positive (deterministic). Basis and coordinates flip together; groups, variances and
+//  the mean are unchanged.
 //  DEVIATION (no upstream counterpart, preprocessing): the per-pattern
 //  representation here — log1p, per-pattern max-normalisation, then box
 //  binning to binnedSize² — has NO py4DSTEM equivalent. py4DSTEM featurises
@@ -185,7 +172,6 @@ package nonisolated enum DiffractionEmbedding {
         let binnedSize = max(1, settings.binnedSize)
         let dims = binnedSize * binnedSize
         let totalPositions = d.ry * d.rx
-        let geometry = BinGeometry.compute(qy: d.qy, qx: d.qx, binnedSize: binnedSize)
         let componentCount = max(1, min(settings.components, dims, max(1, totalPositions - 1)))
         let groupCount = max(1, min(settings.groups, totalPositions))
 
@@ -213,7 +199,7 @@ package nonisolated enum DiffractionEmbedding {
         var cachedVectors = cacheEverything
             ? [Float](repeating: 0, count: totalPositions * dims) : []
 
-        var accumulator = OuterProductAccumulator(dims: dims)
+        var accumulator = try PCACovarianceAccumulator(columns: dims)
 
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
@@ -245,24 +231,18 @@ package nonisolated enum DiffractionEmbedding {
                 throw EmbeddingError.tileRead(rows: range, underlying: error)
             }
             guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
-            let patternSize = d.qy * d.qx
-            for localRow in 0..<range.count {
-                let globalY = range.lowerBound + localRow
-                for x in 0..<d.rx {
-                    let posIndex = globalY * d.rx + x
-                    let base = (localRow * d.rx + x) * patternSize
-                    let vector = embed(
-                        pixels: tile.pixels, base: base, qy: d.qy, qx: d.qx,
-                        geometry: geometry, binnedSize: binnedSize
-                    )
-                    if cacheEverything {
-                        let dst = posIndex * dims
-                        for i in 0..<dims { cachedVectors[dst + i] = vector[i] }
-                    }
-                    accumulator.add(vector)
-                    processed += 1
-                }
+            let block = try binnedBlock(tile: tile, qy: d.qy, qx: d.qx, binnedSize: binnedSize)
+            let positionsInTile = range.count * d.rx
+            if cacheEverything {
+                let dst = range.lowerBound * d.rx * dims
+                cachedVectors.replaceSubrange(dst..<(dst + block.count), with: block)
             }
+            do {
+                try accumulator.add(block, rows: positionsInTile)
+            } catch KitEmbeddingError.nonFinite {
+                throw nonFiniteRefusal
+            }
+            processed += positionsInTile
             progress?(statsWeight * Double(processed) / Double(max(1, totalPositions)))
         }
         guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
@@ -271,67 +251,33 @@ package nonisolated enum DiffractionEmbedding {
                 "Streamed \(processed) of \(totalPositions) scan positions.")
         }
         progress?(statsWeight)
-        let (sumVec, sumOuter) = accumulator.finish()
 
-        // Mean and covariance in double precision.
-        let n = Double(totalPositions)
-        var mean = [Double](repeating: 0, count: dims)
-        for i in 0..<dims { mean[i] = sumVec[i] / n }
-        var covariance = [Double](repeating: 0, count: dims * dims)
-        for i in 0..<dims {
-            let mi = mean[i]
-            for j in 0..<dims {
-                covariance[i * dims + j] = sumOuter[i * dims + j] / n - mi * mean[j]
+        // Non-finite guard (Gate D, 2026-09-11). A NaN or +Inf detector pixel reaches the binned vectors;
+        // -Inf alone is clamped by the binning. LAPACK does not reject a NaN covariance (`dsyevd_` returned
+        // eigenvalues [1, nan x 7] at the shipped dims 256), so the kit's accumulator refuses the block
+        // (`nonFinite`, caught above) before any fit, and the typed error is what the caller handles.
+
+        guard cancellation?.isCancelled != true else { return nil }
+        let pca: PCAResult
+        do {
+            if totalPositions >= 2 {
+                pca = try PCA.fit(accumulator, components: componentCount)
+            } else {
+                // One position: no spread. A zero covariance gives the kit's identity axes and zero variance
+                // (count 2 only satisfies its two-row precondition; it scales nothing the app reads).
+                pca = try PCA.fit(covariance: [Double](repeating: 0, count: dims * dims), count: 2,
+                                  mean: accumulator.mean, components: componentCount)
             }
-        }
-        var totalVariance = 0.0
-        for i in 0..<dims { totalVariance += covariance[i * dims + i] }
-
-        // Non-finite guard (Gate D, 2026-09-11). A NaN or +Inf detector pixel
-        // reaches the covariance through the binned vectors, and LAPACK does
-        // NOT reject it: `dsyevd_` returns info == 0 on a NaN covariance at the
-        // shipped default (binnedSize 16 -> dims 256), returning eigenvalues
-        // [1, nan x 7]. At dims 16 it returns nothing, so the apparent
-        // protection is dimension-dependent and a small fixture never sees it
-        // fail. Downstream, `totalVariance > 0` is false for a NaN trace, so
-        // every explainedVariance publishes a plausible 0.0 instead of an
-        // error, and the NaN coordinates then reach `kMeans`, where
-        // `Double.random(in: 0..<.infinity)` TRAPS — measured exit 133, and
-        // under -O the process prints nothing at all before dying.
-        //
-        // -Inf alone never gets here (`embed` clamps with max(buf, 0)); NaN and
-        // +Inf are not clamped. Refuse with the typed error the caller already
-        // handles rather than publishing a number or dying.
-        guard totalVariance.isFinite, covariance.allSatisfy(\.isFinite) else {
-            throw EmbeddingError.invalidDataset(
-                "This dataset has non-finite detector values, so a diffraction "
-                + "embedding cannot be computed. Preprocess or mask them first."
-            )
-        }
-
-        guard cancellation?.isCancelled != true else { return nil }
-        let (eigenvectors, eigenvalues) = symmetricEigenTop(
-            matrix: covariance, dimension: dims, count: componentCount,
-            cancellation: cancellation
-        )
-        guard cancellation?.isCancelled != true else { return nil }
-        let actualComponents = eigenvectors.count
-        guard actualComponents > 0 else {
+        } catch {
             throw EmbeddingError.invalidDataset("Could not find any principal components.")
         }
-
-        var basis = [Float](repeating: 0, count: actualComponents * dims)
-        for c in 0..<actualComponents {
-            for i in 0..<dims { basis[c * dims + i] = Float(eigenvectors[c][i]) }
-        }
-        var explainedVariance = [Float](repeating: 0, count: actualComponents)
-        for c in 0..<actualComponents {
-            // Clamped at 0: past the covariance's rank LAPACK returns the null
-            // eigenvalues as tiny NEGATIVE numbers (−1e-16 measured), and the
-            // contract on `explainedVariance` is 0...1.
-            explainedVariance[c] = totalVariance > 0 ? Float(max(0, eigenvalues[c] / totalVariance)) : 0
-        }
-        let meanFloat = mean.map(Float.init)
+        guard cancellation?.isCancelled != true else { return nil }
+        let actualComponents = pca.componentCount
+        let basis = pca.components.map(Float.init)
+        // The kit's ratio is each eigenvalue over the covariance trace (negative round-off clamped at 0), the
+        // contract on `explainedVariance`: 0...1, of the TOTAL variance, not of the retained eigenvalues.
+        let explainedVariance = pca.explainedVarianceRatio.map(Float.init)
+        let meanFloat = pca.mean.map(Float.init)
         progress?(statsWeight + eigenWeight)
 
         // Projection: from the cache in one pass, or a second cube read.
@@ -374,33 +320,26 @@ package nonisolated enum DiffractionEmbedding {
                     throw EmbeddingError.tileRead(rows: range, underlying: error)
                 }
                 guard cancellation?.isCancelled != true else { prefetcher2.cancel(); return nil }
-                let patternSize = d.qy * d.qx
-                for localRow in 0..<range.count {
-                    let globalY = range.lowerBound + localRow
-                    for x in 0..<d.rx {
-                        let posIndex = globalY * d.rx + x
-                        let base = (localRow * d.rx + x) * patternSize
-                        let vector = embed(
-                            pixels: tile.pixels, base: base, qy: d.qy, qx: d.qx,
-                            geometry: geometry, binnedSize: binnedSize
-                        )
-                        vector.withUnsafeBufferPointer { v in
-                            meanFloat.withUnsafeBufferPointer { m in
-                                basis.withUnsafeBufferPointer { b in
-                                    centred2.withUnsafeMutableBufferPointer { cen in
-                                        coordinates.withUnsafeMutableBufferPointer { out in
-                                            project(v.baseAddress!, mean: m.baseAddress!, basis: b.baseAddress!,
-                                                    dims: dims, components: actualComponents,
-                                                    centred: cen.baseAddress!,
-                                                    into: out.baseAddress! + posIndex * actualComponents)
-                                        }
+                let block = try binnedBlock(tile: tile, qy: d.qy, qx: d.qx, binnedSize: binnedSize)
+                let positionsInTile = range.count * d.rx
+                let firstPosition = range.lowerBound * d.rx
+                block.withUnsafeBufferPointer { v in
+                    meanFloat.withUnsafeBufferPointer { m in
+                        basis.withUnsafeBufferPointer { b in
+                            centred2.withUnsafeMutableBufferPointer { cen in
+                                coordinates.withUnsafeMutableBufferPointer { out in
+                                    for local in 0..<positionsInTile {
+                                        project(v.baseAddress! + local * dims, mean: m.baseAddress!,
+                                                basis: b.baseAddress!, dims: dims, components: actualComponents,
+                                                centred: cen.baseAddress!,
+                                                into: out.baseAddress! + (firstPosition + local) * actualComponents)
                                     }
                                 }
                             }
                         }
-                        processed2 += 1
                     }
                 }
+                processed2 += positionsInTile
                 progress?(statsWeight + eigenWeight
                           + projectWeight * Double(processed2) / Double(max(1, totalPositions)))
             }
@@ -408,10 +347,14 @@ package nonisolated enum DiffractionEmbedding {
         }
 
         guard cancellation?.isCancelled != true else { return nil }
-        let (groupOf, centroids) = try kMeans(
-            coordinates: coordinates, positions: totalPositions, dimension: actualComponents,
-            requestedGroups: groupCount, seed: settings.seed, cancellation: cancellation
-        )
+        let groupOf: [Int], centroids: [Float]
+        do {
+            (groupOf, centroids) = try kMeans(
+                coordinates: coordinates, positions: totalPositions, dimension: actualComponents,
+                requestedGroups: groupCount, seed: settings.seed, cancellation: cancellation)
+        } catch is CancellationError {
+            return nil
+        }
         guard cancellation?.isCancelled != true else { return nil }
         progress?(1)
 
@@ -484,287 +427,34 @@ package nonisolated enum DiffractionEmbedding {
                    pixels: result.groupOf.map(Float.init))
     }
 
-    // MARK: - Binning geometry
+    // MARK: - Binning
 
-    /// The box-binning geometry for one detector axis: `bins` output cells,
-    /// each a `box`-wide sum, covering the largest region of `axisSize`
-    /// divisible by `box`, centred with `offset` pixels excluded on each
-    /// side. When `axisSize < binnedSize` there is no room to bin at all —
-    /// `bins` degrades to `axisSize` with `box = 1` (every input pixel is its
-    /// own cell) rather than dividing by zero; `embed` below zero-pads the
-    /// remaining output cells so every vector stays exactly `binnedSize²`.
-    package nonisolated struct BinGeometry: Sendable, Equatable {
-        package let binnedH: Int
-        package let binnedW: Int
-        package let boxY: Int
-        package let boxX: Int
-        package let offsetY: Int
-        package let offsetX: Int
+    /// The refusal for a dataset with NaN or +Inf detector values.
+    private static let nonFiniteRefusal = EmbeddingError.invalidDataset(
+        "This dataset has non-finite detector values, so a diffraction "
+        + "embedding cannot be computed. Preprocess or mask them first.")
 
-        package static func compute(qy: Int, qx: Int, binnedSize: Int) -> BinGeometry {
-            func axis(_ size: Int) -> (bins: Int, box: Int, offset: Int) {
-                guard size > 0, binnedSize > 0 else { return (0, 0, 0) }
-                let bins = min(binnedSize, size)
-                let box = max(1, size / bins)
-                let used = box * bins
-                let offset = (size - used) / 2
-                return (bins, box, offset)
-            }
-            let y = axis(qy)
-            let x = axis(qx)
-            return BinGeometry(binnedH: y.bins, binnedW: x.bins, boxY: y.box, boxX: x.box,
-                                offsetY: y.offset, offsetX: x.offset)
-        }
-    }
-
-    /// log1p-scale, per-pattern max-normalise, then box-bin one pattern
-    /// (found at `base` in `pixels`, `qy`×`qx` row-major) into a fixed
-    /// `binnedSize²`-length vector.
-    /// `package` rather than `private` for the same reason `symmetricEigenTop`
-    /// and `kMeans` are: the py4DSTEM parity harness
-    /// (`tools/harnesses/embedding-pca-parity`) must feed BOTH sides the identical
-    /// feature matrix. Reimplementing this binning in Python would let the two
-    /// drift while every PCA check still passed — the quiet-failure class this
-    /// repo keeps hitting — and publishing the matrix on `Result` instead would
-    /// be hundreds of MB on a real cube.
-    package static func embed(
-        pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
-    ) -> [Float] {
-        // Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
-        // the three per-pixel scalar loops below were 5.1 of 6.3 s per 1 000
-        // patterns in an `-Onone` build (the owner's Debug build). A pattern
-        // with only finite values takes the Accelerate path; one with NaN or
-        // ±Inf (its float sum is not finite) takes CuboEmbedding's scalar
-        // `binnedVector` (Float32 rounding from the old loop: row-wise cell sums), because `vDSP_vthr` would turn NaN into 0, where Swift's
-        // `max(x, 0)` keeps it and lets the covariance guard refuse the
-        // dataset. The two paths agree to ≤ 1e-6 relative (`vvlog1pf` vs
-        // `log1pf`, summation order): `DiffractionEmbeddingEmbedTests`.
-        let count = qy * qx
-        var total: Float = 0
-        pixels.withUnsafeBufferPointer { buf in
-            vDSP_sve(buf.baseAddress! + base, 1, &total, vDSP_Length(count))
-        }
-        guard total.isFinite else {
-            return embedScalar(pixels: pixels, base: base, qy: qy, qx: qx,
-                               geometry: geometry, binnedSize: binnedSize)
-        }
-        var scaled = [Float](repeating: 0, count: count)
-        var logged = [Float](repeating: 0, count: count)
-        var maxVal: Float = 0
-        pixels.withUnsafeBufferPointer { buf in
-            scaled.withUnsafeMutableBufferPointer { sc in
-                logged.withUnsafeMutableBufferPointer { lg in
-                    var zero: Float = 0
-                    vDSP_vthr(buf.baseAddress! + base, 1, &zero, sc.baseAddress!, 1, vDSP_Length(count))
-                    var n = Int32(count)
-                    vvlog1pf(lg.baseAddress!, sc.baseAddress!, &n)
-                    vDSP_maxv(lg.baseAddress!, 1, &maxVal, vDSP_Length(count))
-                    if maxVal > 0 {
-                        var inv = 1 / maxVal
-                        vDSP_vsmul(lg.baseAddress!, 1, &inv, lg.baseAddress!, 1, vDSP_Length(count))
-                    }
-                }
+    /// log1p-scale, per-pattern max-normalise and box-bin every pattern of a scan tile into `binnedSize²`
+    /// vectors (positions x binnedSize², row-major, scan order): CuboEmbedding's
+    /// `DiffractionFeatures.binnedVector` on its vDSP path (finite patterns; NaN and ±Inf take the kit's
+    /// scalar loop, which keeps NaN and clamps -Inf to 0). The py4DSTEM parity harness
+    /// (`tools/harnesses/embedding-pca-parity`) calls the same function, so both sides see the same matrix.
+    private static func binnedBlock(
+        tile: FourDScanTile, qy: Int, qx: Int, binnedSize: Int
+    ) throws -> [Float] {
+        let patternSize = qy * qx
+        let positions = tile.pixels.count / max(1, patternSize)
+        let dims = binnedSize * binnedSize
+        var block = [Float](repeating: 0, count: positions * dims)
+        try tile.pixels.withUnsafeBufferPointer { buf in
+            for p in 0..<positions {
+                let pattern = UnsafeBufferPointer(rebasing: buf[(p * patternSize)..<((p + 1) * patternSize)])
+                let v = try DiffractionFeatures.binnedVector(
+                    pattern: pattern, rows: qy, columns: qx, binnedSize: binnedSize, implementation: .accelerate)
+                block.replaceSubrange((p * dims)..<((p + 1) * dims), with: v)
             }
         }
-        var out = [Float](repeating: 0, count: binnedSize * binnedSize)
-        guard geometry.binnedH > 0, geometry.binnedW > 0 else { return out }
-        logged.withUnsafeBufferPointer { lg in
-            for by in 0..<geometry.binnedH {
-                let y0 = geometry.offsetY + by * geometry.boxY
-                for bx in 0..<geometry.binnedW {
-                    let x0 = geometry.offsetX + bx * geometry.boxX
-                    var sum: Float = 0
-                    for dy in 0..<geometry.boxY {
-                        var row: Float = 0
-                        vDSP_sve(lg.baseAddress! + (y0 + dy) * qx + x0, 1, &row, vDSP_Length(geometry.boxX))
-                        sum += row
-                    }
-                    out[by * binnedSize + bx] = sum
-                }
-            }
-        }
-        return out
-    }
-
-    /// The path for a pattern holding NaN or ±Inf, whose exact semantics (NaN kept,
-    /// −Inf clamped to 0) the refusal downstream depends on: CuboEmbedding's
-    /// `DiffractionFeatures.binnedVector`, pinned to this app's former scalar loop.
-    /// (It sums each cell row by row, so it agrees with the former loop to Float32
-    /// rounding on finite values; non-finite patterns are refused downstream.)
-    // delete at CuboEmbedding 0.5.0: a vDSP path inside DiffractionFeatures.binnedVector (then embed, its fast path and BinGeometry go).
-    private static func embedScalar(
-        pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
-    ) -> [Float] {
-        let pattern = Array(pixels[base..<(base + qy * qx)])
-        do {
-            return try DiffractionFeatures.binnedVector(pattern: pattern, rows: qy, columns: qx,
-                                                        binnedSize: binnedSize)
-        } catch {
-            // Only a non-positive size or a pattern of the wrong length throws; `compute` validated both.
-            preconditionFailure("DiffractionEmbedding.embed: \(error)")
-        }
-    }
-
-    /// The running (double precision) sum and sum of outer products that
-    /// become the mean and covariance once streaming finishes. The outer
-    /// products are the dominant cost of the whole pass (O(positions × dims²),
-    /// inherent to exact covariance PCA), so they go through Accelerate:
-    /// vectors are converted to double in chunks and each chunk updates the
-    /// upper triangle with one `cblas_dsyrk`; `finish` mirrors it into the
-    /// lower triangle once.
-    ///
-    /// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`).
-    /// The scalar loop this replaces took 84.8 of 90.7 s for 1 000 patterns at
-    /// 32 × 32 in an `-Onone` build (the owner's Debug build), against about
-    /// 0.4 s at `-O`. BLAS runs optimised in every configuration. The sums
-    /// agree with the old loop up to summation order and fused multiply-adds
-    /// (`DiffractionEmbeddingAccumulatorTests`, old loop kept verbatim there as the
-    /// reference). `sumVec` is still added element by element in position
-    /// order (`vDSP_vaddD`), so it is bit-identical to the old loop.
-    package struct OuterProductAccumulator {
-        package let dims: Int
-        /// Vectors per `dsyrk` call: 1 024 × dims doubles (8 MB at dims 1 024)
-        /// bounds the buffer however large a scan tile is.
-        package static let chunk = 1024
-        /// `chunk` in production; a test may pass a small one to cross chunk
-        /// boundaries with few vectors (its reference loop is slow in Debug).
-        private let chunkSize: Int
-        private var batch: [Double]
-        private var batched = 0
-        private var sumVec: [Double]
-        private var sumOuter: [Double]
-
-        package init(dims: Int, chunk: Int = OuterProductAccumulator.chunk) {
-            self.dims = dims
-            chunkSize = max(1, chunk)
-            batch = [Double](repeating: 0, count: chunkSize * dims)
-            sumVec = [Double](repeating: 0, count: dims)
-            sumOuter = [Double](repeating: 0, count: dims * dims)
-        }
-
-        package mutating func add(_ vector: [Float]) {
-            precondition(vector.count == dims)
-            let d = dims, offset = batched * d
-            batch.withUnsafeMutableBufferPointer { b in
-                vector.withUnsafeBufferPointer { v in
-                    vDSP_vspdp(v.baseAddress!, 1, b.baseAddress! + offset, 1, vDSP_Length(d))
-                }
-                sumVec.withUnsafeMutableBufferPointer { sv in
-                    vDSP_vaddD(sv.baseAddress!, 1, b.baseAddress! + offset, 1,
-                               sv.baseAddress!, 1, vDSP_Length(d))
-                }
-            }
-            batched += 1
-            if batched == chunkSize { flush() }
-        }
-
-        /// The sums, with the outer-product matrix full (both triangles).
-        package mutating func finish() -> (sumVec: [Double], sumOuter: [Double]) {
-            flush()
-            let d = dims
-            sumOuter.withUnsafeMutableBufferPointer { so in
-                for i in 1..<max(1, d) {
-                    for j in 0..<i { so[i * d + j] = so[j * d + i] }
-                }
-            }
-            return (sumVec, sumOuter)
-        }
-
-        /// sumOuter (row-major, upper triangle j ≥ i) += Bᵀ·B over the batched
-        /// rows B (batched × dims, row-major).
-        private mutating func flush() {
-            guard batched > 0 else { return }
-            let d = __LAPACK_int(dims), k = __LAPACK_int(batched)
-            batch.withUnsafeBufferPointer { b in
-                sumOuter.withUnsafeMutableBufferPointer { so in
-                    cblas_dsyrk(CblasRowMajor, CblasUpper, CblasTrans, d, k,
-                                1, b.baseAddress!, d, 1, so.baseAddress!, d)
-                }
-            }
-            batched = 0
-        }
-    }
-
-    // MARK: - Symmetric eigendecomposition (Accelerate LAPACK dsyevd_)
-
-    /// Top-`count` eigenpairs of a symmetric `dimension × dimension` matrix
-    /// (row-major), largest eigenvalue first, via LAPACK's divide-and-conquer
-    /// driver `dsyevd_`. Exact and deterministic — there is no iteration, no
-    /// tolerance and no random start. See the file header for why this
-    /// replaced a hand-written subspace iteration, and `../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md`
-    /// for the defect that iteration carried.
-    ///
-    /// Returns `([], [])` when LAPACK reports failure (`info != 0`) or when
-    /// cancelled; `compute` turns an empty result into a typed
-    /// `EmbeddingError`.
-    ///
-    /// **That is NOT a non-finite guard, and the sentence here used to claim it
-    /// was** (corrected 2026-09-11, Gate B). `dsyevd_` returns `info == 0` on a
-    /// NaN-riddled covariance at realistic sizes: measured with one bad
-    /// detector pixel, `d = 16` returns 0 components and the guard appears to
-    /// work, while `d = 64` and `d = 256` — **256 is the shipped default**
-    /// (`Settings.binnedSize` 16, so `dims = 256`) — return 8 components whose
-    /// values are `[1, nan × 7]`. The apparent protection is dimension-
-    /// dependent, which is why a small fixture never sees it fail.
-    /// `docs/open-items.md` carries the whole chain and it **blocks wiring**.
-    ///
-    /// `package` rather than `private` so the Gate D fixture
-    /// (`DiffractionEmbeddingTests.testSymmetricEigenTopReturnsTrueEigenpairs`)
-    /// can plant a KNOWN spectrum and check the returned pairs directly,
-    /// instead of inferring the solver's health from a downstream aggregate.
-    // delete at CuboEmbedding 0.5.0: a covariance -> top-eigenpairs (PCA) entry; the app streams the covariance.
-    package static func symmetricEigenTop(
-        matrix: [Double], dimension: Int, count: Int,
-        cancellation: AnalysisCancellationToken?
-    ) -> (vectors: [[Double]], values: [Double]) {
-        let d = dimension
-        guard d > 0, matrix.count >= d * d else { return ([], []) }
-        let k = max(1, min(count, d))
-        guard cancellation?.isCancelled != true else { return ([], []) }
-
-        // `a` is overwritten with the eigenvectors, `w` filled with the
-        // eigenvalues in ASCENDING order. The input is symmetric, so the
-        // row-major buffer is already the column-major matrix LAPACK reads;
-        // on return, eigenvector j is the contiguous slice a[j*d ..< (j+1)*d].
-        var a = matrix
-        var w = [Double](repeating: 0, count: d)
-        var jobz = Int8(UInt8(ascii: "V"))   // eigenvalues AND eigenvectors
-        var uplo = Int8(UInt8(ascii: "U"))
-        var n = __LAPACK_int(d)
-        var lda = __LAPACK_int(d)
-        var info = __LAPACK_int(0)
-
-        // Workspace query (lwork = liwork = -1): LAPACK computes nothing and
-        // writes the optimal sizes into work[0] / iwork[0]. Sizing the
-        // workspace by hand is the classic way to corrupt this call.
-        var lwork = __LAPACK_int(-1)
-        var liwork = __LAPACK_int(-1)
-        var workQuery = [Double](repeating: 0, count: 1)
-        var iworkQuery = [__LAPACK_int](repeating: 0, count: 1)
-        dsyevd_(&jobz, &uplo, &n, &a, &lda, &w,
-                &workQuery, &lwork, &iworkQuery, &liwork, &info)
-        guard info == 0, workQuery[0].isFinite, workQuery[0] >= 1, iworkQuery[0] >= 1 else {
-            return ([], [])
-        }
-
-        lwork = __LAPACK_int(workQuery[0])
-        liwork = iworkQuery[0]
-        var work = [Double](repeating: 0, count: Int(lwork))
-        var iwork = [__LAPACK_int](repeating: 0, count: Int(liwork))
-        dsyevd_(&jobz, &uplo, &n, &a, &lda, &w,
-                &work, &lwork, &iwork, &liwork, &info)
-        guard info == 0 else { return ([], []) }
-        guard cancellation?.isCancelled != true else { return ([], []) }
-
-        // Descending by eigenvalue: LAPACK's last column is the largest.
-        var vectors = [[Double]](repeating: [], count: k)
-        var values = [Double](repeating: 0, count: k)
-        for c in 0..<k {
-            let column = d - 1 - c
-            values[c] = w[column]
-            vectors[c] = Array(a[(column * d)..<((column + 1) * d)])
-        }
-        return (vectors, values)
+        return block
     }
 
     // MARK: - k-means
@@ -772,23 +462,19 @@ package nonisolated enum DiffractionEmbedding {
     /// k-means++ seeded Lloyd's algorithm, deterministic given `seed`: CuboEmbedding's
     /// `KMeans.fitSeeded`, pinned to this app's former implementation (splitmix64 seeding
     /// from `seed + 0x5A17`, at most 50 passes, an empty cluster re-seeded at the point
-    /// farthest from its own pre-update centroid).
-    /// `package` so a Gate D fixture can hand it non-finite input: that now throws
-    /// `invalidDataset` (it used to be answered with a deterministic fill). `compute`
-    /// refuses non-finite data upstream, so this is unreachable through the public path.
-    /// Cancellation is honoured before the fit only; the kit's fit has no hook, and it runs
-    /// over the few PCA coordinates, not the cube.
-    // delete at CuboEmbedding 0.5.0: a cancellation hook on KMeans.fitSeeded (cancellation is checked before the fit only).
+    /// farthest from its own pre-update centroid). Cancellation is asked inside the fit
+    /// (`CancellationError`, which `compute` turns into nil).
+    /// `package` so a Gate D fixture can hand it non-finite input: that throws
+    /// `invalidDataset`. `compute` refuses non-finite data upstream, so this is unreachable through the public path.
     package static func kMeans(
         coordinates: [Float], positions: Int, dimension: Int, requestedGroups: Int,
         seed: UInt64, cancellation: AnalysisCancellationToken?
     ) throws -> (assignment: [Int], centroids: [Float]) {
         guard positions > 0, dimension > 0 else { return ([], []) }
-        guard cancellation?.isCancelled != true else { return ([Int](repeating: 0, count: positions), []) }
         do {
             let fit = try KMeans.fitSeeded(
                 coordinates.map(Double.init), rows: positions, columns: dimension,
-                groups: requestedGroups, seed: seed)
+                groups: requestedGroups, seed: seed, isCancelled: { cancellation?.isCancelled == true })
             return (fit.labels, fit.centroids.map(Float.init))
         } catch KitEmbeddingError.nonFinite {
             throw EmbeddingError.invalidDataset("The embedding coordinates are not finite, so they cannot be clustered.")

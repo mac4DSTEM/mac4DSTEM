@@ -1,8 +1,8 @@
 //
 //  main.swift -- tools/harnesses/embedding-pca-parity
 //  Writes the feature matrix DiffractionEmbedding actually used, its PCA
-//  result, and a standalone symmetric matrix with symmetricEigenTop's
-//  eigenpairs, for verify_py4dstem.py to check against py4DSTEM and numpy.
+//  result, and a standalone symmetric matrix with the eigenpairs of CuboEmbedding's
+//  `PCA.fit(covariance:)`, for verify_py4dstem.py to check against py4DSTEM and numpy.
 //
 //  The fixture is NON-SQUARE IN BOTH AXES (16x25 scan, 32x30 detector) so an
 //  axis swap cannot cancel -- the S4/S8 lesson. 400 positions is deliberate and
@@ -11,6 +11,7 @@
 //  upstream number becomes nondeterministic. Measured 2026-09-11: n=500 gives
 //  0.0 run-to-run drift in explained_variance_ratio_, n=501 gives 5.9e-4.
 //
+import CuboEmbedding
 import Foundation
 #if canImport(DSTEMCore)
 import DSTEMCore
@@ -127,14 +128,13 @@ enum Harness {
             cancellation: nil, progress: nil
         ) else { fatalError("compute returned nil") }
 
-        // The SAME feature matrix the engine consumed -- `embed` is called
+        // The SAME feature matrix the engine consumed -- the kit's `binnedVector` on its vDSP path is called
         // here, never reimplemented, so the two sides cannot drift.
-        let geom = DiffractionEmbedding.BinGeometry.compute(qy: qy, qx: qx, binnedSize: binned)
         var features = [Double]()
         features.reserveCapacity(patterns.count * binned * binned)
         for img in patterns {
-            let v = DiffractionEmbedding.embed(
-                pixels: img, base: 0, qy: qy, qx: qx, geometry: geom, binnedSize: binned)
+            let v = try DiffractionFeatures.binnedVector(
+                pattern: img, rows: qy, columns: qx, binnedSize: binned, implementation: .accelerate)
             features.append(contentsOf: v.map(Double.init))
         }
         writeF64(features, to: out + "/features.f64")
@@ -150,8 +150,10 @@ enum Harness {
                 m[j * d + i] = v
             }
         }
-        let (vecs, vals) = DiffractionEmbedding.symmetricEigenTop(
-            matrix: m, dimension: d, count: 8, cancellation: nil)
+        // The matrix is the covariance (count 1000 only scales the singular values, which are not read).
+        let fit = try PCA.fit(covariance: m, count: 1000, mean: [Double](repeating: 0, count: d), components: 8)
+        let vals = fit.explainedVariance
+        let vecs = (0..<8).map { Array(fit.components[($0 * d)..<(($0 + 1) * d)]) }
         writeF64(m, to: out + "/eigen_input.f64")
 
         writeJSON([
