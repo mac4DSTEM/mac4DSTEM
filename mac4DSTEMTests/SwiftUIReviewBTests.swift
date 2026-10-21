@@ -54,7 +54,10 @@ final class SwiftUIReviewBTests: XCTestCase {
         holder.start()
         XCTAssertEqual(held.wait(timeout: .now() + 5), .success)
 
-        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("no-such-file-\(UUID().uuidString).h5")
+        // An HDF5-signature file: the route sniffs it (under the lock) and the HDF5 reader opens it (under the lock), both off the main actor.
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("not-really-\(UUID().uuidString).h5")
+        try Data([0x89, 0x48, 0x44, 0x46, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0]).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
         let open = Task { try? await AppState.makeReader(for: url) }
         try await Task.sleep(nanoseconds: 200_000_000)   // the main actor is alive while the open waits on the lock
         release.signal()

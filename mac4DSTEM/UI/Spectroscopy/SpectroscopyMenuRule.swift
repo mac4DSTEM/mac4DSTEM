@@ -28,6 +28,7 @@ enum SpectroscopyMenuRule {
     // Do. Each is a no-op when its rule is off, so a stale menu item cannot write something the button would refuse.
     static func exportResults(_ model: SpectroscopyRoomModel) { if canExportResults(model) { model.pendingExport = ExportSection.resultsExport(model.export) } }
     static func exportMethod(_ model: SpectroscopyRoomModel) { if canExportMethod(model) { model.pendingExport = ExportSection.methodExport(model.export) } }
+    static func exportSpectrumMSA(_ model: SpectroscopyRoomModel) { if canExportSpectrum(model) { model.pendingExport = ExportSection.spectrumMSAExport(model) } }
     static func exportSpectrum(_ model: SpectroscopyRoomModel) { if canExportSpectrum(model) { model.pendingExport = ExportSection.spectrumExport(model) } }
     static func exportMaps(_ model: SpectroscopyRoomModel) { if canExportMaps(model) { model.pickingMapsFolder = true } }
     static func pin(_ model: SpectroscopyRoomModel) { if canPin(model) { model.onPin?() } }
@@ -43,7 +44,7 @@ struct SpectroscopyExportPresenters: ViewModifier {
         content
             .fileExporter(isPresented: Binding(get: { model.pendingExport != nil }, set: { if !$0 { model.pendingExport = nil } }),
                           document: SpectroscopyTextDocument(text: model.pendingExport?.text ?? ""),
-                          contentType: model.pendingExport?.isJSON == false ? .commaSeparatedText : .json,
+                          contentType: model.pendingExport?.isMSA == true ? (UTType(filenameExtension: "msa") ?? .plainText) : (model.pendingExport?.isJSON == false ? .commaSeparatedText : .json),
                           defaultFilename: model.pendingExport?.name ?? "spectroscopy") { result in
                 switch result {
                 case .success(let url): model.exportNote = "Saved \(url.lastPathComponent)"

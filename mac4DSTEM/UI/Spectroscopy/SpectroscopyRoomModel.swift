@@ -249,6 +249,8 @@ struct PendingExport: Equatable {
     var text: String
     var isJSON: Bool
     var name: String
+    /// An EMSA/MAS spectrum (`.msa`): the save panel names the type.
+    var isMSA = false
 }
 
 struct AutoIDState: Equatable {

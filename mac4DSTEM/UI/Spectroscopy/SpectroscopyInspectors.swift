@@ -522,6 +522,15 @@ struct ExportSection: View {
                              isJSON: false, name: model.export.fileStem + "-spectrum")
     }
 
+    /// The shown spectrum as an EMSA/MAS `.msa` file (FormatoKit's `MSAWriter`; keV axis, counts as Y). nil when it cannot be written.
+    static func spectrumMSAExport(_ model: SpectroscopyRoomModel) -> PendingExport? {
+        guard let label = model.export.spectrumOf, !model.series.data.isEmpty,
+              let data = try? FileRouting.msaData(counts: model.series.data, offsetKeV: model.series.energyStart,
+                                                  scaleKeV: model.series.energyStep, title: label.imageName, beamEnergyKeV: nil)
+        else { return nil }
+        return PendingExport(text: String(decoding: data, as: UTF8.self), isJSON: false, name: model.export.fileStem + "-spectrum", isMSA: true)
+    }
+
     var body: some View {
         @Bindable var preferences = preferences
         let e = model.export
@@ -569,6 +578,12 @@ struct ExportSection: View {
                 }
                 .disabled(!SpectroscopyMenuRule.canExportSpectrum(model))
                 .accessibilityIdentifier("spectroscopy.export.spectrum")
+                InspectorAdaptiveButton("Spectrum MSA\u{2026}", systemImage: "waveform.path",
+                                        help: "The shown spectrum as an EMSA/MAS .msa file (keV axis, counts), readable by other EDX software and by this room") {
+                    SpectroscopyMenuRule.exportSpectrumMSA(model)
+                }
+                .disabled(!SpectroscopyMenuRule.canExportSpectrum(model))
+                .accessibilityIdentifier("spectroscopy.export.spectrumMSA")
                 InspectorAdaptiveButton(Self.mapsTitle, systemImage: "square.grid.2x2",
                                         help: "Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel (times the image size), with the scale bar and the regions when they are on, and the net-count maps as one CSV, into a new folder inside the one you pick (an earlier export is never overwritten)") {
                     SpectroscopyMenuRule.exportMaps(model)

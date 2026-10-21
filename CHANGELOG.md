@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Open routes by content (FormatoKit `FormatoLoader.sniff`) instead of by extension; a TIFF, an MRC or an unrecognised file is refused with a sentence naming it (before: an HDF5 error). An `.msa` spectrum opens in the Spectroscopy room as a one-pixel spectrum image, and the Export section writes the shown spectrum as `.msa` ("Spectrum MSA…"). Unverified on screen. Not covered: a Velox "DevelopersKit" fixture (none on this machine) and Velox single spectra in the room.
+
 - 2026-10-21 Precipitates: a Thickness row (typed t ± σ with its source, or macTEM's EELS method JSON read as the source; N_V shown off until its estimator is registered). It rides on the objects run's lineage node, so the sidecar carries it, and the objects CSV header names it. validation: none. Unverified on screen.
 
 - 2026-10-21 Re-pin SpectroKit 0.8.2 (additive: the pooled fit's k, line energies and take-off angle are public). The wt% / at% maps now use the pooled fit's own k (computed or typed) and the absorption correction when a thickness is typed and the file states its detector geometry (one weighted take-off angle; the tile footer names it, and says why when it is off). No migration. The unit tests still import SpectroKit `@testable` (the proposer, unlisted-line and window internals are `package`; filed in `docs/open-items.md`).

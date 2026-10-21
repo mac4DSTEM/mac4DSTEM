@@ -99,6 +99,7 @@
 				Core/Data/CalibratedDataCubeWriter.swift,
 				Core/Data/Calibration.swift,
 				Core/Data/CalibrationReReference.swift,
+				Core/Data/FileRouting.swift,
 				Core/Data/CuboCubeSource.swift,
 				Core/Data/DatasetDescriptor.swift,
 				Core/Data/DemoFourDDataSource.swift,

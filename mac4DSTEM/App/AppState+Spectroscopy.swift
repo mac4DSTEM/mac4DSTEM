@@ -144,6 +144,13 @@ extension AppState {
 
     func openAsSpectrumImageIfApplicable(_ url: URL, access: SpectrumOpenAccess = SpectrumOpenAccess()) async -> Bool {
         let ext = url.pathExtension.lowercased()
+        // A single spectrum (.msa, EMSA/MAS): a one-pixel spectrum image in the Spectroscopy room.
+        if FileRouting.route(path: url.path) == .singleSpectrum {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            do { openSpectrumImage(try FileRouting.spectrumImage(msaPath: url.path)) } catch { present(error) }
+            return true
+        }
         guard ext == "emd" || ext == "dm4" else { return false }
         let path = url.path
         let accessed = access.start(url)

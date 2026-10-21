@@ -213,11 +213,18 @@ extension AppState {
     /// that comes back crosses the hop safely.
     @concurrent
     static func makeReader(for url: URL) async throws -> any FourDDataSource {
-        switch url.pathExtension.lowercased() {
-        case "dm4", "dm3": return try await DM4Reader(path: url.path)
-        case "mib": return try MIBReader(path: url.path)
-        case "raw", "xml": return try EMPADReader(path: url.path)
-        default: return try H5Reader(path: url.path)
+        // By content (FormatoKit's sniff): the extension picks the candidates, the first bytes confirm them.
+        // The sniff opens an HDF5 file under the HDF5 lock: off the main actor, like the readers.
+        let path = url.path
+        let route = await Task.detached(priority: .userInitiated) { FileRouting.route(path: path) }.value
+        switch route {
+        case .digitalMicrograph: return try await DM4Reader(path: url.path)
+        case .merlinMIB: return try MIBReader(path: url.path)
+        case .empad: return try EMPADReader(path: url.path)
+        case .hdf5: return try H5Reader(path: url.path)
+        case .singleSpectrum:
+            throw SimpleError("\(url.lastPathComponent) is a single spectrum: it opens in the Spectroscopy room, not as a 4D dataset.")
+        case .refused(let why): throw SimpleError(why)
         }
     }
 

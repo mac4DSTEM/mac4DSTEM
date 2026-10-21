@@ -46,6 +46,8 @@ let package = Package(
                            .product(name: "FormatoHDF5", package: "FormatoKit"),
                            .product(name: "FormatoEMPAD", package: "FormatoKit"),
                            .product(name: "FormatoMIB", package: "FormatoKit"),
+                           .product(name: "Formato", package: "FormatoKit"),
+                           .product(name: "FormatoMSA", package: "FormatoKit"),
                            .product(name: "DiffractoCore", package: "DiffractoKit"),
                            .product(name: "DiffractoScattering", package: "DiffractoKit"),
                            .product(name: "DiffractoGeometry", package: "DiffractoKit"),
