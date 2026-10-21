@@ -1,0 +1,39 @@
+{
+  "real:AlMgSi_4D_EDX.dm4" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "1bb812deefcae7b43ccda637758032cdd918a447e3cdc0df4b63fbf92dcf16ea",
+    "full.patterns" : [
+      98304,
+      "b30c68c603933f85502159cbd0df0f5754d1f03d2ce2928052845de9bdd17b6c"
+    ],
+    "full.rows" : "e9758c3be8277eaba1c15e7c5a3f053ca4e441d1f0ef72a3aa3b148a32b2c708",
+    "full.tiles" : "b6e4955793ce8d96219546418f9e7b77087f25f272c4d8515f67bac49c33e950",
+    "note" : "nil",
+    "path" : "ImageList.4.ImageData.Data",
+    "pixelCalibration" : "4014000000000000 nm 3fbeb851e0000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fbeb851e0000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4014000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "5094afe32ce0ce8e72f87630c99101ac111346fc344e29d6ce3cbaa66060abb7",
+    "reduced.patterns" : [
+      23814,
+      "b4dc5f434b846e62ceb2d0bfb5c6984c6a32ecaebdb0f689aada3bd6f70da2f4"
+    ],
+    "reduced.rows" : "3f4dacb7f31ddc412b9a6737ddf3a65b7a4a51bc8ef62128f011e15e6f85e209",
+    "reduced.tiles" : "19fb19da9d3a7ccd8c1cc98d78e30ee2b8d028e127b6da8cc40459cc7dfa39c4",
+    "shape" : [
+      48,
+      64,
+      128,
+      128
+    ],
+    "voltage" : "41086a0000000000"
+  }
+}

@@ -1,0 +1,842 @@
+{
+  "after-a-2d-image" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.patterns" : [
+      48,
+      "ac26fa026def4ff35c05cf30fb179067e12598563dd528c742422a45044e79e2"
+    ],
+    "full.rows" : "ac26fa026def4ff35c05cf30fb179067e12598563dd528c742422a45044e79e2",
+    "full.tiles" : "ac26fa026def4ff35c05cf30fb179067e12598563dd528c742422a45044e79e2",
+    "note" : "nil",
+    "path" : "ImageList.2.ImageData.Data",
+    "pixelCalibration" : "4008000000000000 nm 3fb99999a0000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fb99999a0000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4008000000000000",
+      "nm"
+    ],
+    "shape" : [
+      2,
+      2,
+      3,
+      4
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "both-reciprocal" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.middleTile" : "bd7ae058e3e775b3b930caef2d045db8307d62fc6de1edd50f37a6e0b2554404",
+    "full.patterns" : [
+      120,
+      "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796"
+    ],
+    "full.rows" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "full.tiles" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "note" : "Pixel calibration not imported: the DM file's axis units (1\/nm, 1\/nm, mrad, mrad) do not name one real-space pair and one diffraction pair. Enter the pixel sizes by hand.",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "nil",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      null,
+      "nil"
+    ],
+    "r" : [
+      null,
+      "nil"
+    ],
+    "shape" : [
+      5,
+      4,
+      3,
+      2
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "contradictory" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.patterns" : [
+      16,
+      "f74053f36ba00bb73e3b33ca607482eec5b068c1386c703599e41f9c08780fc1"
+    ],
+    "full.rows" : "f74053f36ba00bb73e3b33ca607482eec5b068c1386c703599e41f9c08780fc1",
+    "full.tiles" : "f74053f36ba00bb73e3b33ca607482eec5b068c1386c703599e41f9c08780fc1",
+    "note" : "Pixel calibration not imported: the DM file's axis units (nm, nm, nm, nm) do not name one real-space pair and one diffraction pair. Enter the pixel sizes by hand.",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "nil",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      null,
+      "nil"
+    ],
+    "r" : [
+      null,
+      "nil"
+    ],
+    "shape" : [
+      2,
+      2,
+      2,
+      2
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-float32" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "e934cf993355513ba2448098ca5b6ca7ad089d2d50fbef23e2285b5a8383d017",
+    "full.patterns" : [
+      420,
+      "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275"
+    ],
+    "full.rows" : "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275",
+    "full.tiles" : "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "f6a56eb6f758a998e3161203564b8f632e793e16d06eb51ec476c77333d647f6"
+    ],
+    "reduced.rows" : "f6a56eb6f758a998e3161203564b8f632e793e16d06eb51ec476c77333d647f6",
+    "reduced.tiles" : "f6a56eb6f758a998e3161203564b8f632e793e16d06eb51ec476c77333d647f6",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-float64" : {
+    "chunkShape" : "nil",
+    "dtype" : "float64",
+    "full.middleTile" : "fb71d3057072ada11d8d2d7274beafbb42e5acf649645f90d3b13d32d605f7cd",
+    "full.patterns" : [
+      420,
+      "e0889c6647a090d01afb9417db3a464b770c65dc6eb39a75b40c369e44fdcd36"
+    ],
+    "full.rows" : "e0889c6647a090d01afb9417db3a464b770c65dc6eb39a75b40c369e44fdcd36",
+    "full.tiles" : "e0889c6647a090d01afb9417db3a464b770c65dc6eb39a75b40c369e44fdcd36",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "ea0f91d4db9bd7e8b54259d469f1d6b83e77ae338b9beb14fb7a65d4d42e45c8"
+    ],
+    "reduced.rows" : "ea0f91d4db9bd7e8b54259d469f1d6b83e77ae338b9beb14fb7a65d4d42e45c8",
+    "reduced.tiles" : "ea0f91d4db9bd7e8b54259d469f1d6b83e77ae338b9beb14fb7a65d4d42e45c8",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-int8" : {
+    "chunkShape" : "nil",
+    "dtype" : "int8",
+    "full.middleTile" : "20e02c05ad9340db24d5c5967f86db94c2da2cc9bf0544b21d3a49f06c28ab3e",
+    "full.patterns" : [
+      420,
+      "50e42d7a7c87fe2717d3b2bac1981d0d94a0fb0abc34ac2f695e2462b91684eb"
+    ],
+    "full.rows" : "50e42d7a7c87fe2717d3b2bac1981d0d94a0fb0abc34ac2f695e2462b91684eb",
+    "full.tiles" : "50e42d7a7c87fe2717d3b2bac1981d0d94a0fb0abc34ac2f695e2462b91684eb",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "2ec4cd1ea5c89b6ff94b4021a3b37d226494e792b8202113008fc954c6165970"
+    ],
+    "reduced.rows" : "2ec4cd1ea5c89b6ff94b4021a3b37d226494e792b8202113008fc954c6165970",
+    "reduced.tiles" : "2ec4cd1ea5c89b6ff94b4021a3b37d226494e792b8202113008fc954c6165970",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-int16" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.middleTile" : "f3a894e22d50f51653434e08afafb7d5bbecb2a3e7bfe99eb553f07d44252821",
+    "full.patterns" : [
+      420,
+      "f23cb7a0c68516684a55da7c49a0a2c486c9d6652bf9a1d9a05e7ce40a27f6a8"
+    ],
+    "full.rows" : "f23cb7a0c68516684a55da7c49a0a2c486c9d6652bf9a1d9a05e7ce40a27f6a8",
+    "full.tiles" : "f23cb7a0c68516684a55da7c49a0a2c486c9d6652bf9a1d9a05e7ce40a27f6a8",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "539cde816997803be2a8ef57a7cd191788aebf69791e45912d8a5720123e0fc6"
+    ],
+    "reduced.rows" : "539cde816997803be2a8ef57a7cd191788aebf69791e45912d8a5720123e0fc6",
+    "reduced.tiles" : "539cde816997803be2a8ef57a7cd191788aebf69791e45912d8a5720123e0fc6",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-int32" : {
+    "chunkShape" : "nil",
+    "dtype" : "int32",
+    "full.middleTile" : "3cb6f789886f9039cfdb22abf1a332298fa5b5b2fd1b676e218959d00e61bf37",
+    "full.patterns" : [
+      420,
+      "ee09d86fce447b6cca4cb1c41e70a8fa030a6b7738dcc30a17033a24946cbf37"
+    ],
+    "full.rows" : "ee09d86fce447b6cca4cb1c41e70a8fa030a6b7738dcc30a17033a24946cbf37",
+    "full.tiles" : "ee09d86fce447b6cca4cb1c41e70a8fa030a6b7738dcc30a17033a24946cbf37",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "0f51d6366df686781fdcead2ac2d860f546afb2e7358c09f657b5e73fe7ad07d"
+    ],
+    "reduced.rows" : "0f51d6366df686781fdcead2ac2d860f546afb2e7358c09f657b5e73fe7ad07d",
+    "reduced.tiles" : "0f51d6366df686781fdcead2ac2d860f546afb2e7358c09f657b5e73fe7ad07d",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-uint8" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint8",
+    "full.middleTile" : "293e01d99ef48dfd76693b1d5fa443b796f6c79466d05dca91266ee92576f905",
+    "full.patterns" : [
+      420,
+      "ce2ecc13871f34fb9cd877e03810cb0327464059707e35cade32960c7237c47f"
+    ],
+    "full.rows" : "ce2ecc13871f34fb9cd877e03810cb0327464059707e35cade32960c7237c47f",
+    "full.tiles" : "ce2ecc13871f34fb9cd877e03810cb0327464059707e35cade32960c7237c47f",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "d4315dcbb4c968a947d3e88fe9e631ac89d435122fe40a20bdbfe71d23a51ad3"
+    ],
+    "reduced.rows" : "d4315dcbb4c968a947d3e88fe9e631ac89d435122fe40a20bdbfe71d23a51ad3",
+    "reduced.tiles" : "d4315dcbb4c968a947d3e88fe9e631ac89d435122fe40a20bdbfe71d23a51ad3",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-uint16" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.middleTile" : "b64de5ff25539c43c5a7c1c7d23b6299563a205c07402951e9d4256060403b74",
+    "full.patterns" : [
+      420,
+      "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084"
+    ],
+    "full.rows" : "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084",
+    "full.tiles" : "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7"
+    ],
+    "reduced.rows" : "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7",
+    "reduced.tiles" : "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "detector-fastest-uint32" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint32",
+    "full.middleTile" : "832792d16569db5ef05fcf9f6033b0e9e9e262d21dcae75788a03357933ee880",
+    "full.patterns" : [
+      420,
+      "3d964d86a054aa0433abab79aa77af29c0a03d830778e497034057961b1911f3"
+    ],
+    "full.rows" : "3d964d86a054aa0433abab79aa77af29c0a03d830778e497034057961b1911f3",
+    "full.tiles" : "3d964d86a054aa0433abab79aa77af29c0a03d830778e497034057961b1911f3",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4004000000000000 nm 3fa47ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa47ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4004000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      24,
+      "fbf4bdb954a114afa614c98854f28f89d1a87d38c31f2635481be98a926800b4"
+    ],
+    "reduced.rows" : "fbf4bdb954a114afa614c98854f28f89d1a87d38c31f2635481be98a926800b4",
+    "reduced.tiles" : "fbf4bdb954a114afa614c98854f28f89d1a87d38c31f2635481be98a926800b4",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "mixed-pair" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.middleTile" : "bd7ae058e3e775b3b930caef2d045db8307d62fc6de1edd50f37a6e0b2554404",
+    "full.patterns" : [
+      120,
+      "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796"
+    ],
+    "full.rows" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "full.tiles" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "note" : "Pixel calibration not imported: the DM file's axis units (nm, 1\/nm, 1\/nm, 1\/nm) do not name one real-space pair and one diffraction pair. Enter the pixel sizes by hand.",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "nil",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      null,
+      "nil"
+    ],
+    "r" : [
+      null,
+      "nil"
+    ],
+    "shape" : [
+      5,
+      4,
+      3,
+      2
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "no-calibration" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.patterns" : [
+      144,
+      "dcd79d4e8fb729fb64d918621da85884539df3dbee6f6a5e0c98d62d6a88e854"
+    ],
+    "full.rows" : "dcd79d4e8fb729fb64d918621da85884539df3dbee6f6a5e0c98d62d6a88e854",
+    "full.tiles" : "dcd79d4e8fb729fb64d918621da85884539df3dbee6f6a5e0c98d62d6a88e854",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "nil",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      null,
+      "nil"
+    ],
+    "r" : [
+      null,
+      "nil"
+    ],
+    "reduced.patterns" : [
+      2,
+      "4f983a61cc2ad263e19c4c69f22492685b057551d4ddaa3a4250c68e1b484d95"
+    ],
+    "reduced.rows" : "4f983a61cc2ad263e19c4c69f22492685b057551d4ddaa3a4250c68e1b484d95",
+    "reduced.tiles" : "4f983a61cc2ad263e19c4c69f22492685b057551d4ddaa3a4250c68e1b484d95",
+    "shape" : [
+      2,
+      3,
+      4,
+      6
+    ],
+    "voltage" : null
+  },
+  "partial-units" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.middleTile" : "bd7ae058e3e775b3b930caef2d045db8307d62fc6de1edd50f37a6e0b2554404",
+    "full.patterns" : [
+      120,
+      "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796"
+    ],
+    "full.rows" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "full.tiles" : "0bc27d6d3425b4baa4d3067e6a23711c23df879224f0a4a2c68cbbec3cf6b796",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff0000000000000 1\/nm 3ff0000000000000 nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3ff0000000000000",
+      "nm"
+    ],
+    "r" : [
+      "3ff0000000000000",
+      "1\/nm"
+    ],
+    "shape" : [
+      5,
+      4,
+      3,
+      2
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "rank3-float32" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "efe178c302eef6eb94e3084e374889d89a7bc0ff536e7bd3dc872cfda16a6394",
+    "full.patterns" : [
+      420,
+      "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275"
+    ],
+    "full.rows" : "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275",
+    "full.tiles" : "35a8d9a9fed9e4341730922171c1046b322dae2a6b63fe7d5c2dc6cdcc43c275",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4000000000000000 nm 3fa99999a0000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa99999a0000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4000000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "b31a58ccd4de790862f0feb38c64467a0d3a3aad19d436e0de03955b24a3f0e6",
+    "reduced.patterns" : [
+      18,
+      "5e71ed31d3765dedf765905eb83521200d50f3aea87c698e432b645badd9eb57"
+    ],
+    "reduced.rows" : "5e71ed31d3765dedf765905eb83521200d50f3aea87c698e432b645badd9eb57",
+    "reduced.tiles" : "5e71ed31d3765dedf765905eb83521200d50f3aea87c698e432b645badd9eb57",
+    "shape" : [
+      4,
+      3,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "rank3-no-scan-tags" : {
+    "error" : "noDatacube"
+  },
+  "rank3-uint16" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.middleTile" : "b64de5ff25539c43c5a7c1c7d23b6299563a205c07402951e9d4256060403b74",
+    "full.patterns" : [
+      420,
+      "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084"
+    ],
+    "full.rows" : "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084",
+    "full.tiles" : "065c56519adc34f1ba2a80daa7d63929940e0750115eac332acfe9cd673e2084",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff0000000000000 nil 3fa99999a0000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa99999a0000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff0000000000000",
+      "nil"
+    ],
+    "reduced.patterns" : [
+      24,
+      "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7"
+    ],
+    "reduced.rows" : "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7",
+    "reduced.tiles" : "1a81dc3610af564e4ae5d0f9d95bd97f8342e719ca27fe3c90a05a29df235ca7",
+    "shape" : [
+      3,
+      4,
+      5,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "reciprocal-leading" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "eb63fb954b45ce29b841308e8b513e88a88042468e0af9e875a5cf3f729baaa9",
+    "full.patterns" : [
+      180,
+      "a83d368a193844d5a43c30560660f97a0c0d1e5ca5c2b80f0bebf1e55e1786cb"
+    ],
+    "full.rows" : "a83d368a193844d5a43c30560660f97a0c0d1e5ca5c2b80f0bebf1e55e1786cb",
+    "full.tiles" : "a83d368a193844d5a43c30560660f97a0c0d1e5ca5c2b80f0bebf1e55e1786cb",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4010000000000000 nm 3fd3333340000000 mrad",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fd3333340000000",
+      "mrad"
+    ],
+    "r" : [
+      "4010000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      4,
+      "c8344cbebe2bc0c0a271f8719058449543bb56bddddf558499fd4eaf841709f5"
+    ],
+    "reduced.rows" : "c8344cbebe2bc0c0a271f8719058449543bb56bddddf558499fd4eaf841709f5",
+    "reduced.tiles" : "c8344cbebe2bc0c0a271f8719058449543bb56bddddf558499fd4eaf841709f5",
+    "shape" : [
+      3,
+      3,
+      4,
+      5
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-few-positions" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.patterns" : [
+      120,
+      "f311d8fc60c3f69b26233c406772aa62e563f1689e054891477902fcacd0cdf2"
+    ],
+    "full.rows" : "f311d8fc60c3f69b26233c406772aa62e563f1689e054891477902fcacd0cdf2",
+    "full.tiles" : "f311d8fc60c3f69b26233c406772aa62e563f1689e054891477902fcacd0cdf2",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "4000000000000000 nm 3fe0000000000000 mrad",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fe0000000000000",
+      "mrad"
+    ],
+    "r" : [
+      "4000000000000000",
+      "nm"
+    ],
+    "reduced.patterns" : [
+      2,
+      "b2f9079396166dd9f3c821755771c8c939d2c86dc138293806b0dd00b27b5455"
+    ],
+    "reduced.rows" : "b2f9079396166dd9f3c821755771c8c939d2c86dc138293806b0dd00b27b5455",
+    "reduced.tiles" : "b2f9079396166dd9f3c821755771c8c939d2c86dc138293806b0dd00b27b5455",
+    "shape" : [
+      2,
+      3,
+      4,
+      5
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-float32" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "ce934d6ffad9ebe671bac16e0981a3a6c59405a8a02a273d04ff9f6e0b7dda06",
+    "full.patterns" : [
+      945,
+      "d9cf99f082dd19913aa1293bcf85c1016cb65117fc45c754749164ea30dda6b8"
+    ],
+    "full.rows" : "d9cf99f082dd19913aa1293bcf85c1016cb65117fc45c754749164ea30dda6b8",
+    "full.tiles" : "d9cf99f082dd19913aa1293bcf85c1016cb65117fc45c754749164ea30dda6b8",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff8000000000000 nm 3f947ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3f947ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff8000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "821b0039427476a08251db09203cd240d89c10662c6394f837a5388c28c417f0",
+    "reduced.patterns" : [
+      84,
+      "b93a280d01df974a080ce9f5a4ecb68afa8f97de9b284e68eadbdafd7352acd0"
+    ],
+    "reduced.rows" : "b93a280d01df974a080ce9f5a4ecb68afa8f97de9b284e68eadbdafd7352acd0",
+    "reduced.tiles" : "b93a280d01df974a080ce9f5a4ecb68afa8f97de9b284e68eadbdafd7352acd0",
+    "shape" : [
+      5,
+      9,
+      3,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-float64" : {
+    "chunkShape" : "nil",
+    "dtype" : "float64",
+    "full.middleTile" : "ba69708ab21e366b74b698f34cc5b3ec45090687c56abc1e4bb3c186ac47f118",
+    "full.patterns" : [
+      945,
+      "02362a54b5d1284a7162f2d4fcc3cf4190e35438cf4fcf65f8c19be78e071276"
+    ],
+    "full.rows" : "02362a54b5d1284a7162f2d4fcc3cf4190e35438cf4fcf65f8c19be78e071276",
+    "full.tiles" : "02362a54b5d1284a7162f2d4fcc3cf4190e35438cf4fcf65f8c19be78e071276",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff8000000000000 nm 3f947ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3f947ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff8000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "9cf55116e3b23886bbc6104e352d53caeaabc6330da46f308e227f1df38dcb66",
+    "reduced.patterns" : [
+      84,
+      "073bbcc5316c1d7ece5c08dab6104b36b4a4c2f5ccd188a7ef42d99276c321bb"
+    ],
+    "reduced.rows" : "073bbcc5316c1d7ece5c08dab6104b36b4a4c2f5ccd188a7ef42d99276c321bb",
+    "reduced.tiles" : "073bbcc5316c1d7ece5c08dab6104b36b4a4c2f5ccd188a7ef42d99276c321bb",
+    "shape" : [
+      5,
+      9,
+      3,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-int32" : {
+    "chunkShape" : "nil",
+    "dtype" : "int32",
+    "full.middleTile" : "02014894cf31d4d20e940baa54f6a0127bb4622e1ae78ffe836242c49a2550be",
+    "full.patterns" : [
+      945,
+      "8e57ec38c9f6a3dfeeffdb3a3618d8923ce8ca65bfaca89ff1ee8b666650d91c"
+    ],
+    "full.rows" : "8e57ec38c9f6a3dfeeffdb3a3618d8923ce8ca65bfaca89ff1ee8b666650d91c",
+    "full.tiles" : "8e57ec38c9f6a3dfeeffdb3a3618d8923ce8ca65bfaca89ff1ee8b666650d91c",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff8000000000000 nm 3f947ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3f947ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff8000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "9d62368ebdcbefd777539d75dd8c8ee75242536da8a333bdc72104269beb08c2",
+    "reduced.patterns" : [
+      84,
+      "2b03871e705947b5c4f75d3ae5c20f15036d651843982d485d23d975bc746869"
+    ],
+    "reduced.rows" : "2b03871e705947b5c4f75d3ae5c20f15036d651843982d485d23d975bc746869",
+    "reduced.tiles" : "2b03871e705947b5c4f75d3ae5c20f15036d651843982d485d23d975bc746869",
+    "shape" : [
+      5,
+      9,
+      3,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-uint8" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint8",
+    "full.middleTile" : "77aa407ef5eca989109a3029551f3aa9f6f4f626b95ae8473e3337240468e85e",
+    "full.patterns" : [
+      945,
+      "6a58dba95e4ee00077aa1d186b0e307a6375bc497544aa6e86833e55e83ddc76"
+    ],
+    "full.rows" : "6a58dba95e4ee00077aa1d186b0e307a6375bc497544aa6e86833e55e83ddc76",
+    "full.tiles" : "6a58dba95e4ee00077aa1d186b0e307a6375bc497544aa6e86833e55e83ddc76",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff8000000000000 nm 3f947ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3f947ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff8000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "136f244c516dcf318e8f29cdf9bdf32067928ce5cdf53f7b9bfa931a3abbad88",
+    "reduced.patterns" : [
+      84,
+      "69330325084dde281e717dec6e535ccfddbe7053b06a95f8214d4fc37dcbad7d"
+    ],
+    "reduced.rows" : "69330325084dde281e717dec6e535ccfddbe7053b06a95f8214d4fc37dcbad7d",
+    "reduced.tiles" : "69330325084dde281e717dec6e535ccfddbe7053b06a95f8214d4fc37dcbad7d",
+    "shape" : [
+      5,
+      9,
+      3,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-uint16" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.middleTile" : "5e01d8f63a9e9351bde5a9833ca1c54a47ee1b0096f4942f84e9a0b5ee151dc2",
+    "full.patterns" : [
+      945,
+      "d3c80c489e79d93149d9ec45d829e87981511f074ca96881ec3d3124420c5936"
+    ],
+    "full.rows" : "d3c80c489e79d93149d9ec45d829e87981511f074ca96881ec3d3124420c5936",
+    "full.tiles" : "d3c80c489e79d93149d9ec45d829e87981511f074ca96881ec3d3124420c5936",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3ff8000000000000 nm 3f947ae140000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3f947ae140000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff8000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "50ed990fd9aec237a735cb0b815d02ccdc120416c7971a7a41c8724104e3e34f",
+    "reduced.patterns" : [
+      84,
+      "41cbbf9ce9f2566bddbc950a47d266237852023e9153ba0e41f3548588836750"
+    ],
+    "reduced.rows" : "41cbbf9ce9f2566bddbc950a47d266237852023e9153ba0e41f3548588836750",
+    "reduced.tiles" : "41cbbf9ce9f2566bddbc950a47d266237852023e9153ba0e41f3548588836750",
+    "shape" : [
+      5,
+      9,
+      3,
+      7
+    ],
+    "voltage" : "41124f8000000000"
+  },
+  "scan-fastest-ushort-units" : {
+    "chunkShape" : "nil",
+    "dtype" : "int16",
+    "full.middleTile" : "184e47fe1d2caa05f55204dcab049ba5adb5a7cb16e8b2b7bf553f0421a8db6d",
+    "full.patterns" : [
+      504,
+      "fcaeb92b95941bc66e9d57c9721dbba47f7b5f981646f2ea31d8927881103ed0"
+    ],
+    "full.rows" : "fcaeb92b95941bc66e9d57c9721dbba47f7b5f981646f2ea31d8927881103ed0",
+    "full.tiles" : "fcaeb92b95941bc66e9d57c9721dbba47f7b5f981646f2ea31d8927881103ed0",
+    "note" : "nil",
+    "path" : "ImageList.1.ImageData.Data",
+    "pixelCalibration" : "3fe0000000000000 µm 3fb99999a0000000 1\/Å",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: false, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fb99999a0000000",
+      "1\/Å"
+    ],
+    "r" : [
+      "3fe0000000000000",
+      "µm"
+    ],
+    "reduced.middleTile" : "8dd9cffcf3a8c529be4d5b7047d17a0650c1583935c73f6a5fded78e25f1f632",
+    "reduced.patterns" : [
+      24,
+      "866b105e22080f96a18b58acd29451d07514391c09341e122f97136f5f11e0b8"
+    ],
+    "reduced.rows" : "866b105e22080f96a18b58acd29451d07514391c09341e122f97136f5f11e0b8",
+    "reduced.tiles" : "866b105e22080f96a18b58acd29451d07514391c09341e122f97136f5f11e0b8",
+    "shape" : [
+      7,
+      6,
+      3,
+      4
+    ],
+    "voltage" : "41124f8000000000"
+  }
+}

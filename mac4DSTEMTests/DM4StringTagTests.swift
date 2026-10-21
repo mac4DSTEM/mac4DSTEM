@@ -65,7 +65,8 @@ final class DM4StringTagTests: XCTestCase {
             ])]),
             .int16Array("Data", (0..<24).map { Int16($0) }),
         ])
-        let body: [UInt8] = [1, 0] + u64be(1) + encode(imageData)
+        // Wrapped as DigitalMicrograph stores an image: ImageList entry N holds ImageData (FormatoKit reads that structure only).
+        let body: [UInt8] = [1, 0] + u64be(1) + encode(.group("ImageList", [.group("", [imageData])]))
         return Data([0, 0, 0, 4] + u64be(0) + [0, 0, 0, 1] + body)
     }
 

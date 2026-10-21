@@ -1,0 +1,39 @@
+{
+  "real:demo-edx-tiny.dm4" : {
+    "chunkShape" : "nil",
+    "dtype" : "float32",
+    "full.middleTile" : "72933956341d99c8eb271084bb0cd868f146e01211e74be7e939cc2d408c3a69",
+    "full.patterns" : [
+      6144,
+      "37e735fbfb103660d4efca146974b04445dfa4fde64fd604eba30a39187223dd"
+    ],
+    "full.rows" : "37e735fbfb103660d4efca146974b04445dfa4fde64fd604eba30a39187223dd",
+    "full.tiles" : "37e735fbfb103660d4efca146974b04445dfa4fde64fd604eba30a39187223dd",
+    "note" : "nil",
+    "path" : "ImageList.4.ImageData.Data",
+    "pixelCalibration" : "4014000000000000 nm 3feeb851e0000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3feeb851e0000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "4014000000000000",
+      "nm"
+    ],
+    "reduced.middleTile" : "98c46cefecd3ed02cdedab4afaaf9c5292aeb407852a57af36de1f78e5635c11",
+    "reduced.patterns" : [
+      588,
+      "38808cec9af47cad763dcf6fe4ba53fae039732de84feb61e7ab21b17dad29f7"
+    ],
+    "reduced.rows" : "38808cec9af47cad763dcf6fe4ba53fae039732de84feb61e7ab21b17dad29f7",
+    "reduced.tiles" : "38808cec9af47cad763dcf6fe4ba53fae039732de84feb61e7ab21b17dad29f7",
+    "shape" : [
+      4,
+      6,
+      16,
+      16
+    ],
+    "voltage" : "41086a0000000000"
+  }
+}

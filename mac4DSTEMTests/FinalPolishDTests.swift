@@ -56,7 +56,8 @@ final class FinalPolishDTests: XCTestCase {
         var array = Writer()
         array.u8(21); array.u16be(4); array.ascii("Data")
         array.u64be(0); array.ascii("%%%%"); array.u64be(3); array.u64be(20); array.u64be(2); array.u64be(24)
-        let image = subgroup("ImageData", nTags: 3)
+        // Wrapped as DigitalMicrograph stores an image: ImageList entry 1 holds ImageData (FormatoKit reads that structure only).
+        let image = subgroup("ImageList", nTags: 1) + subgroup("", nTags: 1) + subgroup("ImageData", nTags: 3)
             + numberTag("DataType", 1)
             + subgroup("Dimensions", nTags: 4)
             + numberTag("0", 3) + numberTag("1", 2) + numberTag("2", 2) + numberTag("3", 2)

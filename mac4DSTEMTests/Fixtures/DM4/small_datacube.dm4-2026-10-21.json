@@ -1,0 +1,39 @@
+{
+  "real:small_datacube.dm4" : {
+    "chunkShape" : "nil",
+    "dtype" : "uint16",
+    "full.middleTile" : "baae58ca190232b84d80b40dd9410dc410e82d6eb27ca0faa5b394506ccbaa39",
+    "full.patterns" : [
+      1572864,
+      "dc5073fd7df5be81b9196386f4463ea7d4254225da5a8150379e308b9fcba034"
+    ],
+    "full.rows" : "020c494f879a712e7cf57dea8d6bea4f4cae2dd2299453816dc211a689ca4449",
+    "full.tiles" : "c2ff3b9ed137728ceaef4e753ad75f73e67e5f393bd58abfa7ff8ecbd1bffe2d",
+    "note" : "nil",
+    "path" : "ImageList.2.ImageData.Data",
+    "pixelCalibration" : "3ff0000000000000 nil 3fa80c4e60000000 1\/nm",
+    "pushdown" : "LoadPushdown(scanCropSkipsIO: true, detectorCropSkipsIO: false)",
+    "q" : [
+      "3fa80c4e60000000",
+      "1\/nm"
+    ],
+    "r" : [
+      "3ff0000000000000",
+      "nil"
+    ],
+    "reduced.middleTile" : "a539f9afe7ee8446c9853a667553e61cabe38c322b81d1e25ed983346f93bc85",
+    "reduced.patterns" : [
+      390150,
+      "e8e6eb97b087f3e655613d04eb04bf2c336956c6b6266dd1d41813fb830dbc06"
+    ],
+    "reduced.rows" : "74563d8246c68b6d4365e66640bc33e613f576cafdf2f475734c428dbc369372",
+    "reduced.tiles" : "55f7c9616ee466a843bc66997dc7bc1a4c85e18c9e585beb1f8ea5aa56d70bef",
+    "shape" : [
+      20,
+      20,
+      512,
+      512
+    ],
+    "voltage" : "41124f8000000000"
+  }
+}

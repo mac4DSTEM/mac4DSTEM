@@ -1,0 +1,23 @@
+{
+  "refusal-absent" : {
+    "message" : "Could not open DM file: absent.dm4 — The file “absent.dm4” couldn’t be opened because there is no such file."
+  },
+  "refusal-big-endian.dm4" : {
+    "kind" : "notLittleEndian"
+  },
+  "refusal-deep.dm4" : {
+    "kind" : "truncated"
+  },
+  "refusal-empty.dm4" : {
+    "kind" : "noDatacube"
+  },
+  "refusal-overflow.dm4" : {
+    "kind" : "noDatacube"
+  },
+  "refusal-rgb.dm4" : {
+    "kind" : "noDatacube"
+  },
+  "refusal-truncated.dm4" : {
+    "kind" : "truncated"
+  }
+}

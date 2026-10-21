@@ -78,7 +78,9 @@ image = (subgroup_entry("ImageData", 3)
          + dims
          + array_tag("Data", 2, count, payload))
 (root / "cube.dm4").write_bytes(
-    u32be(4) + u64be(0) + u32be(1) + group_header(1) + image
+    # ImageList entry 1 holds ImageData, as DigitalMicrograph stores an image (FormatoKit's DM reader walks that structure only).
+    u32be(4) + u64be(0) + u32be(1) + group_header(1)
+    + subgroup_entry("ImageList", 1) + subgroup_entry("", 1) + image
 )
 
 # ---- EMPAD ------------------------------------------------------------------

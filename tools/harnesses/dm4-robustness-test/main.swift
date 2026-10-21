@@ -209,6 +209,11 @@ func imageDataObject(rawDimensions: [Int32], dataType: Int32,
         + data
 }
 
+/// ImageList entry 1 holding `object`, as DigitalMicrograph stores an image (FormatoKit's DM reader walks that structure only).
+func listed(_ object: [UInt8]) -> [UInt8] {
+    subgroupEntry("ImageList", nTags: 1) + subgroupEntry("", nTags: 1) + object
+}
+
 func writeFixture(_ bytes: [UInt8], to url: URL) throws {
     try Data(bytes).write(to: url)
 }
@@ -221,7 +226,7 @@ func testValid(in dir: URL) async throws {
     var pixels = ByteWriter()
     for i in 0..<24 { pixels.i16le(Int16(i)) }
     let body = dm4Header() + groupHeader(nTags: 1)
-        + imageDataObject(qx: 3, qy: 2, rx: 2, ry: 2, dataLength: 24, dataPayload: pixels.bytes)
+        + listed(imageDataObject(qx: 3, qy: 2, rx: 2, ry: 2, dataLength: 24, dataPayload: pixels.bytes))
     let url = dir.appendingPathComponent("valid.dm4")
     try writeFixture(body, to: url)
 
@@ -395,7 +400,7 @@ func testScanFastestBlockedGather(in dir: URL) async throws {
             labels: labels, scales: [1, 1, 1, 1], units: ["nm", "nm", "1/nm", "1/nm"]),
         dataLength: UInt64(rx * ry * qy * qx), dataPayload: pixels.bytes)
     let url = dir.appendingPathComponent("scan-fastest-blocked.dm4")
-    try writeFixture(dm4Header() + groupHeader(nTags: 1) + cube, to: url)
+    try writeFixture(dm4Header() + groupHeader(nTags: 1) + listed(cube), to: url)
 
     let reader = try await DM4Reader(path: url.path)
     let ds = try await reader.discoverPrimaryDataset()
@@ -451,11 +456,11 @@ func testContradictoryAxisCalibration(in dir: URL) async throws {
         scales: [1, 1, 1, 1], units: ["nm", "nm", "nm", "nm"]
     )
     let body = dm4Header() + groupHeader(nTags: 1)
-        + imageDataObject(
+        + listed(imageDataObject(
             qx: 2, qy: 2, rx: 2, ry: 2,
             calibration: calibration,
             dataLength: 16, dataPayload: pixels.bytes
-        )
+        ))
     let url = dir.appendingPathComponent("contradictory-axes.dm4")
     try writeFixture(body, to: url)
 
@@ -488,11 +493,11 @@ func testPartiallyMissingAxisCalibration(in dir: URL) async throws {
         scales: [1, 1, 1, 1], units: ["nm", "pixel", "1/nm", "1/nm"]
     )
     let body = dm4Header() + groupHeader(nTags: 1)
-        + imageDataObject(
+        + listed(imageDataObject(
             qx: 2, qy: 3, rx: 4, ry: 5,
             calibration: calibration,
             dataLength: 120, dataPayload: pixels.bytes
-        )
+        ))
     let url = dir.appendingPathComponent("partial-axis-units.dm4")
     try writeFixture(body, to: url)
 
@@ -512,7 +517,7 @@ func testTruncated(in dir: URL) async throws {
     var pixels = ByteWriter()
     for i in 0..<24 { pixels.i16le(Int16(i)) }
     let full = dm4Header() + groupHeader(nTags: 1)
-        + imageDataObject(qx: 3, qy: 2, rx: 2, ry: 2, dataLength: 24, dataPayload: pixels.bytes)
+        + listed(imageDataObject(qx: 3, qy: 2, rx: 2, ry: 2, dataLength: 24, dataPayload: pixels.bytes))
     let truncated = Array(full.dropLast(24))   // drop half of the 48-byte blob
     let url = dir.appendingPathComponent("truncated.dm4")
     try writeFixture(truncated, to: url)
@@ -537,8 +542,8 @@ func testTruncated(in dir: URL) async throws {
 /// rejected (not crash), leaving no valid datacube.
 func testOverflowDims(in dir: URL) async throws {
     let body = dm4Header() + groupHeader(nTags: 1)
-        + imageDataObject(qx: 1_048_576, qy: 1_048_576, rx: 1_048_576, ry: 1_048_576,
-                          dataLength: 0, dataPayload: [])
+        + listed(imageDataObject(qx: 1_048_576, qy: 1_048_576, rx: 1_048_576, ry: 1_048_576,
+                          dataLength: 0, dataPayload: []))
     let url = dir.appendingPathComponent("overflow.dm4")
     try writeFixture(body, to: url)
 
