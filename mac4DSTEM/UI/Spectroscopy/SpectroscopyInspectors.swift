@@ -576,6 +576,15 @@ struct ExportSection: View {
                 .disabled(!SpectroscopyMenuRule.canExportMaps(model))
                 .accessibilityIdentifier("spectroscopy.export.maps")
             }
+            InspectorActionRow {
+                InspectorAdaptiveButton("Composition by Class\u{2026}", systemImage: "square.stack.3d.up",
+                                        help: "Pool by Class: one pooled fit per phase (the class's spectrum pixels, summed once, moved onto this grid from the phase map), with the current method; class, pixels pooled, element, wt%, at%, \u{03C3}, method hash. validation: none") {
+                    model.onCompositionByClass?()
+                }
+                .disabled(model.classPoolCount == 0 || model.compositionByClassRunning)
+                .accessibilityIdentifier("spectroscopy.export.compositionByClass")
+            }
+            if model.classPoolCount == 0 { InspectorNote("Composition by class needs a phase map on a scan registered to this image.") }
             if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }
             if let folder = model.exportedFolder {

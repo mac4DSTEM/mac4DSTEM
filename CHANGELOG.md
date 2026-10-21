@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Spectroscopy › Export: "Composition by Class…" (Pool by Class): one pooled fit per phase pool with the room's method, written as a CSV (class, pixels pooled, element, wt%, at%, σ, method hash; `validation: none`). Needs a phase map on a scan registered to the spectrum image. Unverified on screen.
+
 - 2026-10-21 Precipitates: "Objects on panes" draws every object as an ellipse glyph (phase colour; counted only, labels, table-selected outlined) over the scan panes (virtual image, phase map). Off by default; unverified on screen. The same glyphs on the EDX map tiles and the hover readout come next.
 
 - 2026-10-21 Fixture move: the known-wrong demo Q scale in `QCalibrationOriginGateTests` is 0.024440 Å⁻¹/px again (was 0.021001 under the max-pattern radius), because the stored probe radius is the mean pattern's.

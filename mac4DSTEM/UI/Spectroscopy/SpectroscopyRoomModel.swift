@@ -31,6 +31,10 @@ final class SpectroscopyRoomModel {
     /// The wt% / at% maps' state: nil when they are not asked for or landed; the kit's or the app's sentence when they could not be made
     /// (int and net stay selectable). Set by the controller with `tiles`.
     var quantMapsFailure: String?
+    /// Phase pools the window can offer (Pool by Class); 0 disables the Export section's "Composition by Class…".
+    var classPoolCount = 0
+    var compositionByClassRunning = false
+    var onCompositionByClass: (() -> Void)?
     /// Maps row of the Quantification section: pixels whose summed net counts fall below this are left out of the wt% / at% maps
     /// (composition 0, counted on the tile). nil: no mask. View state, not a method setting.
     var mapsMinimumCounts: Double?

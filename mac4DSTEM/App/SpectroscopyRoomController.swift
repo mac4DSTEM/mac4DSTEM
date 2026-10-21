@@ -168,6 +168,7 @@ final class SpectroscopyRoomController {
         cache = SpectrumComputeCache()
         quantifyActive = false
         lastFit = nil; heldWholeLine = nil
+        model.classPoolCount = session.poolCatalogue.pools.filter { $0.kind == .phase }.count
         seenTiles = []
         regionCounts = [:]
         generation += 1
@@ -215,6 +216,7 @@ final class SpectroscopyRoomController {
         m.resetAutoID()
         m.onAutoID = { [weak self] in self?.runAutoID() }
         m.onMapsMask = { [weak self] in if self?.model.mapMode.isComposition == true { self?.refresh() } }
+        m.onCompositionByClass = { [weak self] in self?.runCompositionByClass() }
         m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
         m.onRegionEdit = { [weak self] shape, final in self?.editRegion(shape, final: final) }
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
@@ -683,11 +685,39 @@ final class SpectroscopyRoomController {
     /// source vanished). A pool that did not change keeps everything.
     func poolsChanged(_ change: SpectroscopySession.PoolChange) {
         guard let session, source != nil else { return }
+        model.classPoolCount = session.poolCatalogue.pools.filter { $0.kind == .phase }.count
         for id in change.stale { cache.forget(region: id); regionCounts[id] = nil }
         model.pins.removeAll { $0.sourceRegion.map { change.stale.contains($0) } ?? false }
         if let outcome = model.autoID.outcome, change.staleNames.contains(outcome.region) { model.resetAutoID() }
         syncRegionsFromSession()
         if change.selectionSentence != nil || session.selectedRegionID.map({ change.stale.contains($0) }) == true { refresh() }
+    }
+
+    // MARK: Composition by class
+
+    @ObservationIgnored private var classTask: Task<Void, Never>?
+
+    /// Pool by Class: every phase pool summed once and fitted with the room's method (detached, cancelled with the window's
+    /// operation), then handed to the save panel as a CSV. A kit sentence per pool that cannot be fitted lands in its row.
+    func runCompositionByClass() {
+        guard let source, let session, !model.compositionByClassRunning else { return }
+        let pools = session.poolCatalogue.pools.filter { $0.kind == .phase }
+        guard !pools.isEmpty else { model.exportNote = "No phase pools: run phase mapping in Crystal Maps on this scan."; return }
+        model.compositionByClassRunning = true
+        let method = session.method, metadata = source.metadata, axis = source.energyAxis
+        let imageName = source.metadata.fileName
+        let stem = SpectroscopyExport.fileStem(imageName: imageName, regionName: "composition-by-class")
+        classTask = Task { @MainActor [weak self] in
+            let results = await Task.detached(priority: .userInitiated) { () -> [ClassComposition]? in
+                let sums = pools.map { CompositionByClass.Pool(name: $0.name, pixels: $0.pixelCount, spectrum: source.sum(mask: $0.mask)) }
+                return try? CompositionByClass.run(pools: sums, axis: axis, metadata: metadata, method: method, tables: Self.tables)
+            }.value
+            guard let self else { return }
+            self.model.compositionByClassRunning = false
+            guard let results, !Task.isCancelled else { self.model.exportNote = "Composition by class cancelled."; return }
+            self.model.pendingExport = PendingExport(text: CompositionByClass.csv(results, imageName: imageName, method: method),
+                                                     isJSON: false, name: stem)
+        }
     }
 
     // MARK: Compute
