@@ -1,7 +1,7 @@
 //
 //  ParallaxAberrationCorrection.swift
 //  py4DSTEM-compatible parallax CTF phase correction: the app's options, result and memory/cancellation wrapper around
-//  CuboKit 0.4.0's CuboParallax.ParallaxAberrationCorrection.
+//  CuboKit 0.6.0's CuboParallax.ParallaxAberrationCorrection.
 //
 
 import CuboParallax
@@ -69,8 +69,9 @@ package nonisolated enum ParallaxAberrationCorrector {
 
     /// CuboParallax's `ParallaxAberrationCorrection.correct` with `highpass: .apply` (this app's behaviour: the Butterworth high-pass
     /// envelope is applied, where the pinned py4DSTEM accepts and ignores it). The kit works in Double on the whole padded image;
-    /// the app keeps the memory refusal and the cancellation checks around the call (the kit has no cancellation hook, so a cancel
-    /// lands before the kit call or after it, not inside it: delete at a CuboKit with a cancellation token).
+    /// the app keeps the memory refusal and the cancellation checks around the call (the kit call is one transform pair with no
+    /// hook, so a cancel lands before it or after it). The transfer function the product stores is the kit's (`transferReal`,
+    /// `transferImaginary`, CuboKit 0.6.0).
     package static func correct(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
@@ -124,33 +125,6 @@ package nonisolated enum ParallaxAberrationCorrector {
         }
         try checkCancellation(cancellation)
 
-        // The transfer function the kit applied, from its phase surfaces: sign(sin chi_even) * exp(-i chi_odd) * the Butterworth
-        // envelope, DC removed. The kit returns the corrected image and the two phase surfaces but not the transfer pair that the
-        // product stores and the harness pins (delete at a CuboKit that returns the transfer function).
-        var transferReal = [Float](repeating: 0, count: count)
-        var transferImaginary = [Float](repeating: 0, count: count)
-        for row in 0..<height {
-            let kRow = frequency(row, height) / sampling
-            for column in 0..<width {
-                let kColumn = frequency(column, width) / sampling
-                let q = hypot(kRow, kColumn)
-                let index = row * width + column
-                let sine = sin(kit.chiEven[index])
-                let sign: Double = sine > 0 ? 1 : (sine < 0 ? -1 : 0)
-                var envelope: Double = 1
-                if let lowpass = options.qLowpassInvAngstrom {
-                    envelope /= 1 + pow(q / lowpass, Double(2 * options.butterworthOrder))
-                }
-                if let highpass = options.qHighpassInvAngstrom {
-                    envelope *= 1 - 1 / (1 + pow(q / highpass, Double(2 * options.butterworthOrder)))
-                }
-                transferReal[index] = Float(sign * cos(kit.chiOdd[index]) * envelope)
-                transferImaginary[index] = Float(-sign * sin(kit.chiOdd[index]) * envelope)
-            }
-        }
-        transferReal[0] = 0
-        transferImaginary[0] = 0
-
         let real = kit.image.map(Float.init)
         let top = (height - preprocessing.scanHeight) / 2
         let left = (width - preprocessing.scanWidth) / 2
@@ -171,16 +145,12 @@ package nonisolated enum ParallaxAberrationCorrector {
                 pixels: cropped
             ),
             chiEven: kit.chiEven.map(Float.init), chiOdd: kit.chiOdd.map(Float.init),
-            transferReal: transferReal, transferImaginary: transferImaginary,
+            transferReal: kit.transferReal.map(Float.init), transferImaginary: kit.transferImaginary.map(Float.init),
             samplingAngstrom: sampling, usedFullFit: options.useFullFit,
             qLowpassInvAngstrom: options.qLowpassInvAngstrom,
             qHighpassInvAngstrom: options.qHighpassInvAngstrom,
             butterworthOrder: options.butterworthOrder
         )
-    }
-
-    private static func frequency(_ index: Int, _ count: Int) -> Double {
-        Double(index < (count + 1) / 2 ? index : index - count) / Double(count)
     }
 
     private static func validCutoff(_ value: Double?) -> Bool {
