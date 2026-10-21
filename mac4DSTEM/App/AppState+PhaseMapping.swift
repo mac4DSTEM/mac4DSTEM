@@ -272,7 +272,26 @@ extension AppState {
 
     /// What the objects run records: the connectivity and the reader's minimum size.
     private var objectsRunParameters: [String: String] {
-        ["connectivity": "8", "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx)]
+        var p = ["connectivity": "8", "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx)]
+        if let t = precipitateThickness, t.isUsable { p.merge(t.parameters) { $1 } }
+        return p
+    }
+
+    /// Types (or clears) the thickness behind the counts. A standing objects run records it, so the sidecar carries it and the
+    /// objects CSV names it; with no run yet it is held and recorded by the run that comes.
+    func setPrecipitateThickness(_ entry: ThicknessEntry?) {
+        let usable = entry.flatMap { $0.isUsable ? $0 : nil }
+        guard usable != precipitateThickness else { return }
+        assignPrecipitateThickness(usable)
+        let kind = "precipitate_objects"
+        guard lineageProducer(ofKind: kind) != nil || replay.lineage.activeNodes().contains(where: { $0.kind == kind }) else { return }
+        recordLineageRun(kind: kind, parameters: objectsRunParameters)
+    }
+
+    /// After a sidecar's lineage is adopted: the standing objects node's thickness is this window's thickness.
+    func restorePrecipitateThicknessFromLineage() {
+        let node = replay.lineage.activeNodes().last(where: { $0.kind == "precipitate_objects" && $0.parameters["thickness_nm"] != nil })
+        assignPrecipitateThickness(node.flatMap { ThicknessEntry(parameters: $0.parameters) })
     }
 
     /// The minimum size is a parameter of the objects run (what is counted, and so
@@ -286,7 +305,7 @@ extension AppState {
         guard let standing = lineageProducer(ofKind: kind)
                 ?? replay.lineage.activeNodes().first(where: { $0.kind == kind }),
               standing.parameters["minimum_object_area_px"] != objectsRunParameters["minimum_object_area_px"]
-        else { return }
+        else { return }   // (a thickness change records its own run: `setPrecipitateThickness`)
         recordLineageRun(kind: kind, parameters: objectsRunParameters)
     }
 
@@ -342,6 +361,7 @@ extension AppState {
         var out: [(String, String)] = [("product", "precipitate objects from the phase map")]
         if let file = descriptor?.fileName { out.append(("source_file", file)) }
         out.append(("created", ISO8601DateFormatter().string(from: Date())))
+        if let t = precipitateThickness, t.isUsable { out += t.provenancePairs }
         guard let run = phaseMapping.lastRun else { return out }
         let rest = phaseProvenance(map: map, run: run)
         for key in ["validation", "method", "method_citation", "phases", "matrix_phase"] {

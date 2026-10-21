@@ -281,6 +281,10 @@ final class AppState {
     /// `validation: "none"` badge covers what is read off it. Views read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
+    /// The specimen thickness behind the precipitate counts (typed, with its source); recorded on the objects run's lineage node
+    /// so the sidecar carries it. Set through `setPrecipitateThickness`.
+    private(set) var precipitateThickness: ThicknessEntry?
+    func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
     var precipitateOverlay = PrecipitateOverlaySettings()
     /// The glyphs for the scan panes, remembered per (classification run, minimum size).

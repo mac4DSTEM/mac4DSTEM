@@ -1050,6 +1050,7 @@ extension AppState {
             // A lineage that disagreed with its record was read as v1 (ADR 047
             // R7): say so where the session log is read, not only in the file.
             if let note = snapshot.lineageNote { activityLog.record(note) }
+            restorePrecipitateThicknessFromLineage()
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(
                     sessionCalibration,
