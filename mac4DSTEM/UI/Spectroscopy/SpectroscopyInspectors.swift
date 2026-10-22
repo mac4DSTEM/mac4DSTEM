@@ -11,8 +11,8 @@ import SpectroCore
 import SpectroEDX
 #endif
 
-// The room's inspector (ADR 056, spec 2 D-5; settings only since the workspace alignment 2026-10-22: the results table, the region tool and the map mode are in the room): one flat stack of sections, label left / control right (the app's `InspectorRow`
-// kit), no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols. Elements, Region
+// The room's inspector (ADR 056, spec 2 D-5; the corrected room 2026-10-22: Maps and Tools first, the results table beside the spectrum): one flat stack of sections, label left / control right (the app's `InspectorRow`
+// kit), no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols. Maps, Tools, Elements, Region
 // and Quantification are open; Fitting and Export start closed. A row whose value the session has not supplied is
 // hidden: nothing is shown that was not measured. Numbers are typed through `OptionalNumericField` (locale-safe, commits on
 // Return/blur).
@@ -24,12 +24,13 @@ struct SpectroscopyInspectorSections: View {
 
     /// The sections, in the order they are drawn (spec 2 D-5): the single source of both.
     enum Part: CaseIterable {
-        case elements, region, regions, spectrum, quantification, fitting, export
+        case maps, tools, elements, region, spectrum, quantification, fitting, export
         var title: String {
             switch self {
+            case .maps: "Maps"
+            case .tools: "Tools"
             case .elements: "Elements"
             case .region: "Region"
-            case .regions: "Regions"
             case .spectrum: "Spectrum"
             case .quantification: "Quantification"
             case .fitting: "Fitting"
@@ -45,15 +46,19 @@ struct SpectroscopyInspectorSections: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
-            ForEach(Part.allCases, id: \.self) { part in section(part) }
+            ForEach(Part.allCases, id: \.self) { part in
+                // A one-pixel image has no maps, so no map mode and no tools to draw on them.
+                if (part != .maps && part != .tools) || model.gridSize.w * model.gridSize.h != 1 { section(part) }
+            }
         }
     }
 
     @ViewBuilder private func section(_ part: Part) -> some View {
         switch part {
+        case .maps: InspectorSection(part.title) { MapsSection(model: model) }
+        case .tools: InspectorSection(part.title) { ToolsSection(model: model) }
         case .elements: InspectorSection(part.title) { ElementsSection(model: model) }
         case .region: InspectorSection(part.title) { RegionSection(model: model) }
-        case .regions: InspectorSection(part.title) { RegionsListSection(model: model) }
         case .spectrum: InspectorSection(part.title) { SpectrumLayersSection(model: model) }
         case .quantification: InspectorSection(part.title) { QuantificationSection(model: model) }
         case .fitting: InspectorSection(part.title, expanded: $model.quantify.expertOpen) { FittingSection(model: model) }
@@ -62,17 +67,22 @@ struct SpectroscopyInspectorSections: View {
     }
 }
 
-/// Elements: the periodic table, the maps' int / net switch, and Auto ID with what it picked.
-struct ElementsSection: View {
+/// Maps: the maps' int / net switch (wt% and at% once quantified), the display filter and one secondary line. One full-width segmented control.
+struct MapsSection: View {
     @Bindable var model: SpectroscopyRoomModel
+
     var body: some View {
-        PeriodicTableView(model: model)
-        SelectedElementRows(model: model)
-        // The map mode is the room header's (workspace alignment D2); the Smooth row below is a setting and stays.
-        // Row 1a: a display kernel on the maps (the fixture has no maps behind it, so no row there).
+        Picker("Maps", selection: $model.mapMode) {
+            ForEach(Self.offeredModes(quantified: model.hasFit), id: \.self) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented).labelsHidden().frame(maxWidth: .infinity)
+        .help(Self.mapHelp)
+        .accessibilityLabel("Maps")
+        .accessibilityIdentifier("spectroscopy.mapMode")
+        // A display kernel on the maps (the fixture has no maps behind it, so no row there).
         if model.isLive {
-            InspectorRow("Smooth") {
-                Picker("Smooth", selection: $model.smoothing) {
+            InspectorRow("Filter") {
+                Picker("Filter", selection: $model.smoothing) {
                     ForEach(MapSmoothing.allCases, id: \.self) { Text(Self.smoothingTitle($0)).tag($0) }
                 }
                 .pickerStyle(.menu).labelsHidden().fixedSize()
@@ -80,7 +90,46 @@ struct ElementsSection: View {
                 .accessibilityIdentifier("spectroscopy.smoothing")
             }
         }
-        InspectorRow("Tile size") { MapTileSizePicker(selection: $model.tileSize) }   // a menu in a narrow column, MacEMUI decides
+        if let note = Self.caption(model) { InspectorNote(note).accessibilityIdentifier("spectroscopy.mapsStatus") }
+    }
+
+    /// int and net always, wt% and at% once Quantify has run.
+    static func offeredModes(quantified: Bool) -> [MapMode] { MapMode.allCases.filter { $0.isOffered(quantified: quantified) } }
+
+    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% (after Quantify, typed k) are per-pixel with no σ; the number with a σ is a pooled region's, in the Results table."
+
+    /// The Filter menu's entries: the kernel as a tile names it, "Off" for the raw map.
+    static func smoothingTitle(_ s: MapSmoothing) -> String { s == .none ? "Off" : s.label }
+    static let smoothingHelp = "A count-conserving kernel on the drawn maps only, on by default (Velox's pre-filter). The raw map, the readouts, the spectra, the fit and the export are untouched; a filtered tile says so."
+
+    /// The one line under the controls: why wt% / at% could not be made, the composition maps' note, or what wt% / at% wait for.
+    static func caption(_ model: SpectroscopyRoomModel) -> String? {
+        model.quantMapsFailure ?? (model.mapMode.isComposition ? model.tiles.first?.footer : nil) ?? (!model.hasFit ? "wt% and at% need Quantify" : nil)
+    }
+}
+
+/// Tools: the region tool (one full-width segmented control of five icons, MacEMUI's `RegionTool`) and the regions list under it.
+struct ToolsSection: View {
+    @Bindable var model: SpectroscopyRoomModel
+
+    var body: some View {
+        Picker("Region tool", selection: $model.regionTool) {
+            ForEach(RegionTool.allCases) { Label($0.title, systemImage: $0.symbolName).labelStyle(.iconOnly).tag($0) }
+        }
+        .pickerStyle(.segmented).labelsHidden().frame(maxWidth: .infinity).controlSize(.large)
+        .help(model.regionTool.hint)
+        .accessibilityLabel("Region tool")
+        .accessibilityIdentifier("spectroscopy.regionTool")
+        RegionsList(set: Binding(get: { model.regionSet }, set: { model.apply($0) }))
+    }
+}
+
+/// Elements: the periodic table and the selected element's rows, and Auto ID with what it picked.
+struct ElementsSection: View {
+    @Bindable var model: SpectroscopyRoomModel
+    var body: some View {
+        SpectroscopyPeriodicTable(model: model)
+        SelectedElementRows(model: model)
         // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
         // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
         InspectorRow("Auto ID") { UnvalidatedBadge() }
@@ -111,21 +160,6 @@ struct ElementsSection: View {
         }
         if let why = model.autoID.failure { InspectorNote(why) }
     }
-
-    /// The maps' choice as chips: int and net always, wt% and at% once Quantify has run.
-    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% (after Quantify, typed k) are per-pixel with no σ; the number with a σ is a pooled region's, in the Results table."
-    static func mapChips(quantified: Bool) -> [GlassChip<MapMode>] {
-        MapMode.allCases.filter { $0.isOffered(quantified: quantified) }.map {
-            GlassChip(id: $0, title: $0.rawValue, help: mapHelp, accessibilityID: "spectroscopy.mapMode." + $0.rawValue)
-        }
-    }
-    static func mapSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<MapMode>> {
-        GlassChipSelection.single(Binding(get: { model.mapMode }, set: { model.mapMode = $0 }))
-    }
-
-    /// The Smooth menu's entries: the kernel as a tile names it, "None" for the raw map.
-    static func smoothingTitle(_ s: MapSmoothing) -> String { s == .none ? "None" : s.label }
-    static let smoothingHelp = "A count-conserving kernel on the displayed maps only (Velox's pre-filter). The raw map, the spectra, the fit and the export are untouched; every tile names the kernel."
 
     /// "Cu 41, Al 380, O 12, Eu 1,1": what the last run picked, in its order (strongest first), each with its net / L_D (one
     /// decimal below 10, none above; the symbol alone when the proposer gave none). A pick applied as Fit only (a line without a
@@ -183,7 +217,6 @@ struct RegionSection: View {
 
     var body: some View {
         let r = model.regionSettings
-        // The region tool is the room header's (workspace alignment D2).
         if model.regions.count > 1 || !model.poolNotes.isEmpty {
             InspectorRow("Source") {
                 Picker("Source", selection: Binding(get: { model.selectedRegion ?? 0 }, set: { model.selectedRegion = $0 })) {
@@ -280,25 +313,6 @@ struct RegionSection: View {
                 }
             }
         }
-    }
-
-    /// The three tools as symbol chips; the tool's name is the accessibility label.
-    static var toolChips: [GlassChip<DrawTool>] {
-        DrawTool.allCases.map {
-            GlassChip(id: $0, title: $0.rawValue.capitalized, showsTitle: false, symbol: $0.symbol, help: toolHelp($0),
-                      accessibilityID: "spectroscopy.regionTool." + $0.rawValue)
-        }
-    }
-    static func toolSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<DrawTool>> {
-        GlassChipSelection.single(Binding(get: { model.drawTool }, set: { model.drawTool = $0 }))
-    }
-
-    /// What each drawing tool does, as the chip's hover.
-    static func toolHelp(_ t: DrawTool) -> String {
-        t == .rectangle ? "Rectangle: drag on the ColorMix"
-            : t == .polygon ? "Polygon: click the corners, then the first corner again"
-            : t == .line ? "Line: drag on the ColorMix; the Profile tab plots the element maps along it"
-            : "\(t.rawValue.capitalized): drag on the ColorMix"
     }
 
     /// "Drawn rectangle" for the live region, the pool's own name otherwise.
@@ -691,14 +705,4 @@ struct SpectroscopyTextDocument: FileDocument {
 #Preview("Inspector") {
     ScrollView { SpectroscopyInspectorSections(model: .fixture, startOpen: true).padding() }.frame(width: 320, height: 900)
         .environment(AppPreferences())
-}
-
-/// Regions: every drawn region, in the order they were drawn, with its colour, name, show / hide and delete (MacEMUI's `RegionsList`).
-/// A click selects it; a drag on the ColorMix inside a region moves it, a drag outside starts a new one.
-struct RegionsListSection: View {
-    @Bindable var model: SpectroscopyRoomModel
-
-    var body: some View {
-        RegionsList(set: Binding(get: { model.regionSet }, set: { model.apply($0) }))
-    }
 }

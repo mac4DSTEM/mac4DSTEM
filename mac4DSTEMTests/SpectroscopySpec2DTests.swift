@@ -14,16 +14,6 @@ final class SpectroscopySpec2DTests: XCTestCase {
         SpectroscopyRoomModel(series: SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [1], background: [], model: [], overlay: nil))
     }
 
-    // MARK: sections
-
-    /// D-5 as moved by the workspace alignment (2026-10-22): the inspector holds settings only, so Results is the room's table
-    /// beside the spectrum and the sections are Elements, Region, Regions (the drawn regions' list, 2026-10-22), Spectrum, Quantification, Fitting, Export, in that order.
-    /// Mutation: two cases of `Part` swapped (Region before Elements), or Results put back - red.
-    func testTheInspectorHasSevenSettingsSectionsInOrder() {
-        XCTAssertEqual(SpectroscopyInspectorSections.Part.allCases.map(\.title),
-                       ["Elements", "Region", "Regions", "Spectrum", "Quantification", "Fitting", "Export"])
-    }
-
     // MARK: Auto ID
 
     private func outcome(_ zs: [Int], notes: [String] = []) -> AutoIDOutcome {
@@ -74,38 +64,10 @@ final class SpectroscopySpec2DTests: XCTestCase {
 
     // MARK: grid
 
-    /// D-9: 18 columns, periods 1 to 6, Al in period 3 group 13, the lanthanide slot empty in period 6 column 3, the fold unchanged,
-    /// every element once between the grid and the fold.
-    /// Mutation: one `nil` dropped from period 2 (17 columns) - red.
-    func testTheGridHas18ColumnsAnd6RowsWithAlWhereThePTEHasIt() {
-        let rows = PeriodicTableGrid.rows
-        XCTAssertEqual(rows.count, 6)
-        for (i, r) in rows.enumerated() { XCTAssertEqual(r.count, 18, "period \(i + 1)") }
-        XCTAssertEqual(rows[2][12], 13, "Al")
-        XCTAssertEqual(rows[1][12], 5, "B above it")
-        XCTAssertEqual(rows[0][0], 1); XCTAssertEqual(rows[0][17], 2)
-        XCTAssertNil(rows[5][2], "the lanthanide slot is the fold's place")
-        XCTAssertEqual(rows[5][3], 72, "Hf")
-        XCTAssertEqual(PeriodicLayout.folded, Array(57...71) + Array(87...118), "the fold is unchanged")
-        let grid = rows.joined().compactMap { $0 }
-        XCTAssertEqual(grid.count, Set(grid).count, "no element twice")
-        XCTAssertEqual((grid + PeriodicLayout.folded).sorted(), Array(1...118), "every element once, in the grid or the fold")
-    }
-
-    /// D-9: cell = (width - 17 gaps) / 18 at gap 2; the symbol is half the cell, 9 to 13 pt.
-    /// Mutation: the gap factor 17 changed to 18 - red; the clamp's floor 9 changed to 10 - red.
-    func testCellAndSymbolSizeFollowTheRule() {
-        XCTAssertEqual(PeriodicTableGrid.cellSize(width: 248), 214.0 / 18, accuracy: 1e-9)
-        XCTAssertEqual(PeriodicTableGrid.cellSize(width: 400), 366.0 / 18, accuracy: 1e-9)
-        XCTAssertEqual(PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: 248)), 9, "0.5 x 11.9 is under the floor")
-        XCTAssertEqual(PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: 400)), 366.0 / 36, accuracy: 1e-9)
-        XCTAssertEqual(PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: 1000)), 13, "the ceiling")
-    }
-
     /// The laid-out table fills any width it is offered, at or above 248 pt (and asks for no more than 248 when offered none).
     /// Mutation: the layout answers its ideal width whatever is proposed - red at 400.
     func testTheTableFillsTheWidthItIsGiven() {
-        let host = NSHostingController(rootView: PeriodicTableView(model: model()))
+        let host = NSHostingController(rootView: SpectroscopyPeriodicTable(model: model()))
         for w in [248.0, 400.0] {
             XCTAssertEqual(host.sizeThatFits(in: CGSize(width: w, height: 10_000)).width, w, accuracy: 0.5, "at \(w)")
         }

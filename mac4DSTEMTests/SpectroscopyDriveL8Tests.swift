@@ -177,8 +177,8 @@ final class SpectroscopyDriveL8Tests: XCTestCase {
     /// The live region's outline is 2 pt, a pin's 1.6 pt, and the capsule's text leads with the region's colour.
     /// Mutation: the live width falls to 1.2, or the pin width rises to 2 - red.
     func testRegionStrokeWidths() {
-        XCTAssertEqual(MapTileView.liveOutlineWidth, 2)
-        XCTAssertEqual(MapTileView.pinOutlineWidth, 1.6)
-        XCTAssertGreaterThan(MapTileView.liveOutlineWidth, MapTileView.pinOutlineWidth)
+        XCTAssertEqual(RegionStrokeWidth.live, 2)
+        XCTAssertEqual(RegionStrokeWidth.pin, 1.6)
+        XCTAssertGreaterThan(RegionStrokeWidth.live, RegionStrokeWidth.pin)
     }
 }

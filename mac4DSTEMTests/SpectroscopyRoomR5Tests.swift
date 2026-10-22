@@ -11,63 +11,6 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-final class SpectroscopyRoomPlanTests: XCTestCase {
-    private let header = LayoutPolicy.paneHeaderHeight + 1
-
-    /// The rooms from the drive: the full 1470 x 923 window's centre column, 1280 x 800 and 1000 x 800 windows' (a column is
-    /// the window less the sidebar and inspector, so the narrow ones are literal and reduced).
-    private let rooms: [CGSize] = [CGSize(width: 1100, height: 880), CGSize(width: 1470, height: 923), CGSize(width: 1280, height: 800),
-                                   CGSize(width: 1000, height: 800), CGSize(width: 640, height: 760), CGSize(width: 560, height: 700), CGSize(width: 900, height: 450)]
-
-    private func check(_ n: Int, _ aspect: CGFloat, _ what: String, file: StaticString = #filePath, line: UInt = #line) {
-        for room in rooms {
-            let p = SpectroscopyRoomPlan.make(room: room, headerHeight: header, tileCount: n, aspect: aspect)
-            let tag = "\(what) in \(Int(room.width)) x \(Int(room.height))"
-            XCTAssertGreaterThanOrEqual(p.bottomHeight, 220 - 0.01, "\(tag): the spectrum row keeps its minimum", file: file, line: line)
-            XCTAssertEqual(p.mapsHeight + p.bottomHeight, room.height, accuracy: 0.01, "\(tag): the two bands are the room", file: file, line: line)
-            // R6: the plan's maps block is a ColorMix + a tile container, both inside `gridAvail`; the tile grid alone may scroll.
-            XCTAssertLessThanOrEqual(p.maps.colorMix.maxX, p.gridAvail.width + 0.01, "\(tag): ColorMix inside the width", file: file, line: line)
-            XCTAssertLessThanOrEqual(p.maps.colorMix.maxY, p.gridAvail.height + 0.01, "\(tag): ColorMix inside the block", file: file, line: line)
-            XCTAssertLessThanOrEqual(p.maps.tileArea.maxX, p.gridAvail.width + 0.01, "\(tag): tiles inside the width", file: file, line: line)
-            XCTAssertLessThanOrEqual(p.maps.tileArea.maxY, p.gridAvail.height + 0.01, "\(tag): tiles inside the block", file: file, line: line)
-        }
-    }
-
-    /// Square 1024 x 1024 with HAADF + four elements (the real Velox SI of drive shot 26) and with the proposals' seven more.
-    /// Mutation: `mapsFraction` made 1 (the maps take the room) - red on the spectrum row's minimum.
-    func testASquareScanKeepsTheSpectrumRowOnScreen() { check(5, 1, "square x5"); check(8, 1, "square x8") }
-
-    /// The owner's Velox strip, 215 x 926, in both orientations of the question.
-    /// Mutation: `minimumBottomHeight` made 0 - red.
-    func testTheTallVeloxStripKeepsTheSpectrumRowOnScreen() { check(5, 215.0 / 926.0, "strip x5"); check(1, 215.0 / 926.0, "strip x1") }
-
-    /// R6 REPLACES testTilesStayAtTheFloorBeforeAnythingScrolls, testATooSmallBlockScrollsInsideItselfOnly and
-    /// testTheArrangementStartsAtItsOwnOrigin (they asserted the 150-pt floor, the block scrolling and `arrange`).
-    /// A square scan at 1470 x 923 side by side: nothing scrolls, tiles at or above the (96 pt) floor.
-    /// Mutation: `minimumTileSide` set to 400 - red (the block cannot hold 5 tiles at 400, so they scroll).
-    func testTilesStayAtTheFloorBeforeAnythingScrolls() {
-        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 1470, height: 923), headerHeight: header, tileCount: 5, aspect: 1)
-        XCTAssertEqual(p.maps.scroll, .none)
-        XCTAssertGreaterThanOrEqual(p.maps.tiles.map { max($0.width, $0.height) }.min() ?? 0, MapGridLayout.minimumTileSide - 0.01)
-    }
-
-    /// When even the floor cannot fit, only the tile grid scrolls and the room does not: the plan's bands still add up.
-    /// Mutation: `scroll` always .none - red.
-    func testATooSmallBlockScrollsTheTileGridOnly() {
-        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 560, height: 700), headerHeight: header, tileCount: 20, aspect: 1)
-        XCTAssertNotEqual(p.maps.scroll, .none)
-        XCTAssertGreaterThanOrEqual(p.bottomHeight, 220)
-        XCTAssertEqual(p.mapsHeight + p.bottomHeight, 700, accuracy: 0.01)
-    }
-
-    /// The plan is relative to the block's own top-left: the ColorMix starts at 0 (drive shot 01: ~470 pt empty at its left).
-    /// Mutation: the ColorMix x set to `(avail.width - mw) / 2` - red.
-    func testThePlanStartsAtItsOwnOrigin() {
-        XCTAssertEqual(MapGridLayout.plan(tileCount: 0, aspect: 1, in: CGSize(width: 900, height: 400)).colorMix.minX, 0)
-        XCTAssertEqual(MapGridLayout.plan(tileCount: 5, aspect: 4.0 / 3.0, in: CGSize(width: 1000, height: 400)).colorMix.minX, 0)
-    }
-}
-
 final class ColorMixCompositeTests: XCTestCase {
     /// The composite adds every ticked element, each in its own colour (four here), and clamps; a fourth element is not ignored.
     /// Mutation: the composite loop stopping after three tiles - red.

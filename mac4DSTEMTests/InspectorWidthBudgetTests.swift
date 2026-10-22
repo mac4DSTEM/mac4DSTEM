@@ -220,7 +220,7 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// it for an opened spectrum image with the longest strings the readers and the fit can produce (typed k, a typed beam
     /// energy, the polynomial background, the longest absorption note, a proposal run, a registration warning).
     /// The periodic table fills whatever width it is given (spec 2 D-9), so it fits by construction.
-    /// Mutation: `PeriodicTableGrid.minimumWidth` raised from 214 to 300 pt — red.
+    /// Mutation: MacEMUI's `PeriodicTableGrid.minimumWidth` raised from 214 to 300 pt — red.
     func testTheSpectroscopyInspectorFitsTheNarrowestColumn() throws {
         let fixture = SpectroscopyRoomModel.fixture
         fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", spectrumOf: SpectrumLabel(imageName: "a", regionName: "b"))

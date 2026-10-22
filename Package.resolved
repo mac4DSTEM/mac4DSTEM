@@ -38,15 +38,6 @@
       }
     },
     {
-      "identity" : "macemui",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mac4DSTEM/MacEMUI",
-      "state" : {
-        "revision" : "09849f3dda9de2343a8a17af0b138646f2048c10",
-        "version" : "0.2.0"
-      }
-    },
-    {
       "identity" : "spectrokit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",

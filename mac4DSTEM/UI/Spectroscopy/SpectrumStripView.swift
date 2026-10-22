@@ -24,12 +24,6 @@ import SpectroEDX
 /// monitor); open question for the owner.
 struct SpectrumStripView: View {
     @Bindable var model: SpectroscopyRoomModel
-    /// Spec 2 D-7: the header's empty area is the room's horizontal divider. The room binds this (the translation so far and
-    /// whether the drag ended); the strip itself knows nothing of the maps block.
-    var onHeaderDrag: ((CGSize, Bool) -> Void)? = nil
-    var onHeaderAdjust: ((AccessibilityAdjustmentDirection) -> Void)? = nil
-    var headerValue: String = ""
-
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
     /// The y stretch when a drag that began in the y-axis gutter started (that drag stretches instead of panning).
@@ -78,28 +72,12 @@ struct SpectrumStripView: View {
                 Text(model.shownPane == .profile ? model.profileTitle : model.shownPane == .table ? "Table \u{00B7} mean per pixel" : model.spectrumTitle).fontWeight(.semibold)
                 if model.shownPane == .spectrum { Text("· \(model.spectrumSubtitle)").foregroundStyle(.secondary) }
             }.font(.callout).lineLimit(1).truncationMode(.tail)
-                .help("Drag to resize the maps and the spectrum")
             Spacer(minLength: 8)
             pinChips
             if model.availablePanes.count > 1 { SpectrumPaneTabs(selection: $model.pane, available: model.availablePanes) }
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.paneHeaderHeight)
-        // The controls sit above this: the empty header is the grab zone (the infobar pattern, `StatusBar`).
-        .background {
-            Color.clear.contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                    .onChanged { onHeaderDrag?($0.translation, false) }
-                    .onEnded { onHeaderDrag?($0.translation, true) })
-                .accessibilityElement()
-                .focusable()
-                .onKeyPress(.upArrow) { onHeaderAdjust?(.decrement); return .handled }
-                .onKeyPress(.downArrow) { onHeaderAdjust?(.increment); return .handled }
-                .accessibilityLabel("Resize maps and spectrum")
-                .accessibilityValue(headerValue)
-                .accessibilityAdjustableAction { onHeaderAdjust?($0) }
-                .accessibilityIdentifier("spectroscopy.headerDivider")
-        }
     }
 
     private var pinChips: some View {

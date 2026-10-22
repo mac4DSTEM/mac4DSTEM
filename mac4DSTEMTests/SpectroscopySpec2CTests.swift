@@ -1,3 +1,4 @@
+import ShellSpectroscopy
 import XCTest
 @testable import mac4DSTEM
 
@@ -113,12 +114,10 @@ final class SpectroscopySpec2CTests: XCTestCase {
         XCTAssertFalse(SpectrumStripLogic.isHighlighted(edge, highlightedZ: nil))
     }
 
-    /// The region tools now include the ellipse (lane B draws it); each tool has its own symbol.
-    /// Mutation: the case or its symbol removed - red.
-    func testDrawToolsIncludeTheEllipse() {
-        XCTAssertEqual(DrawTool.allCases, [.rectangle, .ellipse, .polygon, .line])
-        XCTAssertEqual(DrawTool.ellipse.rawValue, "Ellipse")
-        XCTAssertEqual(DrawTool.ellipse.symbol, "oval")
-        XCTAssertEqual(Set(DrawTool.allCases.map(\.symbol)).count, 4)
+    /// The region tools are MacEMUI's five (Select first, the ellipse among them); each has its own symbol.
+    /// Mutation: a case removed or reordered, or two tools sharing a symbol - red.
+    func testRegionToolsAreTheFiveWithDistinctSymbols() {
+        XCTAssertEqual(RegionTool.allCases, [.pointer, .rectangle, .ellipse, .polygon, .line])
+        XCTAssertEqual(Set(RegionTool.allCases.map(\.symbolName)).count, 5)
     }
 }

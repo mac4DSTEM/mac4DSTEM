@@ -24,11 +24,4 @@ final class SpectroscopyMapTilesTests: XCTestCase {
         XCTAssertEqual(MapHoverReadout.text(symbol: "Si", tile: tile(), mode: .integrated, column: 1, row: 0), "Si 100 integrated counts")
         XCTAssertNil(MapHoverReadout.text(symbol: "Si", tile: MapTile(z: 14, width: 0, height: 0, values: []), mode: .integrated, column: 0, row: 0))
     }
-
-    /// The tile size starts medium and a solo tile is the model's, not the method's.
-    func testTheTileSizeAndTheSoloStartAtTheDefaults() {
-        let model = SpectroscopyRoomModel.fixture
-        XCTAssertEqual(model.tileSize, .medium)
-        XCTAssertNil(model.soloMap)
-    }
 }

@@ -25,9 +25,9 @@ final class SpectroscopyRoomModel {
     // Elements & maps
     var elements = ElementSelection()
     var mapMode: MapMode = .netCounts
-    /// The display kernel of the element maps (Velox pre-filter, display only here): the controller applies it to the signed net
-    /// map before the clamp; the raw map and the export are untouched; every tile names it.
-    var smoothing: MapSmoothing = .none
+    /// The display kernel of the maps (Velox pre-filter, display only; ON by default, a 3 x 3 average): the controller applies it to
+    /// the signed net map before the clamp; the raw map and the export are untouched; a tile's detail says "filtered".
+    var smoothing: MapSmoothing = .box3
     var mixed: Set<Int> = []                   // tiles picked into the ColorMix
     var tiles: [MapTile] = []
     /// The wt% / at% maps' state: nil when they are not asked for or landed; the kit's or the app's sentence when they could not be made
@@ -54,17 +54,17 @@ final class SpectroscopyRoomModel {
     var scanPixel: (size: Double, unit: String)?
     /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
     var tileRevision = 0
-    /// The HAADF backdrop under the ColorMix (spec 2 D-2: the HAADF tile's outline toggles it); off, the mix sits on black.
-    var mixHAADF = true
+    /// The HAADF is a grey layer under the colour mix while it is in; a click on its tile toggles it; out by default, as Velox.
+    var mixHAADF = false
+    /// The shape the next drag on the colour mix draws (MacEMUI's tool; Select is the default). View state.
+    var regionTool: RegionTool = .pointer
+    /// The zoom and pan every map tile shares. View state, reset when an image is bound.
+    var mapView = MapViewTransform()
     /// The element whose lines the spectrum emphasises (spec 2 D-15): set by a click or hover on its tile or table cell; nil: none.
     var highlightedZ: Int?
     /// The element last clicked in the periodic table: the "selected element" rows of the Elements section act on it (the
     /// right-click menu's role and lines, for a keyboard or a trackpad without a secondary click). Per window, not method state.
     var selectedElement: Int?
-    /// Scene state (spec 2 D-7): the maps block's share of the room's height, and the ColorMix's share of the maps block's width;
-    /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
-    var mapsFraction: CGFloat?
-    var mixFraction: CGFloat?
     /// The drawn regions' look (colour, shown, a name the person typed), keyed by the session's region id, and their shapes; the
     /// session's region has neither a colour nor a visible flag. View state, lost with the window (`DrawnRegions.swift`).
     var regionStyles: [Int: DrawnRegionStyle] = [:]
@@ -86,11 +86,6 @@ final class SpectroscopyRoomModel {
     /// A region whose fit was refused has its sentence in `regionFitNotes`.
     var regionFits: [Int: RegionQuantResult] = [:]
     var regionFitNotes: [Int: String] = [:]
-    /// How large the element tiles are drawn and the tile shown alone (a double click on it, again to return). View state.
-    var tileSize: MapTileSize = .medium
-    var soloMap: ActiveMap?
-    /// The results panel's width beside the spectrum; nil = `SpectroscopyResultsPanel.width`'s default.
-    var resultsWidth: CGFloat?
 
     // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
     private(set) var autoID = AutoIDState()
@@ -103,7 +98,6 @@ final class SpectroscopyRoomModel {
     /// product cannot be pooled.
     var poolNotes: [PoolNote] = []
     var selectedRegion: Int?
-    var drawTool: DrawTool = .rectangle
     var pins: [PinnedRegion] = []
     static let maximumPins = 3
     var compare: CompareBasis = .wholeMap
@@ -471,7 +465,7 @@ extension SpectroscopyRoomModel {
         m.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)", phaseUnvalidated: true)
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
-        m.smoothing = .none
+        m.smoothing = .none   // the fixture has no raw counts behind it
         m.ratioLine = RatioLine(label: "Mg / Si net ratio", value: 1.092, sigma: 0.021, note: "k-free, counting only")
         m.fitFooter = "Least squares · empirical continuum + Al edge · Bote-Salvat k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks"
         return m

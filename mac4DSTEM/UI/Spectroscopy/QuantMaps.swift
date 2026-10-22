@@ -139,15 +139,32 @@ nonisolated enum QuantMapsPass {
                          validation: maps.validation, absorptionNote: absorptionNote)
     }
 
-    /// A composition tile: 0...1 of the tile's own maximum, a failed pixel (NaN) drawn as 0, the raw percent kept for the export.
-    static func tile(z: Int, percent: [Double], width: Int, height: Int, summary: QuantMapsSummary, mode: MapMode) -> MapTile {
-        let finiteMax = percent.filter(\.isFinite).max() ?? 0
+    /// The percent map as the picture filters it: a failed pixel (NaN) counts as 0 (it must not spread into its neighbours), then the
+    /// display kernel. Display only: the raw percent is what the tile keeps and the export writes.
+    static func filtered(percent: [Double], width: Int, height: Int, smoothing: MapSmoothing) -> [Double] {
+        let clean = percent.map { $0.isFinite ? $0 : 0 }
+        return smoothing.apply(clean, width: width, height: height)
+    }
+
+    /// The picture of a composition map: `filtered`, then 0...1 of its own maximum (a failed pixel is 0); `scale` is that maximum
+    /// (the percent at value 1), 1 for an empty map.
+    static func picture(percent: [Double], width: Int, height: Int, smoothing: MapSmoothing) -> (values: [Float], scale: Float) {
+        let shown = smoothing == .none ? percent : filtered(percent: percent, width: width, height: height, smoothing: smoothing)
+        let finiteMax = shown.filter(\.isFinite).max() ?? 0
         let scale = Float(max(finiteMax, 0))
-        let values = percent.map { v -> Float in
+        let values = shown.map { v -> Float in
             guard v.isFinite, scale > 0 else { return 0 }
             return min(max(Float(v) / scale, 0), 1)
         }
-        var t = MapTile(z: z, width: width, height: height, values: values, counts: percent, scale: scale > 0 ? scale : 1)
+        return (values, scale > 0 ? scale : 1)
+    }
+
+    /// A composition tile: 0...1 of the picture's own maximum, a failed pixel (NaN) drawn as 0, the raw percent kept for the export
+    /// and the readout (`counts` is never filtered).
+    static func tile(z: Int, percent: [Double], width: Int, height: Int, summary: QuantMapsSummary, mode: MapMode,
+                     smoothing: MapSmoothing = .none) -> MapTile {
+        let shown = picture(percent: percent, width: width, height: height, smoothing: smoothing)
+        var t = MapTile(z: z, width: width, height: height, values: shown.values, counts: percent, scale: shown.scale)
         t.footer = footerText(summary, mode: mode)
         return t
     }

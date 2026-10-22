@@ -188,3 +188,106 @@ extension SpectroscopyRoomModel {
         }
     }
 }
+
+/// The outline widths of the live region and a pin, on the colour mix and on the exported maps and figures (one number for the screen and the PNG).
+nonisolated enum RegionStrokeWidth {
+    static let live: CGFloat = 2
+    static let pin: CGFloat = 1.6
+}
+
+/// MacEMUI's `MapTileRegions` for the colour mix, answered from the room's own region model: what the drawing layer draws, edits, selects and deletes
+/// becomes the room's calls (`onBeginRegionEdit`, `onRegionEdit`, `addLine`, `onRemoveRegion`). The pieces are static so a test calls them without a view.
+@MainActor enum SpectroscopyRegionBridge {
+    /// A shape of the room from a geometry the drawing layer made: boxes are whole pixels already; a line has no shape (nil).
+    static func shape(_ g: RegionGeometry) -> SpectrumRegionShape? {
+        func rect(_ x0: Double, _ y0: Double, _ x1: Double, _ y1: Double) -> PixelRect {
+            PixelRect(x0: Int(x0.rounded()), y0: Int(y0.rounded()), x1: Int(x1.rounded()), y1: Int(y1.rounded()))
+        }
+        switch g {
+        case .rectangle(let x0, let y0, let x1, let y1): return .rectangle(rect(x0, y0, x1, y1))
+        case .ellipse(let x0, let y0, let x1, let y1): return .ellipse(rect(x0, y0, x1, y1))
+        case .polygon(let v): return .polygon(v.map { PixelPoint(x: $0.x, y: $0.y) })
+        case .line: return nil
+        }
+    }
+
+    /// Whether a new shape's drag already told the room it began (the first non-final edit does; the end must not tell it twice).
+    private static var dragBegun = false
+
+    static func regions(_ model: SpectroscopyRoomModel) -> MapTileRegions {
+        MapTileRegions(
+            set: model.regionSet, tool: model.regionTool,
+            onRectangle: { finish(model, .rectangle(PixelRect(x0: $0, y0: $1, x1: $2, y1: $3))) },
+            onEllipse: { finish(model, .ellipse(PixelRect(x0: $0, y0: $1, x1: $2, y1: $3))) },
+            onPolygon: { finish(model, .polygon($0.map { PixelPoint(x: $0.x, y: $0.y) })) },
+            onLine: { model.addLine(from: PixelPoint(x: $0.x, y: $0.y), to: PixelPoint(x: $1.x, y: $1.y)) },
+            onEdit: { edit(model, $0, $1) },
+            onDrag: { beginDrag(model, $0) },
+            onSelect: { select(model, $0) },
+            onDelete: { deleteSelected(model) })
+    }
+
+    /// A shape drawn: the room starts a new region (unless the drag already did) and takes the final shape.
+    static func finish(_ model: SpectroscopyRoomModel, _ shape: SpectrumRegionShape) {
+        if !dragBegun { model.onBeginRegionEdit?(nil) }
+        dragBegun = false
+        model.onRegionEdit?(shape, true)
+    }
+
+    /// The pointer is still down: the spectrum follows (non-final edits); the numbers wait for the end. nil: the drag ended.
+    static func beginDrag(_ model: SpectroscopyRoomModel, _ update: RegionDragUpdate?) {
+        guard let update else { dragBegun = false; return }
+        if case .line = update.geometry { return }   // a line pools no spectrum
+        guard let shape = shape(update.geometry) else { return }
+        if let id = update.id {
+            guard let regionID = SpectroscopyRoomModel.regionID(id) else { return }   // a line's id: nothing
+            model.onBeginRegionEdit?(regionID)
+            model.onRegionEdit?(shape, false)
+        } else {
+            if !dragBegun { model.onBeginRegionEdit?(nil); dragBegun = true }
+            model.onRegionEdit?(shape, false)
+        }
+    }
+
+    /// A region or a line moved or resized, released: a region edit with the numbers following, or the line's new ends.
+    static func edit(_ model: SpectroscopyRoomModel, _ uuid: UUID, _ geometry: RegionGeometry) {
+        dragBegun = false
+        if let id = SpectroscopyRoomModel.regionID(uuid) {
+            model.onBeginRegionEdit?(id)
+            if let shape = shape(geometry) { model.onRegionEdit?(shape, true) }
+        } else if let id = SpectroscopyRoomModel.lineID(uuid), case .line(let a, let b) = geometry,
+                  let i = model.lines.firstIndex(where: { $0.id == id }) {
+            model.lines[i].from = PixelPoint(x: a.x, y: a.y)
+            model.lines[i].to = PixelPoint(x: b.x, y: b.y)
+            model.selectedLine = id
+        }
+    }
+
+    /// A click on a region selects it, on a line selects the line (the lower pane shows its profile), on none returns to the whole map.
+    static func select(_ model: SpectroscopyRoomModel, _ uuid: UUID?) {
+        guard let uuid else {
+            model.selectedLine = nil
+            model.pane = .spectrum
+            model.selectedRegion = model.regions.first { !$0.isDrawn && $0.pool == nil }?.id ?? 0
+            return
+        }
+        if let id = SpectroscopyRoomModel.regionID(uuid) {
+            model.selectedLine = nil
+            model.pane = .spectrum
+            model.selectedRegion = id
+        } else if let id = SpectroscopyRoomModel.lineID(uuid) {
+            model.selectedLine = id
+            model.pane = .profile
+        }
+    }
+
+    /// The delete key: the selected line, else the selected drawn region (never the whole map, never a pool).
+    static func deleteSelected(_ model: SpectroscopyRoomModel) {
+        if let id = model.selectedLine {
+            model.lines.removeAll { $0.id == id }
+            model.selectedLine = nil
+            return
+        }
+        if let id = RegionKeys.removableID(model.regions, selected: model.selectedRegion) { model.onRemoveRegion?(id) }
+    }
+}

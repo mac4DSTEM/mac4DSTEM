@@ -96,7 +96,7 @@ enum MapsExport {
         }
         var colors: [Int: ColorMixComposite.RGB] = [:], displays: [Int: MapDisplay] = [:]
         for t in model.tiles {
-            let c = MapsGridView.rgb(model.color(t.z)), d = model.display(.element(t.z))
+            let c = ColorMixComposite.rgb(model.color(t.z)), d = model.display(.element(t.z))
             colors[t.z] = c; displays[t.z] = d
             if let image = ElementTileRaster.image(tile: t, color: c, display: d) {
                 out.append(Map(map: .element(t.z), label: t.lineLabel ?? PeriodicLayout.symbol(t.z), fileLabel: PeriodicLayout.symbol(t.z),
@@ -111,10 +111,10 @@ enum MapsExport {
         return out
     }
 
-    /// "ColorMix · Al · Mg · Si": the title with the elements mixed in, as the ColorMix's header names them.
+    /// "ColorMix · Al · Mg · Si": the title with the elements mixed in.
     static func colorMixLabel(_ model: SpectroscopyRoomModel) -> String {
         let mixed = model.tiles.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
-        return mixed.isEmpty ? "ColorMix" : "ColorMix \u{00B7} " + ColorMixHeader.text(mixed: mixed)
+        return mixed.isEmpty ? "ColorMix" : "ColorMix \u{00B7} " + mixed.joined(separator: " \u{00B7} ")
     }
 
     /// The order a figure lays the maps out in: the HAADF, the ColorMix, then each element (the files list the ColorMix last).
@@ -140,19 +140,19 @@ enum MapsExport {
         return out
     }
 
-    /// The regions as the screen draws them on the ColorMix (`MapTileView`): the live region dashed in the accent colour, each
+    /// The regions as the screen draws them on the ColorMix (`SpectroscopyRegionBridge` and MacEMUI's drawing layer): the live region dashed in the accent colour, each
     /// pin in its tint at the pin opacity, the same widths and dash; none when the room shows no region.
     static func regionOverlays(_ model: SpectroscopyRoomModel, scheme: ColorScheme = .dark) -> [FigureOverlay] {
         var out: [FigureOverlay] = []
         if let shape = model.regionOutline {
             out.append(.region(shape, RegionStroke(color: SpectroscopyRoomModel.liveRegionColor.cgColor(scheme: scheme),
-                                                   width: MapTileView.liveOutlineWidth, dash: [4, 3])))
+                                                   width: RegionStrokeWidth.live, dash: [4, 3])))
         }
         if model.layers.pins {
             for pin in model.pins {
                 guard let shape = pin.shape else { continue }
                 out.append(.region(shape, RegionStroke(color: pin.tint.cgColor(opacity: SpectrumLayers.pinOpacity, scheme: scheme),
-                                                       width: MapTileView.pinOutlineWidth)))
+                                                       width: RegionStrokeWidth.pin)))
             }
         }
         return out

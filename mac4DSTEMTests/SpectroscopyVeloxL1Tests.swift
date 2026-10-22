@@ -20,22 +20,28 @@ final class SpectroscopyVeloxL1Tests: XCTestCase {
         return m
     }
 
-    /// Mutation: `kernelText` returns the label for `.none` too, or drops the label - red.
-    func testTheTileHeaderNamesTheKernelOnlyWhenOneIsSet() {
-        XCTAssertNil(MapTileView.kernelText(mode: .netCounts, smoothing: .none))
-        XCTAssertEqual(MapTileView.kernelText(mode: .netCounts, smoothing: .box3), "net \u{00B7} 3 \u{00D7} 3")
-        XCTAssertEqual(MapTileView.kernelText(mode: .integrated, smoothing: .gaussian1), "int \u{00B7} \u{03C3} 1 px")
-        XCTAssertNil(MapTileView.kernelHelp(smoothing: .none))
-        XCTAssertEqual(MapTileView.kernelHelp(smoothing: .box3),
-                       "Displayed through a 3 \u{00D7} 3 count-conserving kernel; the raw map is what the export writes.")
+    /// Mutation: `detail` names the kernel for `.none` too, drops "filtered", or tags the HAADF - red.
+    func testTheTileDetailSaysFilteredOnlyWhenAKernelIsSet() {
+        XCTAssertNil(MapTileCaption.detail(map: .element(13), mode: .netCounts, smoothing: .none, lineLabel: nil, mixed: []))
+        XCTAssertEqual(MapTileCaption.detail(map: .element(13), mode: .netCounts, smoothing: .box3, lineLabel: nil, mixed: []), "filtered")
+        XCTAssertEqual(MapTileCaption.detail(map: .element(13), mode: .atomic, smoothing: .box3, lineLabel: nil, mixed: []),
+                       "at% \u{00B7} per-pixel \u{00B7} filtered")
+        XCTAssertNil(MapTileCaption.detail(map: .haadf, mode: .netCounts, smoothing: .box3, lineLabel: nil, mixed: []), "the HAADF is not filtered")
     }
 
-    /// Mutation: `text` appends the label when nothing is mixed, or never - red.
-    func testTheColorMixHeaderGainsTheKernelOnce() {
-        XCTAssertEqual(ColorMixHeader.text(mixed: ["O", "Mg", "Al", "Si"], smoothing: .box3), "O \u{00B7} Mg \u{00B7} Al \u{00B7} Si \u{00B7} 3 \u{00D7} 3")
-        XCTAssertEqual(ColorMixHeader.text(mixed: ["O", "Al"], smoothing: .none), "O \u{00B7} Al")
-        XCTAssertEqual(ColorMixHeader.text(mixed: [], smoothing: .box3), "")
-        XCTAssertFalse(ColorMixHeader.help(mixed: ["O"], notMixed: []).contains("3 \u{00D7} 3"), "the help names the mix, not the kernel")
+    /// Mutation: the symbol prefix of the chosen lines is kept ("Al K\u{03B1}+K\u{03B2}"), or the lines are dropped - red.
+    func testTheTileDetailNamesTheChosenLinesWithoutTheSymbol() {
+        XCTAssertEqual(MapTileCaption.detail(map: .element(13), mode: .netCounts, smoothing: .none, lineLabel: "Al K\u{03B1}+K\u{03B2}", mixed: []),
+                       "K\u{03B1}+K\u{03B2}")
+    }
+
+    /// Mutation: the colour mix lists its members with " \u{00B7} " instead of " + ", gains the tag when no kernel is set, or shows a
+    /// line for an empty mix - red.
+    func testTheColorMixDetailListsTheMixedSymbols() {
+        XCTAssertEqual(MapTileCaption.detail(map: .colorMix, mode: .netCounts, smoothing: .none, lineLabel: nil, mixed: ["O", "Al"]), "O + Al")
+        XCTAssertEqual(MapTileCaption.detail(map: .colorMix, mode: .netCounts, smoothing: .box3, lineLabel: nil, mixed: ["O", "Al"]),
+                       "O + Al \u{00B7} filtered")
+        XCTAssertNil(MapTileCaption.detail(map: .colorMix, mode: .netCounts, smoothing: .box3, lineLabel: nil, mixed: []))
     }
 
     /// Mutation: `histogramTitle` ignores the kernel, or tags the HAADF too - red.

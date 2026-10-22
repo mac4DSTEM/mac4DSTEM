@@ -45,36 +45,21 @@ final class SpectroscopyDriveL11Tests: XCTestCase {
         GlassChipGroup(chips: chips, mode: mode, selection: selection)
     }
 
-    /// int / net: a tap on a chip writes `mapMode`; the model's value is the chip that is on; only the two per-pixel modes are chips.
-    /// Mutation: `mapChips` offers every `MapMode` (wt% and at% are not per-pixel maps) or `mapSelection` writes `.integrated` always - red.
-    func testMapsChipsAreIntAndNetAndWriteTheMode() {
-        let m = SpectroscopyRoomModel.fixture
-        XCTAssertEqual(ElementsSection.mapChips(quantified: false).map(\.title), ["int", "net"])
-        XCTAssertEqual(ElementsSection.mapChips(quantified: true).map(\.title), ["int", "net", "wt%", "at%"])
-        m.mapMode = .netCounts
-        let g = group(ElementsSection.mapChips(quantified: false), .single, ElementsSection.mapSelection(m))
-        XCTAssertEqual(ElementsSection.mapSelection(m).wrappedValue, [.netCounts])
-        g.tap(.integrated)
-        XCTAssertEqual(m.mapMode, .integrated)
-        g.tap(.integrated)
-        XCTAssertEqual(m.mapMode, .integrated, "a picker does not turn off")
-        g.tap(.netCounts)
-        XCTAssertEqual(m.mapMode, .netCounts)
+    /// The Maps segmented control offers int and net, and wt% and at% only once quantified.
+    /// Mutation: `offeredModes` offers every `MapMode` before a fit (wt% and at% are not per-pixel maps until Quantify), or never offers them after - red.
+    func testMapsSectionOffersIntAndNetAndTheCompositionsOnceQuantified() {
+        XCTAssertEqual(MapsSection.offeredModes(quantified: false), [.integrated, .netCounts])
+        XCTAssertEqual(MapsSection.offeredModes(quantified: true), [.integrated, .netCounts, .weight, .atomic])
+        XCTAssertEqual(MapsSection.offeredModes(quantified: false).map(\.rawValue), ["int", "net"])
+        XCTAssertEqual(MapsSection.offeredModes(quantified: true).map(\.rawValue), ["int", "net", "wt%", "at%"])
     }
 
-    /// Region tool: a tap on a symbol chip writes `drawTool`; each chip is its tool's symbol and is named for VoiceOver.
-    /// Mutation: `toolSelection` ignores the tap (writes `.rectangle`) or a chip carries another tool's symbol - red.
-    func testRegionToolChipsWriteTheToolAndCarryTheirSymbol() {
-        let m = SpectroscopyRoomModel.fixture
-        m.drawTool = .rectangle
-        let chips = RegionSection.toolChips
-        XCTAssertEqual(chips.map(\.id), DrawTool.allCases)
-        XCTAssertEqual(chips.map { $0.symbol ?? "" }, DrawTool.allCases.map(\.symbol))
-        XCTAssertTrue(chips.allSatisfy { !$0.showsTitle && !$0.title.isEmpty }, "a symbol chip is named for VoiceOver")
-        let g = group(chips, .single, RegionSection.toolSelection(m))
-        g.tap(.polygon); XCTAssertEqual(m.drawTool, .polygon)
-        g.tap(.ellipse); XCTAssertEqual(m.drawTool, .ellipse)
-        g.tap(.rectangle); XCTAssertEqual(m.drawTool, .rectangle)
+    /// The Analysis menu's shortcuts ⌃⌘0...4 are Select, Rectangle, Ellipse, Polygon, Line; anything else is no tool.
+    /// Mutation: two tools swapped in `tool(forShortcut:)`, or 5 mapped to a tool - red.
+    func testTheShortcutsMapZeroToFourToTheFiveRegionTools() {
+        XCTAssertEqual((0...4).map { SpectroscopyMenuRule.tool(forShortcut: $0) }, [.pointer, .rectangle, .ellipse, .polygon, .line])
+        XCTAssertNil(SpectroscopyMenuRule.tool(forShortcut: 5))
+        XCTAssertNil(SpectroscopyMenuRule.tool(forShortcut: -1))
     }
 
     /// Each curve chip flips its own layer and no other; the chip is tinted and dotted in the curve's own colour.

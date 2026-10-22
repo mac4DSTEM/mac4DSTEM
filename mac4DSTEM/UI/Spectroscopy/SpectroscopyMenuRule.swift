@@ -1,3 +1,4 @@
+import ShellSpectroscopy
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -24,6 +25,12 @@ enum SpectroscopyMenuRule {
     static func canExportMaps(_ model: SpectroscopyRoomModel) -> Bool { ExportSection.canExportMaps(model) }
     /// the controller can pin and fewer than three are pinned.
     static func canPin(_ model: SpectroscopyRoomModel) -> Bool { model.onPin != nil && model.pins.count < SpectroscopyRoomModel.maximumPins }
+
+    /// The region tool the Analysis menu's ⌃⌘0 to ⌃⌘4 choose: Select, Rectangle, Ellipse, Polygon, Line; nil for any other number.
+    static func tool(forShortcut n: Int) -> RegionTool? {
+        let tools: [RegionTool] = [.pointer, .rectangle, .ellipse, .polygon, .line]
+        return tools.indices.contains(n) ? tools[n] : nil
+    }
 
     // Do. Each is a no-op when its rule is off, so a stale menu item cannot write something the button would refuse.
     static func exportResults(_ model: SpectroscopyRoomModel) { if canExportResults(model) { model.pendingExport = ExportSection.resultsExport(model.export) } }

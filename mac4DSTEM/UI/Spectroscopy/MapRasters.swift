@@ -102,26 +102,6 @@ extension MapScaleBar {
     }
 }
 
-/// The bar, bottom-left on the map, on glass so it reads on any map.
-struct MapScaleBarView: View {
-    let plan: MapScaleBar.Plan
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(plan.label).font(.caption.weight(.semibold))
-            Rectangle().frame(width: CGFloat(plan.lengthPoints), height: 3)
-        }
-        .foregroundStyle(.primary)   // vibrant on the thin material
-        .padding(.horizontal, 8).padding(.vertical, 4)
-        .glassEffect(.regular, in: .rect(cornerRadius: 6))   // spec 2 D-8: glass only over a map
-        .environment(\.colorScheme, .dark)
-        .padding(8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .allowsHitTesting(false)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Scale bar \(plan.label)")
-    }
-}
-
 /// A bitmap of `width x height` pixels from a per-pixel colour, drawn scaled with nearest-neighbour sampling: a map is one
 /// image draw, not a path per scan pixel.
 enum MapBitmap {

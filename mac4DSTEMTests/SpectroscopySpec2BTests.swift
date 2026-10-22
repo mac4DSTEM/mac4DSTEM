@@ -25,17 +25,17 @@ final class SpectroscopySpec2BTests: XCTestCase {
         XCTAssertFalse(m.mixed.contains(13)); XCTAssertFalse(m.isInMix(.element(13)))
     }
 
-    /// The HAADF tile toggles the backdrop; the ColorMix tile is not a picker.
-    /// Mutations: HAADF toggling `mixed` instead - red; `pick(.colorMix)` toggling the backdrop - red.
+    /// The HAADF tile toggles the grey layer under the mix, which starts OUT (as Velox); the ColorMix tile is not a picker.
+    /// Mutations: `mixHAADF` starting true - red; HAADF toggling `mixed` instead - red; `pick(.colorMix)` toggling the backdrop - red.
     func testClickingTheHAADFTileTogglesTheBackdropOnly() {
         let m = model()
-        XCTAssertTrue(m.mixHAADF)
+        XCTAssertFalse(m.mixHAADF); XCTAssertFalse(m.isInMix(.haadf))
         m.pick(.haadf)
-        XCTAssertFalse(m.mixHAADF); XCTAssertFalse(m.isInMix(.haadf)); XCTAssertTrue(m.mixed.isEmpty)
-        m.pick(.haadf)
-        XCTAssertTrue(m.mixHAADF)
+        XCTAssertTrue(m.mixHAADF); XCTAssertTrue(m.isInMix(.haadf)); XCTAssertTrue(m.mixed.isEmpty)
         m.pick(.colorMix)
         XCTAssertTrue(m.mixHAADF); XCTAssertTrue(m.mixed.isEmpty)
+        m.pick(.haadf)
+        XCTAssertFalse(m.mixHAADF); XCTAssertFalse(m.isInMix(.haadf))
     }
 
     private func tile() -> MapTile { MapTile(z: 13, width: 3, height: 1, values: [1, 0, 0]) }
@@ -72,16 +72,6 @@ final class SpectroscopySpec2BTests: XCTestCase {
         XCTAssertEqual(made, 2)
     }
 
-    /// A double-click closes a polygon of three or more corners; the second click of the pair, a duplicate corner, is dropped.
-    /// Mutations: no duplicate drop - red; the three-corner floor removed - red.
-    func testADoubleClickClosesAPolygonOfThreeOrMoreCorners() {
-        let a = PixelPoint(x: 0, y: 0), b = PixelPoint(x: 10, y: 0), c = PixelPoint(x: 10, y: 10)
-        XCTAssertNil(PolygonDraft.closing([a, b], tolerance: 0.5), "two corners are not an area")
-        XCTAssertEqual(PolygonDraft.closing([a, b, c], tolerance: 0.5), [a, b, c])
-        XCTAssertEqual(PolygonDraft.closing([a, b, c, PixelPoint(x: 10.2, y: 10.1)], tolerance: 0.5), [a, b, c], "the double-click's second corner")
-        XCTAssertNil(PolygonDraft.closing([a, b, PixelPoint(x: 10, y: 0.1)], tolerance: 0.5), "a duplicate does not count as the third corner")
-    }
-
     /// ⌫ removes the drawn live region (never the whole map's row); none drawn: nothing.
     /// Mutation: the `isDrawn` filter removed (first region) - red.
     func testTheDeleteKeyTargetsTheDrawnRegion() {
@@ -90,22 +80,5 @@ final class SpectroscopySpec2BTests: XCTestCase {
         XCTAssertEqual(RegionKeys.removableID([whole, drawn], selected: 2), 2)
         XCTAssertNil(RegionKeys.removableID([whole], selected: 0))
         XCTAssertNil(RegionKeys.removableID([], selected: nil))
-    }
-
-    /// Regions are drawn on the ColorMix tile only.
-    /// Mutation: `carriesRegion` true for every map - red.
-    func testOnlyTheColorMixCarriesTheRegion() {
-        XCTAssertTrue(MapTileView.carriesRegion(.colorMix))
-        XCTAssertFalse(MapTileView.carriesRegion(.haadf))
-        XCTAssertFalse(MapTileView.carriesRegion(.element(13)))
-    }
-
-    /// The draw tool decides the shape a drag makes: the rectangle tool a rectangle, the polygon tool none (it takes clicks).
-    /// Mutation: the rectangle case returning nil - red.
-    func testTheRectangleToolDrawsARectangleAndThePolygonToolNone() {
-        let r = PixelRect(x0: 1, y0: 1, x1: 4, y1: 4)
-        XCTAssertEqual(RegionDrawing.shape(tool: .rectangle, rect: r), .rectangle(r))
-        XCTAssertEqual(RegionDrawing.shape(tool: .ellipse, rect: r), .ellipse(r))
-        XCTAssertNil(RegionDrawing.shape(tool: .polygon, rect: r))
     }
 }

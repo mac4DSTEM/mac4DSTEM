@@ -198,6 +198,7 @@ final class SpectroscopyRoomController {
         mapLineSummaries = [:]; tileLineLabels = [:]
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
+        m.regionTool = .pointer; m.mapView = MapViewTransform(); m.mixHAADF = false; m.smoothing = .box3   // rule 11: the display filter is on by default
         m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.lines = []; m.selectedLine = nil; m.linesIssued = 0; m.pane = .spectrum; m.regionFits = [:]; m.regionFitNotes = [:]; m.compare = .wholeMap; m.viewportIsManual = false
         liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
@@ -277,7 +278,7 @@ final class SpectroscopyRoomController {
 
     // MARK: Edits
 
-    /// The display kernel changed (Elements › Smooth): every tile's picture is rebuilt from its raw counts with the new kernel
+    /// The display kernel changed (Maps › Filter): every tile's picture is rebuilt from its raw counts with the new kernel
     /// (filter first, clamp after), so a change back to none returns the first picture exactly. Nothing is recomputed: no sums, no
     /// spectra, no fit, and the raw counts, the backdrop and the ColorMix's membership are untouched. A fixture tile has no counts and stays.
     func smoothingChanged() {
@@ -286,6 +287,13 @@ final class SpectroscopyRoomController {
         var tiles = m.tiles   // one assignment: the views are told once, not twice per tile
         for i in tiles.indices where !tiles[i].counts.isEmpty {
             let t = tiles[i]
+            if m.mapMode.isComposition {
+                // A wt% / at% tile: a failed pixel (NaN) is drawn as 0 and never spreads into its neighbours.
+                let shown = QuantMapsPass.picture(percent: t.counts, width: t.width, height: t.height, smoothing: m.smoothing)
+                tiles[i].values = shown.values
+                tiles[i].scale = shown.scale
+                continue
+            }
             let shown = Self.display(of: t.counts, width: t.width, height: t.height, smoothing: m.smoothing)
             tiles[i].values = shown.values
             tiles[i].scale = shown.scale
@@ -1097,7 +1105,8 @@ final class SpectroscopyRoomController {
                 for i in tiles.indices {
                     guard let e = elements.firstIndex(of: PeriodicLayout.symbol(tiles[i].z)),
                           let pct = QuantMapsPass.percentMap(result, index: e, mode: m.mapMode) else { continue }
-                    var t = QuantMapsPass.tile(z: tiles[i].z, percent: pct, width: source.nx, height: source.ny, summary: summary, mode: m.mapMode)
+                    var t = QuantMapsPass.tile(z: tiles[i].z, percent: pct, width: source.nx, height: source.ny, summary: summary, mode: m.mapMode,
+                                               smoothing: m.smoothing)
                     t.lineLabel = tiles[i].lineLabel
                     tiles[i] = t
                 }

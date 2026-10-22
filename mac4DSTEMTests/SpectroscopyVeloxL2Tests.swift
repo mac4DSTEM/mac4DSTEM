@@ -16,18 +16,18 @@ final class SpectroscopyVeloxL2Tests: XCTestCase {
 
     // MARK: 1a Smooth
 
-    /// The menu offers every kernel, named as the tile names it; "None" for the raw map.
+    /// The Filter menu offers every kernel, named as the tile names it; "Off" for the raw map.
     /// Mutation: `none` titled with the empty `label` - red.
     func testSmoothingTitlesNameEveryKernel() {
-        XCTAssertEqual(MapSmoothing.allCases.map(ElementsSection.smoothingTitle),
-                       ["None", "3 \u{00D7} 3", "5 \u{00D7} 5", "\u{03C3} 1 px", "\u{03C3} 2 px"])
+        XCTAssertEqual(MapSmoothing.allCases.map(MapsSection.smoothingTitle),
+                       ["Off", "3 \u{00D7} 3", "5 \u{00D7} 5", "\u{03C3} 1 px", "\u{03C3} 2 px"])
     }
 
     /// The help says it is display only and what stays raw.
     /// Mutation: the help drops "untouched" - red.
     func testSmoothingHelpSaysDisplayOnly() {
-        XCTAssertTrue(ElementsSection.smoothingHelp.contains("displayed maps only"))
-        XCTAssertTrue(ElementsSection.smoothingHelp.contains("untouched"))
+        XCTAssertTrue(MapsSection.smoothingHelp.contains("drawn maps only"))
+        XCTAssertTrue(MapsSection.smoothingHelp.contains("untouched"))
     }
 
     // MARK: 2a Found

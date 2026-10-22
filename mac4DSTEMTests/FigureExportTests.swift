@@ -361,12 +361,12 @@ final class FigureExportTests: XCTestCase {
         let m = regionModel()
         let live = strokes(MapsExport.regionOverlays(m))
         XCTAssertEqual(live.count, 1)
-        XCTAssertEqual(live[0].width, MapTileView.liveOutlineWidth); XCTAssertEqual(live[0].dash, [4, 3])
+        XCTAssertEqual(live[0].width, RegionStrokeWidth.live); XCTAssertEqual(live[0].dash, [4, 3])
         m.pins = [PinnedRegion(id: 0, label: "p", tint: .pink, shape: .ellipse(PixelRect(x0: 1, y0: 1, x1: 9, y1: 9)), pixels: 64, spectrum: [], sourceRegion: nil),
                   PinnedRegion(id: 1, label: "q", tint: .teal, shape: nil, pixels: 0, spectrum: [], sourceRegion: nil)]
         let both = strokes(MapsExport.regionOverlays(m))
         XCTAssertEqual(both.count, 2, "the live region and the one pin that has a shape")
-        XCTAssertEqual(both[1].width, MapTileView.pinOutlineWidth); XCTAssertEqual(both[1].dash, [])
+        XCTAssertEqual(both[1].width, RegionStrokeWidth.pin); XCTAssertEqual(both[1].dash, [])
         XCTAssertEqual(both[1].color.alpha, CGFloat(SpectrumLayers.pinOpacity), accuracy: 1e-6)
         m.layers.pins = false
         XCTAssertEqual(strokes(MapsExport.regionOverlays(m)).count, 1, "a hidden pin is not exported")
@@ -831,7 +831,7 @@ final class FigureExportTests: XCTestCase {
             XCTAssertEqual(panel.image.width, 64)
             let stroke = try XCTUnwrap(strokes(panel.overlays).first, "\(panel.label): the region is outlined")
             XCTAssertEqual(strokes(panel.overlays).count, 1)
-            XCTAssertEqual(stroke.width, MapTileView.liveOutlineWidth); XCTAssertEqual(stroke.dash, [4, 3])
+            XCTAssertEqual(stroke.width, RegionStrokeWidth.live); XCTAssertEqual(stroke.dash, [4, 3])
             guard case .map(let size, let unit)? = panel.bar else { return XCTFail("\(panel.label): the map bar from the file's pixel size") }
             XCTAssertEqual(size, 0.5); XCTAssertEqual(unit, "nm")
         }

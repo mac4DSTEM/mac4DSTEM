@@ -26,13 +26,6 @@ final class SpectroscopySpec2KTests: XCTestCase {
 
     // MARK: 1. pixel counts grouped one way
 
-    /// The capsule on the ColorMix groups with the narrow no-break space like the spectrum header and the table.
-    /// Mutation: the caption back to `\(pixels)` interpolated (a German locale prints "160.400") - red.
-    func testTheRegionCapsuleGroupsPixelsWithAThinSpace() {
-        XCTAssertEqual(MapTileView.regionCaption(pixels: 160_400), "Region \u{00B7} 160\(thin)400 px \u{00B7} live")
-        XCTAssertEqual(MapTileView.regionCaption(pixels: 6), "Region \u{00B7} 6 px \u{00B7} live")
-    }
-
     /// Both `spectrumSubtitle` lines (the whole map's and the live region's) group their pixel count.
     /// Mutations: either line's `ResultFormat.counts(Double(...))` back to a bare Int - red (the other stays green).
     func testBothSpectrumSubtitlesGroupPixels() async throws {
@@ -49,28 +42,6 @@ final class SpectroscopySpec2KTests: XCTestCase {
     }
 
     // MARK: 2. divider extremes
-
-    /// A maps block under 48 pt is not drawn: maps 0, the spectrum the whole room; from 48 pt it is the block it was.
-    /// Mutations: the threshold removed (a 40-pt block stays) - red; `<` made `<=` (48 pt itself collapses) - red.
-    func testAMapsBlockUnder48PtIsNotDrawn() {
-        let room = CGSize(width: 1100, height: 700), header: CGFloat = 28
-        let tiny = SpectroscopyRoomPlan.make(room: room, headerHeight: header, tileCount: 5, aspect: 1, mapsFraction: 40 / 700)
-        XCTAssertEqual(tiny.mapsHeight, 0)
-        XCTAssertEqual(tiny.bottomHeight, room.height)
-        XCTAssertEqual(tiny.gridAvail.height, 0)
-        let edge = SpectroscopyRoomPlan.make(room: room, headerHeight: header, tileCount: 5, aspect: 1, mapsFraction: 48 / 700)
-        XCTAssertEqual(edge.mapsHeight, 48, accuracy: 1e-9)
-        XCTAssertEqual(edge.mapsHeight + edge.bottomHeight, room.height, accuracy: 1e-9)
-        let none = SpectroscopyRoomPlan.make(room: room, headerHeight: header, tileCount: 5, aspect: 1, mapsFraction: 0)
-        XCTAssertEqual(none.mapsHeight, 0)
-    }
-
-    /// The default split is not touched (only a block under 48 pt collapses): a short room still keeps its maps.
-    /// Mutation: the collapse made unconditional (`maps = 0` for every given fraction) - red.
-    func testTheCollapseLeavesALargerBlockAlone() {
-        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 1100, height: 900), headerHeight: 28, tileCount: 5, aspect: 1, mapsFraction: 0.5)
-        XCTAssertEqual(p.mapsHeight, 450, accuracy: 1e-9)
-    }
 
     /// The plot draws only from 80 pt of height; under it the header row alone remains.
     /// Mutations: the floor lowered (30) - red; `>=` made `>` (80 itself) - red.

@@ -56,25 +56,4 @@ final class SpectroscopyUXABTests: XCTestCase {
         m.pick(.element(al))
         XCTAssertTrue(m.mixed.contains(al))
     }
-
-    /// #12: tiles move with `.snappy` only when Reduce Motion is off; nothing else here animates.
-    /// Mutation: the flag inverted - red.
-    func testTileReorderAnimatesOnlyWithoutReduceMotion() {
-        XCTAssertNotNil(TileMotion.animation(reduceMotion: false))
-        XCTAssertNil(TileMotion.animation(reduceMotion: true))
-    }
-
-    /// #10: the ColorMix header carries the mixed symbols only, no cap; what is not ticked moves to the tile's help.
-    /// Mutations: `help` returns the header text unchanged - red; `prefix(3)` on the names, or the `notMixed` clause dropped - red.
-    func testColorMixHeaderDropsTheParentheticalAndHelpKeepsIt() {
-        XCTAssertEqual(ColorMixHeader.text(mixed: ["O", "Al", "Si"]), "O \u{00B7} Al \u{00B7} Si")
-        XCTAssertEqual(ColorMixHeader.text(mixed: ["O", "Mg", "Al", "Si"]), "O \u{00B7} Mg \u{00B7} Al \u{00B7} Si", "no cap")
-        XCTAssertEqual(ColorMixHeader.help(mixed: [], notMixed: ["Mg"]), "The ColorMix: Mg not ticked")
-        XCTAssertEqual(ColorMixHeader.help(mixed: ["O", "Al"], notMixed: ["Mg"]), "The ColorMix: O \u{00B7} Al (Mg not ticked)")
-        XCTAssertEqual(ColorMixHeader.help(mixed: [], notMixed: []), "The ColorMix: click an element's tile to add it.")
-        let help = ColorMixHeader.help(mixed: ["O", "Al", "Si"], notMixed: ["Mg"])
-        XCTAssertTrue(help.contains("Mg not ticked"), help)
-        XCTAssertTrue(help.contains("O \u{00B7} Al \u{00B7} Si"), help)
-        XCTAssertFalse(ColorMixHeader.help(mixed: ["O"], notMixed: []).contains("not ticked"))
-    }
 }

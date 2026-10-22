@@ -138,22 +138,6 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertEqual(seen.first?.1, true)
     }
 
-    /// The cursor comes from the hit the drag uses: a handle resizes, the inside moves, outside is the arrow; a handle's side is the
-    /// frame-resize position of that side.
-    /// Mutation: `.inside` maps to nil, or two sides swapped in `framePosition` - red.
-    func testThePointerFollowsTheHitTest() {
-        XCTAssertEqual(RegionExtent.pointer(for: .inside), .move)
-        XCTAssertNil(RegionExtent.pointer(for: .outside))
-        XCTAssertEqual(RegionExtent.pointer(for: .handle(.topLeft)), .resize(.topLeft))
-        let sides: [(RegionHandle, FrameResizePosition)] = [
-            (.topLeft, .topLeading), (.top, .top), (.topRight, .topTrailing), (.right, .trailing),
-            (.bottomRight, .bottomTrailing), (.bottom, .bottom), (.bottomLeft, .bottomLeading), (.left, .leading)]
-        for (h, p) in sides { XCTAssertEqual(MapTileView.framePosition(h), p) }
-        XCTAssertNil(MapTileView.framePosition(.vertex(2)))
-        XCTAssertNil(MapTileView.pointerStyle(nil, dragging: false))
-        XCTAssertNotNil(MapTileView.pointerStyle(.move, dragging: true))
-    }
-
     // MARK: Row 4 - the right-click choices as rows
 
     /// A click selects the element (and flips its role as before); an element that cannot be picked is not selected, and a
@@ -163,11 +147,11 @@ final class SpectroscopyLaneSTests: XCTestCase {
         let m = SpectroscopyRoomModel.fixture
         m.elements = ElementSelection()
         m.selectedElement = nil
-        PeriodicTableView.pick(m, 29)
+        SpectroscopyPeriodicTable.pick(m, 29)
         XCTAssertEqual(m.selectedElement, 29)
         XCTAssertEqual(m.elements.role(29), .quantify, "the click still flips the role")
         XCTAssertEqual(SelectedElementRows.shown(m), 29)
-        PeriodicTableView.pick(m, 2)   // He: no usable line at this window
+        SpectroscopyPeriodicTable.pick(m, 2)   // He: no usable line at this window
         XCTAssertEqual(m.selectedElement, 29, "an unavailable cell does not take the selection")
         m.selectedElement = 2
         XCTAssertNil(SelectedElementRows.shown(m))
@@ -181,7 +165,7 @@ final class SpectroscopyLaneSTests: XCTestCase {
     func testTheRowsChooseFitOnlyAndALineFamily() {
         let m = SpectroscopyRoomModel.fixture
         m.elements = ElementSelection()
-        PeriodicTableView.pick(m, 29)
+        SpectroscopyPeriodicTable.pick(m, 29)
         m.elements.set(29, .fitOnly)
         XCTAssertEqual(m.elements.role(29), .fitOnly)
         XCTAssertEqual(SelectedElementRows.linesSummary(m, 29), "Default")
