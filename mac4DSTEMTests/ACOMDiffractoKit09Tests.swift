@@ -6,7 +6,6 @@ import DiffractoOrientation
 import DSTEMCore
 import DSTEMSession
 import DiffractoCore
-import simd
 @testable import mac4DSTEM
 
 final class ACOMDiffractoKit09Tests: XCTestCase {
