@@ -65,6 +65,17 @@ final class SpectroscopyRoomModel {
     /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
     var mapsFraction: CGFloat?
     var mixFraction: CGFloat?
+    /// The drawn regions' look (colour, shown, a name the person typed), keyed by the session's region id, and their shapes; the
+    /// session's region has neither a colour nor a visible flag. View state, lost with the window (`DrawnRegions.swift`).
+    var regionStyles: [Int: DrawnRegionStyle] = [:]
+    var drawnShapes: [Int: SpectrumRegionShape] = [:]
+    /// Spectra of the shown drawn regions other than the selected one, drawn beneath the selected region's under the Pins layer.
+    var regionCurves: [Int: [Double]] = [:]
+    /// How many drawn regions were ever made: the next one's colour (the first is the live region's purple).
+    var regionsIssued = 0
+    /// The map starts editing region `id` (a move or a resize), or a new one (nil, a fresh draw); set by the controller. A drag's
+    /// first call, so the edits that follow land on the right region.
+    var onBeginRegionEdit: ((Int?) -> Void)?
     /// How large the element tiles are drawn and the tile shown alone (a double click on it, again to return). View state.
     var tileSize: MapTileSize = .medium
     var soloMap: ActiveMap?

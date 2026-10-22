@@ -87,9 +87,9 @@ final class SpectroscopySpec2BTests: XCTestCase {
     func testTheDeleteKeyTargetsTheDrawnRegion() {
         let whole = RegionSummary(id: 1, name: "Whole map", pixels: 9, counts: 1, tint: .gray)
         var drawn = RegionSummary(id: 2, name: "Region", pixels: 4, counts: 1, tint: .yellow); drawn.isDrawn = true
-        XCTAssertEqual(RegionKeys.removableID([whole, drawn]), 2)
-        XCTAssertNil(RegionKeys.removableID([whole]))
-        XCTAssertNil(RegionKeys.removableID([]))
+        XCTAssertEqual(RegionKeys.removableID([whole, drawn], selected: 2), 2)
+        XCTAssertNil(RegionKeys.removableID([whole], selected: 0))
+        XCTAssertNil(RegionKeys.removableID([], selected: nil))
     }
 
     /// Regions are drawn on the ColorMix tile only.

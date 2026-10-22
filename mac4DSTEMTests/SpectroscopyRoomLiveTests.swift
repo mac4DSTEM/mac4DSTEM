@@ -6,6 +6,7 @@
 //
 
 import ShellLayout
+import ShellSpectroscopy
 import XCTest
 import SwiftUI
 @testable import DSTEMCore
@@ -375,6 +376,40 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         let expected = Double(image.sum(mask: b.mask(nx: 8, ny: 6)).reduce(0, +))
         try await waitFor("shape b") { abs(self.total(m) - expected) < 0.5 }
         XCTAssertEqual(m.spectrumPixels, 12)
+    }
+
+    /// Several drawn regions (2026-10-22): a drag that starts a drawing begins a new region, a drag on a region edits that one, each
+    /// keeps its colour (the first the live purple, then the shared palette) and the others' spectra stay for the overlay.
+    /// Mutations: `beginRegionEdit(nil)` not resetting the live region (the second shape moves the first) - red; the styles keyed by
+    /// position, not id (a deleted region's colour handed on) - red.
+    func testSeveralDrawnRegionsEachKeepTheirShapeColourAndSpectrum() async throws {
+        let (_, c, image) = open()
+        let m = c.model
+        try await waitFor("the first sums") { self.total(m) > 0 }
+        let a = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 4, y1: 3)), b = SpectrumRegionShape.rectangle(PixelRect(x0: 4, y0: 3, x1: 8, y1: 6))
+        c.beginRegionEdit(nil); c.editRegion(a, final: true)
+        c.beginRegionEdit(nil); c.editRegion(b, final: true)
+        let drawn = m.regions.filter(\.isDrawn)
+        XCTAssertEqual(drawn.count, 2, "two drawn regions, not one moved")
+        XCTAssertEqual(m.drawnShapes[drawn[0].id], a); XCTAssertEqual(m.drawnShapes[drawn[1].id], b)
+        XCTAssertEqual(m.regionStyles[drawn[0].id]?.tint, SpectroscopyRoomModel.liveRegionColor)
+        XCTAssertEqual(m.regionStyles[drawn[1].id]?.tint, RegionPalette.color(at: 0).color)
+        XCTAssertEqual(m.selectedRegion, drawn[1].id, "the newest is the selected one")
+        // The first, not selected, has its spectrum for the overlay: its own sum.
+        let aTotal = Double(image.sum(mask: a.mask(nx: 8, ny: 6)).reduce(0, +))
+        try await waitFor("the other region's curve") { m.regionCurves[drawn[0].id].map { abs($0.reduce(0, +) - aTotal) < 0.5 } ?? false }
+        XCTAssertEqual(m.regionOverlays.map(\.id), [SpectroscopyRoomModel.regionOverlayBase + drawn[0].id])
+        // A drag on the first edits the first and selects it.
+        let a2 = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 3))
+        c.beginRegionEdit(drawn[0].id); c.editRegion(a2, final: true)
+        XCTAssertEqual(m.regions.filter(\.isDrawn).count, 2)
+        XCTAssertEqual(m.drawnShapes[drawn[0].id], a2); XCTAssertEqual(m.drawnShapes[drawn[1].id], b, "the second did not move")
+        XCTAssertEqual(m.selectedRegion, drawn[0].id)
+        // Deleting the first frees nothing for the next: a third region takes the next palette colour.
+        c.removeRegion(id: drawn[0].id)
+        c.beginRegionEdit(nil); c.editRegion(a, final: true)
+        let third = m.regions.filter(\.isDrawn).last!
+        XCTAssertEqual(m.regionStyles[third.id]?.tint, RegionPalette.color(at: 1).color)
     }
 
     /// Pin copies the live region's spectrum; the live region moves on without touching it; at most three; unpin drops one.

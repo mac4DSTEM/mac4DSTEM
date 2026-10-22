@@ -24,11 +24,12 @@ struct SpectroscopyInspectorSections: View {
 
     /// The sections, in the order they are drawn (spec 2 D-5): the single source of both.
     enum Part: CaseIterable {
-        case elements, region, spectrum, quantification, fitting, export
+        case elements, region, regions, spectrum, quantification, fitting, export
         var title: String {
             switch self {
             case .elements: "Elements"
             case .region: "Region"
+            case .regions: "Regions"
             case .spectrum: "Spectrum"
             case .quantification: "Quantification"
             case .fitting: "Fitting"
@@ -52,6 +53,7 @@ struct SpectroscopyInspectorSections: View {
         switch part {
         case .elements: InspectorSection(part.title) { ElementsSection(model: model) }
         case .region: InspectorSection(part.title) { RegionSection(model: model) }
+        case .regions: InspectorSection(part.title) { RegionsListSection(model: model) }
         case .spectrum: InspectorSection(part.title) { SpectrumLayersSection(model: model) }
         case .quantification: InspectorSection(part.title) { QuantificationSection(model: model) }
         case .fitting: InspectorSection(part.title, expanded: $model.quantify.expertOpen) { FittingSection(model: model) }
@@ -78,7 +80,15 @@ struct ElementsSection: View {
                 .accessibilityIdentifier("spectroscopy.smoothing")
             }
         }
-        InspectorRow("Tile size") { MapTileSizePicker(selection: $model.tileSize) }
+        // A menu, not MacEMUI's segmented `MapTileSizePicker`: that one is 292 pt wide here and the narrowest inspector column is less
+        // (`InspectorWidthBudgetTests`); the same choice, the same `MapTileSize`.
+        InspectorRow("Tile size") {
+            Picker("Tile size", selection: $model.tileSize) {
+                ForEach(MapTileSize.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu).labelsHidden().fixedSize()
+            .accessibilityIdentifier("maps.tileSize")
+        }
         // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
         // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
         InspectorRow("Auto ID") { UnvalidatedBadge() }
@@ -688,4 +698,14 @@ struct SpectroscopyTextDocument: FileDocument {
 #Preview("Inspector") {
     ScrollView { SpectroscopyInspectorSections(model: .fixture, startOpen: true).padding() }.frame(width: 320, height: 900)
         .environment(AppPreferences())
+}
+
+/// Regions: every drawn region, in the order they were drawn, with its colour, name, show / hide and delete (MacEMUI's `RegionsList`).
+/// A click selects it; a drag on the ColorMix inside a region moves it, a drag outside starts a new one.
+struct RegionsListSection: View {
+    @Bindable var model: SpectroscopyRoomModel
+
+    var body: some View {
+        RegionsList(set: Binding(get: { model.regionSet }, set: { model.apply($0) }))
+    }
 }

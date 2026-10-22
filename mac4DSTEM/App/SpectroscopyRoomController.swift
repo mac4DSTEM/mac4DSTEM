@@ -181,6 +181,7 @@ final class SpectroscopyRoomController {
         model.classPoolCount = session.poolCatalogue.pools.filter { $0.kind == .phase }.count
         seenTiles = []
         regionCounts = [:]
+        curveShapes = [:]; curveTasks.values.forEach { $0.cancel() }; curveTasks = [:]; curveEpoch += 1
         generation += 1
 
         let m = model
@@ -196,7 +197,7 @@ final class SpectroscopyRoomController {
         mapLineSummaries = [:]; tileLineLabels = [:]
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
-        m.mapMode = .netCounts; m.pins = []; m.compare = .wholeMap; m.viewportIsManual = false
+        m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.compare = .wholeMap; m.viewportIsManual = false
         liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
         m.validation = nil; m.wholeMapLine = nil; m.pendingExport = nil; m.exportNote = nil
@@ -229,6 +230,7 @@ final class SpectroscopyRoomController {
         m.onCompositionByClass = { [weak self] in self?.runCompositionByClass() }
         m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
         m.onRegionEdit = { [weak self] shape, final in self?.editRegion(shape, final: final) }
+        m.onBeginRegionEdit = { [weak self] id in self?.beginRegionEdit(id) }
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
         m.onPin = { [weak self] in self?.pinRegion() }
         m.onUnpin = { [weak self] id in self?.unpin(id) }
@@ -488,6 +490,7 @@ final class SpectroscopyRoomController {
         guard let session, let id = model.selectedRegion, id != session.selectedRegionID,
               session.regions.contains(where: { $0.id == id }) else { return }
         session.selectedRegionID = id
+        liveRegionID = session.regions.first { $0.id == id }?.kind == .drawn ? id : nil
         syncRegionsFromSession()
         refresh()
     }
@@ -496,20 +499,31 @@ final class SpectroscopyRoomController {
     func selectRegion(id: Int) {
         guard let session, session.regions.contains(where: { $0.id == id }) else { return }
         session.selectedRegionID = id
+        liveRegionID = session.regions.first { $0.id == id }?.kind == .drawn ? id : nil
         syncRegionsFromSession()
         refresh()
     }
 
     // MARK: Live region (ADR 056)
 
-    /// The one region the person is working with: drawn on a map, then moved and resized in place. Its id is fixed from the
-    /// first edit; Pin freezes copies of it, so the live one is never a list.
+    /// The drawn region the person is working with: drawn on a map, then moved and resized in place. Several can exist; the drag
+    /// that starts a drawing begins a new one (`beginRegionEdit(nil)`), a drag on a region's body or a handle edits that one.
+    /// Pin freezes copies of the selected region, whatever its kind.
     @ObservationIgnored private(set) var liveRegionID: Int?
     @ObservationIgnored private var liveBusy = false
     @ObservationIgnored private var livePending = false
     /// Measurement for the report and the tests: spectra summed while the pointer was down, and the time they took.
     @ObservationIgnored private(set) var liveSums = 0
     @ObservationIgnored private(set) var liveSumSeconds = 0.0
+
+    /// A drag on a map starts: on region `id` (a move or a resize), or a new region (nil). The edits that follow land there.
+    func beginRegionEdit(_ id: Int?) {
+        guard let session else { return }
+        if let id, session.regions.contains(where: { $0.id == id && $0.kind == .drawn }) {
+            if session.selectedRegionID != id { session.selectedRegionID = id; syncRegionsFromSession() }
+            liveRegionID = id
+        } else { liveRegionID = nil }
+    }
 
     /// A shape drawn, moved or resized on a map. While the pointer is down (`final` false) only the spectrum follows: one
     /// sum at a time, the newest shape waiting, so a drag over a 926 x 215 x 4096 store never queues a backlog. At the end
@@ -558,9 +572,9 @@ final class SpectroscopyRoomController {
             s.overlay = overlay(for: total, whole: cache.spectrum(0))
             m.series = s
             m.spectrumPixels = region.pixelCount
-            m.spectrumTitle = "Spectrum · \(region.name)"
+            m.spectrumTitle = "Spectrum · \(m.regionName(region.id))"
             m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(region.pixelCount))) px · live"
-            updateSpectrumStems(regionName: region.name)
+            updateSpectrumStems(regionName: m.regionName(region.id))
         }
         if livePending { livePending = false; scheduleLiveSum() }
     }
@@ -582,6 +596,38 @@ final class SpectroscopyRoomController {
         if liveRegionID == id { liveRegionID = nil }
         syncRegionsFromSession()
         refresh()
+    }
+
+    // MARK: Other drawn regions' spectra
+
+    /// The shapes whose spectra `model.regionCurves` holds, to tell a moved region from an unchanged one.
+    @ObservationIgnored private var curveShapes: [Int: SpectrumRegionShape] = [:]
+    @ObservationIgnored private var curveTasks: [Int: Task<Void, Never>] = [:]
+    /// Bumped when the room is bound to another image: a sum started for the old one lands nowhere (`generation` moves with every recompute).
+    @ObservationIgnored private var curveEpoch = 0
+
+    /// The spectra of the shown drawn regions other than the selected one, for the spectrum's overlay: one sum each, again only when
+    /// the region's shape changed. A region that is hidden, deleted or selected loses its curve.
+    func refreshRegionCurves() {
+        guard let source, let session else { return }
+        let m = model
+        let wanted = session.regions.filter { $0.kind == .drawn && $0.id != session.selectedRegionID && m.regionStyles[$0.id]?.isVisible != false }
+        let ids = Set(wanted.map(\.id))
+        for id in m.regionCurves.keys where !ids.contains(id) { m.regionCurves[id] = nil; curveShapes[id] = nil }
+        for (id, task) in curveTasks where !ids.contains(id) { task.cancel(); curveTasks[id] = nil }
+        for region in wanted {
+            guard let shape = region.shape, curveShapes[region.id] != shape else { continue }
+            curveShapes[region.id] = shape
+            curveTasks[region.id]?.cancel()
+            let mask = session.mask(of: region), id = region.id, epoch = curveEpoch
+            curveTasks[id] = Task.detached(priority: .utility) {
+                let sum = source.sum(mask: mask)
+                await MainActor.run { [weak self] in
+                    guard let self, epoch == self.curveEpoch, self.curveShapes[id] == shape else { return }
+                    self.model.regionCurves[id] = sum.map { Double($0) }
+                }
+            }
+        }
     }
 
     // MARK: Pins
@@ -680,12 +726,22 @@ final class SpectroscopyRoomController {
 
     private func syncRegionsFromSession() {
         guard let session else { return }
+        let drawn = session.regions.filter { $0.kind == .drawn }
+        for r in drawn where model.regionStyles[r.id] == nil {
+            model.regionStyles[r.id] = DrawnRegionStyle(tint: SpectroscopyRoomModel.regionTint(issued: model.regionsIssued))
+            model.regionsIssued += 1
+        }
+        let drawnIDs = Set(drawn.map(\.id))
+        for id in model.regionStyles.keys where !drawnIDs.contains(id) { model.regionStyles[id] = nil }
+        let shapes = Dictionary(uniqueKeysWithValues: drawn.compactMap { r in r.shape.map { (r.id, $0) } })
+        if model.drawnShapes != shapes { model.drawnShapes = shapes }
         model.regions = session.regions.map { r in
             RegionSummary(id: r.id, name: r.name, pixels: r.pixelCount,
-                          counts: Double(regionCounts[r.id] ?? 0) / 1e6, tint: .gray, isDrawn: r.kind == .drawn,
+                          counts: Double(regionCounts[r.id] ?? 0) / 1e6, tint: model.regionStyles[r.id]?.tint ?? .gray, isDrawn: r.kind == .drawn,
                           pool: r.kind == .group ? .groups : r.kind.isPool ? .phases : nil)
         }
         model.selectedRegion = session.selectedRegionID
+        refreshRegionCurves()
         model.regionOutline = session.regions.first { $0.id == session.selectedRegionID }?.shape
         // E1: the Phase row and its badge follow the selected pool (a group has no phase; Not indexed shows as itself).
         let pool = session.poolCatalogue.pools.first { $0.id == session.selectedRegionID }
@@ -799,7 +855,7 @@ final class SpectroscopyRoomController {
         let picks = Self.picks(for: model.elements)
         var quantify: QuantifyRequest?
         if quantifyActive {
-            quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
+            quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: model.regionName(region.id), pixelCount: region.pixelCount)
             model.isFitting = true
         }
         var request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
@@ -935,7 +991,7 @@ final class SpectroscopyRoomController {
         if let fit = out.fit { m.series = QuantifyPresentation.series(data: out.spectrum, axis: axis, fit) }
         m.series.overlay = overlay(for: total, whole: out.whole)
         let region = session.regions.first { $0.id == out.region }
-        let name = region?.name ?? "Whole map"
+        let name = region.map { m.regionName($0.id) } ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
         m.spectrumPixels = pixels
         m.windowBands = Self.windowBands(for: out.windows, axis: axis)
@@ -1069,7 +1125,7 @@ final class SpectroscopyRoomController {
         m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" } ?? fit.abundanceCaveat.map { "at% caveat: \($0)" }   // A2: at% is never blanked by the check; the caveat rides with it
         m.resultsFooter = fit.footerLines.joined(separator: "\n")
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
-        let regionName = session?.regions.first { $0.id == region }?.name ?? "Whole map"
+        let regionName = session?.regions.first { $0.id == region }.map { model.regionName($0.id) } ?? "Whole map"
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName, title: Self.csvTitle), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))

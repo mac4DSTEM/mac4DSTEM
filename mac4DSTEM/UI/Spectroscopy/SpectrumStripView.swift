@@ -432,7 +432,7 @@ struct SpectrumStripView: View {
             let end = CGPoint(x: min(X(s.energy(k)), main.maxX) - 4, y: min(max(Y(o[k]) - 8, main.minY + 8), main.maxY - 8))
             ctx.draw(Text("whole map").font(axisFont).foregroundStyle(axisInk), at: end, anchor: .trailing)
         }
-        for pin in model.pins where L.pins && pin.spectrum.count == s.count {
+        for pin in model.pins + model.regionOverlays where L.pins && pin.spectrum.count == s.count {
             let t = memo.memo.sum(.pinTotal(pin.id), pin.spectrum)
             if t > 0, total > 0 {
                 let k = total / t

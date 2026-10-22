@@ -5,6 +5,7 @@ import AppKit
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import SpectroEDX
 #endif
 
 /// Finder integration stays in App/; the window and its controls stay SwiftUI.
@@ -152,6 +153,15 @@ private struct DatasetWindow: View {
                   ProcessInfo.processInfo.arguments.contains("--demo-spectrum-fixture") else { return }
             DemoSpectrumImageSource.openedAtLaunch = true
             appState.openSpectrumImage(DemoSpectrumImageSource.make(beamEnergyKeV: 200))
+            // `--demo-spectrum-regions`: two drawn regions of known size (8 x 8 = 64 px, 4 x 4 = 16 px) for the UI journey, whose synthetic
+            // drag does not reach the drawing tool. DEBUG only.
+            if ProcessInfo.processInfo.arguments.contains("--demo-spectrum-regions") {
+                let room = appState.spectroscopyRoom
+                room.beginRegionEdit(nil)
+                room.editRegion(.rectangle(PixelRect(x0: 2, y0: 2, x1: 10, y1: 10)), final: true)
+                room.beginRegionEdit(nil)
+                room.editRegion(.rectangle(PixelRect(x0: 20, y0: 20, x1: 24, y1: 24)), final: true)
+            }
         }
         #endif
     }

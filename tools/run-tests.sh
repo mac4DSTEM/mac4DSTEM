@@ -199,13 +199,14 @@ inventory() {
     (( ${support[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
   done
 
-  # UI journeys (process/ui-testing-2026-10-21.md §4): every accessibility identifier a journey uses exists in the app's sources, so a
+  # UI journeys (process/ui-testing-2026-10-21.md §4): every accessibility identifier a journey uses exists in the app's sources (or MacEMUI's), so a
   # renamed identifier fails here before it fails on screen. `workspace.<area>` is built from the area's raw value in the source.
   echo "== UI test identifiers exist in the app sources"
   local id
   for id in $(grep -rhoE '"[a-z][A-Za-z]*\.[A-Za-z][A-Za-z0-9.]*"' "$ROOT/mac4DSTEMUITests" 2>/dev/null | tr -d '"' | sort -u); do
     [[ "$id" == workspace.* || "$id" == task.* || "$id" == detector.preset.* || "$id" == *.xcresult ]] && continue   # built from an enum raw value in the source
-    grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" || { echo "  MISSING identifier $id"; rc=1; }
+    # the window shell's identifiers (toolbar, sidebar, inspector frames) are MacEMUI's since 2026-10-22
+    grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" "$ROOT/../MacEMUI/Sources" 2>/dev/null || { echo "  MISSING identifier $id"; rc=1; }
   done
 
   # Large tracked files (added 2026-09-18): history already carries a removed 6 MB model and two copies of a 4 MB dylib, and a

@@ -17,11 +17,11 @@ final class SpectroscopySpec2DTests: XCTestCase {
     // MARK: sections
 
     /// D-5 as moved by the workspace alignment (2026-10-22): the inspector holds settings only, so Results is the room's table
-    /// beside the spectrum and the sections are Elements, Region, Spectrum, Quantification, Fitting, Export, in that order.
+    /// beside the spectrum and the sections are Elements, Region, Regions (the drawn regions' list, 2026-10-22), Spectrum, Quantification, Fitting, Export, in that order.
     /// Mutation: two cases of `Part` swapped (Region before Elements), or Results put back - red.
-    func testTheInspectorHasSixSettingsSectionsInOrder() {
+    func testTheInspectorHasSevenSettingsSectionsInOrder() {
         XCTAssertEqual(SpectroscopyInspectorSections.Part.allCases.map(\.title),
-                       ["Elements", "Region", "Spectrum", "Quantification", "Fitting", "Export"])
+                       ["Elements", "Region", "Regions", "Spectrum", "Quantification", "Fitting", "Export"])
     }
 
     // MARK: Auto ID

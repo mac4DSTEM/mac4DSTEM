@@ -220,10 +220,14 @@ struct MapTileView: View {
                         .overlayCapsule()
                         .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
                 }
+                if carriesRegion, !model.otherRegionSet.regions.isEmpty {
+                    // The other shown regions, in their own colours (MacEMUI's overlay); the selected one is the canvas's, with its handles.
+                    RegionOverlay(set: model.otherRegionSet, scanWidth: model.gridSize.w, scanHeight: model.gridSize.h)
+                }
                 if let plan = scaleBarPlan(size) { MapScaleBarView(plan: plan) }
                 if carriesRegion, let a = regionLabelAnchor(size) {
                     HStack(spacing: 5) {
-                        Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(SpectroscopyRoomModel.liveRegionColor)
+                        Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(model.liveColor)
                         Text(Self.regionCaption(pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0))
                     }
                     .font(.callout).lineLimit(1)
@@ -276,7 +280,7 @@ struct MapTileView: View {
                 .accessibilityValue(Self.regionValue(hasOutline: model.regionOutline != nil,
                                                      pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0))
                 // The region is drawn with the mouse only; what the keyboard and VoiceOver can do is remove it, as Delete does.
-                .accessibilityActions { if RegionKeys.removableID(model.regions) != nil { Button("Clear region") { clearRegion() } } }
+                .accessibilityActions { if RegionKeys.removableID(model.regions, selected: model.selectedRegion) != nil { Button("Clear region") { clearRegion() } } }
                 .focusable()
                 .focused($focused)
                 .focusEffectDisabled()
@@ -292,7 +296,7 @@ struct MapTileView: View {
                 // Backspace key arrives as the BS character, so it is matched by its character here.
                 .onKeyPress { press in
                     guard press.key == .delete || press.key == .deleteForward || press.characters == "\u{8}" || press.characters == "\u{7F}",
-                          RegionKeys.removableID(model.regions) != nil else { return .ignored }
+                          RegionKeys.removableID(model.regions, selected: model.selectedRegion) != nil else { return .ignored }
                     clearRegion()
                     return .handled
                 }
@@ -315,7 +319,7 @@ struct MapTileView: View {
 
     /// The Delete key's and the "Clear region" action's one path: remove the drawn region, if there is one.
     private func clearRegion() {
-        if let id = RegionKeys.removableID(model.regions) { model.onRemoveRegion?(id) }
+        if let id = RegionKeys.removableID(model.regions, selected: model.selectedRegion) { model.onRemoveRegion?(id) }
     }
 
     /// The ColorMix canvas's VoiceOver value: the capsule's own text while a region is outlined, else "No region".
@@ -394,7 +398,7 @@ struct MapTileView: View {
         let cw = size.width / CGFloat(g.w), ch = size.height / CGFloat(g.h)
         func pt(_ p: PixelPoint) -> CGPoint { CGPoint(x: CGFloat(p.x) * cw, y: CGFloat(p.y) * ch) }
         func rect(_ r: PixelRect) -> CGRect { CGRect(x: CGFloat(r.x0) * cw, y: CGFloat(r.y0) * ch, width: CGFloat(r.width) * cw, height: CGFloat(r.height) * ch) }
-        let live = SpectroscopyRoomModel.liveRegionColor
+        let live = model.liveColor
         let dash = StrokeStyle(lineWidth: Self.liveOutlineWidth, dash: [4, 3])
         func handleDot(_ p: CGPoint) {
             let r = CGRect(x: p.x - TileMetrics.handle / 2, y: p.y - TileMetrics.handle / 2, width: TileMetrics.handle, height: TileMetrics.handle)
@@ -510,13 +514,7 @@ struct MapTileView: View {
                 if edit == nil {
                     focused = true
                     let start = point(v.startLocation)
-                    if let shape = model.regionOutline {
-                        switch RegionEditing.hit(shape, at: start, tolerance: tol) {
-                        case .handle(let h): edit = .handle(h, start: shape)
-                        case .inside: edit = .move(start: shape, from: start)
-                        case .outside: edit = .draw(from: start)
-                        }
-                    } else { edit = .draw(from: start) }
+                    edit = beginEdit(at: start, tolerance: tol)
                 }
                 guard hypot(v.translation.width, v.translation.height) >= TileMetrics.click else { return }
                 if let shape = shape(for: edit, at: point(v.location), grid: g) { model.onRegionEdit?(shape, false) }
@@ -530,6 +528,24 @@ struct MapTileView: View {
                 }
                 if let shape = shape(for: edit, at: point(v.location), grid: g) { model.onRegionEdit?(shape, true) }
             }
+    }
+
+    /// What a press at `start` begins: a resize or a move of the selected region or of another shown one (which becomes the selected),
+    /// else a new drawing. The room is told first, so the edits that follow land on that region.
+    private func beginEdit(at start: PixelPoint, tolerance tol: Double) -> Edit {
+        func existing(_ id: Int, _ shape: SpectrumRegionShape) -> Edit? {
+            switch RegionEditing.hit(shape, at: start, tolerance: tol) {
+            case .handle(let h): model.onBeginRegionEdit?(id); return .handle(h, start: shape)
+            case .inside: model.onBeginRegionEdit?(id); return .move(start: shape, from: start)
+            case .outside: return nil
+            }
+        }
+        if let id = model.selectedRegion, let shape = model.regionOutline, let edit = existing(id, shape) { return edit }
+        for region in model.regions where region.isDrawn && region.id != model.selectedRegion && model.regionStyles[region.id]?.isVisible != false {
+            if let shape = model.drawnShapes[region.id], let edit = existing(region.id, shape) { return edit }
+        }
+        model.onBeginRegionEdit?(nil)
+        return .draw(from: start)
     }
 
     private func shape(for edit: Edit?, at p: PixelPoint, grid g: (w: Int, h: Int)) -> SpectrumRegionShape? {
@@ -565,6 +581,7 @@ struct MapTileView: View {
     private func commit(_ corners: [PixelPoint]) {
         draft = []
         closedAt = Date()
+        model.onBeginRegionEdit?(nil)
         model.onRegionEdit?(.polygon(corners), true)
     }
 }
@@ -584,8 +601,8 @@ nonisolated enum PolygonDraft {
 }
 
 nonisolated enum RegionKeys {
-    /// The region ⌫ removes: the live region the person drew (never the whole map).
-    static func removableID(_ regions: [RegionSummary]) -> Int? { regions.first { $0.isDrawn }?.id }
+    /// The region ⌫ removes: the selected region when the person drew it (never the whole map, never a pool).
+    static func removableID(_ regions: [RegionSummary], selected: Int?) -> Int? { regions.first { $0.isDrawn && $0.id == selected }?.id }
 }
 
 nonisolated enum RegionDrawing {
