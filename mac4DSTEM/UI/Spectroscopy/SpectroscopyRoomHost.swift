@@ -22,6 +22,7 @@ struct SpectroscopyRoomHost: View {
                 .onChange(of: controller.model.mapMode) { controller.refresh() }
                 .onChange(of: controller.model.compare) { controller.refresh() }
                 .onChange(of: appState.hasDataset, initial: true) { _, present in controller.setFourDCube(present); appState.refreshSpectroscopyPools() }
+                .accessibilityElement(children: .contain)   // a container of its own: a bare identifier here replaces the children's (macOS 27)
                 .accessibilityIdentifier("spectroscopy.room")
         } else {
             ContentUnavailableView(

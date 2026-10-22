@@ -401,6 +401,7 @@ struct mac4DSTEMApp: App {
     @State private var tableSelection = PrecipitateTableSelection()
     init() {
         UITestingLaunch.resetSavedState()
+        UITestingPlacement.installIfTesting()
     }
     // File-menu actions asked for while no dataset window is focused (`MenuActionRelay`): read by the
     // commands, taken by the window they open.
