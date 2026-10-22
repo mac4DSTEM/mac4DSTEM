@@ -2,6 +2,7 @@ import ShellInspector
 import ShellLayout
 import SwiftUI
 import ShellMetal
+import ShellSpectroscopy
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
@@ -66,23 +67,14 @@ struct MapsGridView: View {
         .frame(width: plan.size.width, height: plan.size.height, alignment: .topLeading)
     }
 
-    /// The tiles in their own container: it scrolls along `plan.scroll` when they do not fit, the ColorMix never does.
+    /// The tiles beside the ColorMix: MacEMUI's `MapTileGrid`, which reflows to the chosen tile size and shows one tile alone on a
+    /// double click (the Tile size row of the Elements section). Each tile keeps the scan's own aspect.
     @ViewBuilder private func tileGrid(_ glyphs: PrecipitateGlyphTileInput?) -> some View {
-        let content = ZStack(alignment: .topLeading) {
-            ForEach(Array(model.gridItems.enumerated()), id: \.element.id) { i, item in
-                if i < plan.tiles.count {
-                    let r = plan.tiles[i]
-                    tileView(item, glyphs: glyphs).frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
-                }
-            }
+        MapTileGrid(items: model.gridItems, size: model.tileSize, solo: $model.soloMap) { item in
+            Color.clear.aspectRatio(model.gridAspect, contentMode: .fit)
+                .overlay { tileView(item, glyphs: glyphs) }
         }
-        .frame(width: plan.tileContent.width, height: plan.tileContent.height, alignment: .topLeading)
         .animation(TileMotion.animation(reduceMotion: reduceMotion), value: model.tiles.map(\.id))   // the one animation in the room
-        switch plan.scroll {
-        case .none: content
-        case .vertical: ScrollView(.vertical) { content }
-        case .horizontal: ScrollView(.horizontal) { content }
-        }
     }
 
     @ViewBuilder private func tileView(_ item: MapGridItem, glyphs: PrecipitateGlyphTileInput?) -> some View {
@@ -136,6 +128,22 @@ struct MapsGridView: View {
     }
 }
 
+/// The pointer's value on an element tile (the shared hover chip): the symbol and the number in the map's own unit, "Mg 36.2 wt%"
+/// or "Si 412 380 net counts"; the pixel is clamped to the grid, nil for a tile with no pixels.
+enum MapHoverReadout {
+    static func text(symbol: String, tile: MapTile, mode: MapMode, column: Int, row: Int) -> String? {
+        guard tile.width > 0, tile.height > 0 else { return nil }
+        let i = min(max(row, 0), tile.height - 1) * tile.width + min(max(column, 0), tile.width - 1)
+        let value: Double
+        if i < tile.counts.count { value = tile.counts[i] }
+        else if i < tile.values.count { value = Double(tile.values[i] * tile.scale) }
+        else { return nil }
+        guard value.isFinite else { return "\(symbol) \u{2013}" }
+        if mode.isComposition { return "\(symbol) \(value.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "en_US")))) \(mode.rawValue)" }
+        return "\(symbol) \(ResultFormat.counts(value)) \(mode.units)"
+    }
+}
+
 private enum TileMetrics {
     static let corner: CGFloat = 6
     static let handle: CGFloat = 6
@@ -162,6 +170,8 @@ struct MapTileView: View {
     /// What the pointer is over on the live region (the hit test the drag uses); nil off the region and off the ColorMix.
     @State private var hovering: RegionExtent.Pointer?
     @FocusState private var focused: Bool
+    /// The pointer's value on an element tile ("Mg 36.2 wt%"), the shared hover chip; nil off the tile and on the other maps.
+    @State private var hoverText: String?
 
     private enum Edit {
         case draw(from: PixelPoint)
@@ -181,6 +191,13 @@ struct MapTileView: View {
         let g = model.gridSize
         guard let px = model.scanPixel, g.w > 0 else { return nil }
         return MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: Double(size.width) / Double(g.w), width: Double(size.width))
+    }
+
+    /// The value under the pointer on an element tile, in the map's own unit; nil on any other map or off the grid.
+    private func hoverReadout(at point: CGPoint, _ size: CGSize) -> String? {
+        guard case .element(let z) = map, let tile, size.width > 0, size.height > 0 else { return nil }
+        let column = Int(point.x / size.width * CGFloat(tile.width)), row = Int(point.y / size.height * CGFloat(tile.height))
+        return MapHoverReadout.text(symbol: PeriodicLayout.symbol(z), tile: tile, mode: model.mapMode, column: column, row: row)
     }
 
     /// Regions live on the ColorMix only (spec 2 D-1).
@@ -221,14 +238,19 @@ struct MapTileView: View {
                     .allowsHitTesting(false)
             }
             .clipShape(RoundedRectangle(cornerRadius: TileMetrics.corner))
-            .onChange(of: model.drawTool) { draft = [] }   // a polygon draft belongs to the polygon tool
-        }
-        .onContinuousHover { phase in
-            guard case .element(let z) = map else { return }
-            switch phase {
-            case .active: if model.highlightedZ != z { model.highlightedZ = z }
-            case .ended: if model.highlightedZ == z { model.highlightedZ = nil }
+            .hoverChip(hoverText)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let point):
+                    if case .element(let z) = map, model.highlightedZ != z { model.highlightedZ = z }
+                    let text = hoverReadout(at: point, size)
+                    if hoverText != text { hoverText = text }
+                case .ended:
+                    if case .element(let z) = map, model.highlightedZ == z { model.highlightedZ = nil }
+                    if hoverText != nil { hoverText = nil }
+                }
             }
+            .onChange(of: model.drawTool) { draft = [] }   // a polygon draft belongs to the polygon tool
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spectroscopy.tile.\(Self.key(map))")

@@ -1,6 +1,7 @@
 import ShellControls
 import ShellInspector
 import ShellLayout
+import ShellSpectroscopy
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -77,6 +78,7 @@ struct ElementsSection: View {
                 .accessibilityIdentifier("spectroscopy.smoothing")
             }
         }
+        InspectorRow("Tile size") { MapTileSizePicker(selection: $model.tileSize) }
         // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
         // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
         InspectorRow("Auto ID") { UnvalidatedBadge() }

@@ -1,6 +1,7 @@
 import SwiftUI
 import Observation
 import ShellMetal
+import ShellSpectroscopy
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
@@ -64,6 +65,9 @@ final class SpectroscopyRoomModel {
     /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
     var mapsFraction: CGFloat?
     var mixFraction: CGFloat?
+    /// How large the element tiles are drawn and the tile shown alone (a double click on it, again to return). View state.
+    var tileSize: MapTileSize = .medium
+    var soloMap: ActiveMap?
     /// The results panel's width beside the spectrum; nil = `SpectroscopyResultsPanel.width`'s default.
     var resultsWidth: CGFloat?
 

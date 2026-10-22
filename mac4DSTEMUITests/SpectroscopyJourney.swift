@@ -15,6 +15,7 @@ final class SpectroscopyJourney: Journey {
             wait(for: "spectroscopy.mapMode")
             wait(for: "spectroscopy.results")
         }
+        step("the Tile size row is in the inspector") { wait(for: "maps.tileSize") }
         step("Auto ID") {
             // the one read of a label: the button's identifier is not exposed to XCUITest through InspectorAdaptiveButton
             app.buttons["Auto ID"].firstMatch.click()
