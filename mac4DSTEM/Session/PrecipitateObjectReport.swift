@@ -17,9 +17,9 @@
 //    so a density can never be stale against the scan scale the reader
 //    now has.
 //
-//  Statistics are `PrecipitateStatistics.density`'s own: objects touching
+//  Statistics are ImagoKit's (`ObjectStatistics.arealDensity`): objects touching
 //  the scan edge are never counted, and density refuses without a positive
-//  real-space pixel size.
+//  real-space pixel size. The needle length is the Feret diameter (task 39).
 //
 //  Session, not Core: like `PhaseMapObjectsBridge` it composes a Core result
 //  with phase names, the session's calibration and a user setting.
@@ -29,6 +29,7 @@ import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DiffractoOrientation
+import ImagoCore
 #endif
 
 package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable {
@@ -38,8 +39,16 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let label: Int32
         package let phaseName: String
         package let areaPx: Int
+        /// The needle length: the Feret diameter (largest caliper), in pixels.
         package let lengthPx: Double
+        /// The extent across the principal axis, in pixels.
         package let widthPx: Double
+        /// Beside the Feret length: 4·√λ1 of the inertia tensor (`axis_major_length`), the perimeter, the equivalent circle's diameter and
+        /// the solidity, from ImagoKit 0.7.0. Nil in a report decoded from before they existed.
+        package let axisMajorLengthPx: Double?
+        package let perimeterPx: Double?
+        package let equivalentDiameterPx: Double?
+        package let solidity: Double?
         /// (-90, 90], image frame: 0 = +x, positive reads clockwise on screen.
         package let orientationDegrees: Double
         package let centroidX: Double
@@ -50,6 +59,15 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let area: Double?
         package let length: Double?
         package let width: Double?
+        package let axisMajorLength: Double?
+        package let perimeter: Double?
+        package let equivalentDiameter: Double?
+
+        /// Sort keys for the table's optional columns (a report decoded from before these existed sorts them first).
+        package var axisMajorSortKey: Double { axisMajorLengthPx ?? -1 }
+        package var perimeterSortKey: Double { perimeterPx ?? -1 }
+        package var equivalentDiameterSortKey: Double { equivalentDiameterPx ?? -1 }
+        package var soliditySortKey: Double { solidity ?? -1 }
 
         /// In the counted statistics: not on the scan edge, not under the
         /// minimum size.
@@ -75,13 +93,12 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let edgeExcluded: Int
         package let belowMinimumExcluded: Int
         package let areaFraction: Double?
-        /// Scan pixels (`PrecipitateStatistics.density`'s contract); the
-        /// physical versions below multiply by `pixelSize`.
+        /// Scan pixels; the physical versions multiply by `pixelSize`. The lengths are the counted objects' Feret diameters.
         package let medianLengthPx: Double?
         package let meanLengthPx: Double?
         package let meanWidthPx: Double?
         /// Counted objects, each edge-weighted (Miles–Lantuéjoul,
-        /// `PrecipitateStatistics`), per unit² of analysed area; nil without a scale.
+        /// `ObjectStatistics.arealDensity`), per unit² of analysed area; nil without a scale.
         package let arealDensity: Double?
         package var id: Int32 { label }
     }
@@ -138,21 +155,22 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         for classObjects in objects.classes {
             let phaseName = name(classObjects.label)
             let accepted = Set(classObjects.objects.filter { $0.area >= minimum }.map(\.id))
-            let density = PrecipitateStatistics.density(
+            let density = PrecipitateSegmentation.density(
                 objects: classObjects.objects, accepted: accepted,
                 analysedPixels: objects.analysedPixels,
-                frameWidth: objects.width, frameHeight: objects.height,
+                width: objects.width, height: objects.height,
                 pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit)
             let belowMinimum = classObjects.objects.filter { $0.area < minimum }
+            let feret = Self.feretSummary(classObjects.objects.filter { accepted.contains($0.id) && !$0.touchesEdge })
             summaries.append(ClassSummary(
                 label: classObjects.label, phaseName: phaseName,
                 totalObjects: classObjects.objects.count,
-                countedObjects: density.acceptedCount,
-                edgeExcluded: density.edgeCount,
+                countedObjects: density.counted,
+                edgeExcluded: density.edgeExcluded,
                 belowMinimumExcluded: belowMinimum.count,
                 areaFraction: classObjects.areaFraction,
-                medianLengthPx: density.medianLength,
-                meanLengthPx: density.meanLength,
+                medianLengthPx: feret.median,
+                meanLengthPx: feret.mean,
                 meanWidthPx: density.meanWidth,
                 arealDensity: density.arealDensity))
             for object in classObjects.objects {
@@ -160,12 +178,17 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 rows.append(Row(
                     id: object.id, label: classObjects.label, phaseName: phaseName,
                     areaPx: object.area, lengthPx: length, widthPx: width,
+                    axisMajorLengthPx: object.axisMajorLengthPx, perimeterPx: object.perimeterPx,
+                    equivalentDiameterPx: object.equivalentDiameterPx, solidity: object.solidity,
                     orientationDegrees: Double(object.orientationDegrees),
                     centroidX: Double(object.centroidX), centroidY: Double(object.centroidY),
                     touchesEdge: object.touchesEdge, belowMinimum: object.area < minimum,
                     area: scale.map { Double(object.area) * $0 * $0 },
                     length: scale.map { length * $0 },
-                    width: scale.map { width * $0 }))
+                    width: scale.map { width * $0 },
+                    axisMajorLength: scale.map { object.axisMajorLengthPx * $0 },
+                    perimeter: scale.map { object.perimeterPx * $0 },
+                    equivalentDiameter: scale.map { object.equivalentDiameterPx * $0 }))
             }
         }
         rows.sort { $0.id < $1.id }
@@ -180,6 +203,17 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             rows: rows, summaries: summaries,
             provenance: provenance.map { [$0.0, $0.1] },
             sourceID: sourceID)
+    }
+
+    /// The median and mean of the counted objects' Feret lengths (ascending sum, middle of two for an even count), the app's
+    /// arithmetic for a statistic the kit does not yet offer on the Feret length: INTERIM, `delete at ImagoKit 0.7.1` (kit ask:
+    /// `ObjectStatistics.sizeSummary` / `arealDensity` with a length measure).
+    package nonisolated static func feretSummary(_ counted: [PrecipitateSegmentation.Object]) -> (median: Double?, mean: Double?) {
+        guard !counted.isEmpty else { return (nil, nil) }
+        let lengths = counted.map { Double($0.lengthPx) }.sorted()
+        let median = lengths.count % 2 == 1 ? lengths[lengths.count / 2]
+            : (lengths[lengths.count / 2 - 1] + lengths[lengths.count / 2]) / 2
+        return (median, lengths.reduce(0, +) / Double(lengths.count))
     }
 
     // MARK: - Objects image
@@ -260,6 +294,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
         lines.append("# minimum object size: \(minimumAreaPx) px (user setting; smaller objects are listed, not counted)")
         lines.append("# counting: objects touching the scan edge are listed, not counted")
+        lines.append("# length: the Feret diameter (the largest caliper distance, scikit-image feret_diameter_max); axis_major_length is 4*sqrt(largest inertia eigenvalue), width the extent across the principal axis")
         lines.append("# density: each counted object weighted by W*H / ((W - bx - 1)(H - by - 1)) for its bounding box (Miles-Lantuejoul edge correction), over the analysed area")
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
@@ -287,7 +322,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         let unit = pixelUnit ?? "unit"
         return ["id", "phase", "counted", "excluded_because", "area_px", "length_px", "width_px",
                 "aspect_ratio", "orientation_deg", "centroid_x_px", "centroid_y_px",
-                "area_\(unit)2", "length_\(unit)", "width_\(unit)"]
+                "area_\(unit)2", "length_\(unit)", "width_\(unit)",
+                "axis_major_length_px", "perimeter_px", "equivalent_diameter_px", "solidity",
+                "axis_major_length_\(unit)", "perimeter_\(unit)", "equivalent_diameter_\(unit)"]
     }
 
     /// One row's values in `columnNames` order, unquoted, in the CSV's locale-independent number format.
@@ -298,7 +335,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
          Self.number(r.aspectRatio), Self.number(r.orientationDegrees),
          Self.number(r.centroidX), Self.number(r.centroidY),
          r.area.map(Self.number) ?? "", r.length.map(Self.number) ?? "",
-         r.width.map(Self.number) ?? ""]
+         r.width.map(Self.number) ?? "",
+         r.axisMajorLengthPx.map(Self.number) ?? "", r.perimeterPx.map(Self.number) ?? "",
+         r.equivalentDiameterPx.map(Self.number) ?? "", r.solidity.map(Self.number) ?? "",
+         r.axisMajorLength.map(Self.number) ?? "", r.perimeter.map(Self.number) ?? "",
+         r.equivalentDiameter.map(Self.number) ?? ""]
     }
 
     /// `rows` as tab-separated text under the CSV's header line, for the clipboard (Edit > Copy in the object

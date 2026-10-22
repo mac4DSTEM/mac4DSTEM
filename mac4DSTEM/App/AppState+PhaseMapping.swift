@@ -241,7 +241,7 @@ extension AppState {
     /// calibration the scale bar draws from — `ScaleBar.footerSampling`,
     /// `AppState+ResultPresentation.swift`). Nil when the dataset carries no
     /// real-space calibration: density is then absent, never invented
-    /// (`PrecipitateStatistics.density`'s own refusal rule).
+    /// (`ObjectStatistics.arealDensity`'s own refusal rule).
     ///
     /// `../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
     /// change what is validated: `PrecipitateClassificationProduct` makes no

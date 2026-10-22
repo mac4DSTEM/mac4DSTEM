@@ -2,25 +2,26 @@
 //  PrecipitateSegmentation.swift
 //  Role: Step 3 of the precipitate chain (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2) —
 //        splits a classified scan map into 8-connected precipitate objects
-//        per class and measures each from its pixel-coordinate covariance
-//        (`classObjects`). The image-domain segmenter (background flatten,
-//        Hessian ridge filter, robust threshold) was retired 2026-09-30:
-//        unwired, four open defects (../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md,
-//        "Precipitate segmentation defects").
+//        per class (`classObjects`). Since ImagoKit 0.7.0 (suite task 39) the labelling, every
+//        measurement (area, centroid, extents, perimeter, equivalent diameter, solidity, Feret) and the
+//        areal density are the kit's (`Segmentation.label`, `regionProperties`,
+//        `ObjectStatistics.arealDensity`); what stays here is the app's logic: the class map's roles,
+//        the object ids across classes, the order, and the analysed-area rule. The image-domain
+//        segmenter was retired 2026-09-30.
 //
 //  Coordinates: scan-domain (ry x rx), row-major, matching every other
 //  scan-domain product in the app.
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated enum PrecipitateSegmentation {
 
-    /// One segmented object. `lengthPx`/`widthPx` are the extents along and
-    /// across the principal axis of the pixel-coordinate covariance, end to
-    /// end: the range of the members' projections + 1, over members at or
-    /// above half the object's peak footprint value (see `measure`; 1 on a class map, so every member). Not a
-    /// moment estimate (4·√eigenvalue, skimage's `regionprops` convention).
+    /// One segmented object. `lengthPx` is the needle length: scikit-image's `feret_diameter_max`, the largest caliper distance
+    /// (since task 39; it was the extent along the principal axis plus 1 px, which differs by under 1 px on diagonals).
+    /// `widthPx` is the extent across the principal axis, end to end (the range of the members' projections + 1).
+    /// `axisMajorLengthPx` is 4·√λ1 of the inertia tensor (skimage's `axis_major_length`), kept beside it.
     package nonisolated struct Object: Sendable, Identifiable, Equatable {
         package let id: Int
         /// Row-major pixel indices into the class map, ascending.
@@ -44,6 +45,11 @@ package nonisolated enum PrecipitateSegmentation {
         package let orientationDegrees: Float
         package let touchesEdge: Bool
         package let meanIntensity: Float
+        /// scikit-image `perimeter` (4-neighbourhood), `equivalent_diameter_area`, `axis_major_length`, `solidity`: the kit's.
+        package let perimeterPx: Double
+        package let equivalentDiameterPx: Double
+        package let axisMajorLengthPx: Double
+        package let solidity: Double
 
         /// The inspector row's identity, in its OWN namespace — the object
         /// half of the pair described on
@@ -57,7 +63,8 @@ package nonisolated enum PrecipitateSegmentation {
         package nonisolated init(
             id: Int, pixelIndices: [Int], area: Int, centroidX: Float, centroidY: Float,
             lengthPx: Float, widthPx: Float, orientationDegrees: Float,
-            touchesEdge: Bool, meanIntensity: Float
+            touchesEdge: Bool, meanIntensity: Float,
+            perimeterPx: Double = 0, equivalentDiameterPx: Double = 0, axisMajorLengthPx: Double? = nil, solidity: Double = 1
         ) {
             self.id = id
             self.pixelIndices = pixelIndices
@@ -69,6 +76,10 @@ package nonisolated enum PrecipitateSegmentation {
             self.orientationDegrees = orientationDegrees
             self.touchesEdge = touchesEdge
             self.meanIntensity = meanIntensity
+            self.perimeterPx = perimeterPx
+            self.equivalentDiameterPx = equivalentDiameterPx
+            self.axisMajorLengthPx = axisMajorLengthPx ?? Double(lengthPx)
+            self.solidity = solidity
         }
     }
 
@@ -97,11 +108,11 @@ package nonisolated enum PrecipitateSegmentation {
         /// Class pixels divided by every indexed pixel, including matrix and
         /// other indexed classes. Nil when the map has no indexed pixels.
         package let areaFraction: Double?
-        package let density: PrecipitateStatistics.Density
+        package let density: ObjectStatistics.ArealDensity
 
         package nonisolated init(
             label: Int32, objects: [Object], pixelCount: Int,
-            areaFraction: Double?, density: PrecipitateStatistics.Density
+            areaFraction: Double?, density: ObjectStatistics.ArealDensity
         ) {
             self.label = label
             self.objects = objects
@@ -188,35 +199,11 @@ package nonisolated enum PrecipitateSegmentation {
 
         var nextObjectID = 1
         let classes = roles.precipitateClasses.sorted().map { label -> ClassObjects in
-            let mask = labels.map { $0 == label }
-            let values = mask.map { $0 ? Float(1) : Float(0) }
-            let raw = connectedComponents(mask: mask, width: width, height: height)
-                .map {
-                    measure(
-                        members: $0, width: width, height: height,
-                        footprintValues: values, intensity: values
-                    )
-                }
-                .sorted {
-                    $0.area != $1.area
-                        ? $0.area > $1.area
-                        : ($0.pixelIndices.first ?? 0) < ($1.pixelIndices.first ?? 0)
-                }
-            let objects = raw.map { object -> Object in
-                defer { nextObjectID += 1 }
-                return Object(
-                    id: nextObjectID, pixelIndices: object.pixelIndices, area: object.area,
-                    centroidX: object.centroidX, centroidY: object.centroidY,
-                    lengthPx: object.lengthPx, widthPx: object.widthPx,
-                    orientationDegrees: object.orientationDegrees,
-                    touchesEdge: object.touchesEdge, meanIntensity: object.meanIntensity
-                )
-            }
-            let density = PrecipitateStatistics.density(
-                objects: objects, accepted: Set(objects.map(\.id)),
-                analysedPixels: analysedPixels, frameWidth: width, frameHeight: height,
-                pixelSize: pixelSize, pixelUnit: pixelUnit
-            )
+            let objects = Self.objects(of: labels.map { $0 == label }, width: width, height: height, firstID: nextObjectID)
+            nextObjectID += objects.count
+            let density = Self.density(objects: objects, accepted: Set(objects.map(\.id)),
+                                       analysedPixels: analysedPixels, width: width, height: height,
+                                       pixelSize: pixelSize, pixelUnit: pixelUnit)
             let pixelCount = objects.reduce(0) { $0 + $1.area }
             return ClassObjects(
                 label: label, objects: objects, pixelCount: pixelCount,
@@ -234,118 +221,53 @@ package nonisolated enum PrecipitateSegmentation {
         )
     }
 
-    // MARK: - Connected components (8-connected, iterative flood fill)
+    // MARK: - The kit's objects
 
-    /// Per-component geometry for a discrete class map (`classObjects`).
-    private static func measure(
-        members: [Int], width: Int, height: Int,
-        footprintValues: [Float], intensity: [Float]
-    ) -> Object {
-        precondition(!members.isEmpty, "an object needs at least one member")
-        precondition(footprintValues.count == width * height && intensity.count == width * height)
-        let area = members.count
-        var sumX: Float = 0, sumY: Float = 0, sumIntensity: Float = 0
-        var touchesEdge = false
-        for i in members {
-            let row = i / width, col = i % width
-            sumX += Float(col)
-            sumY += Float(row)
-            sumIntensity += intensity[i]
-            if row == 0 || row == height - 1 || col == 0 || col == width - 1 {
-                touchesEdge = true
+    /// The 8-connected objects of one class's mask, measured by ImagoKit, largest first (ties: the earlier first pixel), ids
+    /// `firstID`... in that order.
+    package nonisolated static func objects(of mask: [Bool], width: Int, height: Int, firstID: Int) -> [Object] {
+        guard width > 0, height > 0, let image = try? Segmentation.label(mask, width: width, height: height, connectivity: .eight),
+              let properties = try? Segmentation.regionProperties(image) else { return [] }
+        var members = [[Int]](repeating: [], count: image.count)
+        for (i, l) in image.labels.enumerated() where l > 0 { members[Int(l) - 1].append(i) }   // ascending
+        let sorted = properties
+            .map { (p: $0, pixels: members[Int($0.moments.label) - 1]) }
+            .sorted {
+                $0.p.moments.area != $1.p.moments.area
+                    ? $0.p.moments.area > $1.p.moments.area
+                    : ($0.pixels.first ?? 0) < ($1.pixels.first ?? 0)
             }
+        return sorted.enumerated().map { index, entry in
+            let m = entry.p.moments
+            return Object(
+                id: firstID + index, pixelIndices: entry.pixels, area: m.area,
+                centroidX: Float(m.centroidCol), centroidY: Float(m.centroidRow),
+                lengthPx: Float(entry.p.feretDiameterMax), widthPx: Float(m.widthPx),
+                orientationDegrees: Float(m.orientationDegrees),
+                touchesEdge: m.touchesEdge, meanIntensity: 1,
+                perimeterPx: entry.p.perimeter, equivalentDiameterPx: entry.p.equivalentDiameterArea,
+                axisMajorLengthPx: m.axisMajorLength, solidity: entry.p.solidity)
         }
-        let centroidX = sumX / Float(area)
-        let centroidY = sumY / Float(area)
-
-        var cxx: Float = 0, cyy: Float = 0, cxy: Float = 0
-        for i in members {
-            let dx = Float(i % width) - centroidX
-            let dy = Float(i / width) - centroidY
-            cxx += dx * dx
-            cyy += dy * dy
-            cxy += dx * dy
-        }
-        cxx /= Float(area); cyy /= Float(area); cxy /= Float(area)
-
-        let (_, _, axis) = principalAxis(cxx: cxx, cyy: cyy, cxy: cxy)
-        let peak = members.reduce(-Float.greatestFiniteMagnitude) { max($0, footprintValues[$1]) }
-        let half = 0.5 * peak
-        let ax = cos(axis * .pi / 180), ay = sin(axis * .pi / 180)
-        var uMin = Float.greatestFiniteMagnitude, uMax = -Float.greatestFiniteMagnitude
-        var vMin = Float.greatestFiniteMagnitude, vMax = -Float.greatestFiniteMagnitude
-        for i in members where footprintValues[i] >= half {
-            let dx = Float(i % width) - centroidX, dy = Float(i / width) - centroidY
-            let u = dx * ax + dy * ay, v = -dx * ay + dy * ax
-            uMin = min(uMin, u); uMax = max(uMax, u)
-            vMin = min(vMin, v); vMax = max(vMax, v)
-        }
-        let length = uMax > uMin ? uMax - uMin + 1 : 1
-        let width_ = vMax > vMin ? vMax - vMin + 1 : 1
-        return Object(
-            id: 0, pixelIndices: members.sorted(), area: area,
-            centroidX: centroidX, centroidY: centroidY,
-            lengthPx: length, widthPx: width_, orientationDegrees: axis,
-            touchesEdge: touchesEdge, meanIntensity: sumIntensity / Float(area)
-        )
     }
 
-    private static func connectedComponents(mask: [Bool], width: Int, height: Int) -> [[Int]] {
-        let n = width * height
-        var labelled = [Bool](repeating: false, count: n)
-        var components: [[Int]] = []
-        var stack: [Int] = []
-        for start in 0..<n {
-            guard mask[start], !labelled[start] else { continue }
-            labelled[start] = true
-            stack.append(start)
-            var members: [Int] = []
-            while let i = stack.popLast() {
-                members.append(i)
-                let row = i / width, col = i % width
-                for dy in -1...1 {
-                    for dx in -1...1 where !(dx == 0 && dy == 0) {
-                        let r = row + dy, c = col + dx
-                        guard r >= 0, r < height, c >= 0, c < width else { continue }
-                        let j = r * width + c
-                        if mask[j], !labelled[j] {
-                            labelled[j] = true
-                            stack.append(j)
-                        }
-                    }
-                }
-            }
-            components.append(members)
+    /// The objects as a kit label image: object `i` of `objects` is label `i + 1`.
+    package nonisolated static func kitLabels(of objects: [Object], width: Int, height: Int) -> Segmentation.LabelImage {
+        var labels = [Int32](repeating: 0, count: width * height)
+        for (index, object) in objects.enumerated() {
+            for i in object.pixelIndices where i >= 0 && i < labels.count { labels[i] = Int32(index + 1) }
         }
-        return components
+        return Segmentation.LabelImage(width: width, height: height, labels: labels, count: objects.count)
     }
 
-    // MARK: - Principal axis (analytic 2x2 eigen-decomposition)
-
-    /// Returns (larger eigenvalue, smaller eigenvalue, orientation of the
-    /// larger eigenvalue's eigenvector in degrees, folded into (-90, 90]).
-    private static func principalAxis(cxx: Float, cyy: Float, cxy: Float) -> (Float, Float, Float) {
-        let trace = cxx + cyy
-        let diff = cxx - cyy
-        let discriminant = max(0, diff * diff + 4 * cxy * cxy)
-        let root = discriminant.squareRoot()
-        let lambda1 = (trace + root) / 2
-        let lambda2 = (trace - root) / 2
-
-        var vx: Float, vy: Float
-        if cxy != 0 {
-            vx = lambda1 - cyy
-            vy = cxy
-        } else if cxx >= cyy {
-            vx = 1; vy = 0
-        } else {
-            vx = 0; vy = 1
-        }
-        let norm = (vx * vx + vy * vy).squareRoot()
-        if norm > 0 { vx /= norm; vy /= norm }
-        var angle = atan2(vy, vx) * 180 / .pi
-        while angle <= -90 { angle += 180 }
-        while angle > 90 { angle -= 180 }
-        return (lambda1, lambda2, angle)
+    /// The class's density from the kit: edge-corrected, no scale no density. `accepted` are object ids.
+    package nonisolated static func density(
+        objects: [Object], accepted: Set<Int>, analysedPixels: Int, width: Int, height: Int,
+        pixelSize: Double?, pixelUnit: String?
+    ) -> ObjectStatistics.ArealDensity {
+        let image = kitLabels(of: objects, width: width, height: height)
+        let labels = Set(objects.enumerated().filter { accepted.contains($0.element.id) }.map { Int32($0.offset + 1) })
+        // The frame is the label image and `analysedPixels` is within it by construction; the kit refuses only a malformed image.
+        return try! ObjectStatistics.arealDensity(labels: image, accepted: labels, analysedPixels: analysedPixels,
+                                                  pixelSize: pixelSize, pixelUnit: pixelUnit)
     }
 }

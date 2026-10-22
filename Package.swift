@@ -113,7 +113,8 @@ let package = Package(
                            .product(name: "CuboCore", package: "CuboKit"),
                            .product(name: "CuboVirtual", package: "CuboKit"),
                            .product(name: "CuboPhase", package: "CuboKit"),
-                           .product(name: "CuboParallax", package: "CuboKit")],
+                           .product(name: "CuboParallax", package: "CuboKit"),
+                           .product(name: "ImagoCore", package: "ImagoKit")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

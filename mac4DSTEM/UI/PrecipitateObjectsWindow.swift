@@ -211,6 +211,28 @@ struct PrecipitateObjectsWindow: View {
             }
             .width(min: 48, ideal: 64)
             .alignment(.numeric)
+            Group {
+                TableColumn("Axis major (\(unit))", value: \PrecipitateObjectReport.Row.axisMajorSortKey) { row in
+                    Text(row.axisMajorLength.map(format) ?? row.axisMajorLengthPx.map(format) ?? "").monospacedDigit()
+                }
+                .width(min: 72, ideal: 90)
+                .alignment(.numeric)
+                TableColumn("Perimeter (\(unit))", value: \PrecipitateObjectReport.Row.perimeterSortKey) { row in
+                    Text(row.perimeter.map(format) ?? row.perimeterPx.map(format) ?? "").monospacedDigit()
+                }
+                .width(min: 72, ideal: 90)
+                .alignment(.numeric)
+                TableColumn("Equiv. diameter (\(unit))", value: \PrecipitateObjectReport.Row.equivalentDiameterSortKey) { row in
+                    Text(row.equivalentDiameter.map(format) ?? row.equivalentDiameterPx.map(format) ?? "").monospacedDigit()
+                }
+                .width(min: 90, ideal: 110)
+                .alignment(.numeric)
+                TableColumn("Solidity", value: \PrecipitateObjectReport.Row.soliditySortKey) { row in
+                    Text(row.solidity.map(format) ?? "").monospacedDigit()
+                }
+                .width(min: 56, ideal: 70)
+                .alignment(.numeric)
+            }
             TableColumn("Orientation", value: \.orientationDegrees) { row in
                 Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
                     .monospacedDigit()

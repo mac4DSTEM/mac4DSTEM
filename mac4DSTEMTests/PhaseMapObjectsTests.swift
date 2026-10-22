@@ -9,6 +9,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import ImagoCore
 @testable import mac4DSTEM
 
 final class PhaseMapObjectsTests: XCTestCase {
@@ -94,8 +95,9 @@ final class PhaseMapObjectsTests: XCTestCase {
         XCTAssertEqual(a1.centroidX, 3, accuracy: 1e-6)
         XCTAssertEqual(a1.centroidY, 1.5, accuracy: 1e-6)
         XCTAssertFalse(a1.touchesEdge)
-        // Existing measurement, unchanged: a 3 × 2 block is 3 long, 2 wide, along +x.
-        XCTAssertEqual(a1.lengthPx, 3, accuracy: 1e-6)
+        // Moved on purpose with task 39 (the needle length is the Feret diameter, ImagoKit 0.7.0): a 3 × 2 block's largest caliper is
+        // its diagonal, √(3² + 1²), where the principal-axis extent + 1 read 3. Width and orientation are as before.
+        XCTAssertEqual(a1.lengthPx, Float(10.0.squareRoot()), accuracy: 1e-6)
         XCTAssertEqual(a1.widthPx, 2, accuracy: 1e-6)
         XCTAssertEqual(a1.orientationDegrees, 0, accuracy: 1e-6)
 
@@ -104,8 +106,8 @@ final class PhaseMapObjectsTests: XCTestCase {
         XCTAssertEqual(a2.centroidY, 4.5, accuracy: 1e-6)
         XCTAssertTrue(a2.touchesEdge, "col 11 is the last column")
 
-        XCTAssertEqual(one.density.acceptedCount, 1, "A2 touches the scan edge and is not counted")
-        XCTAssertEqual(one.density.edgeCount, 1)
+        XCTAssertEqual(one.density.counted, 1, "A2 touches the scan edge and is not counted")
+        XCTAssertEqual(one.density.edgeExcluded, 1)
 
         let two = try cls(2, in: result)
         XCTAssertEqual(two.objects.count, 1, "B1 alone — it touches A1 but is another class")
@@ -115,10 +117,10 @@ final class PhaseMapObjectsTests: XCTestCase {
         XCTAssertEqual(b1.centroidX, 4.5, accuracy: 1e-6)
         XCTAssertEqual(b1.centroidY, 3.5, accuracy: 1e-6)
         XCTAssertFalse(b1.touchesEdge)
-        XCTAssertEqual(b1.lengthPx, 4, accuracy: 1e-6)
+        XCTAssertEqual(b1.lengthPx, Float(17.0.squareRoot()), accuracy: 1e-6, "4 × 2 block: √(4² + 1²), the Feret diameter (task 39)")
         XCTAssertEqual(b1.widthPx, 2, accuracy: 1e-6)
-        XCTAssertEqual(two.density.acceptedCount, 1)
-        XCTAssertEqual(two.density.edgeCount, 0)
+        XCTAssertEqual(two.density.counted, 1)
+        XCTAssertEqual(two.density.edgeExcluded, 0)
 
         // Object ids are unique across classes, so one inspector list can
         // key on `rowIdentity` without collisions.
@@ -220,8 +222,8 @@ final class PhaseMapObjectsTests: XCTestCase {
         let three = try cls(3, in: result)
         XCTAssertTrue(three.objects.isEmpty)
         XCTAssertEqual(three.pixelCount, 0)
-        XCTAssertEqual(three.density.acceptedCount, 0)
-        XCTAssertEqual(three.density.edgeCount, 0)
+        XCTAssertEqual(three.density.counted, 0)
+        XCTAssertEqual(three.density.edgeExcluded, 0)
         XCTAssertEqual(try XCTUnwrap(three.density.arealDensity), 0, "0 ÷ a known area is 0, not a refusal")
         XCTAssertEqual(try XCTUnwrap(three.areaFraction), 0)
         XCTAssertNil(three.density.meanLength)

@@ -33,6 +33,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import ImagoCore
 @testable import mac4DSTEM
 
 final class PrecipitateSegmentationAnalyticTests: XCTestCase {
@@ -118,9 +119,12 @@ final class PrecipitateSegmentationAnalyticTests: XCTestCase {
         XCTAssertEqual(object.area, 5, "the 5-step diagonal is one 8-connected object")
         XCTAssertEqual(object.orientationDegrees, 45, accuracy: 1e-4)
 
-        let expectedLength = 4.0 * 2.0.squareRoot() + 1.0
+        // Moved on purpose with task 39: the length is the Feret diameter (ImagoKit 0.7.0), the largest caliper distance between the
+        // contour's edge midpoints: √(5² + 4²) = √41 ≈ 6.403 for the five-step diagonal. It used to be the principal-axis extent + 1,
+        // 4√2 + 1 ≈ 6.657 (the Feret differs from it by under 1 px on diagonals; the kit's `axis_major_length` is beside it).
+        let expectedLength = 41.0.squareRoot()
         XCTAssertEqual(Double(object.lengthPx), expectedLength, accuracy: 1e-4,
-                        "length runs along the 45 degree axis, not the pixel grid")
+                        "length is the Feret diameter: along the diagonal, not the pixel grid")
         XCTAssertEqual(object.widthPx, 1, accuracy: 1e-6, "a 1-pixel-wide diagonal line has no cross-axis extent")
 
         // The axis-aligned bounding box (rows/cols 1...5) is only 5 px on a
@@ -215,8 +219,8 @@ final class PrecipitateSegmentationAnalyticTests: XCTestCase {
         // object or shrinks the class footprint.
         let classAll = try XCTUnwrap(result.classes.first { $0.label == 1 })
         XCTAssertEqual(classAll.pixelCount, 4)
-        XCTAssertEqual(classAll.density.acceptedCount, 0, "all four accepted objects touch an edge")
-        XCTAssertEqual(classAll.density.edgeCount, 4)
+        XCTAssertEqual(classAll.density.counted, 0, "all four accepted objects touch an edge")
+        XCTAssertEqual(classAll.density.edgeExcluded, 4)
     }
 
     // MARK: - 6. Multiple classes never merge, even at a shared corner
@@ -256,7 +260,7 @@ final class PrecipitateSegmentationAnalyticTests: XCTestCase {
         var labels = [Int32](repeating: 0, count: 3 * 3)
         labels[1 * 3 + 1] = 1 // one interior precipitate pixel
 
-        func density(_ pixelSize: Double?) throws -> PrecipitateStatistics.Density {
+        func density(_ pixelSize: Double?) throws -> ObjectStatistics.ArealDensity {
             let result = PrecipitateSegmentation.classObjects(
                 labels: labels, width: 3, height: 3, roles: roles(precipitate: [1]),
                 pixelSize: pixelSize, pixelUnit: pixelSize == nil ? nil : "nm"
@@ -297,7 +301,7 @@ final class PrecipitateSegmentationAnalyticTests: XCTestCase {
         XCTAssertTrue(cls.objects.isEmpty)
         XCTAssertEqual(cls.pixelCount, 0)
         XCTAssertEqual(try XCTUnwrap(cls.areaFraction), 0)
-        XCTAssertEqual(cls.density.acceptedCount, 0)
+        XCTAssertEqual(cls.density.counted, 0)
     }
 
     // MARK: - 7b. Degenerate: a single interior precipitate pixel

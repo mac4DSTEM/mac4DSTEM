@@ -7,6 +7,9 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 
 ## Kit asks
 
+### ImagoKit (next: 0.7.1)
+- **A length measure on the object summaries** (`delete at ImagoKit 0.7.1`): `ObjectStatistics.sizeSummary` and `arealDensity` summarise `ObjectMoments.lengthPx` (the extent along the principal axis + 1 px); the study's needle length is the Feret diameter, so the app computes the median and mean of the counted objects' Feret lengths itself (`PrecipitateObjectReport.feretSummary`, a few lines). Ask: a `lengthMeasure: .feret` option, or `regionProperties`-based summaries.
+
 ### DiffractoKit (next: 0.10.x)
 - **`LinearScale.assign`**: the ring-sequence assignment the app carries as `ShellAssignment` (`Core/Analysis/QCalibration.swift`, marked `delete at DiffractoKit 0.10.x`):
   from per-position peak radii and the crystal's distinct shell lengths it finds which shell the first ring is, with named refusals; no Python reference
