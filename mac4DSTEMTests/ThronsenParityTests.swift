@@ -309,6 +309,56 @@ final class ThronsenParityTests: XCTestCase {
         print(lines.joined(separator: "\n"))
     }
 
+    /// Which T1 Al site the data supports: the mean pattern of the positions the truth map labels T1, as a ring profile around the direct beam,
+    /// next to the ring profile each site predicts at [0 -4 1] (Sum of the excited intensities of the reference vectors per radius). Rotation-free,
+    /// so the three in-plane variants of T1 do not need aligning. Prints `T1-SITE r  data  ours  table` per 1-pixel radius.
+    /// Gate: MAC4DSTEM_T1_SITE=1 (reads the stride-3 cube, a minute).
+    func testTheT1RingProfileAgainstBothAlSites() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MAC4DSTEM_T1_SITE"] == "1", "heavy real-data run: set MAC4DSTEM_T1_SITE=1")
+        let truth = try loadTruth()
+        let path = Self.references.appendingPathComponent("datasetA_stride3.h5").path
+        let reader = try H5Reader(path: path)
+        let primary = try await reader.discoverPrimaryDataset()
+        let view = LoadView(fullExtentOf: primary)
+        let qPerPixel = 0.01904
+        var sumPattern = [Double](repeating: 0, count: primary.qy * primary.qx)
+        var used = 0
+        for ry in 0..<primary.ry { for rx in 0..<primary.rx where truth.labels[ry * truth.width + rx] == 3 {
+            let pattern = try await reader.readPattern(view, ry: ry, rx: rx)
+            for i in 0..<min(sumPattern.count, pattern.count) { sumPattern[i] += Double(pattern[i]) }
+            used += 1
+        } }
+        XCTAssertGreaterThan(used, 50)
+        // The origin: centre of mass inside the direct beam of the T1 mean itself.
+        let cy0 = Double(primary.qy - 1) / 2, cx0 = Double(primary.qx - 1) / 2
+        var w = 0.0, wx = 0.0, wy = 0.0
+        for y in 0..<primary.qy { for x in 0..<primary.qx where ((Double(y) - cy0) * (Double(y) - cy0) + (Double(x) - cx0) * (Double(x) - cx0)).squareRoot() <= 6 {
+            let v = sumPattern[y * primary.qx + x]; w += v; wx += v * Double(x); wy += v * Double(y)
+        } }
+        let ox = wx / w, oy = wy / w
+        let rMax = 40
+        var ring = [Double](repeating: 0, count: rMax), count = [Double](repeating: 0, count: rMax)
+        for y in 0..<primary.qy { for x in 0..<primary.qx {
+            let r = ((Double(y) - oy) * (Double(y) - oy) + (Double(x) - ox) * (Double(x) - ox)).squareRoot()
+            let b = Int(r.rounded()); guard b < rMax else { continue }
+            ring[b] += sumPattern[y * primary.qx + x]; count[b] += 1
+        } }
+        var settings = PhaseReferenceSettings()
+        settings.kMaxInvAngstrom = 0.70; settings.minimumIntensityFraction = 0; settings.maximumVectorsPerEntry = 500
+        func model(_ crystal: CrystalStructure) throws -> [Double] {
+            let list = try PhaseReferenceLibrary.reflections(of: crystal, kMaxInvAngstrom: settings.kMaxInvAngstrom, phase: "T1")
+            var out = [Double](repeating: 0, count: rMax)
+            for v in PhaseReferenceLibrary.projectedVectors(reflections: list, crystal: crystal, zoneAxis: SIMD3(0, -4, 1), settings: settings) {
+                let b = Int((v.length / qPerPixel).rounded()); if b < rMax { out[b] += v.relativeIntensity }
+            }
+            return out
+        }
+        let ours = try model(ThronsenReference.t1), table = try model(ThronsenReference.t1TableAl)
+        var lines = ["T1-SITE positions \(used), origin (\(ox), \(oy)), data = ring sum / positions; model = sum of excited intensities per 1-px radius"]
+        for r in 3..<rMax { lines.append(String(format: "T1-SITE %2d  %12.1f  %6.3f  %6.3f", r, ring[r] / Double(used), ours[r], table[r])) }
+        print(lines.joined(separator: "\n"))
+    }
+
     /// The comparison itself (heavy, real data, MAC4DSTEM_THRONSEN=1): the object statistics of the truth, the four published maps (full and
     /// stride 3) and ours, the edge check, the isolated one-position objects, the variants per class from the winning entries, and the Feret-angle
     /// families. Everything is printed with the THRONSEN prefix for `docs/parity.md`; the assertions pin only what is a fact of the data.

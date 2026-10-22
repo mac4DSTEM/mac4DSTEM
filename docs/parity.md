@@ -18,7 +18,7 @@ Run (heavy, real data, skipped unless asked; 8 GB cap): `../tools/memcap.sh --gb
 | The four published maps against the truth at full 512 × 512 with the paper's scorer (`determine_accuracy.ipynb`: share of positions with label ≠ truth, every class and the four "not indexed" truth positions counted) | Table 3: 98.50 / 98.46 / 98.25 / 99.04 % | **98.5020 / 98.4570 / 98.2521 / 99.0391 %** | reproduced to 0.01 pp (`testThePublishedMapsReproduceTable3AtFullResolution`, runs when the maps are on disk); at stride 3 the same maps score 98.44 / 98.49 / 98.30 / 99.05 % |
 | N_V, composition, strain | none (no thickness, no EDS in the dataset) | not checkable here | said so, not scored |
 
-**The scan step (2026-10-22, flagged for Paul).** Everything below uses the paper's **4.6 nm per position** (PDF page 3; 13.8 nm at stride 3). The file's 2.4943 nm
+**The scan step (2026-10-22; Paul confirmed 4.6 nm that day).** Everything below uses the paper's **4.6 nm per position** (PDF page 3; 13.8 nm at stride 3). The file's 2.4943 nm
 (settled 2026-09-28 on the belief that Fig. 7's scale bar agreed) does not: on PDF page 8 the three 400 nm bars are 82, 82 and 81 px, panel (c) is registered to
 `ground_truth.hspy` (99.8 % of its classified pixels equal the truth class) and is 487 px for 512 positions, so the step is 4.66 ± 0.06 nm, 1.87 times the file's. With
 the file's step lengths read 1.87 times too short and densities 3.5 times too high (the earlier version of this table: 7.48 nm per position at stride 3). `truth.json`
@@ -70,6 +70,8 @@ Isolated one-position objects (all precipitate classes): truth 1 at full resolut
 **Variants and morphology** (from the winning library entries of our run, not from the variant map: its relationship preset is beta'' in Al; presets for T1 and θ′ do not exist yet). In-plane rotations of
 the winning entries per class: T1 (6151 positions): 176° and 178° and 184° (about 3300) against 86° and 88° (about 1800), two families 90° apart, the paper's two; θ′ edge-on (465): 60° / 62° / 240° against
 150° / 152° / 330°, two families 90° apart (the opposite pair of each is the same variant by the 180° symmetry), the paper's two; θ′ face-on (1000): 150°, 240°, 60° / 62°, 330°, one family up to the cell's 90° symmetry, the paper's one.
+T1's Al site (2026-10-22): the table's (0, 1/2, 0.406) against our (0, 0, 0.4062) give the same spots at [0 -4 1] and different intensities. The mean of the 6 358 positions the truth map labels T1, as a ring profile around the direct beam (`testTheT1RingProfileAgainstBothAlSites`, gate `MAC4DSTEM_T1_SITE=1`), has almost nothing at the (100) ring (12 px, 0.233 Å⁻¹: about 1 % of the strong ring at 25 px); our site predicts about 8 % of it, the table site (assumed orbit of (0, 1/2, z)) about 80 %. The data supports ours; the kit's T1 reference stays.
+
 Scan-versus-diffraction offset: our matrix entry sits at 150.0° in-plane; the paper rotated its stack by φ_A = −29.65° (PDF page 7), which is 150.35° modulo 180°, 0.35° from ours (our grid step is 2°).
 Feret-angle families of the counted objects (minimum 4 px, image frame, positive clockwise on screen; truth / ours): θ′ edge-on −30..−15°: 9 / 11 and +60..+75°: 7 / 9 (families 90° apart); T1 −90..−45°: 8 / 8 and 0..+45°: 9 / 9 (90° apart); θ′ and T1 families sit 45° from each other,
 as the paper's text says (T1 along [110] and [1-10] of Al, θ′ along [100] and [010]); our map reproduces the truth's families.
