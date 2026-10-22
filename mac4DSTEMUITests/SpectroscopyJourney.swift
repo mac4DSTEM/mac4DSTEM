@@ -15,7 +15,14 @@ final class SpectroscopyJourney: Journey {
             wait(for: "spectroscopy.mapMode")
             wait(for: "spectroscopy.results")
         }
-        step("the Tile size row is in the inspector") { wait(for: "maps.tileSize") }
+        step("the Tile size row starts on Medium and Large reflows the tiles") {
+            // by label, like Auto ID below: the segmented picker takes the inspector's identifier (macOS 27), its own is not exposed
+            let large = app.radioButtons["Large"].firstMatch
+            XCTAssertTrue(large.waitForExistence(timeout: 10), "no Tile size picker")
+            XCTAssertEqual(app.radioButtons["Medium"].firstMatch.value as? Int, 1, "the default tile size is Medium")
+            large.click()
+            XCTAssertEqual(large.value as? Int, 1, "Large did not take")
+        }
         step("Auto ID") {
             // the one read of a label: the button's identifier is not exposed to XCUITest through InspectorAdaptiveButton
             app.buttons["Auto ID"].firstMatch.click()
