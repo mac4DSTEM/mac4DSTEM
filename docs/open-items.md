@@ -8,6 +8,7 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 ## Kit asks
 
 ### ImagoKit (next: 0.7.1)
+- Polish along the way (Paul 2026-10-22, `designs/velox-gms-habits-2026-10-22.md`; fold each into the room when it is touched, then delete the line): **detector as an instrument** (pattern pane): a Detector section (shape, presets BF/ABF/ADF/axial BF, radii as steppers), a readout line with Copy as Code, arrow-key nudging with ⇧ for 5 px, several detectors merged to RGB; **calibration and orientation honesty**: the source of every unit in the Info tab, the beam centre as a fitted surface (`Fit origin…`), the rotation offset's two answers (`θ` or `θ + 180°`) as a segmented choice with each image shown, an inline row for a file with no scan shape or step; **quantification visible** (Spectroscopy): the model in one footer line, each Net row's window, background and σ on selection, a vacuum sentence; **pinned spectra as references** (MLLS) once SpectroKit 0.10.0 lands.
 - **A length measure on the object summaries** (`delete at ImagoKit 0.7.1`): `ObjectStatistics.sizeSummary` and `arealDensity` summarise `ObjectMoments.lengthPx` (the extent along the principal axis + 1 px); the study's needle length is the Feret diameter, so the app computes the median and mean of the counted objects' Feret lengths itself (`PrecipitateObjectReport.feretSummary`, a few lines). Ask: a `lengthMeasure: .feret` option, or `regionProperties`-based summaries.
 
 ### DiffractoKit (next: 0.10.x)
