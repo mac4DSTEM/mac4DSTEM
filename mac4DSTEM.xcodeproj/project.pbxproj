@@ -550,7 +550,7 @@
 				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
 				30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */,
 				30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */,
-				300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */,
+				300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -1374,9 +1374,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../FormatoKit;
 		};
-		300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */ = {
+		300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Packages/MacEMUI;
+			relativePath = ../MacEMUI;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1535,22 +1535,22 @@
 		};
 		300000000000000000000401 /* ShellMetal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
 			productName = ShellMetal;
 		};
 		300000000000000000000403 /* ShellControls */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
 			productName = ShellControls;
 		};
 		300000000000000000000405 /* ShellInspector */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
 			productName = ShellInspector;
 		};
 		300000000000000000000407 /* ShellLayout */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
 			productName = ShellLayout;
 		};
 /* End XCSwiftPackageProductDependency section */

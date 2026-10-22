@@ -40,7 +40,7 @@ let package = Package(
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.7.0"),
         // The window shell, controls and Metal image view both apps share (suite task 8). LOCAL PATH until the package has its own repo and a tag
         // (delete at MacEMUI 0.1.0: restore `exact: "0.1.0"`); DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
-        .package(path: "../Packages/MacEMUI"),
+        .package(path: "../MacEMUI"),
     ],
     targets: [
         .target(
