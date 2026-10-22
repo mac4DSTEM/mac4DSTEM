@@ -23,9 +23,8 @@ import ImagoCore
 
 private enum ThronsenReference {
     /// T1, Al₂CuLi: P6/mmm, a = 4.94775 Å, c = 14.14499 Å (their Table 2).
-    static let t1 = CrystalPresets.structure(
-        a: 4.94775, b: 4.94775, c: 14.14499, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
-        sites: [
+    static let t1 = CrystalPresets.structure(a: 4.94775, b: 4.94775, c: 14.14499, alphaDeg: 90, betaDeg: 90, gammaDeg: 120, sites: t1Sites)
+    static let t1Sites: [AtomSite] = [
             AtomSite(z: 13, fractional: [0.333333, 0.000000, 0.000000]), AtomSite(z: 13, fractional: [0.666667, 0.000000, 0.000000]),
             AtomSite(z: 13, fractional: [0.000000, 0.333333, 0.000000]), AtomSite(z: 13, fractional: [0.000000, 0.666667, 0.000000]),
             AtomSite(z: 13, fractional: [0.666667, 0.666667, 0.000000]), AtomSite(z: 13, fractional: [0.333333, 0.333333, 0.000000]),
@@ -37,7 +36,16 @@ private enum ThronsenReference {
             AtomSite(z: 29, fractional: [0.500000, 0.500000, 0.323700]), AtomSite(z: 29, fractional: [0.500000, 0.500000, 0.676300]),
             AtomSite(z: 3, fractional: [0.000000, 0.000000, 0.199300]), AtomSite(z: 3, fractional: [0.000000, 0.000000, 0.800700]),
             AtomSite(z: 3, fractional: [0.333333, 0.666667, 0.500000]), AtomSite(z: 3, fractional: [0.666667, 0.333333, 0.500000]),
-        ])
+    ]
+
+    /// The same T1 with the Al site the paper's Table 2 is read to give, (0, 1/2, 0.406) and its P6/mmm images, in place of the (0, 0, 0.4062)
+    /// pair above (an assumption about the table's orbit: the sites listed are the three images of (0, 1/2, z) at z and 1 - z).
+    static let t1TableAl = CrystalPresets.structure(
+        a: 4.94775, b: 4.94775, c: 14.14499, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
+        sites: t1Sites.filter { !($0.z == 13 && $0.fractional[0] == 0 && $0.fractional[1] == 0) }
+            + [0.4062, 0.5938].flatMap { z in
+                [AtomSite(z: 13, fractional: [0.0, 0.5, z]), AtomSite(z: 13, fractional: [0.5, 0.0, z]), AtomSite(z: 13, fractional: [0.5, 0.5, z])]
+            })
 
     /// θ′, Al₂Cu: I-4m2, a = 4.04 Å, c = 5.80 Å (their Table 2).
     static let thetaPrime = CrystalPresets.structure(
@@ -277,6 +285,28 @@ final class ThronsenParityTests: XCTestCase {
         let objects = PrecipitateSegmentation.classObjects(labels: kit, width: width, height: height,
             roles: .init(precipitateClasses: [1, 2, 3], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil)
         return objects.classes.flatMap(\.objects).filter { $0.area == 1 }.count
+    }
+
+    /// T1's Al site: the table reads (0, 1/2, 0.406), ours is (0, 0, 0.4062). Same lattice, so the same spots; only the intensities can move.
+    /// Needs no data: it lists the [0 -4 1] reference vectors of both and holds that the positions agree and prints the strongest ratios.
+    func testT1AlSiteChangesIntensitiesOnlyNotSpotPositions() throws {
+        let settings = PhaseReferenceSettings()
+        func vectors(_ crystal: CrystalStructure) throws -> [ReferenceVector] {
+            let list = try PhaseReferenceLibrary.reflections(of: crystal, kMaxInvAngstrom: settings.kMaxInvAngstrom, phase: "T1")
+            return PhaseReferenceLibrary.projectedVectors(reflections: list, crystal: crystal, zoneAxis: SIMD3(0, -4, 1), settings: settings)
+        }
+        let ours = try vectors(ThronsenReference.t1), table = try vectors(ThronsenReference.t1TableAl)
+        XCTAssertFalse(ours.isEmpty); XCTAssertFalse(table.isEmpty)
+        func key(_ v: ReferenceVector) -> String { "\(v.h) \(v.k) \(v.l)" }
+        let o = Dictionary(uniqueKeysWithValues: ours.map { (key($0), $0) }), t = Dictionary(uniqueKeysWithValues: table.map { (key($0), $0) })
+        let common = Set(o.keys).intersection(t.keys)
+        for k in common { XCTAssertEqual(o[k]!.length, t[k]!.length, accuracy: 1e-9, "same lattice, same |g| for \(k)") }
+        var lines = ["T1-AL-SITE vectors ours \(ours.count), table \(table.count), common \(common.count)"]
+        for v in ours.prefix(12) {
+            let r = t[key(v)].map { String(format: "%.3f", $0.relativeIntensity) } ?? "absent"
+            lines.append(String(format: "T1-AL-SITE (%@) |q| %.4f ours %.3f table %@", key(v), v.length, v.relativeIntensity, r))
+        }
+        print(lines.joined(separator: "\n"))
     }
 
     /// The comparison itself (heavy, real data, MAC4DSTEM_THRONSEN=1): the object statistics of the truth, the four published maps (full and
