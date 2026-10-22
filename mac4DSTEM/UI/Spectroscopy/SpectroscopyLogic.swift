@@ -592,14 +592,16 @@ nonisolated enum MapMode: String, CaseIterable, Sendable {
     func isOffered(quantified: Bool) -> Bool { isAvailable || (isComposition && quantified) }
     var units: String { self == .integrated ? "integrated counts" : (self == .netCounts ? "net counts" : rawValue) }
 }
-/// The region tools in the grid header: a rectangle, or a polygon closed by a click on its first vertex.
+/// The region tools in the grid header: a rectangle, an ellipse, a polygon closed by a click on its first vertex, or a line (it pools no
+/// spectrum; it draws the profile of the element maps along it).
 nonisolated enum DrawTool: String, CaseIterable, Sendable {
-    case rectangle, ellipse = "Ellipse", polygon
+    case rectangle, ellipse = "Ellipse", polygon, line
     var symbol: String {
         switch self {
         case .rectangle: "rectangle.dashed"
         case .ellipse: "oval"
         case .polygon: "pentagon"
+        case .line: "line.diagonal"
         }
     }
 }

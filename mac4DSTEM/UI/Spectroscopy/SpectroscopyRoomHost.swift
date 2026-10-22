@@ -17,7 +17,7 @@ struct SpectroscopyRoomHost: View {
                 .modifier(SpectroscopyExportPresenters(model: controller.model))
                 .onChange(of: controller.model.elements) { controller.elementsChanged() }
                 .onChange(of: controller.model.smoothing) { controller.smoothingChanged() }
-                .onChange(of: controller.model.selectedRegion) { controller.regionPicked() }
+                .onChange(of: controller.model.selectedRegion) { controller.model.selectedLine = nil; controller.regionPicked() }
                 .onChange(of: controller.model.regionStyles) { controller.refreshRegionCurves() }
                 .onChange(of: controller.model.quantify) { controller.quantifySettingsChanged() }
                 .onChange(of: controller.model.mapMode) { controller.refresh() }

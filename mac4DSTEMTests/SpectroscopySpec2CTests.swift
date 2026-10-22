@@ -116,9 +116,9 @@ final class SpectroscopySpec2CTests: XCTestCase {
     /// The region tools now include the ellipse (lane B draws it); each tool has its own symbol.
     /// Mutation: the case or its symbol removed - red.
     func testDrawToolsIncludeTheEllipse() {
-        XCTAssertEqual(DrawTool.allCases, [.rectangle, .ellipse, .polygon])
+        XCTAssertEqual(DrawTool.allCases, [.rectangle, .ellipse, .polygon, .line])
         XCTAssertEqual(DrawTool.ellipse.rawValue, "Ellipse")
         XCTAssertEqual(DrawTool.ellipse.symbol, "oval")
-        XCTAssertEqual(Set(DrawTool.allCases.map(\.symbol)).count, 3)
+        XCTAssertEqual(Set(DrawTool.allCases.map(\.symbol)).count, 4)
     }
 }

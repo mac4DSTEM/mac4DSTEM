@@ -76,6 +76,12 @@ final class SpectroscopyRoomModel {
     /// The map starts editing region `id` (a move or a resize), or a new one (nil, a fresh draw); set by the controller. A drag's
     /// first call, so the edits that follow land on the right region.
     var onBeginRegionEdit: ((Int?) -> Void)?
+    /// Lines drawn for profiles (they pool no spectrum, so the session does not know them), the selected one, and how many were ever
+    /// made; and which view the lower block shows. View state (`DrawnRegions.swift`).
+    var lines: [ProfileLine] = []
+    var selectedLine: Int?
+    var linesIssued = 0
+    var pane: SpectrumPane = .spectrum
     /// How large the element tiles are drawn and the tile shown alone (a double click on it, again to return). View state.
     var tileSize: MapTileSize = .medium
     var soloMap: ActiveMap?

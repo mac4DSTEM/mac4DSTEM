@@ -166,6 +166,8 @@ struct MapTileView: View {
     var glyphs: PrecipitateGlyphTileInput? = nil
     @State private var edit: Edit?
     @State private var draft: [PixelPoint] = []
+    /// The line being dragged with the line tool, in scan pixels; it becomes a `ProfileLine` when the pointer is released.
+    @State private var lineDraft: (from: PixelPoint, to: PixelPoint)?
     @State private var closedAt = Date.distantPast
     /// What the pointer is over on the live region (the hit test the drag uses); nil off the region and off the ColorMix.
     @State private var hovering: RegionExtent.Pointer?
@@ -175,6 +177,7 @@ struct MapTileView: View {
 
     private enum Edit {
         case draw(from: PixelPoint)
+        case line(from: PixelPoint)
         case move(start: SpectrumRegionShape, from: PixelPoint)
         case handle(RegionHandle, start: SpectrumRegionShape)
     }
@@ -428,6 +431,12 @@ struct MapTileView: View {
                            with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: Self.pinOutlineWidth)
             }
         }
+        if let line = lineDraft {
+            var p = Path()
+            p.move(to: pt(line.from)); p.addLine(to: pt(line.to))
+            ctx.stroke(p, with: .color(.white.opacity(Self.underStrokeOpacity)), lineWidth: Self.liveOutlineWidth + Self.underStrokeExtra)
+            ctx.stroke(p, with: .color(live), style: dash)
+        }
         if draft.count > 0 {
             var p = Path()
             for (i, q) in draft.enumerated() { i == 0 ? p.move(to: pt(q)) : p.addLine(to: pt(q)) }
@@ -459,7 +468,7 @@ struct MapTileView: View {
         switch edit {
         case .move?: .move
         case .handle(let h, _)?: .resize(h)
-        case .draw?, nil: nil
+        case .draw?, .line?, nil: nil
         }
     }
 
@@ -517,15 +526,17 @@ struct MapTileView: View {
                     edit = beginEdit(at: start, tolerance: tol)
                 }
                 guard hypot(v.translation.width, v.translation.height) >= TileMetrics.click else { return }
+                if case .line(let from)? = edit { lineDraft = (from, point(v.location)); return }
                 if let shape = shape(for: edit, at: point(v.location), grid: g) { model.onRegionEdit?(shape, false) }
             }
             .onEnded { v in
-                defer { edit = nil }
+                defer { edit = nil; lineDraft = nil }
                 guard g.w > 0, g.h > 0 else { return }
                 if hypot(v.translation.width, v.translation.height) < TileMetrics.click {
                     if case .draw = edit, model.drawTool == .polygon { addVertex(point(v.startLocation), tol: tol, grid: g) }
                     return
                 }
+                if case .line(let from)? = edit { model.addLine(from: from, to: point(v.location)); return }
                 if let shape = shape(for: edit, at: point(v.location), grid: g) { model.onRegionEdit?(shape, true) }
             }
     }
@@ -533,6 +544,7 @@ struct MapTileView: View {
     /// What a press at `start` begins: a resize or a move of the selected region or of another shown one (which becomes the selected),
     /// else a new drawing. The room is told first, so the edits that follow land on that region.
     private func beginEdit(at start: PixelPoint, tolerance tol: Double) -> Edit {
+        if model.drawTool == .line { return .line(from: start) }   // a line is never a move of a region
         func existing(_ id: Int, _ shape: SpectrumRegionShape) -> Edit? {
             switch RegionEditing.hit(shape, at: start, tolerance: tol) {
             case .handle(let h): model.onBeginRegionEdit?(id); return .handle(h, start: shape)
@@ -556,7 +568,7 @@ struct MapTileView: View {
             return RegionEditing.moved(start, dx: Int((p.x - from.x).rounded()), dy: Int((p.y - from.y).rounded()), grid: g)
         case .handle(let h, let start)?:
             return RegionEditing.edited(start, handle: h, to: p, grid: g)
-        case nil: return nil
+        case .line?, nil: return nil
         }
     }
 
@@ -612,7 +624,7 @@ nonisolated enum RegionDrawing {
         switch tool {
         case .rectangle: .rectangle(rect)
         case .ellipse: .ellipse(rect)
-        case .polygon: nil
+        case .polygon, .line: nil   // a polygon takes clicks; a line is no spectrum shape (`ProfileLine`)
         }
     }
 }

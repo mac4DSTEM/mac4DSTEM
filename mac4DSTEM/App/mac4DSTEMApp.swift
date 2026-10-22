@@ -1,5 +1,6 @@
 import ShellControls
 import ShellLayout
+import ShellSpectroscopy
 import SwiftUI
 import AppKit
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -161,6 +162,10 @@ private struct DatasetWindow: View {
                 room.editRegion(.rectangle(PixelRect(x0: 2, y0: 2, x1: 10, y1: 10)), final: true)
                 room.beginRegionEdit(nil)
                 room.editRegion(.rectangle(PixelRect(x0: 20, y0: 20, x1: 24, y1: 24)), final: true)
+                // and a line across the blob (28 px = 28 nm), on the Spectrum tab so the journey's other steps see the spectrum
+                room.model.addLine(from: PixelPoint(x: 2, y: 16), to: PixelPoint(x: 30, y: 16))
+                room.model.pane = .spectrum
+                room.model.selectedLine = nil   // the newest region stays the selected row
             }
         }
         #endif
@@ -301,6 +306,7 @@ private struct DatasetCommands: Commands {
                 Button("Rectangle Region Tool") { room.drawTool = .rectangle }.keyboardShortcut("1", modifiers: [.command, .control])
                 Button("Ellipse Region Tool") { room.drawTool = .ellipse }.keyboardShortcut("2", modifiers: [.command, .control])
                 Button("Polygon Region Tool") { room.drawTool = .polygon }.keyboardShortcut("3", modifiers: [.command, .control])
+                Button("Line Tool") { room.drawTool = .line }.keyboardShortcut("4", modifiers: [.command, .control])
                 Button("Pin Region") { SpectroscopyMenuRule.pin(room) }
                     .disabled(!SpectroscopyMenuRule.canPin(room))
             }

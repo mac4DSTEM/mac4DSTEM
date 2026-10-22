@@ -89,4 +89,46 @@ final class SpectroscopyRegionSetTests: XCTestCase {
         XCTAssertNil(RegionKeys.removableID(m.regions, selected: 0))
         XCTAssertNil(RegionKeys.removableID(m.regions, selected: nil))
     }
+
+    // MARK: lines and the Profile tab
+
+    /// A line is listed after the regions, selecting it shows the Profile tab, and deleting it brings the Spectrum tab back.
+    /// Mutation: the line left out of the set, the tab not following the selection, or the tab kept after the last line goes - red.
+    func testALineIsListedSelectsTheProfileTabAndGoesWithItsDelete() {
+        let m = model()
+        XCTAssertFalse(m.availablePanes.contains(.profile), "no line, no Profile tab")
+        XCTAssertTrue(m.availablePanes.contains(.table), "maps, so a Table tab")
+        m.addLine(from: PixelPoint(x: 2, y: 16), to: PixelPoint(x: 30, y: 16))
+        XCTAssertEqual(m.regionSet.regions.map(\.name), ["Region 1", "Region 2", "Line 1"])
+        XCTAssertEqual(m.regionSet.regions[2].geometry, .line(RegionPoint(x: 2, y: 16), RegionPoint(x: 30, y: 16)))
+        XCTAssertTrue(m.availablePanes.contains(.profile)); XCTAssertEqual(m.shownPane, .profile, "drawing a line shows its profile")
+        var pick = m.regionSet
+        pick.select(pick.regions[0].id)
+        m.apply(pick)
+        XCTAssertEqual(m.shownPane, .spectrum, "a region's row brings the spectrum back"); XCTAssertNil(m.selectedLine)
+        var gone = m.regionSet
+        gone.remove(gone.regions[2].id)
+        m.apply(gone)
+        XCTAssertTrue(m.lines.isEmpty); XCTAssertFalse(m.availablePanes.contains(.profile))
+        m.pane = .profile
+        XCTAssertEqual(m.shownPane, .spectrum, "no line, no Profile tab, whatever was chosen")
+    }
+
+    /// The Profile tab plots each mixed element map along the line in the map's own unit: a column ramp read along a horizontal line.
+    /// Mutation: the unmixed element plotted, or the 0...1 values plotted without their scale - red.
+    func testTheProfileSeriesAreTheMixedElementMapsAlongTheLine() throws {
+        let m = SpectroscopyRoomModel.fixture
+        let w = 16, h = 4
+        let ramp = (0..<(w * h)).map { Float($0 % w) / 15 }
+        m.tiles = [MapTile(z: 12, width: w, height: h, values: ramp, scale: 15), MapTile(z: 14, width: w, height: h, values: ramp, scale: 15)]
+        m.mixed = [12]
+        m.scanPixel = (size: 0.5, unit: "nm")
+        m.addLine(from: PixelPoint(x: 2.5, y: 1.5), to: PixelPoint(x: 10.5, y: 1.5))
+        let series = m.profileSeries
+        XCTAssertEqual(series.map(\.id), ["Mg"], "the mixed element only")
+        XCTAssertEqual(series[0].values.count, 9)
+        XCTAssertEqual(series[0].values[0], 2, accuracy: 1e-4); XCTAssertEqual(series[0].values[8], 10, accuracy: 1e-4)
+        XCTAssertEqual(series[0].length, 4, accuracy: 1e-9, "8 px at 0.5 nm")
+        XCTAssertEqual(m.profileUnit, "nm")
+    }
 }

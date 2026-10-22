@@ -1,4 +1,5 @@
 import ShellLayout
+import ShellSpectroscopy
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -60,7 +61,11 @@ struct SpectrumStripView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            plot
+            switch model.shownPane {
+            case .spectrum: plot
+            case .profile: profile
+            case .table: RegionTableView(model: model)
+            }
         }
         .accessibilityIdentifier("spectroscopy.spectrum")
     }
@@ -70,12 +75,13 @@ struct SpectrumStripView: View {
     private var header: some View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
-                Text(model.spectrumTitle).fontWeight(.semibold)
-                Text("· \(model.spectrumSubtitle)").foregroundStyle(.secondary)
+                Text(model.shownPane == .profile ? model.profileTitle : model.shownPane == .table ? "Table \u{00B7} mean per pixel" : model.spectrumTitle).fontWeight(.semibold)
+                if model.shownPane == .spectrum { Text("· \(model.spectrumSubtitle)").foregroundStyle(.secondary) }
             }.font(.callout).lineLimit(1).truncationMode(.tail)
                 .help("Drag to resize the maps and the spectrum")
             Spacer(minLength: 8)
             pinChips
+            if model.availablePanes.count > 1 { SpectrumPaneTabs(selection: $model.pane, available: model.availablePanes) }
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.paneHeaderHeight)
@@ -111,6 +117,14 @@ struct SpectrumStripView: View {
                 .accessibilityValue("\(ResultFormat.counts(Double(pin.pixels))) pixels")
             }
         }
+    }
+
+    // MARK: profile
+
+    /// The Profile tab: the mixed element maps along the selected line (MacEMUI's `ProfileChart`), in each map's own unit.
+    private var profile: some View {
+        ProfileChart(series: model.profileSeries, unit: model.profileUnit, valueTitle: model.mapMode.units)
+            .padding(10)
     }
 
     // MARK: plot

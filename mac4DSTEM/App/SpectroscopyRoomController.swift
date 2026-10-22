@@ -20,6 +20,7 @@ import Foundation
 import Observation
 import SwiftUI
 import ShellMetal
+import ShellSpectroscopy
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession
@@ -197,7 +198,7 @@ final class SpectroscopyRoomController {
         mapLineSummaries = [:]; tileLineLabels = [:]
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
-        m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.compare = .wholeMap; m.viewportIsManual = false
+        m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.lines = []; m.selectedLine = nil; m.linesIssued = 0; m.pane = .spectrum; m.compare = .wholeMap; m.viewportIsManual = false
         liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
         m.validation = nil; m.wholeMapLine = nil; m.pendingExport = nil; m.exportNote = nil

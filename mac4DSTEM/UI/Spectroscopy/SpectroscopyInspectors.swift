@@ -80,15 +80,7 @@ struct ElementsSection: View {
                 .accessibilityIdentifier("spectroscopy.smoothing")
             }
         }
-        // A menu, not MacEMUI's segmented `MapTileSizePicker`: that one is 292 pt wide here and the narrowest inspector column is less
-        // (`InspectorWidthBudgetTests`); the same choice, the same `MapTileSize`.
-        InspectorRow("Tile size") {
-            Picker("Tile size", selection: $model.tileSize) {
-                ForEach(MapTileSize.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.menu).labelsHidden().fixedSize()
-            .accessibilityIdentifier("maps.tileSize")
-        }
+        InspectorRow("Tile size") { MapTileSizePicker(selection: $model.tileSize) }   // a menu in a narrow column, MacEMUI decides
         // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
         // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
         InspectorRow("Auto ID") { UnvalidatedBadge() }
@@ -305,6 +297,7 @@ struct RegionSection: View {
     static func toolHelp(_ t: DrawTool) -> String {
         t == .rectangle ? "Rectangle: drag on the ColorMix"
             : t == .polygon ? "Polygon: click the corners, then the first corner again"
+            : t == .line ? "Line: drag on the ColorMix; the Profile tab plots the element maps along it"
             : "\(t.rawValue.capitalized): drag on the ColorMix"
     }
 

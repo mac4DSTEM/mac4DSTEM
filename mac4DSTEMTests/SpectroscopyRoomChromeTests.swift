@@ -26,7 +26,7 @@ final class SpectroscopyRoomChromeTests: XCTestCase {
     func testTheInspectorNoLongerHoldsTheHeadersControls() {
         XCTAssertFalse(SpectroscopyInspectorSections.Part.allCases.map(\.title).contains("Results"))
         // The chips the header draws are the ones the inspector used to draw, with their identifiers.
-        XCTAssertEqual(RegionSection.toolChips.map(\.accessibilityID), ["spectroscopy.regionTool.rectangle", "spectroscopy.regionTool.Ellipse", "spectroscopy.regionTool.polygon"])
+        XCTAssertEqual(RegionSection.toolChips.map(\.accessibilityID), ["spectroscopy.regionTool.rectangle", "spectroscopy.regionTool.Ellipse", "spectroscopy.regionTool.polygon", "spectroscopy.regionTool.line"])
         XCTAssertTrue(ElementsSection.mapChips(quantified: true).contains { $0.accessibilityID == "spectroscopy.mapMode.net" })
     }
 }
