@@ -1,0 +1,73 @@
+{
+  "paper": {
+    "citation": "Thronsen et al., Ultramicroscopy 255 (2024) 113861, doi:10.1016/j.ultramic.2023.113861 (CC BY 4.0)",
+    "data": "Zenodo 10.5281/zenodo.6645396 (CC BY 4.0, stays out of the repo; read from References/mac4DSTEM/thronsen-datasetA)",
+    "pdf": "References/mac4DSTEM/papers/thronsen-2024-ultramicroscopy-255-113861.pdf (PDF page numbers below)"
+  },
+  "datasetA": {
+    "scanSize": [
+      512,
+      512
+    ],
+    "scanSizeSource": "PDF page 3, Section 2 ('A dataset, termed Dataset A containing 512 x 512')",
+    "stepNmPaperText": 4.6,
+    "stepNmPaperTextSource": "PDF page 3 ('The scan step size was chosen to be 4.6 nm')",
+    "stepNmFile": 2.4943,
+    "stepNmFileSource": "their datasetA_preprocessed.hspy axes; settled by the owner 2026-09-28, the scale bar of their Fig. 7 agrees; every length and density here uses it",
+    "stride3Grid": [
+      171,
+      171
+    ],
+    "stride3Source": "References/mac4DSTEM/thronsen-datasetA/datasetA_stride3.h5 (every 3rd row and column of the preprocessed cube; no calibration stored, Q = 0.01904 per px from their file)"
+  },
+  "datasetB": {
+    "stepNm": 2.3,
+    "stepNmSource": "PDF page 3 ('the scan step size was set to 2.3 nm'); scan size not found in the text, so null",
+    "scanSize": null
+  },
+  "zoneAxisPatterns": {
+    "count": 6,
+    "countSource": "PDF page 3 ('In total, six unique ...')",
+    "labels": [
+      "Al [001]",
+      "theta' [001] (face-on)",
+      "theta' <100> (edge-on)",
+      "T1"
+    ],
+    "labelsNote": "the paper lists six unique patterns: one Al, one theta'[001], two theta'<100> and two T1 in-plane variants (PDF page 3); the labels above are the four phase classes of the ground truth map"
+  },
+  "classes": {
+    "0": "Al",
+    "1": "theta' edge-on",
+    "2": "theta' face-on",
+    "3": "T1",
+    "4": "disagreement (three annotators)"
+  },
+  "paperAccuracyPercent": {
+    "NMF": 98.5,
+    "vectorMatching": 98.46,
+    "templateMatching": 98.25,
+    "ANN": 99.04,
+    "source": "Table 3, PDF page 11; accuracy = deviation from the manually built ground truth map (the 'pixel-by-pixel difference', PDF page 3)",
+    "metric": "all pixels, all classes counted"
+  },
+  "publishedMapsAtStride3AccuracyPercent": {
+    "NMF": 98.44,
+    "vectorMatching": 98.49,
+    "templateMatching": 98.3,
+    "ANN": 99.05,
+    "source": "100 - the per-position error of the four published maps (Zenodo datasetA_phasemap_*.hspy) at [::3, ::3] against truth_stride3.json: 1.56 / 1.51 / 1.70 / 0.95 % (A3a, 2026-09-28; computed by us, not published)"
+  },
+  "groundTruthMap": {
+    "file": "References/mac4DSTEM/thronsen-datasetA/truth_stride3.json (Zenodo ground_truth.hspy at [::3, ::3])",
+    "pdf": "Fig. 7(c), PDF page 7"
+  },
+  "notInThePaper": [
+    "needle density",
+    "needle length",
+    "composition",
+    "strain",
+    "variants per object",
+    "thickness"
+  ]
+}
