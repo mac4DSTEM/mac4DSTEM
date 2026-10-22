@@ -16,12 +16,12 @@ final class SpectroscopySpec2DTests: XCTestCase {
 
     // MARK: sections
 
-    /// D-5: Elements, Region, Results, Quantification, Fitting, Export, in that order; Map display and Expert are gone. The
-    /// drive findings of 2026-10-07 added Spectrum (the Show menu's toggles) after Region.
-    /// Mutation: two cases of `Part` swapped (Region before Elements) - red.
-    func testTheInspectorHasSevenSectionsInOrder() {
+    /// D-5 as moved by the workspace alignment (2026-10-22): the inspector holds settings only, so Results is the room's table
+    /// beside the spectrum and the sections are Elements, Region, Spectrum, Quantification, Fitting, Export, in that order.
+    /// Mutation: two cases of `Part` swapped (Region before Elements), or Results put back - red.
+    func testTheInspectorHasSixSettingsSectionsInOrder() {
         XCTAssertEqual(SpectroscopyInspectorSections.Part.allCases.map(\.title),
-                       ["Elements", "Region", "Spectrum", "Results", "Quantification", "Fitting", "Export"])
+                       ["Elements", "Region", "Spectrum", "Quantification", "Fitting", "Export"])
     }
 
     // MARK: Auto ID

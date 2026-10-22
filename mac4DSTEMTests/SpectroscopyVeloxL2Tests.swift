@@ -69,8 +69,8 @@ final class SpectroscopyVeloxL2Tests: XCTestCase {
         let help = ElementsSection.foundHover(o, locale: en)
         XCTAssertTrue(help.hasPrefix("net / L_D: 1 = just detectable"))
         XCTAssertTrue(help.contains(ElementsSection.foundHelp))
-        // The reasons moved from the hover to the visible Details disclosure (UI audit 2026-10-14).
-        XCTAssertFalse(help.contains("Al: net 900 counts"))
+        // The reasons were the Details disclosure's (UI audit 2026-10-14) and are the hover's again (workspace alignment 2026-10-22).
+        XCTAssertTrue(help.contains("Al: net 900 counts"))
         XCTAssertTrue(ElementsSection.noteLines(o, o.suggestions).contains("Al: net 900 counts"))
     }
 

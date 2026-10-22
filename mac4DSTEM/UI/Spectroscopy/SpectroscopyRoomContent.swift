@@ -4,33 +4,89 @@ import SwiftUI
 /// below it. The two bands never scroll as a whole (`SpectroscopyRoomPlan`): the spectrum is always on screen, the grid is
 /// fitted inside the maps block, and only the tile grid scrolls (inside its own area) when its tiles cannot fit. Two dividers
 /// are the person's: the spectrum's header row (drag up / down: the maps' share of the height) and a grab zone between the
-/// ColorMix and the tile column (drag left / right: the ColorMix's share of the width). Both fractions live on the model
-/// (per window, not method state); nil = the plan's own default.
+/// ColorMix and the tile column (drag left / right: the ColorMix's share of the width), and the results panel's edge beside the
+/// spectrum (drag left / right: its width). The fractions live on the model (per window, not method state; nil = the plan's own
+/// default) and in the scene's storage, so a window comes back as it was left. Above the maps is the header row (region tool,
+/// map mode); the results table sits right of the spectrum.
 struct SpectroscopyRoomContent: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var mapsStart: CGFloat?
     @State private var mixStart: CGFloat?
+    @State private var resultsStart: CGFloat?
+    // Scene storage keeps the person's three divider positions (-1: the plan's own default).
+    @SceneStorage("spectroscopy.mapsFraction") private var storedMaps = -1.0
+    @SceneStorage("spectroscopy.mixFraction") private var storedMix = -1.0
+    @SceneStorage("spectroscopy.resultsWidth") private var storedResults = -1.0
 
     private var headerFloor: CGFloat { LayoutPolicy.paneHeaderHeight + 1 }
 
     var body: some View {
         GeometryReader { geo in
-            let plan = SpectroscopyRoomPlan.make(room: geo.size, headerHeight: headerFloor,
+            let headerRow = SpectroscopyRoomHeader.height
+            let body = CGSize(width: geo.size.width, height: max(0, geo.size.height - headerRow))
+            let plan = SpectroscopyRoomPlan.make(room: body, headerHeight: headerFloor,
                                                  tileCount: model.gridItems.count, aspect: model.gridAspect,
                                                  mapsFraction: model.mapsFraction, mixFraction: model.mixFraction)
+            let resultsWidth = SpectroscopyResultsPanel.width(stored: model.resultsWidth, roomWidth: geo.size.width)
             VStack(spacing: 0) {
+                SpectroscopyRoomHeader(model: model)
                 grid(plan)
                     .frame(height: plan.mapsHeight)
                     .clipped()
-                SpectrumStripView(model: model, onHeaderDrag: { translation, ended in
-                    dragSplit(translation.height, ended: ended, plan: plan, room: geo.size)
-                }, onHeaderAdjust: { direction in
-                    adjustSplit(direction, plan: plan, room: geo.size)
-                }, headerValue: splitValue(plan, room: geo.size))
+                HStack(spacing: 0) {
+                    SpectrumStripView(model: model, onHeaderDrag: { translation, ended in
+                        dragSplit(translation.height, ended: ended, plan: plan, room: body)
+                    }, onHeaderAdjust: { direction in
+                        adjustSplit(direction, plan: plan, room: body)
+                    }, headerValue: splitValue(plan, room: body))
+                    resultsDivider(width: resultsWidth, room: geo.size.width)
+                    SpectroscopyResultsPanel(model: model).frame(width: resultsWidth)
+                }
                 .frame(height: plan.bottomHeight)
                 .overlay(alignment: .top) { Divider() }
             }
+            .onAppear { restoreStored() }
+            .onChange(of: model.mapsFraction) { storedMaps = model.mapsFraction.map(Double.init) ?? -1 }
+            .onChange(of: model.mixFraction) { storedMix = model.mixFraction.map(Double.init) ?? -1 }
+            .onChange(of: model.resultsWidth) { storedResults = model.resultsWidth.map(Double.init) ?? -1 }
         }
+    }
+
+    /// The stored divider positions back onto the model, once, when the room appears (a value the model already holds wins).
+    private func restoreStored() {
+        if model.mapsFraction == nil, storedMaps >= 0 { model.mapsFraction = CGFloat(storedMaps) }
+        if model.mixFraction == nil, storedMix >= 0 { model.mixFraction = CGFloat(storedMix) }
+        if model.resultsWidth == nil, storedResults >= 0 { model.resultsWidth = CGFloat(storedResults) }
+    }
+
+    /// The vertical divider between the spectrum and the results table: a 1-pt rule in a grab zone, drag or arrow keys.
+    private func resultsDivider(width: CGFloat, room: CGFloat) -> some View {
+        Rectangle().fill(.separator).frame(width: 1)
+            .frame(width: LayoutPolicy.dividerGrabWidth)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .pointerStyle(.columnResize)
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { value in
+                    let start = resultsStart ?? width
+                    resultsStart = start
+                    model.resultsWidth = SpectroscopyResultsPanel.width(stored: start - value.translation.width, roomWidth: room)
+                }
+                .onEnded { _ in resultsStart = nil })
+            .accessibilityElement()
+            .focusable()
+            .onKeyPress(.leftArrow) { model.resultsWidth = SpectroscopyResultsPanel.width(stored: width + room * 0.05, roomWidth: room); return .handled }
+            .onKeyPress(.rightArrow) { model.resultsWidth = SpectroscopyResultsPanel.width(stored: width - room * 0.05, roomWidth: room); return .handled }
+            .accessibilityLabel("Resize the results table")
+            .accessibilityValue("\(Int(width)) points wide")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: model.resultsWidth = SpectroscopyResultsPanel.width(stored: width + room * 0.05, roomWidth: room)
+                case .decrement: model.resultsWidth = SpectroscopyResultsPanel.width(stored: width - room * 0.05, roomWidth: room)
+                @unknown default: break
+                }
+            }
+            .accessibilityIdentifier("spectroscopy.resultsDivider")
     }
 
     private func grid(_ plan: SpectroscopyRoomPlan.Plan) -> some View {

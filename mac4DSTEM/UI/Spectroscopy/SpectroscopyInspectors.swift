@@ -7,9 +7,9 @@ import SpectroCore
 import SpectroEDX
 #endif
 
-// The room's inspector (ADR 056, spec 2 D-5): one flat stack of sections, label left / control right (the app's `InspectorRow`
-// kit), no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols. Elements, Region,
-// Results and Quantification are open; Fitting and Export start closed. A row whose value the session has not supplied is
+// The room's inspector (ADR 056, spec 2 D-5; settings only since the workspace alignment 2026-10-22: the results table, the region tool and the map mode are in the room): one flat stack of sections, label left / control right (the app's `InspectorRow`
+// kit), no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols. Elements, Region
+// and Quantification are open; Fitting and Export start closed. A row whose value the session has not supplied is
 // hidden: nothing is shown that was not measured. Numbers are typed through `OptionalNumericField` (locale-safe, commits on
 // Return/blur).
 
@@ -20,13 +20,12 @@ struct SpectroscopyInspectorSections: View {
 
     /// The sections, in the order they are drawn (spec 2 D-5): the single source of both.
     enum Part: CaseIterable {
-        case elements, region, spectrum, results, quantification, fitting, export
+        case elements, region, spectrum, quantification, fitting, export
         var title: String {
             switch self {
             case .elements: "Elements"
             case .region: "Region"
             case .spectrum: "Spectrum"
-            case .results: "Results"
             case .quantification: "Quantification"
             case .fitting: "Fitting"
             case .export: "Export"
@@ -50,7 +49,6 @@ struct SpectroscopyInspectorSections: View {
         case .elements: InspectorSection(part.title) { ElementsSection(model: model) }
         case .region: InspectorSection(part.title) { RegionSection(model: model) }
         case .spectrum: InspectorSection(part.title) { SpectrumLayersSection(model: model) }
-        case .results: InspectorSection(part.title) { ResultsSection(model: model) }
         case .quantification: InspectorSection(part.title) { QuantificationSection(model: model) }
         case .fitting: InspectorSection(part.title, expanded: $model.quantify.expertOpen) { FittingSection(model: model) }
         case .export: InspectorSection(part.title, expanded: $exportOpen) { ExportSection(model: model) }
@@ -61,13 +59,10 @@ struct SpectroscopyInspectorSections: View {
 /// Elements: the periodic table, the maps' int / net switch, and Auto ID with what it picked.
 struct ElementsSection: View {
     @Bindable var model: SpectroscopyRoomModel
-    @State private var detailsOpen = false
     var body: some View {
         PeriodicTableView(model: model)
         SelectedElementRows(model: model)
-        InspectorRow("Maps") {
-            GlassChipGroup(chips: Self.mapChips(quantified: model.hasFit), mode: .single, selection: Self.mapSelection(model), identifier: "spectroscopy.mapMode")
-        }
+        // The map mode is the room header's (workspace alignment D2); the Smooth row below is a setting and stays.
         // Row 1a: a display kernel on the maps (the fixture has no maps behind it, so no row there).
         if model.isLive {
             InspectorRow("Smooth") {
@@ -100,18 +95,7 @@ struct ElementsSection: View {
         if let o = model.autoID.outcome {
             InspectorValueRow(Self.foundTitle, Self.foundText(o))
                 .help(Self.foundHover(o))
-            // The proposer's reasons are read on the row, not behind a hover (UI audit 2026-10-14, Offering help).
-            if Self.showsDetails(o) {
-                DisclosureGroup("Details", isExpanded: $detailsOpen) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(Self.noteLines(o, o.suggestions).enumerated()), id: \.offset) { _, line in
-                            Text(line).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .textSelection(.enabled).padding(.top, 3)
-                }
-                .accessibilityIdentifier("spectroscopy.autoID.details")
-            }
+            // The proposer's reasons are the Found row's tooltip (workspace alignment 2026-10-22: no walls of text in a disclosure).
             // R7 (wp3e F3.1): an excess beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
@@ -122,7 +106,7 @@ struct ElementsSection: View {
     }
 
     /// The maps' choice as chips: int and net always, wt% and at% once Quantify has run.
-    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% (after Quantify, typed k) are per-pixel with no σ; the number with a σ is a pooled region's, in the Results section."
+    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% (after Quantify, typed k) are per-pixel with no σ; the number with a σ is a pooled region's, in the Results table."
     static func mapChips(quantified: Bool) -> [GlassChip<MapMode>] {
         MapMode.allCases.filter { $0.isOffered(quantified: quantified) }.map {
             GlassChip(id: $0, title: $0.rawValue, help: mapHelp, accessibilityID: "spectroscopy.mapMode." + $0.rawValue)
@@ -162,7 +146,8 @@ struct ElementsSection: View {
 
     /// The Found row's hover: the number's definition and the row's help. The proposer's reasons are the Details disclosure's.
     static func foundHover(_ o: AutoIDOutcome, locale: Locale = .current) -> String {
-        significanceLine(locale: locale) + "\n" + foundHelp
+        let reasons = noteLines(o, o.suggestions)
+        return significanceLine(locale: locale) + "\n" + foundHelp + (reasons.isEmpty ? "" : "\n\n" + reasons.joined(separator: "\n"))
     }
 
     /// The Details disclosure is drawn when the proposer said anything about its picks, the sum-peak questions or what it did not test.
@@ -191,9 +176,7 @@ struct RegionSection: View {
 
     var body: some View {
         let r = model.regionSettings
-        InspectorRow("Tool") {
-            GlassChipGroup(chips: Self.toolChips, mode: .single, selection: Self.toolSelection(model), identifier: "spectroscopy.regionTool")
-        }
+        // The region tool is the room header's (workspace alignment D2).
         if model.regions.count > 1 || !model.poolNotes.isEmpty {
             InspectorRow("Source") {
                 Picker("Source", selection: Binding(get: { model.selectedRegion ?? 0 }, set: { model.selectedRegion = $0 })) {
@@ -208,10 +191,10 @@ struct RegionSection: View {
                     }
                 }.labelsHidden()   // compressible: a phase pool carries a CIF's name, which has no bound
             }
+            .help(r.registrationNote ?? "Where the spectrum comes from")   // card E5 a: a pool says how it reached the spectrum grid, as the row's tip
         } else {
             InspectorValueRow("Source", "Whole map")
         }
-        if let note = r.registrationNote { InspectorNote(note) }   // card E5 a: a pool says how it reached the spectrum grid
         if let phase = r.phase {
             InspectorRow("Phase") {
                 HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if r.phaseUnvalidated { UnvalidatedBadge() } }

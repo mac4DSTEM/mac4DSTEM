@@ -214,8 +214,7 @@ struct DatasetMenu: View {
                     .disabled(appState.displayedPattern == nil)
             }
         } label: {
-            // The folder icon is Reveal in Finder's (owner decision); the
-            // dataset menu uses the cube stack the sidebar already uses.
+            // The dataset menu uses the cube stack the sidebar already uses.
             Label("Dataset", systemImage: "square.stack.3d.up")
         }
         .help("Open a dataset, or act on the one that is open")
@@ -223,21 +222,6 @@ struct DatasetMenu: View {
     }
 }
 
-struct RevealDatasetButton: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        Button {
-            guard let path = appState.descriptor?.filePath else { return }
-            DatasetLocationActions.reveal(path: path)
-        } label: {
-            Label("Reveal in Finder", systemImage: "folder")
-        }
-        .help("Reveal the dataset in Finder")
-        .disabled(appState.descriptor == nil || appState.datasetSession.isLoading)
-        .accessibilityIdentifier("workspace.revealDataset")
-    }
-}
 
 // MARK: - The one action that runs the task
 
@@ -288,7 +272,7 @@ struct PrimaryActionButton: View {
     /// While a run is in flight this slot offers ONE thing: the way to
     /// cancel it, labeled "Cancel". `Label` with an icon and `.bordered`,
     /// matching every sibling toolbar item (`SaveResultButton`,
-    /// `RevealDatasetButton`, `DatasetMenu`) — a plain text button read as
+    /// `DatasetMenu`) — a plain text button read as
     /// collapsed beside them. A progress bar once shared this slot and
     /// squeezed the button until its label truncated to "C…" (owner,
     /// 2026-09-04); the bar is the centre display now, so the label has

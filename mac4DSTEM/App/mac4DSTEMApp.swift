@@ -254,9 +254,9 @@ private struct DatasetCommands: Commands {
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen, and the action acts on it too
             // (`toggleNavigator`): a sidebar the narrow window stepped aside
-            // reads "Show Tools", and showing it keeps it shown. No
+            // reads "Show Sidebar", and showing it keeps it shown. No
             // enablement check: the window's minimum fits both panels open.
-            Button(appState?.navigation.navigatorIsVisible == true ? "Hide Tools" : "Show Tools") {
+            Button(appState?.navigation.navigatorIsVisible == true ? "Hide Sidebar" : "Show Sidebar") {
                 appState?.navigation.toggleNavigator()
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
@@ -285,6 +285,10 @@ private struct DatasetCommands: Commands {
                 .disabled(appState?.canCancelActiveOperation != true)
             if let room = spectroscopyRoomModel {
                 Divider()
+                // The region tool, from the keyboard (the header row's chips are the pointer's way): Ctrl-Cmd-1 to 3.
+                Button("Rectangle Region Tool") { room.drawTool = .rectangle }.keyboardShortcut("1", modifiers: [.command, .control])
+                Button("Ellipse Region Tool") { room.drawTool = .ellipse }.keyboardShortcut("2", modifiers: [.command, .control])
+                Button("Polygon Region Tool") { room.drawTool = .polygon }.keyboardShortcut("3", modifiers: [.command, .control])
                 Button("Pin Region") { SpectroscopyMenuRule.pin(room) }
                     .disabled(!SpectroscopyMenuRule.canPin(room))
             }

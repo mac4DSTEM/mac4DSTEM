@@ -9,6 +9,12 @@ final class SpectroscopyJourney: Journey {
             waitForLoadingToEnd()
             wait(for: "spectroscopy.room", timeout: 30)
         }
+        step("the header row holds the region tool and the map mode") {
+            wait(for: "spectroscopy.header")
+            wait(for: "spectroscopy.regionTool")
+            wait(for: "spectroscopy.mapMode")
+            wait(for: "spectroscopy.results")
+        }
         step("Auto ID") {
             // the one read of a label: the button's identifier is not exposed to XCUITest through InspectorAdaptiveButton
             app.buttons["Auto ID"].firstMatch.click()

@@ -17,7 +17,7 @@ final class SpectroscopyLaneSTests: XCTestCase {
                       suspects: suspects, notTested: [], notes: notes)
     }
 
-    /// The Details disclosure is drawn exactly when the proposer said something, and holds every line the hover used to hold.
+    /// `showsDetails` is true exactly when the proposer said something; `noteLines` holds every line of it (now the Found row's tip).
     /// Mutation: `showsDetails` returns false, or `noteLines` drops `o.notes` - red.
     func testAutoIDDetailsHoldEveryReasonAndNote() {
         let o = outcome(reasons: ["Cu: net 900 counts"], notes: ["look-elsewhere: 3 of 40 tested"],
@@ -31,13 +31,15 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertFalse(ElementsSection.showsDetails(outcome()), "nothing said: no disclosure")
     }
 
-    /// The Found row's tip is the definition and the help only: the reasons it used to carry are now on screen.
-    /// Mutation: `foundHover` appends `notes(...)` again - red.
-    func testFoundHoverNoLongerCarriesTheReasons() {
+    /// The Found row's tip is the definition, the help and, since the workspace alignment (2026-10-22: no walls of text in a
+    /// disclosure), the proposer's reasons and notes, which the Details disclosure used to show.
+    /// Mutation: `foundHover` drops the reasons - red.
+    func testFoundHoverCarriesTheDefinitionTheHelpAndTheReasons() {
         let o = outcome(reasons: ["Cu: a very particular reason"], notes: ["a very particular note"])
         let tip = ElementsSection.foundHover(o, locale: Locale(identifier: "en_US"))
-        XCTAssertFalse(tip.contains("a very particular"))
+        XCTAssertTrue(tip.contains("a very particular reason") && tip.contains("a very particular note"))
         XCTAssertTrue(tip.contains(ElementsSection.foundHelp) && tip.contains("Currie"))
+        XCTAssertFalse(ElementsSection.foundHover(outcome(), locale: Locale(identifier: "en_US")).hasSuffix("\n"), "no trailing blank when nothing was said")
     }
 
     /// The row sentence under a results row: the failure, else the conflict note, else nothing; the icon's tip is a short kind.

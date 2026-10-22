@@ -257,10 +257,7 @@ struct ContentView: View {
             SaveResultButton()
         }
         .visibilityPriority(.low)
-        ToolbarItem(placement: .primaryAction) {
-            RevealDatasetButton()
-        }
-        .visibilityPriority(.low)
+        // Reveal in Finder is File > Show in Finder (owner decision 2026-10-22): a lone folder glyph beside the archive icon read as Open.
         ToolbarItem(placement: .primaryAction) {
             DatasetMenu()
         }

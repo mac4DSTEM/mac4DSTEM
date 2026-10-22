@@ -63,6 +63,8 @@ final class SpectroscopyRoomModel {
     /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
     var mapsFraction: CGFloat?
     var mixFraction: CGFloat?
+    /// The results panel's width beside the spectrum; nil = `SpectroscopyResultsPanel.width`'s default.
+    var resultsWidth: CGFloat?
 
     // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
     private(set) var autoID = AutoIDState()
