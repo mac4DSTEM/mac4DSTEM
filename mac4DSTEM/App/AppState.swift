@@ -1,5 +1,6 @@
 import Foundation
 import DiffractoOrientation
+import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import CuboPhase
 import DSTEMCore

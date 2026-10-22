@@ -38,6 +38,10 @@
 		000000000000000000000151 /* QuickLookThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 500000000000000000000120 /* QuickLookThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		000000000000000000000152 /* QuickLookPreview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 600000000000000000000120 /* QuickLookPreview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		300000000000000000000211 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000210 /* DSTEMQuickLook */; };
+		300000000000000000000402 /* ShellMetal in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000401 /* ShellMetal */; };
+		300000000000000000000404 /* ShellControls in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000403 /* ShellControls */; };
+		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
+		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -298,6 +302,10 @@
 				300000000000000000000103 /* CuboParallax in Frameworks */,
 				300000000000000000000031 /* ImagoCore in Frameworks */,
 				300000000000000000000033 /* ImagoFFT in Frameworks */,
+				300000000000000000000402 /* ShellMetal in Frameworks */,
+				300000000000000000000404 /* ShellControls in Frameworks */,
+				300000000000000000000406 /* ShellInspector in Frameworks */,
+				300000000000000000000408 /* ShellLayout in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -404,6 +412,10 @@
 				300000000000000000000020 /* FormatoDM */,
 				300000000000000000000022 /* FormatoEMD */,
 				300000000000000000000024 /* FormatoHDF5 */,
+				300000000000000000000401 /* ShellMetal */,
+				300000000000000000000403 /* ShellControls */,
+				300000000000000000000405 /* ShellInspector */,
+				300000000000000000000407 /* ShellLayout */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -538,6 +550,7 @@
 				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
 				30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */,
 				30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */,
+				300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -1361,6 +1374,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../FormatoKit;
 		};
+		300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/MacEMUI;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1515,6 +1532,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
 			productName = DSTEMQuickLook;
+		};
+		300000000000000000000401 /* ShellMetal */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			productName = ShellMetal;
+		};
+		300000000000000000000403 /* ShellControls */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			productName = ShellControls;
+		};
+		300000000000000000000405 /* ShellInspector */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			productName = ShellInspector;
+		};
+		300000000000000000000407 /* ShellLayout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../Packages/MacEMUI" */;
+			productName = ShellLayout;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

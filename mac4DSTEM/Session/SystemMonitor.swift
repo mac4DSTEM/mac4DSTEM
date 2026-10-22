@@ -8,6 +8,7 @@ import Foundation
 import DSTEMCore
 #endif
 import Metal
+import ShellMetal
 
 package enum SystemMonitor {
 

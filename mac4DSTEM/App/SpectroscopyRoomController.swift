@@ -19,6 +19,7 @@ import CoreGraphics
 import Foundation
 import Observation
 import SwiftUI
+import ShellMetal
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession

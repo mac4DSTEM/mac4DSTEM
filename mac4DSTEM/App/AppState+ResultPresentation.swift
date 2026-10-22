@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import ShellMetal
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession

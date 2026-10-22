@@ -15,6 +15,7 @@ import DiffractoScattering
 import DSTEMCore
 import DiffractoCore
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 final class ACOMMetalMemoryTests: XCTestCase {
 

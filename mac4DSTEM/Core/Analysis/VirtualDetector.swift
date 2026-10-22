@@ -22,6 +22,7 @@ import CuboPhase
 import CuboVirtual
 import Foundation
 import Metal
+import ShellMetal
 
 // Moved here from App/AppState.swift 2026-09-02 (v2.5 step 2): Core consumed
 // it, so it belongs to Core.

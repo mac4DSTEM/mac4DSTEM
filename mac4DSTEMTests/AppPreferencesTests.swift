@@ -4,6 +4,7 @@ import Observation
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 /// Pins `AppPreferences` (session S21, `ROADMAP.md` "Settings window,
 /// Xcode-style sidebar") and the two seams `AppState` reaches it through:

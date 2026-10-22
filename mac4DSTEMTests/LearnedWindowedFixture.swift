@@ -12,6 +12,7 @@ import XCTest
 import Metal
 import DSTEMCore
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 struct WindowedFixture {
     struct Site { var x: Float; var y: Float; var intensity: Float }

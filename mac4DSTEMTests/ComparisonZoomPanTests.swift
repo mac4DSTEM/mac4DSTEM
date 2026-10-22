@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 /// The comparison panels share one `PaneZoomModel` and can now be panned, so the hover readout has to invert the whole draw chain
 /// (fit, zoom about the centre, then the pan offset) — a panned panel that named the pixel it would have shown unpanned would

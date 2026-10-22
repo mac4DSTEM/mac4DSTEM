@@ -15,26 +15,9 @@ import Foundation
 import DSTEMCore
 #endif
 import Observation
+import ShellMetal
 
-package enum ColormapKind: String, CaseIterable, Identifiable {
-    case viridis
-    case inferno
-    case gray
-    case rdbu
-
-    package var id: String { rawValue }
-
-    package var displayName: String {
-        switch self {
-        case .viridis: return "Viridis"
-        case .inferno: return "Inferno"
-        case .gray: return "Gray"
-        case .rdbu: return "RdBu (diverging)"
-        }
-    }
-
-    package var isDiverging: Bool { self == .rdbu }
-}
+// `ColormapKind` is ShellMetal's (suite task 8, MacEMShell).
 
 @Observable
 @MainActor

@@ -17,6 +17,7 @@ import Foundation
 import DiffractoOrientation
 import DiffractoGeometry
 import DiffractoCore
+import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DiffractoScattering
 import DSTEMCore

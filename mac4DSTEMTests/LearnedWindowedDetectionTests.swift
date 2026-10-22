@@ -14,6 +14,7 @@ import XCTest
 import Metal
 import DSTEMCore
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 final class LearnedWindowedDetectionTests: XCTestCase {
 

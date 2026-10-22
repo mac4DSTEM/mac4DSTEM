@@ -8,6 +8,7 @@
 
 import Foundation
 import Metal
+import ShellMetal
 
 // MARK: - Disagreement diagnostics (no availability gate: pure Swift over BraggVectors)
 

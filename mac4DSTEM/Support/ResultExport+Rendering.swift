@@ -23,6 +23,7 @@ import DSTEMSession
 #endif
 import ImageIO
 import UniformTypeIdentifiers
+import ShellMetal
 
 extension AppState {
 

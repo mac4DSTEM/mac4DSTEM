@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import ShellMetal
 
 package enum FourDError: LocalizedError {
     case allocationFailed

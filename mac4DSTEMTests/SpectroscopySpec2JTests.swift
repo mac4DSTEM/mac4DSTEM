@@ -3,6 +3,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 /// Spec 2 lane J: the Maps export (PNG per map as shown, one CSV of net counts, one folder). Each test names its mutation.
 @MainActor

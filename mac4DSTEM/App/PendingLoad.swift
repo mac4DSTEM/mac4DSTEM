@@ -24,6 +24,7 @@
 
 import Foundation
 import Metal
+import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession

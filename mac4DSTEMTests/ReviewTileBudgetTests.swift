@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 /// Slot 4¾ lane D (pre-release review, 2026-10-02).
 ///

@@ -38,6 +38,9 @@ let package = Package(
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (GPL-3.0 from 0.1.1; the app's copy was its origin,
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.7.0"),
+        // The window shell, controls and Metal image view both apps share (suite task 8). LOCAL PATH until the package has its own repo and a tag
+        // (delete at MacEMUI 0.1.0: restore `exact: "0.1.0"`); DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
+        .package(path: "../Packages/MacEMUI"),
     ],
     targets: [
         .target(
@@ -65,7 +68,8 @@ let package = Package(
                            .product(name: "CuboBragg", package: "CuboKit"),
                            .product(name: "CuboEmbedding", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit"),
-                           .product(name: "ImagoFFT", package: "ImagoKit")],
+                           .product(name: "ImagoFFT", package: "ImagoKit"),
+                           .product(name: "ShellMetal", package: "MacEMUI")],
             path: "mac4DSTEM/Core",
             swiftSettings: [
                 // Accelerate's CURRENT LAPACK interface, which is what
@@ -116,7 +120,8 @@ let package = Package(
                            .product(name: "CuboVirtual", package: "CuboKit"),
                            .product(name: "CuboPhase", package: "CuboKit"),
                            .product(name: "CuboParallax", package: "CuboKit"),
-                           .product(name: "ImagoCore", package: "ImagoKit")],
+                           .product(name: "ImagoCore", package: "ImagoKit"),
+                           .product(name: "ShellMetal", package: "MacEMUI")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import ShellMetal
 
 /// SwiftUI-only review (2026-10-08, lane A2): the AppKit uses in the app layer.
 final class SwiftUIReviewA2Tests: XCTestCase {
