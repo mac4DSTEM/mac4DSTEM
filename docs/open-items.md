@@ -9,12 +9,6 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 
 ### ImagoKit (next: 0.7.1)
 - Polish along the way (Paul 2026-10-22, `designs/velox-gms-habits-2026-10-22.md`; fold each into the room when it is touched, then delete the line): **detector as an instrument** (pattern pane): a Detector section (shape, presets BF/ABF/ADF/axial BF, radii as steppers), a readout line with Copy as Code, arrow-key nudging with ⇧ for 5 px, several detectors merged to RGB; **calibration and orientation honesty**: the source of every unit in the Info tab, the beam centre as a fitted surface (`Fit origin…`), the rotation offset's two answers (`θ` or `θ + 180°`) as a segmented choice with each image shown, an inline row for a file with no scan shape or step; **quantification visible** (Spectroscopy): the model in one footer line, each Net row's window, background and σ on selection, a vacuum sentence; **pinned spectra as references** (MLLS) once SpectroKit 0.10.0 lands.
-- **A length measure on the object summaries** (`delete at ImagoKit 0.7.1`): `ObjectStatistics.sizeSummary` and `arealDensity` summarise `ObjectMoments.lengthPx` (the extent along the principal axis + 1 px); the study's needle length is the Feret diameter, so the app computes the median and mean of the counted objects' Feret lengths itself (`PrecipitateObjectReport.feretSummary`, a few lines). Ask: a `lengthMeasure: .feret` option, or `regionProperties`-based summaries.
-
-### DiffractoKit (next: 0.10.x)
-- **`LinearScale.assign`**: the ring-sequence assignment the app carries as `ShellAssignment` (`Core/Analysis/QCalibration.swift`, marked `delete at DiffractoKit 0.10.x`):
-  from per-position peak radii and the crystal's distinct shell lengths it finds which shell the first ring is, with named refusals; no Python reference
-  (checked against planted truth, `validation: "none"`). `LinearScale.estimate` then takes the assigned shell as its reference.
 
 ### CuboKit (next: 0.7)
 - **The resident cube** (the last app/kit separation item; the selected-area half landed 2026-10-21): the kit's `VirtualDiffraction.pattern(..., path: .metal)`
@@ -75,6 +69,9 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
   counts; `Data Order Swapped` = 1 on an EDS SI is refused; the detector resolution is assumed 130 eV at Mn K alpha; a negative live time should count as corrupt.
 
 ## App work
+- **Spectroscopy room, shared pieces not adopted yet (2026-10-22):** MacEMUI 0.2.1 (unreleased when this was written) has `RegionDrawingLayer(onDrag:)` (geometry while drawing, moving and resizing) and `MapColorControls` with a contrast and gamma `MapAdjustment`. The room keeps its own region gestures (the spectrum follows the pointer during a drag) and its per-map popover until 0.2.1 is tagged; then adopt both and delete the app-side copies. `MapGridLayout` still carries tile rectangles the tile grid no longer reads (`plan.tiles`, `tileContent`, `scroll`); delete them with their tests when the layer is adopted.
+- **Spectroscopy room, owed on screen (2026-10-22):** the hover chip and the double-click solo tile; dragging a line (XCUITest's synthetic drag does not reach the drawing tools, so the journey launches with `--demo-spectrum-regions`); the Table tab's per-region fits with two or more elements (the demo quantifies one); the Delete key with several regions.
+- **Variant map (task 40) owed on screen (2026-10-22):** the Variants block, the legend, the glyph colours by direction and by variant and the table columns are unit-tested on planted needles but not driven; they need a phase map with a beta'' phase (a Precipitates journey with a fixture phase map). The variant source is the phase map's winning library entry only; ACOM orientations are a second source behind `VariantSettings.source`. The replay plan has no per-key rule for the `variant_*` lineage keys yet (they replay as settings, recomputed).
 
 Ordered as the ROADMAP takes them.
 1. **Notarisation (the Developer ID archive itself was verified 2026-10-20).** An ad-hoc Release build (Hardened Runtime) does not launch (library validation: FormatoLibHDF5 and the app
@@ -168,7 +165,7 @@ Ordered as the ROADMAP takes them.
 
 - Number formatting (2026-10-21 UI check): the colorbar values on the image panes (0.88 / 96.11, 1.16e+04) use periods beside locale-formatted scale bars (0,2 A^-1, 1 nm); one formatter for the pane overlays is open.
 
-- Task 5 (CuboKit calibration and cube edits), left for a later night: only the bridge landed (`DSTEMCore.Calibration.cuboCalibration()`, pinned by `CuboCalibrationBridgeTests`). Replacing the app calibration struct needs its provenance, validity mask, aperture centre and the origin/probe/ellipse rescale under a bin or crop (the app moves them with the pixels, the kit leaves them as py4DSTEM does) to be decided first; ~290 call sites and the sidecar replay read it. `CubeEditing` (binScan, thinScan, padDetector, resampleDetector) is not adopted: the app bins and crops at load (`LoadSpecification`), not on an in-memory cube.
+- Task 5 (CuboKit calibration and cube edits), decided 2026-10-22: the app's `Calibration` stays. It carries what the kit's `Calibration` does not (the origin's provenance, the validity mask, the aperture centre, and the rescale of origin, probe and ellipse under a bin or crop, which the app moves with the pixels and the kit leaves as py4DSTEM does), about 290 call sites and the sidecar replay read it, and a swap gives a user nothing. The kit's model is reached through `DSTEMCore.Calibration.cuboCalibration()` (pinned by `CuboCalibrationBridgeTests`), which is what the kit's reducers are handed. `CubeEditing` (binScan, thinScan, padDetector, resampleDetector) is not adopted: the app bins and crops at load (`LoadSpecification`), not on an in-memory cube. Reopen only if a kit function needs a field the bridge does not carry.
 
 ## Design review 2026-10-21, left for Paul or a kit
 - Taste items waiting on Paul: the demo's 3x3 blocks (fixture varies per 4x4 block), the duplicate Compute buttons (toolbar and inspector), status words styled as controls ("Relative" accent text, "ROI sum" orange), pane titles on the Prepare pane, and the macTEM periodic table size.
