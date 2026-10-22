@@ -17,6 +17,8 @@ let package = Package(
         .library(name: "DSTEMCore", targets: ["DSTEMCore"]),
         .library(name: "DSTEMSession", targets: ["DSTEMSession"]),
         .library(name: "DSTEMTraining", targets: ["DSTEMTraining"]),
+        // The Quick Look rendering and preview card, shared by the two extensions and the unit tests (QuickLook/Shared).
+        .library(name: "DSTEMQuickLook", targets: ["DSTEMQuickLook"]),
     ],
     // Standalone EDX (fit, quantification, the spectrum image) lives in SpectroKit since S4 (ADR 064); the file readers
     // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two pins move
@@ -26,7 +28,9 @@ let package = Package(
     // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
         .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.8.2"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.9.1"),
+        // DEVELOPMENT PATH until FormatoKit 0.10.0 is tagged (FormatoPeek, the Quick Look extensions' reader); restore `exact: "0.10.0"` in the
+        // commit after the tag (delete at FormatoKit tag 0.10.0).
+        .package(path: "../FormatoKit"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.9.1"),
@@ -116,6 +120,22 @@ let package = Package(
                            .product(name: "CuboParallax", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit")],
             path: "mac4DSTEM/Session",
+            swiftSettings: [
+                .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
+                .swiftLanguageMode(.v5),
+                .defaultIsolation(MainActor.self),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("InferSendableFromCaptures"),
+                .enableUpcomingFeature("MemberImportVisibility"),
+            ]
+        ),
+        // The Quick Look thumbnail pixels and the preview card (CoreGraphics and SwiftUI over FormatoKit's `Peek`): linked by the
+        // QuickLookThumbnail and QuickLookPreview extensions and by the app, whose hosted unit tests read it.
+        .target(
+            name: "DSTEMQuickLook",
+            dependencies: [.product(name: "FormatoPeek", package: "FormatoKit")],
+            path: "QuickLook/Shared",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
                 .swiftLanguageMode(.v5),

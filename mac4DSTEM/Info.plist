@@ -15,6 +15,29 @@
 	     document type was declared at all, so a .h5 could not be opened by
 	     double-click, the app was absent from Open With, and the window had
 	     no proxy icon (docs/open-items.md). -->
+	<!-- HDF5 has no system content type, and Quick Look matches on content type: the app imports one for h5 and hdf5 (the
+	     QuickLook extensions name it). Imported, not exported: the HDF Group's type, declared by any app that reads the format. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.hdfgroup.hdf5</string>
+			<key>UTTypeDescription</key>
+			<string>HDF5 file</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>h5</string>
+					<string>hdf5</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

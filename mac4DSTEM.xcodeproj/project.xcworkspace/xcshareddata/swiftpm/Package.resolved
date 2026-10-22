@@ -1,5 +1,5 @@
 {
-  "originHash" : "a463bde092b4d885dbcaf0c4ee302fafb5e8b9f76acb531e46456ce573697b9c",
+  "originHash" : "c5b78d591f0dad5fbf8157e9fd6a083d11cfb5c2f34991b1891124b3385a116b",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -16,15 +16,6 @@
       "location" : "https://github.com/mac4DSTEM/DiffractoKit",
       "state" : {
         "revision" : "704e5e823e04b6c4d6eb6f1c43ecbad9a8b2bd46",
-        "version" : "0.9.1"
-      }
-    },
-    {
-      "identity" : "formatokit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mac4DSTEM/FormatoKit",
-      "state" : {
-        "revision" : "7294c90de3e414b93f3f588a008c5ce64ac09c3c",
         "version" : "0.9.1"
       }
     },

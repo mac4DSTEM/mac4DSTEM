@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Base only (GENERATE_INFOPLIST_FILE adds the identifier and versions). The content type is the app's imported HDF5 type
+	     (mac4DSTEM/Info.plist, UTImportedTypeDeclarations): Quick Look matches on content type, never on the extension.
+	     One owner per type: mac4DSTEM owns h5 and hdf5, macTEM owns dm3, dm4, mrc, tif and emd (suite decision, 2026-10-22). -->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<key>QLSupportedContentTypes</key>
+			<array>
+				<string>org.hdfgroup.hdf5</string>
+			</array>
+			<key>QLThumbnailMinimumDimension</key>
+			<integer>0</integer>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.quicklook.thumbnail</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ThumbnailProvider</string>
+	</dict>
+</dict>
+</plist>
