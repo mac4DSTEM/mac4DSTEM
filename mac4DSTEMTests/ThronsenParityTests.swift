@@ -91,7 +91,9 @@ final class ThronsenParityTests: XCTestCase {
             ?? organization.appendingPathComponent("References")
         return root.appendingPathComponent("mac4DSTEM/thronsen-datasetA")
     }
-    private static let stridePixelNm = 2.4943 * 3
+    /// The paper's step (PDF page 3: 4.6 nm per position) times the stride. The file's 2.4943 nm is not what Fig. 7 shows: its 400 nm bar and the
+    /// 512-position map put the step at 4.66 +- 0.06 nm (`truth.json`, "scale"), 1.87 times the file's.
+    private static let stridePixelNm = 4.6 * 3
 
     private struct Truth: Decodable { let labels: [[Int]] }
 
@@ -103,6 +105,12 @@ final class ThronsenParityTests: XCTestCase {
 
     /// The T4 run's pipeline on the stride-3 cube: detect at 0.15 %, measure the origin, match with the paper's relationships.
     private func ourLabels(width: Int, height: Int) async throws -> (labels: [Int], peaks: Int) {
+        let ours = try await ourMap(width: width, height: height)
+        return (ours.map.results.map { ThronsenReference.label(of: $0, phaseNames: ours.map.phaseNames) }, ours.peaks)
+    }
+
+    /// The same run, with the phase map and the library behind the labels (the winning entry per position, the matrix entry).
+    private func ourMap(width: Int, height: Int) async throws -> (map: PhaseMap, library: PhaseReferenceLibrary, peaks: Int) {
         let path = Self.references.appendingPathComponent("datasetA_stride3.h5").path
         let reader = try H5Reader(path: path)
         let primary = try await reader.discoverPrimaryDataset()
@@ -146,7 +154,7 @@ final class ThronsenParityTests: XCTestCase {
         let map = try XCTUnwrap(PhaseVectorMatcher.map(
             scan: bragg.phaseScan, scanWidth: width, scanHeight: height, library: library, settings: matching,
             originX: originX, originY: originY, invAngstromPerPixel: qPerPixel))
-        return (map.results.map { ThronsenReference.label(of: $0, phaseNames: map.phaseNames) }, peaks.reduce(0) { $0 + $1.count })
+        return (map, library, peaks.reduce(0) { $0 + $1.count })
     }
 
     private func objectRows(_ labels: [Int], width: Int, height: Int) -> [Int: (counted: Int, edge: Int, medianNm: Double?, densityPerUm2: Double?)] {
@@ -194,7 +202,156 @@ final class ThronsenParityTests: XCTestCase {
         // stride-3 step, raw (no minimum size). Pinned so a change in the object pipeline shows here; ours pinned the same way.
         XCTAssertEqual(theirs[1]?.counted, 70); XCTAssertEqual(theirs[2]?.counted, 3); XCTAssertEqual(theirs[3]?.counted, 21)
         XCTAssertEqual(theirs[3]?.edge, 16)
-        XCTAssertEqual(try XCTUnwrap(theirs[3]?.densityPerUm2), 17.0566, accuracy: 1e-3)
+        XCTAssertEqual(try XCTUnwrap(theirs[3]?.densityPerUm2), 5.0150, accuracy: 1e-3, "at the paper's 4.6 nm step (it was 17.0566 at the file's 2.4943 nm)")
         XCTAssertEqual(mine[1]?.counted, 75); XCTAssertEqual(mine[2]?.counted, 35); XCTAssertEqual(mine[3]?.counted, 26)
+    }
+
+    // MARK: - The 2026-10-22 comparison (figure, spread, edge, variants)
+
+    /// The published maps and the truth at full resolution: 5 x 512 x 512 bytes, written by the comparison from the Zenodo hspy files
+    /// (ground truth, NMF, vector matching, template matching, ANN).
+    private func loadPublished() throws -> [[Int8]] {
+        let url = Self.references.appendingPathComponent("published/maps_full.i8")
+        let data = try Data(contentsOf: url)
+        let n = 512 * 512
+        guard data.count == 5 * n else { throw XCTSkip("published/maps_full.i8 is not 5 x 512 x 512") }
+        return (0..<5).map { k in data[(k * n)..<((k + 1) * n)].map { Int8(bitPattern: $0) } }
+    }
+
+    /// The paper's scorer (`determine_accuracy.ipynb`): the share of positions whose label equals the truth's, class 4 and every class counted.
+    /// The four Zenodo maps reproduce Table 3 at full 512 x 512 to 0.01 percentage points. Mutation: the scorer ignoring class 4 or a stride.
+    func testThePublishedMapsReproduceTable3AtFullResolution() throws {
+        let maps: [[Int8]]
+        do { maps = try loadPublished() } catch { throw XCTSkip("the published maps are not on this disk (References/mac4DSTEM/thronsen-datasetA/published/maps_full.i8)") }
+        let truth = maps[0]
+        let table3 = [98.50, 98.46, 98.25, 99.04]   // NMF, vector matching, template matching, ANN
+        for (k, expected) in table3.enumerated() {
+            let wrong = zip(maps[k + 1], truth).filter { $0 != $1 }.count
+            let accuracy = 100 * Double(truth.count - wrong) / Double(truth.count)
+            XCTAssertEqual(accuracy, expected, accuracy: 0.01, "map \(k + 1)")
+        }
+    }
+
+    private struct ObjectLine { var counted: Int; var edge: Int; var small: Int; var medianNm: Double?; var densityPerUm2: Double?; var angles: [Double] }
+
+    /// Objects per precipitate class through the app's pipeline (`classObjects`, the report) at `stepNm` per position and a minimum size.
+    private func objectLines(_ labels: [Int], width: Int, height: Int, stepNm: Double, minimum: Int) -> [Int: ObjectLine] {
+        let kit: [Int32] = labels.map { $0 < 0 || $0 == 4 ? 9 : Int32($0) }
+        let objects = PrecipitateSegmentation.classObjects(labels: kit, width: width, height: height,
+            roles: .init(precipitateClasses: [1, 2, 3], matrix: [0], notIndexed: [9]), pixelSize: stepNm, pixelUnit: "nm")
+        let report = PrecipitateObjectReport.make(objects: objects, phaseNames: ["Al", "θ′ edge-on", "θ′ face-on", "T1"], matrixPhaseIndex: 0,
+                                                  pixelSize: stepNm, pixelUnit: "nm", minimumAreaPx: minimum)
+        var out: [Int: ObjectLine] = [:]
+        for s in report.summaries {
+            let angles = report.rows.filter { $0.label == s.label && $0.isCounted }.map(\.orientationDegrees)
+            out[Int(s.label)] = ObjectLine(counted: s.countedObjects, edge: s.edgeExcluded, small: s.belowMinimumExcluded,
+                                           medianNm: s.medianLengthPx.map { $0 * stepNm }, densityPerUm2: s.arealDensity.map { $0 * 1e6 }, angles: angles)
+        }
+        return out
+    }
+
+    private func line(_ name: String, _ lines: [Int: ObjectLine]) {
+        for (label, cls) in [(1, "θ′ edge-on"), (2, "θ′ face-on"), (3, "T1")] {
+            guard let l = lines[label] else { continue }
+            print(String(format: "THRONSEN-OBJ %@ | %@ | counted %d edge %d small %d | median Feret %@ nm | density %@ /um2", name, cls, l.counted, l.edge, l.small,
+                         l.medianNm.map { String(format: "%.1f", $0) } ?? "-", l.densityPerUm2.map { String(format: "%.1f", $0) } ?? "-"))
+        }
+    }
+
+    /// Positions with a different truth label within `radius` (Chebyshev) of them: where the maps may reasonably differ.
+    private func nearBoundary(_ truth: [Int], width: Int, height: Int, radius: Int = 2) -> [Bool] {
+        var out = [Bool](repeating: false, count: truth.count)
+        for y in 0..<height { for x in 0..<width {
+            let me = truth[y * width + x]
+            search: for dy in -radius...radius { for dx in -radius...radius {
+                let yy = y + dy, xx = x + dx
+                guard yy >= 0, yy < height, xx >= 0, xx < width else { continue }
+                if truth[yy * width + xx] != me { out[y * width + x] = true; break search }
+            } }
+        } }
+        return out
+    }
+
+    private func isolated(_ labels: [Int], width: Int, height: Int) -> Int {
+        let kit: [Int32] = labels.map { $0 < 0 || $0 == 4 ? 9 : Int32($0) }
+        let objects = PrecipitateSegmentation.classObjects(labels: kit, width: width, height: height,
+            roles: .init(precipitateClasses: [1, 2, 3], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil)
+        return objects.classes.flatMap(\.objects).filter { $0.area == 1 }.count
+    }
+
+    /// The comparison itself (heavy, real data, MAC4DSTEM_THRONSEN=1): the object statistics of the truth, the four published maps (full and
+    /// stride 3) and ours, the edge check, the isolated one-position objects, the variants per class from the winning entries, and the Feret-angle
+    /// families. Everything is printed with the THRONSEN prefix for `docs/parity.md`; the assertions pin only what is a fact of the data.
+    func testTheFigureComparisonNumbers() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MAC4DSTEM_THRONSEN"] == "1", "heavy real-data run: set MAC4DSTEM_THRONSEN=1 (command in this file's header)")
+        let published = try loadPublished()
+        let names = ["truth", "NMF", "vectors", "TMP", "ANN"]
+        let paperStepNm = 4.6
+        let stride = { (m: [Int8]) -> [Int] in
+            var out: [Int] = []; for y in stride(from: 0, to: 512, by: 3) { for x in stride(from: 0, to: 512, by: 3) { out.append(Int(m[y * 512 + x])) } }; return out
+        }
+        let full = published.map { $0.map(Int.init) }
+        let third = published.map(stride)
+        let ours = try await ourMap(width: 171, height: 171)
+        let oursLabels = ours.map.results.map { ThronsenReference.label(of: $0, phaseNames: ours.map.phaseNames) }
+        // Our map for the side-by-side picture (labels as int8, 171 x 171; the path is printed).
+        let dump = NSTemporaryDirectory() + "thronsen-ours-stride3.i8"
+        try Data(oursLabels.map { UInt8(bitPattern: Int8($0)) }).write(to: URL(fileURLWithPath: dump))
+        print("THRONSEN-DUMP \(dump)")
+        // 3. the spread: counts, median Feret, edge-corrected density, with every object and with single-position objects dropped
+        for minimum in [1, 2] {
+            for (k, name) in names.enumerated() {
+                line("\(name) full min\(minimum)", objectLines(full[k], width: 512, height: 512, stepNm: paperStepNm, minimum: minimum))
+                line("\(name) stride3 min\(minimum)", objectLines(third[k], width: 171, height: 171, stepNm: paperStepNm * 3, minimum: minimum))
+            }
+            line("ours stride3 min\(minimum)", objectLines(oursLabels, width: 171, height: 171, stepNm: paperStepNm * 3, minimum: minimum))
+        }
+        // 4. the edge check: our wrong positions within 2 positions of a truth boundary; the one-position objects per map
+        let near3 = nearBoundary(third[0], width: 171, height: 171)
+        let wrongOurs = oursLabels.indices.filter { oursLabels[$0] != third[0][$0] }
+        let nearOurs = wrongOurs.filter { near3[$0] }.count
+        print(String(format: "THRONSEN-EDGE ours stride3: %d wrong, %d within 2 positions of a truth boundary (%.1f %%)", wrongOurs.count, nearOurs, 100 * Double(nearOurs) / Double(max(wrongOurs.count, 1))))
+        let nearFull = nearBoundary(full[0], width: 512, height: 512)
+        for k in 1..<5 {
+            let wrong = full[k].indices.filter { full[k][$0] != full[0][$0] }
+            let near = wrong.filter { nearFull[$0] }.count
+            print(String(format: "THRONSEN-EDGE %@ full: %d wrong, %d within 2 positions of a truth boundary (%.1f %%)", names[k], wrong.count, near, 100 * Double(near) / Double(max(wrong.count, 1))))
+        }
+        for k in 1..<5 {
+            let wrong = third[k].indices.filter { third[k][$0] != third[0][$0] }
+            let near = wrong.filter { near3[$0] }.count
+            print(String(format: "THRONSEN-EDGE %@ stride3: %d wrong, %d within 2 positions of a truth boundary (%.1f %%)", names[k], wrong.count, near, 100 * Double(near) / Double(max(wrong.count, 1))))
+        }
+        for k in 0..<5 {
+            print("THRONSEN-ISOLATED \(names[k]) full: \(isolated(full[k], width: 512, height: 512)) one-position objects; stride3: \(isolated(third[k], width: 171, height: 171))")
+        }
+        print("THRONSEN-ISOLATED ours stride3: \(isolated(oursLabels, width: 171, height: 171)) one-position objects")
+        // 5. variants per class: the distinct in-plane rotations among the winning entries of each class (known-variants rule), and the offset
+        let library = ours.library
+        let matrixEntry = library.entries[ours.map.matrixEntryIndex]
+        print(String(format: "THRONSEN-VARIANT matrix entry in-plane rotation %.1f deg (the paper rotated the stack by -29.65 deg for its ANN)", matrixEntry.inPlaneRotationRad * 180 / .pi))
+        for (label, cls) in [(1, "θ′ edge-on"), (2, "θ′ face-on"), (3, "T1")] {
+            var histogram: [String: Int] = [:]
+            for (i, r) in ours.map.results.enumerated() where oursLabels[i] == label && r.entryIndex >= 0 {
+                let e = library.entries[Int(r.entryIndex)]
+                histogram[String(format: "zone %@ rot %6.1f", e.zoneAxis.description, e.inPlaneRotationRad * 180 / .pi), default: 0] += 1
+            }
+            let total = histogram.values.reduce(0, +)
+            let top = histogram.sorted { $0.value > $1.value }.prefix(6).map { "\($0.key): \($0.value)" }
+            print("THRONSEN-VARIANT \(cls): \(total) positions, \(histogram.count) distinct entries; top \(top)")
+        }
+        // Feret-angle families of the counted objects: truth and ours (derived, not published)
+        func families(_ angles: [Double]) -> String {
+            var bins = [Int](repeating: 0, count: 12)   // 15 degree bins over (-90, 90]
+            for a in angles { bins[min(max(Int((a + 90) / 15), 0), 11)] += 1 }
+            return bins.enumerated().filter { $0.element > 0 }.map { String(format: "%+.0f..%+.0f: %d", Double($0.offset) * 15 - 90, Double($0.offset + 1) * 15 - 90, $0.element) }.joined(separator: ", ")
+        }
+        let truthObjects = objectLines(third[0], width: 171, height: 171, stepNm: paperStepNm * 3, minimum: 4)
+        let oursObjects = objectLines(oursLabels, width: 171, height: 171, stepNm: paperStepNm * 3, minimum: 4)
+        for (label, cls) in [(1, "θ′ edge-on"), (2, "θ′ face-on"), (3, "T1")] {
+            print("THRONSEN-ANGLES truth \(cls) (min 4 px, counted): \(families(truthObjects[label]?.angles ?? []))")
+            print("THRONSEN-ANGLES ours \(cls) (min 4 px, counted): \(families(oursObjects[label]?.angles ?? []))")
+        }
+        XCTAssertEqual(published[0].count, 512 * 512)
     }
 }

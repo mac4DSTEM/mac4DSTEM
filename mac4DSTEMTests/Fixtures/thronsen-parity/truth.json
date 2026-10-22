@@ -1,73 +1,121 @@
 {
-  "paper": {
-    "citation": "Thronsen et al., Ultramicroscopy 255 (2024) 113861, doi:10.1016/j.ultramic.2023.113861 (CC BY 4.0)",
-    "data": "Zenodo 10.5281/zenodo.6645396 (CC BY 4.0, stays out of the repo; read from References/mac4DSTEM/thronsen-datasetA)",
-    "pdf": "References/mac4DSTEM/papers/thronsen-2024-ultramicroscopy-255-113861.pdf (PDF page numbers below)"
+ "paper": {
+  "citation": "Thronsen et al., Ultramicroscopy 255 (2024) 113861, doi:10.1016/j.ultramic.2023.113861 (CC BY 4.0)",
+  "data": "Zenodo 10.5281/zenodo.6645396 (CC BY 4.0, stays out of the repo; read from References/mac4DSTEM/thronsen-datasetA)",
+  "pdf": "References/mac4DSTEM/papers/thronsen-2024-ultramicroscopy-255-113861.pdf (PDF page numbers below)"
+ },
+ "datasetA": {
+  "scanSize": [
+   512,
+   512
+  ],
+  "scanSizeSource": "PDF page 3, Section 2 ('A dataset, termed Dataset A containing 512 x 512')",
+  "stepNmPaperText": 4.6,
+  "stepNmPaperTextSource": "PDF page 3 ('The scan step size was chosen to be 4.6 nm')",
+  "stepNmFile": 2.4943,
+  "stepNmFileSource": "their datasetA_preprocessed.hspy axes (2.4943); the owner settled on it 2026-09-28 believing Fig. 7's scale bar agreed; the 2026-10-22 measurement below says it does not, so it is NOT used (see scale)",
+  "stride3Grid": [
+   171,
+   171
+  ],
+  "stride3Source": "References/mac4DSTEM/thronsen-datasetA/datasetA_stride3.h5 (every 3rd row and column of the preprocessed cube; no calibration stored, Q = 0.01904 per px from their file)",
+  "scale": {
+   "decision": "4.6 nm per position (the paper's own statement, PDF page 3); the file's 2.4943 nm is not used",
+   "measured": {
+    "method": "PDF page 8 rendered at 250 dpi; the three 400 nm scale bars of Fig. 7 are 82, 82 and 81 px (panels a, b, c); panel (c) is registered to ground_truth.hspy by searching its bounds for the best class agreement: 99.81 % of the classified figure pixels equal the truth class, so the panel is exactly the 512 x 512 map, 487 px wide (x 1242..1728, y 196..682 of the 2067 x 2756 image)",
+    "pixelsPerBar": 81.67,
+    "figurePixelsPerMap": 487,
+    "mapSideNm": 2385,
+    "stepNmPerPosition": 4.66,
+    "uncertaintyNm": 0.06,
+    "uncertaintySource": "one pixel on the bar (1.2 %) and on the panel edges (0.2 %)",
+    "page": "PDF page 8 (Fig. 7); the text on PDF page 3 says 4.6 nm and an area of approximately 2.4 um2, a side of 2.4 um, which is 512 x 4.6 = 2.355 um"
+   },
+   "fileStepNm": 2.4943,
+   "fileStepRatioToMeasured": 1.87,
+   "consequence": "lengths read 1.87 times too short and areal densities 3.5 times too high with the file's step; every number in docs/parity.md from 2026-10-22 uses 4.6 nm (stride 3: 13.8 nm)",
+   "flag": "the owner's 2026-09-28 decision is reversed on a measurement, not a preference: confirm or overrule"
   },
-  "datasetA": {
-    "scanSize": [
-      512,
-      512
-    ],
-    "scanSizeSource": "PDF page 3, Section 2 ('A dataset, termed Dataset A containing 512 x 512')",
-    "stepNmPaperText": 4.6,
-    "stepNmPaperTextSource": "PDF page 3 ('The scan step size was chosen to be 4.6 nm')",
-    "stepNmFile": 2.4943,
-    "stepNmFileSource": "their datasetA_preprocessed.hspy axes; settled by the owner 2026-09-28, the scale bar of their Fig. 7 agrees; every length and density here uses it",
-    "stride3Grid": [
-      171,
-      171
-    ],
-    "stride3Source": "References/mac4DSTEM/thronsen-datasetA/datasetA_stride3.h5 (every 3rd row and column of the preprocessed cube; no calibration stored, Q = 0.01904 per px from their file)"
+  "fullResolutionAccuracyPercent": {
+   "NMF": 98.502,
+   "vectorMatching": 98.457,
+   "templateMatching": 98.2521,
+   "ANN": 99.0391,
+   "source": "the four Zenodo maps (published/datasetA_phasemap_*.hspy) against ground_truth.hspy at the full 512 x 512 with the paper's scorer (determine_accuracy.ipynb: count_nonzero(abs(map - truth)) / (512*512), every class and the 4 'not indexed' truth positions counted); reproduces Table 3 (98.50 / 98.46 / 98.25 / 99.04) to 0.01 pp; pinned by ThronsenParityTests.testThePublishedMapsReproduceTable3AtFullResolution",
+   "page": "Table 3, PDF page 11"
   },
-  "datasetB": {
-    "stepNm": 2.3,
-    "stepNmSource": "PDF page 3 ('the scan step size was set to 2.3 nm'); scan size not found in the text, so null",
-    "scanSize": null
+  "classCountsGroundTruth": {
+   "0": 192740,
+   "1": 3816,
+   "2": 8719,
+   "3": 56865,
+   "4": 4,
+   "source": "ground_truth.hspy, 512 x 512"
+  }
+ },
+ "datasetB": {
+  "stepNm": 2.3,
+  "stepNmSource": "PDF page 3 ('the scan step size was set to 2.3 nm'); scan size not found in the text, so null",
+  "scanSize": null
+ },
+ "zoneAxisPatterns": {
+  "count": 6,
+  "countSource": "PDF page 3 ('In total, six unique ...')",
+  "labels": [
+   "Al [001]",
+   "theta' [001] (face-on)",
+   "theta' <100> (edge-on)",
+   "T1"
+  ],
+  "labelsNote": "the paper lists six unique patterns: one Al, one theta'[001], two theta'<100> and two T1 in-plane variants (PDF page 3); the labels above are the four phase classes of the ground truth map"
+ },
+ "classes": {
+  "0": "Al",
+  "1": "theta' edge-on",
+  "2": "theta' face-on",
+  "3": "T1",
+  "4": "disagreement (three annotators)"
+ },
+ "paperAccuracyPercent": {
+  "NMF": 98.5,
+  "vectorMatching": 98.46,
+  "templateMatching": 98.25,
+  "ANN": 99.04,
+  "source": "Table 3, PDF page 11; accuracy = deviation from the manually built ground truth map (the 'pixel-by-pixel difference', PDF page 3)",
+  "metric": "all pixels, all classes counted"
+ },
+ "publishedMapsAtStride3AccuracyPercent": {
+  "NMF": 98.44,
+  "vectorMatching": 98.49,
+  "templateMatching": 98.3,
+  "ANN": 99.05,
+  "source": "100 - the per-position error of the four published maps (Zenodo datasetA_phasemap_*.hspy) at [::3, ::3] against truth_stride3.json: 1.56 / 1.51 / 1.70 / 0.95 % (A3a, 2026-09-28; computed by us, not published)"
+ },
+ "groundTruthMap": {
+  "file": "References/mac4DSTEM/thronsen-datasetA/truth_stride3.json (Zenodo ground_truth.hspy at [::3, ::3])",
+  "pdf": "Fig. 7(c), PDF page 7"
+ },
+ "notInThePaper": [
+  "needle density",
+  "needle length",
+  "composition",
+  "strain",
+  "variants per object",
+  "thickness"
+ ],
+ "figureComparison2026-10-22": {
+  "variantsPerClassExpected": {
+   "T1": 2,
+   "theta' edge-on": 2,
+   "theta' face-on": 1,
+   "source": "PDF page 3: one unique in-plane angle for theta'[001], two perpendicular for theta'<100>, two for T1"
   },
-  "zoneAxisPatterns": {
-    "count": 6,
-    "countSource": "PDF page 3 ('In total, six unique ...')",
-    "labels": [
-      "Al [001]",
-      "theta' [001] (face-on)",
-      "theta' <100> (edge-on)",
-      "T1"
-    ],
-    "labelsNote": "the paper lists six unique patterns: one Al, one theta'[001], two theta'<100> and two T1 in-plane variants (PDF page 3); the labels above are the four phase classes of the ground truth map"
+  "paperAzimuth": {
+   "degrees": -29.65,
+   "source": "PDF page 7 (Section 3.7.2): the ANN stack rotated by phi_A = -29.65 deg counter-clockwise, from the vector matching"
   },
-  "classes": {
-    "0": "Al",
-    "1": "theta' edge-on",
-    "2": "theta' face-on",
-    "3": "T1",
-    "4": "disagreement (three annotators)"
-  },
-  "paperAccuracyPercent": {
-    "NMF": 98.5,
-    "vectorMatching": 98.46,
-    "templateMatching": 98.25,
-    "ANN": 99.04,
-    "source": "Table 3, PDF page 11; accuracy = deviation from the manually built ground truth map (the 'pixel-by-pixel difference', PDF page 3)",
-    "metric": "all pixels, all classes counted"
-  },
-  "publishedMapsAtStride3AccuracyPercent": {
-    "NMF": 98.44,
-    "vectorMatching": 98.49,
-    "templateMatching": 98.3,
-    "ANN": 99.05,
-    "source": "100 - the per-position error of the four published maps (Zenodo datasetA_phasemap_*.hspy) at [::3, ::3] against truth_stride3.json: 1.56 / 1.51 / 1.70 / 0.95 % (A3a, 2026-09-28; computed by us, not published)"
-  },
-  "groundTruthMap": {
-    "file": "References/mac4DSTEM/thronsen-datasetA/truth_stride3.json (Zenodo ground_truth.hspy at [::3, ::3])",
-    "pdf": "Fig. 7(c), PDF page 7"
-  },
-  "notInThePaper": [
-    "needle density",
-    "needle length",
-    "composition",
-    "strain",
-    "variants per object",
-    "thickness"
-  ]
+  "feretAngleFamilies": {
+   "source": "PDF page 7 (Section 4.1): T1 projected major axis along [110] and [1-10] of Al, theta'<100> along [100] and [010]: two families 90 deg apart each, 45 deg between the two phases"
+  }
+ }
 }
