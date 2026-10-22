@@ -81,6 +81,7 @@ extension AppState {
     /// Set once; the products hold nothing of the room.
     func wirePoolHooks() {
         phaseMapping.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
+        spectroscopyRoom.onQuantMapsChange = { [weak self] in self?.refreshPrecipitateJoins() }
         diffractionGroups.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
     }
 
@@ -102,6 +103,7 @@ extension AppState {
         spectroscopy.poolTask = Task { @MainActor [weak self] in
             let catalogue = await Task.detached(priority: .userInitiated) { PoolCatalogue.build(inputs) }.value
             guard let self, !Task.isCancelled, self.spectroscopy.poolRequest == request else { return }
+            self.refreshPrecipitateJoins()   // the registration may have changed with the pools
             let change = self.spectroscopy.applyPools(catalogue)
             self.spectroscopyRoom.poolsChanged(change)
             if let sentence = change.selectionSentence { self.statusText = sentence }

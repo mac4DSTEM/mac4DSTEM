@@ -67,6 +67,17 @@ struct PrecipitateObjectsWindow: View {
                 .padding(.vertical, 12)
             Divider()
             table
+            let notes = [report.compositionUnavailable.map { "Composition: " + $0 }, report.strainUnavailable.map { "Strain: " + $0 }].compactMap { $0 }
+            if !notes.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(notes, id: \.self) { Text($0) }
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.vertical, 6)
+                .accessibilityIdentifier("precipitates.objects.joinNotes")
+            }
         }
         // Size: the scene's `.defaultSize` (App/mac4DSTEMApp.swift). The
         // summary grid keeps its one-line width (`fixedSize` below), which the
@@ -233,17 +244,31 @@ struct PrecipitateObjectsWindow: View {
                 .width(min: 56, ideal: 70)
                 .alignment(.numeric)
             }
-            TableColumn("Orientation", value: \.orientationDegrees) { row in
-                Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
-                    .monospacedDigit()
+            Group {
+                TableColumn("Orientation", value: \PrecipitateObjectReport.Row.orientationDegrees) { row in
+                    Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
+                        .monospacedDigit()
+                }
+                .width(min: 70, ideal: 80)
+                .alignment(.numeric)
+                TableColumn("Position", value: \PrecipitateObjectReport.Row.centroidY) { row in
+                    Text("\(Int(row.centroidX.rounded())), \(Int(row.centroidY.rounded()))").monospacedDigit()
+                }
+                .width(min: 64, ideal: 76)
+                .alignment(.numeric)
+                TableColumn("Composition (mean of pixels)") { row in
+                    Text(row.compositionSummary).monospacedDigit()
+                        .foregroundStyle(row.composition == nil ? .secondary : .primary)
+                        .help(report.compositionUnavailable ?? "The mean of the per-pixel at% maps under the object. Not the pooled fit's value, no sigma.")
+                }
+                .width(min: 140, ideal: 190)
+                TableColumn("Strain (mean of pixels)") { row in
+                    Text(row.strainSummary).monospacedDigit()
+                        .foregroundStyle(row.strain == nil ? .secondary : .primary)
+                        .help(report.strainUnavailable ?? "The mean strain under the object, in rows (rr) and columns (cc). Not a fit error.")
+                }
+                .width(min: 170, ideal: 230)
             }
-            .width(min: 70, ideal: 80)
-            .alignment(.numeric)
-            TableColumn("Position", value: \.centroidY) { row in
-                Text("\(Int(row.centroidX.rounded())), \(Int(row.centroidY.rounded()))").monospacedDigit()
-            }
-            .width(min: 64, ideal: 76)
-            .alignment(.numeric)
             TableColumn("Counted", value: \.countedSortKey) { row in
                 if let why = row.exclusion {
                     Text("no — \(why)").foregroundStyle(.secondary)

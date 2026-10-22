@@ -284,7 +284,12 @@ final class AppState {
     /// The specimen thickness behind the precipitate counts (typed, with its source); recorded on the objects run's lineage node
     /// so the sidecar carries it. Set through `setPrecipitateThickness`.
     private(set) var precipitateThickness: ThicknessEntry?
+    /// Composition and strain under each precipitate object (task 42), joined off the main actor from the quantified maps and the
+    /// strain map; the object report reads them. Recomputed by `refreshPrecipitateJoins`.
+    private(set) var precipitateJoins = PrecipitateJoins()
+    @ObservationIgnored var precipitateJoinGeneration = 0
     func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
+    func assignPrecipitateJoins(_ joins: PrecipitateJoins) { precipitateJoins = joins }
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
     var precipitateOverlay = PrecipitateOverlaySettings()
     /// The object under the pointer on a scan pane (the overlay writes its readout beside it).

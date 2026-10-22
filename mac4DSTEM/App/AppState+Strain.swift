@@ -120,6 +120,7 @@ extension AppState {
         // these keys describe the fit this map was computed against, and
         // reading them at export time let them describe a different one.
         strain.publish(map, originProvenance: originFitProvenance)
+        refreshPrecipitateJoins()
         // Recipe step (v2 S5): the run's modes plus the RESOLVED basis — an
         // automatic basis re-derived on a different view can legitimately
         // differ, so the recipe records both; S6 decides which fidelity a

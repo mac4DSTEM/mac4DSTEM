@@ -265,6 +265,7 @@ extension AppState {
                 pixelSize: pixelSize, pixelUnit: pixelUnit)
         }.value
         if precipitateClassification.publish(objects, ifCurrent: token) {
+            refreshPrecipitateJoins()
             // Lineage node (ADR 047): consumes the phase map just recorded.
             recordLineageRun(kind: "precipitate_objects", parameters: objectsRunParameters)
         }
@@ -339,7 +340,8 @@ extension AppState {
             provenance: precipitateReportProvenance(map: map),
             sourceID: precipitateClassification.sourceID,
             thicknessNm: precipitateThickness.flatMap { $0.isUsable ? $0.nanometres : nil },
-            thicknessSigmaNm: precipitateThickness.flatMap { $0.isUsable ? $0.sigmaNanometres : nil })
+            thicknessSigmaNm: precipitateThickness.flatMap { $0.isUsable ? $0.sigmaNanometres : nil },
+            compositionJoin: precipitateJoins.composition, strainJoin: precipitateJoins.strain)
     }
 
     /// The outline of the objects selected in the object table, for the scan

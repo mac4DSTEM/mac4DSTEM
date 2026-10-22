@@ -49,6 +49,15 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let perimeterPx: Double?
         package let equivalentDiameterPx: Double?
         package let solidity: Double?
+        /// Mean composition under the object from the quantified maps (suite task 42): per element, the EDX pixels averaged and
+        /// those the maps could not give a value for. Nil without the join; `compositionNote` says why an object has none.
+        package let composition: [ObjectComposition]?
+        package let compositionPixels: Int?
+        package let compositionExcluded: Int?
+        package let compositionNote: String?
+        /// Mean strain under the object (rows and columns) and its spread, or `strainNote`.
+        package let strain: ObjectStrain?
+        package let strainNote: String?
         /// (-90, 90], image frame: 0 = +x, positive reads clockwise on screen.
         package let orientationDegrees: Double
         package let centroidX: Double
@@ -68,6 +77,19 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package var perimeterSortKey: Double { perimeterPx ?? -1 }
         package var equivalentDiameterSortKey: Double { equivalentDiameterPx ?? -1 }
         package var soliditySortKey: Double { solidity ?? -1 }
+
+        /// The table's one-cell texts for the joins (suite task 42): the object's own mean, or the reason it has none ("" without the join).
+        package var compositionSummary: String {
+            guard let composition else { return compositionNote ?? "" }
+            let parts = composition.compactMap { e in e.atomicPercent.map { "\(e.symbol) " + Self.fixed($0, 1) } }
+            return parts.joined(separator: " · ") + " at%" + ((compositionExcluded ?? 0) > 0 ? " (\(compositionPixels ?? 0) px, \(compositionExcluded ?? 0) failed or masked)" : "")
+        }
+        package var strainSummary: String {
+            guard let strain else { return strainNote ?? "" }
+            let pct = { (v: Double) in Self.fixed(v * 100, 2) }
+            return "rr \(pct(strain.rr)) · cc \(pct(strain.cc)) · rc \(pct(strain.rc)) %, \(Self.fixed(strain.rotationDegrees, 2))°"
+        }
+        private static func fixed(_ v: Double, _ digits: Int) -> String { v.formatted(.number.precision(.fractionLength(digits)).locale(Locale(identifier: "en_US_POSIX"))) }
 
         /// In the counted statistics: not on the scan edge, not under the
         /// minimum size.
@@ -131,6 +153,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package let thicknessNm: Double?
     package let thicknessSigmaNm: Double?
     package let numberDensityValidation: String?
+    /// The elements of the composition columns, in the maps' order; empty without the join. When a join could not run, why.
+    package let compositionElements: [String]
+    package let compositionUnavailable: String?
+    package let strainAvailable: Bool
+    package let strainUnavailable: String?
 
     package var hasPhysicalScale: Bool { pixelSize != nil && pixelUnit != nil }
 
@@ -149,7 +176,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         provenance: [(String, String)] = [],
         sourceID: UUID? = nil,
         thicknessNm: Double? = nil,
-        thicknessSigmaNm: Double? = nil
+        thicknessSigmaNm: Double? = nil,
+        compositionJoin: ObjectJoinResult<ObjectCompositionValue>? = nil,
+        strainJoin: ObjectJoinResult<ObjectStrain>? = nil
     ) -> PrecipitateObjectReport {
         let minimum = max(1, minimumAreaPx)
         let scale: Double? = {
@@ -193,6 +222,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                     areaPx: object.area, lengthPx: length, widthPx: width,
                     axisMajorLengthPx: object.axisMajorLengthPx, perimeterPx: object.perimeterPx,
                     equivalentDiameterPx: object.equivalentDiameterPx, solidity: object.solidity,
+                    composition: compositionJoin?.perObject[object.id]?.elements,
+                    compositionPixels: compositionJoin?.perObject[object.id]?.pixels,
+                    compositionExcluded: compositionJoin?.perObject[object.id]?.excluded,
+                    compositionNote: compositionJoin?.reasons[object.id],
+                    strain: strainJoin?.perObject[object.id], strainNote: strainJoin?.reasons[object.id],
                     orientationDegrees: Double(object.orientationDegrees),
                     centroidX: Double(object.centroidX), centroidY: Double(object.centroidY),
                     touchesEdge: object.touchesEdge, belowMinimum: object.area < minimum,
@@ -219,7 +253,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             thicknessNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessNm : nil,
             thicknessSigmaNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessSigmaNm : nil,
             numberDensityValidation: summaries.contains { $0.nVolumePerUm3 != nil }
-                ? (try? ObjectStatistics.numberDensity(arealDensity: 0, thickness: 1))?.validation : nil)
+                ? (try? ObjectStatistics.numberDensity(arealDensity: 0, thickness: 1))?.validation : nil,
+            compositionElements: compositionJoin?.perObject.values.first?.elements.map(\.symbol) ?? [],
+            compositionUnavailable: compositionJoin?.unavailable,
+            strainAvailable: (strainJoin?.perObject.isEmpty == false),
+            strainUnavailable: strainJoin?.unavailable)
     }
 
     /// N_V per µm³ from a class's areal density (per pixel-unit²) and the typed thickness (nm): ImagoKit's `numberDensity` on the density
@@ -331,6 +369,12 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             lines.append("# N_V: areal density / thickness (\(Self.number(t)) nm" + (thicknessSigmaNm.map { " +/- \(Self.number($0))" } ?? "")
                 + "), assuming the objects span the foil; validation: \(numberDensityValidation ?? "none")")
         }
+        if !compositionElements.isEmpty {
+            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDX pixels (no sigma; not the pooled fit); objects under the minimum EDX pixels have none; validation: none")
+        } else if let why = compositionUnavailable { lines.append("# composition: not available: \(why)") }
+        if strainAvailable {
+            lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
+        } else if let why = strainUnavailable { lines.append("# strain: not available: \(why)") }
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
             var parts = ["\(s.countedObjects) counted of \(s.totalObjects)",
@@ -358,26 +402,44 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     /// The table's columns, as the CSV header names them. Physical ones carry the real-space unit.
     private var columnNames: [String] {
         let unit = pixelUnit ?? "unit"
-        return ["id", "phase", "counted", "excluded_because", "area_px", "length_px", "width_px",
-                "aspect_ratio", "orientation_deg", "centroid_x_px", "centroid_y_px",
-                "area_\(unit)2", "length_\(unit)", "width_\(unit)",
-                "axis_major_length_px", "perimeter_px", "equivalent_diameter_px", "solidity",
-                "axis_major_length_\(unit)", "perimeter_\(unit)", "equivalent_diameter_\(unit)"]
+        var names: [String] = ["id", "phase", "counted", "excluded_because", "area_px", "length_px", "width_px",
+                               "aspect_ratio", "orientation_deg", "centroid_x_px", "centroid_y_px",
+                               "area_\(unit)2", "length_\(unit)", "width_\(unit)"]
+        names += ["axis_major_length_px", "perimeter_px", "equivalent_diameter_px", "solidity"]
+        names += ["axis_major_length_\(unit)", "perimeter_\(unit)", "equivalent_diameter_\(unit)"]
+        if !compositionElements.isEmpty {
+            names.append("composition_px")
+            for symbol in compositionElements { names.append(Self.csvName(symbol) + "_at_pct"); names.append(Self.csvName(symbol) + "_wt_pct") }
+        }
+        if strainAvailable {
+            names += ["strain_px", "strain_rr", "strain_cc", "strain_rc", "rotation_deg", "strain_rr_sigma", "strain_cc_sigma", "strain_rc_sigma"]
+        }
+        return names
     }
 
     /// One row's values in `columnNames` order, unquoted, in the CSV's locale-independent number format.
     /// The CSV and Copy both read it, so what is copied is what the file would hold.
     private func fields(of r: Row) -> [String] {
-        [String(r.id), r.phaseName, r.isCounted ? "1" : "0",
-         r.exclusion ?? "", String(r.areaPx), Self.number(r.lengthPx), Self.number(r.widthPx),
-         Self.number(r.aspectRatio), Self.number(r.orientationDegrees),
-         Self.number(r.centroidX), Self.number(r.centroidY),
-         r.area.map(Self.number) ?? "", r.length.map(Self.number) ?? "",
-         r.width.map(Self.number) ?? "",
-         r.axisMajorLengthPx.map(Self.number) ?? "", r.perimeterPx.map(Self.number) ?? "",
-         r.equivalentDiameterPx.map(Self.number) ?? "", r.solidity.map(Self.number) ?? "",
-         r.axisMajorLength.map(Self.number) ?? "", r.perimeter.map(Self.number) ?? "",
-         r.equivalentDiameter.map(Self.number) ?? ""]
+        func n(_ v: Double?) -> String { v.map(Self.number) ?? "" }
+        var f: [String] = [String(r.id), r.phaseName, r.isCounted ? "1" : "0", r.exclusion ?? "", String(r.areaPx),
+                           Self.number(r.lengthPx), Self.number(r.widthPx), Self.number(r.aspectRatio),
+                           Self.number(r.orientationDegrees), Self.number(r.centroidX), Self.number(r.centroidY)]
+        f += [n(r.area), n(r.length), n(r.width)]
+        f += [n(r.axisMajorLengthPx), n(r.perimeterPx), n(r.equivalentDiameterPx), n(r.solidity)]
+        f += [n(r.axisMajorLength), n(r.perimeter), n(r.equivalentDiameter)]
+        if !compositionElements.isEmpty {
+            f.append(r.compositionPixels.map(String.init) ?? "")
+            for symbol in compositionElements {
+                let e = r.composition?.first { $0.symbol == symbol }
+                f.append(n(e?.atomicPercent)); f.append(n(e?.weightPercent))
+            }
+        }
+        if strainAvailable {
+            let s = r.strain
+            f.append(s.map { String($0.pixels) } ?? "")
+            f += [n(s?.rr), n(s?.cc), n(s?.rc), n(s?.rotationDegrees), n(s?.sigmaRR), n(s?.sigmaCC), n(s?.sigmaRC)]
+        }
+        return f
     }
 
     /// `rows` as tab-separated text under the CSV's header line, for the clipboard (Edit > Copy in the object
@@ -418,6 +480,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         guard value.isFinite else { return "" }
         return String(format: "%.6g", locale: Locale(identifier: "en_US_POSIX"), value)
     }
+
+    /// An element symbol as a column stem ("Mg" gives "mg").
+    private nonisolated static func csvName(_ symbol: String) -> String { symbol.lowercased() }
 
     private nonisolated static func csvField(_ text: String) -> String {
         guard text.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return text }

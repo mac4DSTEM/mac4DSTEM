@@ -93,6 +93,15 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private var seenTiles = Set<Int>()
     @ObservationIgnored private var regionCounts: [Int: UInt64] = [:]
     @ObservationIgnored private var hasFourDCube = false
+    /// The wt% / at% maps of the last pass that made them (`QuantMapsOutcome.maps`), for the precipitate objects' composition join
+    /// (task 42); nil once the elements, the method or the image change. `onQuantMapsChange` tells the window.
+    @ObservationIgnored private(set) var lastQuantMaps: EDXQuantificationMaps?
+    @ObservationIgnored var onQuantMapsChange: (() -> Void)?
+    private func setLastQuantMaps(_ maps: EDXQuantificationMaps?) {
+        guard (maps == nil) != (lastQuantMaps == nil) || maps != lastQuantMaps else { return }
+        lastQuantMaps = maps
+        onQuantMapsChange?()
+    }
     /// The element selection last acted on: the view's change callback also fires for the reset `bind` makes.
     @ObservationIgnored private var lastElements = ElementSelection()
     /// The lines each quantified element's map used ("Al Kα+Kβ"), keyed by Z, as of the last compute; `mapLinesParameters` records them.
@@ -249,6 +258,7 @@ final class SpectroscopyRoomController {
         lastRefresh?.cancel()
         source = nil
         session = nil
+        setLastQuantMaps(nil)
         model.isLive = false
     }
 
@@ -284,6 +294,7 @@ final class SpectroscopyRoomController {
     func elementsChanged() {
         guard model.elements != lastElements else { return }
         lastElements = model.elements
+        setLastQuantMaps(nil)
         mirrorElementsToSession()
         model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         refresh()
@@ -411,6 +422,7 @@ final class SpectroscopyRoomController {
     /// The Quantify inspector changed. After the verb has run the pooled fit follows live (no Apply).
     func quantifySettingsChanged() {
         let changed = applySettingsToSession()
+        if changed { setLastQuantMaps(nil) }
         // A beam energy typed under Quantification answers Auto ID's "needs the beam energy" note. It does not re-run Auto ID
         // (a run starts on open, on a pick or region change, and on the button); the button is enabled and the note is gone.
         if changed, let beam = session?.method.beamEnergyKeV ?? source?.metadata.beamEnergyKeV, beam > 0 { model.clearAutoIDBeamNote() }
@@ -978,6 +990,7 @@ final class SpectroscopyRoomController {
                 m.quantMapsFailure = why
                 tiles = []
             case .maps(let result, let elements, let masked, let hash, let minimum, let absorption):
+                setLastQuantMaps(result)
                 let summary = QuantMapsPass.summary(result, masked: masked, absorptionNote: absorption)
                 m.quantMapsProvenance = QuantMapsPass.provenance(summary, methodHash: hash, minimumCounts: minimum)
                 for i in tiles.indices {

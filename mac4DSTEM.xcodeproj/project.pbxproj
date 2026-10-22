@@ -157,6 +157,7 @@
 				Session/OpenDatasetRegistry.swift,
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
+				Session/ObjectJoins.swift,
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
 				Session/PoolCatalogue.swift,
