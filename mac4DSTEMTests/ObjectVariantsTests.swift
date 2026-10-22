@@ -2,6 +2,7 @@ import XCTest
 import simd
 import DiffractoCore
 import DiffractoOrientation
+@testable import mac4DSTEM
 import DSTEMCore
 import DSTEMSession
 
@@ -116,6 +117,68 @@ final class ObjectVariantsTests: XCTestCase {
         XCTAssertEqual(run.perObject.values.filter(\.isAssigned).count, 13, "12 needles and the majority one")
     }
 
+    /// Through the report: the planted per-variant, per-direction and unassigned counts come out of `PrecipitateObjectReport.make` exactly, a
+    /// group's areal density is the kit function over that group's counted objects, the CSV carries the columns and the group lines, and a
+    /// snapshot from before the columns decodes with none. Mutations: the unassigned counted as a variant, the direction groups built from
+    /// the wrong objects, a column missing from the CSV or the header out of step with the rows - each moves a planted number.
+    func testThePlantedCountsComeOutOfTheReportAndTheCSV() throws {
+        var entries: [simd_double3x3] = []
+        for k in 0..<12 { entries.append(try precipitateOrientation(variant: k, symmetry: k % 2)) }
+        var plan: [(name: String, votes: [(entry: Int, count: Int)])] = (0..<12).map { ("v\($0)", [(entry: $0, count: 9)]) }
+        plan.append(("majority", [(entry: 0, count: 6), (entry: 5, count: 3)]))
+        plan.append(("tie", [(entry: 0, count: 4), (entry: 5, count: 4)]))
+        plan.append(("weak", [(entry: 3, count: 3)]))
+        plan.append(("none", []))
+        let s = try scene(plan, entries: entries)
+        let settings = VariantSettings()
+        let run = ObjectVariantAssigner.run(objects: s.objects, results: s.results, orientations: s.orientations, precipitatePhaseIndex: 1,
+                                            setup: try setup, settings: settings)
+        let report = PrecipitateObjectReport.make(objects: s.objects, phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: 1, pixelUnit: "nm",
+                                                  minimumAreaPx: 1, variantJoin: run, variantSettings: settings, endOnDirection: 2)
+        let groups = try XCTUnwrap(report.variantGroups)
+        func group(_ kind: PrecipitateObjectReport.VariantGroup.Kind, _ i: Int) -> PrecipitateObjectReport.VariantGroup { groups.first { $0.kind == kind && $0.index == i }! }
+        let direction = try (0..<12).map { try setup.needleDirection[$0] }
+        for d in 0..<3 {
+            let expected = direction.filter { $0 == d }.count + (direction[0] == d ? 1 : 0)   // plus the majority object, variant 1
+            XCTAssertEqual(group(.direction, d).totalObjects, expected, "direction \(d)")
+            XCTAssertEqual(group(.direction, d).countedObjects, expected)
+        }
+        XCTAssertEqual((1...12).map { group(.variant, $0).totalObjects }, [2] + [Int](repeating: 1, count: 11), "variant 1 has its needle and the majority object")
+        XCTAssertEqual(group(.unassigned, 0).totalObjects, 3, "the tie, the weak object and the one with no orientation")
+        XCTAssertEqual(group(.unassigned, 0).detail, "ambiguous 2, no orientation 1")
+        // the group's density is the kit function over exactly that group's counted objects
+        let ids = Set(report.rows.filter { $0.variant?.direction == 0 }.map(\.id))
+        let subset = s.objects.classes.flatMap(\.objects).filter { ids.contains($0.id) }
+        let kit = PrecipitateSegmentation.density(objects: subset, accepted: ids, analysedPixels: s.objects.analysedPixels,
+                                                  width: s.objects.width, height: s.objects.height, pixelSize: 1, pixelUnit: "nm")
+        XCTAssertEqual(group(.direction, 0).arealDensity, kit.arealDensity)
+        // the CSV
+        let csv = report.csv()
+        XCTAssertTrue(csv.contains("variant,direction,variant_status,variant_agreement,variant_angle_deg"))
+        XCTAssertTrue(csv.contains("# unassigned 0: 3 counted of 3"))
+        XCTAssertTrue(csv.contains("# end-on: needles along [001] lie along the beam"))
+        let header = csv.split(separator: "\n").first { !$0.hasPrefix("#") }!.split(separator: ",", omittingEmptySubsequences: false).count
+        for line in csv.split(separator: "\n") where !line.hasPrefix("#") && !line.hasPrefix("id,") {
+            XCTAssertEqual(line.split(separator: ",", omittingEmptySubsequences: false).count - (line.contains("\"") ? 1 : 0), header, "every row has the header's columns: \(line)")
+        }
+        // a report decoded from before the columns existed
+        let old = PrecipitateObjectReport.make(objects: s.objects, phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: 1, pixelUnit: "nm", minimumAreaPx: 1)
+        let decoded = try JSONDecoder().decode(PrecipitateObjectReport.self, from: JSONEncoder().encode(old))
+        XCTAssertNil(decoded.variantGroups); XCTAssertNil(decoded.rows.first?.variant)
+        XCTAssertFalse(old.csv().contains("variant_status"))
+        let round = try JSONDecoder().decode(PrecipitateObjectReport.self, from: JSONEncoder().encode(report))
+        XCTAssertEqual(round, report)
+    }
+
+    /// The settings round-trip through the lineage parameters; a sidecar without them gives none.
+    func testTheSettingsRoundTripThroughTheLineageParameters() {
+        var settings = VariantSettings()
+        settings.toleranceDegrees = 2.5; settings.agreementMinimum = 0.6; settings.phaseName = "beta"
+        XCTAssertEqual(VariantSettings(parameters: settings.parameters), settings)
+        XCTAssertNil(VariantSettings(parameters: ["connectivity": "8"]))
+        XCTAssertNil(VariantSettings().parameters["variant_tolerance_deg"], "no tolerance: the default is the library's, not a recorded number")
+    }
+
     /// A looser tolerance admits the 5-degree needle: the tolerance is the person's, recorded, and moves the result.
     /// Mutation: the tolerance ignored - the needle stays refused.
     func testTheToleranceIsTheSettings() throws {
@@ -150,5 +213,46 @@ final class ObjectVariantsTests: XCTestCase {
         XCTAssertEqual(detector.x, libraryProjection.x, accuracy: 1e-6)
         XCTAssertEqual(detector.y, libraryProjection.y, accuracy: 1e-6)
         XCTAssertEqual(detector.z, simd_dot(g, n), accuracy: 1e-9, "the third component is along the beam")
+    }
+}
+
+/// The variant colours and the legend's words (design 2026-10-22 §3.3). Pure values, no screen.
+final class VariantPaletteTests: XCTestCase {
+    /// Three directions are three different hues, a direction's four variants four different shades of it, and an unassigned object is grey:
+    /// colour is never the only cue (the number is in the glyph and the table), but the colours must at least differ.
+    /// Mutation: two directions given one hue, or the lightness steps equal - the sets collapse.
+    func testDirectionsAndVariantsAreDistinct() {
+        let hues = (0..<3).map { VariantPalette.rgb(direction: $0) }
+        XCTAssertEqual(Set(hues.map { "\($0.r),\($0.g),\($0.b)" }).count, 3)
+        let shades = (0..<4).map { VariantPalette.rgb(direction: 1, rank: $0) }
+        XCTAssertEqual(Set(shades.map { "\($0.r),\($0.g),\($0.b)" }).count, 4)
+        XCTAssertEqual(shades[0].g, VariantPalette.directionHues[1].g, "rank 0 is the hue itself")
+        XCTAssertGreaterThan(shades[2].g, shades[0].g, "rank 2 is lighter")
+        XCTAssertLessThan(shades[3].g, shades[0].g, "rank 3 is darker")
+    }
+
+    /// A variant's rank is its place among the variants of its direction in the kit's order; four per direction give ranks 0 to 3 each.
+    func testTheRankIsThePlaceAmongTheDirectionsVariants() {
+        let directions = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2]   // variants 1...12
+        XCTAssertEqual((1...12).map { VariantPalette.rank(variant: $0, directions: directions) }, [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+        XCTAssertEqual(VariantPalette.rank(variant: 99, directions: directions), 0)
+    }
+
+    /// The scheme picks what is drawn: phase leaves it to the report, direction and variant use the palette, no verdict is grey.
+    func testTheSchemePicksTheColour() {
+        XCTAssertNil(VariantPalette.rgb(scheme: .phase, direction: 0, variant: 1, directions: []))
+        let d = VariantPalette.rgb(scheme: .direction, direction: 2, variant: 3, directions: [])!
+        XCTAssertEqual(d.r, VariantPalette.directionHues[2].r)
+        let grey = VariantPalette.rgb(scheme: .variant, direction: nil, variant: nil, directions: [])!
+        XCTAssertEqual(grey.r, VariantPalette.unassigned.r)
+    }
+
+    /// The legend's arithmetic: assigned (the direction rows' counted objects) plus unassigned is the counted total.
+    func testTheTotalsLineAddsUp() {
+        func g(_ kind: PrecipitateObjectReport.VariantGroup.Kind, _ i: Int, _ counted: Int) -> PrecipitateObjectReport.VariantGroup {
+            PrecipitateObjectReport.VariantGroup(kind: kind, index: i, totalObjects: counted, countedObjects: counted, arealDensity: nil, detail: nil)
+        }
+        let groups = [g(.direction, 0, 6), g(.direction, 1, 7), g(.direction, 2, 9), g(.unassigned, 0, 3)]
+        XCTAssertEqual(VariantGroupText.totals(groups), "22 assigned + 3 unassigned = 25 counted.")
     }
 }

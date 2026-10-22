@@ -290,6 +290,10 @@ final class AppState {
     /// strain map; the object report reads them. Recomputed by `refreshPrecipitateJoins`.
     private(set) var precipitateJoins = PrecipitateJoins()
     @ObservationIgnored var precipitateJoinGeneration = 0
+    /// The variant run's settings (suite task 40); nil is off. Recorded on the objects run's lineage node like the thickness; set through
+    /// `setPrecipitateVariantSettings`. Nothing is computed without them.
+    private(set) var precipitateVariantSettings: VariantSettings?
+    func assignPrecipitateVariantSettings(_ settings: VariantSettings?) { precipitateVariantSettings = settings }
     func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
     func assignPrecipitateJoins(_ joins: PrecipitateJoins) { precipitateJoins = joins }
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.

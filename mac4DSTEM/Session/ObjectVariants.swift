@@ -55,7 +55,30 @@ package nonisolated struct VariantSettings: Codable, Hashable, Sendable {
     package var toleranceDegrees: Double?
     /// The least share of the object's pixels that must vote for the winning variant.
     package var agreementMinimum = 0.5
+    /// The phase that has the relationship to the matrix (a candidate phase's display name); nil is the first candidate.
+    package var phaseName: String?
     package init() {}
+
+    // MARK: lineage parameters (the sidecar's record of it; settings, not results: replay recomputes)
+
+    package static let keys = ["variant_source", "variant_or", "variant_phase", "variant_tolerance_deg", "variant_agreement_min"]
+
+    package var parameters: [String: String] {
+        var p = ["variant_source": source, "variant_or": orientationRelationship.rawValue, "variant_agreement_min": String(agreementMinimum)]
+        if let toleranceDegrees { p["variant_tolerance_deg"] = String(toleranceDegrees) }
+        if let phaseName { p["variant_phase"] = phaseName }
+        return p
+    }
+
+    package init?(parameters p: [String: String]) {
+        guard let or = p["variant_or"].flatMap(OrientationRelationshipPreset.init(rawValue:)) else { return nil }
+        self.init()
+        source = p["variant_source"] ?? "known_variants"
+        orientationRelationship = or
+        agreementMinimum = p["variant_agreement_min"].flatMap(Double.init) ?? 0.5
+        toleranceDegrees = p["variant_tolerance_deg"].flatMap(Double.init)
+        phaseName = p["variant_phase"]
+    }
 }
 
 /// One object's variant, or why it has none.
@@ -227,4 +250,40 @@ package nonisolated enum ObjectVariantAssigner {
     }
 
     private static func degrees(_ v: Double) -> String { v.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: "en_US_POSIX"))) + "\u{00B0}" }
+}
+
+/// The variant run on a phase map: which phase, the kit's variant set, the library's orientations, then `ObjectVariantAssigner.run`. A run that
+/// cannot be made says why (`unavailable`), never an empty column.
+package nonisolated enum ObjectVariantJoin {
+    package nonisolated struct Outcome: Sendable, Equatable {
+        package var result: ObjectJoinResult<VariantAssignment>
+        /// The matrix cube axis along the beam, when it is one.
+        package var endOnDirection: Int?
+        /// Each variant's needle direction, in the kit's order.
+        package var needleDirections: [Int] = []
+    }
+
+    package static func run(objects: PrecipitateSegmentation.ClassMapObjects, map: PhaseMap?, library: PhaseReferenceLibrary?,
+                            matrixEntryIndex: Int?, settings: VariantSettings) -> Outcome {
+        func unavailable(_ why: String) -> Outcome { Outcome(result: ObjectJoinResult(unavailable: why), endOnDirection: nil, needleDirections: []) }
+        guard settings.source == "known_variants" else { return unavailable("Variants from ACOM orientations are not built yet.") }
+        guard let map else { return unavailable("There is no phase map.") }
+        guard let library else { return unavailable("The phase map's reference library is not kept; map the phases again.") }
+        guard let matrixEntryIndex, matrixEntryIndex >= 0 else { return unavailable(VariantError.noMatrixEntry.localizedDescription) }
+        let candidates = map.phaseNames.indices.filter { $0 != map.matrixPhaseIndex }
+        guard let phase = settings.phaseName.flatMap({ name in candidates.first { map.phaseNames[$0] == name } }) ?? candidates.first,
+              library.phases.indices.contains(phase), library.phases.indices.contains(map.matrixPhaseIndex) else {
+            return unavailable("Choose the phase that has the orientation relationship to the matrix.")
+        }
+        guard let orientations = ObjectVariantAssigner.Orientations.make(library: library, matrixEntryIndex: matrixEntryIndex) else {
+            return unavailable(VariantError.noMatrixEntry.localizedDescription)
+        }
+        let setup: VariantSetup
+        do { setup = try VariantSetup(precipitate: library.phases[phase].crystal, matrix: library.phases[map.matrixPhaseIndex].crystal,
+                                      preset: settings.orientationRelationship) }
+        catch { return unavailable((error as? LocalizedError)?.errorDescription ?? "\(error)") }
+        let result = ObjectVariantAssigner.run(objects: objects, results: map.results, orientations: orientations, precipitatePhaseIndex: phase,
+                                               setup: setup, settings: settings)
+        return Outcome(result: result, endOnDirection: orientations.matrixBeamDirection, needleDirections: setup.needleDirection)
+    }
 }

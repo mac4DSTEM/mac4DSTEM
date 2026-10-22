@@ -275,7 +275,25 @@ extension AppState {
     private var objectsRunParameters: [String: String] {
         var p = ["connectivity": "8", "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx)]
         if let t = precipitateThickness, t.isUsable { p.merge(t.parameters) { $1 } }
+        if let v = precipitateVariantSettings { p.merge(v.parameters) { $1 } }
         return p
+    }
+
+    /// Turns the variant run on (with its settings) or off (nil). The joins are recomputed; a standing objects run records the settings, so
+    /// the sidecar carries them and replay recomputes. With no run yet they are held and recorded by the run that comes.
+    func setPrecipitateVariantSettings(_ settings: VariantSettings?) {
+        guard settings != precipitateVariantSettings else { return }
+        assignPrecipitateVariantSettings(settings)
+        refreshPrecipitateJoins()
+        let kind = "precipitate_objects"
+        guard lineageProducer(ofKind: kind) != nil || replay.lineage.activeNodes().contains(where: { $0.kind == kind }) else { return }
+        recordLineageRun(kind: kind, parameters: objectsRunParameters)
+    }
+
+    /// After a sidecar's lineage is adopted: the standing objects node's variant settings are this window's.
+    func restorePrecipitateVariantsFromLineage() {
+        let node = replay.lineage.activeNodes().last(where: { $0.kind == "precipitate_objects" && $0.parameters["variant_or"] != nil })
+        assignPrecipitateVariantSettings(node.flatMap { VariantSettings(parameters: $0.parameters) })
     }
 
     /// Types (or clears) the thickness behind the counts. A standing objects run records it, so the sidecar carries it and the
@@ -341,7 +359,9 @@ extension AppState {
             sourceID: precipitateClassification.sourceID,
             thicknessNm: precipitateThickness.flatMap { $0.isUsable ? $0.nanometres : nil },
             thicknessSigmaNm: precipitateThickness.flatMap { $0.isUsable ? $0.sigmaNanometres : nil },
-            compositionJoin: precipitateJoins.composition, strainJoin: precipitateJoins.strain)
+            compositionJoin: precipitateJoins.composition, strainJoin: precipitateJoins.strain,
+            variantJoin: precipitateJoins.variants, variantSettings: precipitateVariantSettings,
+            endOnDirection: precipitateJoins.variantEndOnDirection, variantDirections: precipitateJoins.variantDirections)
     }
 
     /// The outline of the objects selected in the object table, for the scan

@@ -16,8 +16,10 @@ nonisolated struct PrecipitateOverlaySettings: Equatable, Sendable {
     /// Edge and under-minimum objects are left out (they stay in the table).
     var countedOnly = true
     var labels = false
-    init(onPanes: Bool = false, countedOnly: Bool = true, labels: Bool = false) {
-        self.onPanes = onPanes; self.countedOnly = countedOnly; self.labels = labels
+    /// Phase colour (today's), the needle direction, or the variant (task 40); the last two need the variant run.
+    var colourBy = PrecipitateColourBy.phase
+    init(onPanes: Bool = false, countedOnly: Bool = true, labels: Bool = false, colourBy: PrecipitateColourBy = .phase) {
+        self.onPanes = onPanes; self.countedOnly = countedOnly; self.labels = labels; self.colourBy = colourBy
     }
 }
 
@@ -36,6 +38,9 @@ nonisolated struct PrecipitateGlyph: Sendable, Equatable, Identifiable {
     let counted: Bool
     /// "#12 β″ 23 nm" (or px without a scale): the hover readout.
     let readout: String
+    /// The variant run's verdict (task 40): the needle direction 0...2 and the variant 1...12, nil for an object that has none.
+    var direction: Int? = nil
+    var variant: Int? = nil
 }
 
 nonisolated struct PrecipitateGlyphSet: Sendable, Equatable {
@@ -43,9 +48,11 @@ nonisolated struct PrecipitateGlyphSet: Sendable, Equatable {
     let height: Int
     let sourceID: UUID?
     let glyphs: [PrecipitateGlyph]
+    /// Each variant's direction in the kit's order (empty without the variant run): the rank of a variant among its direction's four.
+    var variantDirections: [Int] = []
 
-    init(width: Int, height: Int, sourceID: UUID?, glyphs: [PrecipitateGlyph]) {
-        self.width = width; self.height = height; self.sourceID = sourceID; self.glyphs = glyphs
+    init(width: Int, height: Int, sourceID: UUID?, glyphs: [PrecipitateGlyph], variantDirections: [Int] = []) {
+        self.width = width; self.height = height; self.sourceID = sourceID; self.glyphs = glyphs; self.variantDirections = variantDirections
     }
 
     static func make(_ report: PrecipitateObjectReport) -> PrecipitateGlyphSet {
@@ -56,9 +63,12 @@ nonisolated struct PrecipitateGlyphSet: Sendable, Equatable {
             return PrecipitateGlyph(
                 id: r.id, phaseLabel: r.label, phaseName: r.phaseName, centreX: r.centroidX, centreY: r.centroidY,
                 semiMajor: r.lengthPx / 2, semiMinor: r.widthPx / 2, angleDegrees: r.orientationDegrees,
-                counted: r.isCounted, readout: "#\(r.id) \(r.phaseName) \(size)")
+                counted: r.isCounted,
+                readout: "#\(r.id) \(r.phaseName)" + (r.variant?.isAssigned == true ? " \(r.directionText) v\(r.variantText)" : "") + " \(size)",
+                direction: r.variant?.direction, variant: r.variant?.variant)
         }
-        return PrecipitateGlyphSet(width: report.width, height: report.height, sourceID: report.sourceID, glyphs: glyphs)
+        return PrecipitateGlyphSet(width: report.width, height: report.height, sourceID: report.sourceID, glyphs: glyphs,
+                                   variantDirections: report.variantDirections ?? [])
     }
 
     func shown(_ settings: PrecipitateOverlaySettings) -> [PrecipitateGlyph] {

@@ -15,6 +15,9 @@ import SpectroEDX
 nonisolated struct PrecipitateJoins: Sendable, Equatable {
     var composition: ObjectJoinResult<ObjectCompositionValue>?
     var strain: ObjectJoinResult<ObjectStrain>?
+    var variants: ObjectJoinResult<VariantAssignment>?
+    var variantEndOnDirection: Int?
+    var variantDirections: [Int]?
 }
 
 extension AppState {
@@ -30,11 +33,16 @@ extension AppState {
         let maps = spectroscopyRoom.lastQuantMaps
         let registration = spectroscopy.registration
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
+        let variantSettings = precipitateVariantSettings
+        let phaseMap = phaseMapping.map, library = phaseMapping.lastLibrary, matrixEntry = phaseMapping.lastRun?.matrixEntryIndex
         Task { @MainActor [weak self] in
             let joins = await Task.detached(priority: .userInitiated) {
-                PrecipitateJoins(
+                let variants = variantSettings.map { ObjectVariantJoin.run(objects: objects, map: phaseMap, library: library, matrixEntryIndex: matrixEntry, settings: $0) }
+                return PrecipitateJoins(
                     composition: ObjectCompositionJoin.run(objects: objects, maps: maps, registration: registration),
-                    strain: ObjectStrainJoin.run(objects: objects, strain: strainMap))
+                    strain: ObjectStrainJoin.run(objects: objects, strain: strainMap),
+                    variants: variants?.result, variantEndOnDirection: variants?.endOnDirection,
+                    variantDirections: variants?.needleDirections)
             }.value
             guard let self, self.precipitateJoinGeneration == generation else { return }
             self.assignPrecipitateJoins(joins)

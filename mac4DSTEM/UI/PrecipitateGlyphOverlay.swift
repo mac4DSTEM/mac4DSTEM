@@ -19,6 +19,13 @@ struct PrecipitateGlyphOverlay: View {
     let colour: @Sendable (Int32) -> Color
     let zoom: CGFloat
 
+    /// The glyph's stroke colour for the chosen scheme: the phase's, or the direction's / variant's hue (grey when the object has none).
+    private func glyphColour(_ g: PrecipitateGlyph) -> Color {
+        guard let c = VariantPalette.rgb(scheme: settings.colourBy, direction: g.direction, variant: g.variant, directions: set.variantDirections)
+        else { return colour(g.phaseLabel) }
+        return Color(red: c.r, green: c.g, blue: c.b)
+    }
+
     var body: some View {
         Canvas { context, size in
             for g in set.shown(settings) {
@@ -28,7 +35,7 @@ struct PrecipitateGlyphOverlay: View {
                 var path = Path(ellipseIn: CGRect(x: -a, y: -b, width: 2 * a, height: 2 * b))
                 path = path.applying(CGAffineTransform(rotationAngle: CGFloat(p.angleDegrees * .pi / 180))
                     .concatenating(CGAffineTransform(translationX: p.centre.x, y: p.centre.y)))
-                let base = colour(g.phaseLabel).opacity(g.counted ? 1 : 0.35)
+                let base = glyphColour(g).opacity(g.counted ? 1 : 0.35)
                 let isSelected = selected.contains(g.id)
                 if isSelected {
                     context.stroke(path, with: .color(.black.opacity(0.85)), lineWidth: 4 / zoom)

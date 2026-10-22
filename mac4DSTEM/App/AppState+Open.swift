@@ -1060,6 +1060,7 @@ extension AppState {
             // R7): say so where the session log is read, not only in the file.
             if let note = snapshot.lineageNote { activityLog.record(note) }
             restorePrecipitateThicknessFromLineage()
+            restorePrecipitateVariantsFromLineage()
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(
                     sessionCalibration,

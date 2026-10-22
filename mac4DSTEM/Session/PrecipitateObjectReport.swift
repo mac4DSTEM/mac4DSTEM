@@ -58,6 +58,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         /// Mean strain under the object (rows and columns) and its spread, or `strainNote`.
         package let strain: ObjectStrain?
         package let strainNote: String?
+        /// The object's orientation-relationship variant (suite task 40) or why it has none; nil for an object of another phase, or without
+        /// the variant run. A report decoded from before it existed has none.
+        package let variant: VariantAssignment?
         /// (-90, 90], image frame: 0 = +x, positive reads clockwise on screen.
         package let orientationDegrees: Double
         package let centroidX: Double
@@ -77,6 +80,20 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package var perimeterSortKey: Double { perimeterPx ?? -1 }
         package var equivalentDiameterSortKey: Double { equivalentDiameterPx ?? -1 }
         package var soliditySortKey: Double { solidity ?? -1 }
+
+        /// The table's Direction and Variant cells ("" when the object has none; the reason is the row's help).
+        package var directionText: String { variant?.direction.map(VariantGroup.directionName) ?? "" }
+        package var variantText: String { variant?.variant.map(String.init) ?? "" }
+        package var directionSortKey: Int { variant?.direction ?? -1 }
+        package var variantSortKey: Int { variant?.variant ?? 0 }
+        package var variantNote: String? {
+            guard let variant else { return nil }
+            switch variant.status {
+            case .assigned: return nil
+            case .ambiguous(let why): return "Unassigned: \(why)"
+            case .noOrientation: return "Unassigned: no pixel has an orientation"
+            }
+        }
 
         /// The table's one-cell texts for the joins (suite task 42): the object's own mean, or the reason it has none ("" without the join).
         package var compositionSummary: String {
@@ -103,6 +120,33 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             case (true, false): "edge"
             case (false, true): "small"
             case (false, false): nil
+            }
+        }
+    }
+
+    /// Counted and total objects of one variant group: a needle direction (the matrix cube axis the needle lies along), one of the twelve
+    /// variants, or the unassigned ones. Counted = not on the scan edge, not under the minimum size; the density is the kit's (`ObjectStatistics.arealDensity`).
+    package nonisolated struct VariantGroup: Sendable, Codable, Hashable, Identifiable {
+        package enum Kind: String, Sendable, Codable { case direction, variant, unassigned }
+        package let kind: Kind
+        /// Direction 0...2, variant 1...12, 0 for the unassigned.
+        package let index: Int
+        package let totalObjects: Int
+        package let countedObjects: Int
+        package let arealDensity: Double?
+        /// For the unassigned: "ambiguous 2, no orientation 1".
+        package let detail: String?
+        package init(kind: Kind, index: Int, totalObjects: Int, countedObjects: Int, arealDensity: Double?, detail: String?) {
+            self.kind = kind; self.index = index; self.totalObjects = totalObjects; self.countedObjects = countedObjects
+            self.arealDensity = arealDensity; self.detail = detail
+        }
+        package var id: String { "\(kind.rawValue)-\(index)" }
+        package static func directionName(_ i: Int) -> String { ["[100]", "[010]", "[001]"].indices.contains(i) ? ["[100]", "[010]", "[001]"][i] : "[?]" }
+        package var title: String {
+            switch kind {
+            case .direction: Self.directionName(index)
+            case .variant: "Variant \(index)"
+            case .unassigned: "Unassigned"
             }
         }
     }
@@ -158,6 +202,15 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package let compositionUnavailable: String?
     package let strainAvailable: Bool
     package let strainUnavailable: String?
+    /// The variant run (suite task 40): the groups (three directions, twelve variants, the unassigned) and the settings in words; nil without
+    /// the run. `variantUnavailable` says why a run that was asked for could not be made. Both nil in a report decoded from before.
+    package var variantGroups: [VariantGroup]? = nil
+    package var variantSummary: String? = nil
+    package var variantUnavailable: String? = nil
+    /// The direction the beam runs along in the matrix (0...2) when it is a cube axis: that direction's needles are seen end-on.
+    package var endOnDirection: Int? = nil
+    /// Each variant's direction in the kit's order (12 values): what ranks a variant among the four of its direction for the colours.
+    package var variantDirections: [Int]? = nil
 
     package var hasPhysicalScale: Bool { pixelSize != nil && pixelUnit != nil }
 
@@ -178,7 +231,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         thicknessNm: Double? = nil,
         thicknessSigmaNm: Double? = nil,
         compositionJoin: ObjectJoinResult<ObjectCompositionValue>? = nil,
-        strainJoin: ObjectJoinResult<ObjectStrain>? = nil
+        strainJoin: ObjectJoinResult<ObjectStrain>? = nil,
+        variantJoin: ObjectJoinResult<VariantAssignment>? = nil,
+        variantSettings: VariantSettings? = nil,
+        endOnDirection: Int? = nil,
+        variantDirections: [Int]? = nil
     ) -> PrecipitateObjectReport {
         let minimum = max(1, minimumAreaPx)
         let scale: Double? = {
@@ -227,6 +284,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                     compositionExcluded: compositionJoin?.perObject[object.id]?.excluded,
                     compositionNote: compositionJoin?.reasons[object.id],
                     strain: strainJoin?.perObject[object.id], strainNote: strainJoin?.reasons[object.id],
+                    variant: variantJoin?.perObject[object.id],
                     orientationDegrees: Double(object.orientationDegrees),
                     centroidX: Double(object.centroidX), centroidY: Double(object.centroidY),
                     touchesEdge: object.touchesEdge, belowMinimum: object.area < minimum,
@@ -239,7 +297,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             }
         }
         rows.sort { $0.id < $1.id }
-        return PrecipitateObjectReport(
+        var report = PrecipitateObjectReport(
             width: objects.width, height: objects.height,
             matrixPhaseIndex: matrixPhaseIndex,
             pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit,
@@ -258,6 +316,47 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             compositionUnavailable: compositionJoin?.unavailable,
             strainAvailable: (strainJoin?.perObject.isEmpty == false),
             strainUnavailable: strainJoin?.unavailable)
+        if let variantJoin {
+            if let why = variantJoin.unavailable {
+                report.variantUnavailable = why
+            } else {
+                report.variantGroups = Self.variantGroups(objects: objects, rows: rows, minimum: minimum, scale: scale, pixelUnit: pixelUnit)
+                report.variantSummary = variantSettings.map { Self.variantSummary($0) }
+                report.endOnDirection = endOnDirection
+                report.variantDirections = variantDirections
+            }
+        }
+        return report
+    }
+
+    /// The settings in words, for the CSV and the section's help: "beta'' in Al, Andersen 1998; tolerance 1 degree (half the library step) ...".
+    package nonisolated static func variantSummary(_ s: VariantSettings) -> String {
+        let tolerance = s.toleranceDegrees.map { number($0) + " degrees" } ?? "half the library's in-plane step"
+        return "\(s.orientationRelationship.title); a pixel votes within \(tolerance); assigned at an agreement of at least \(number(s.agreementMinimum)) of the object's pixels"
+    }
+
+    /// The three needle directions, the twelve variants and the unassigned, over the objects the variant run covered.
+    private nonisolated static func variantGroups(objects: PrecipitateSegmentation.ClassMapObjects, rows: [Row], minimum: Int, scale: Double?, pixelUnit: String?) -> [VariantGroup] {
+        let covered = rows.filter { $0.variant != nil }
+        let allObjects = objects.classes.flatMap(\.objects)
+        func group(_ kind: VariantGroup.Kind, _ index: Int, _ members: [Row], detail: String? = nil) -> VariantGroup {
+            let ids = Set(members.map(\.id))
+            let subset = allObjects.filter { ids.contains($0.id) }
+            let accepted = Set(members.filter(\.isCounted).map(\.id))
+            let density = PrecipitateSegmentation.density(
+                objects: subset, accepted: accepted, analysedPixels: objects.analysedPixels, width: objects.width, height: objects.height,
+                pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit)
+            return VariantGroup(kind: kind, index: index, totalObjects: members.count, countedObjects: accepted.count,
+                                arealDensity: members.isEmpty ? nil : density.arealDensity, detail: detail)
+        }
+        var out: [VariantGroup] = []
+        for d in 0..<3 { out.append(group(.direction, d, covered.filter { $0.variant?.direction == d })) }
+        for v in 1...12 { out.append(group(.variant, v, covered.filter { $0.variant?.variant == v })) }
+        let unassigned = covered.filter { !($0.variant?.isAssigned ?? false) }
+        let ambiguous = unassigned.filter { if case .ambiguous? = $0.variant?.status { true } else { false } }.count
+        let none = unassigned.count - ambiguous
+        out.append(group(.unassigned, 0, unassigned, detail: unassigned.isEmpty ? nil : "ambiguous \(ambiguous), no orientation \(none)"))
+        return out
     }
 
     /// N_V per µm³ from a class's areal density (per pixel-unit²) and the typed thickness (nm): ImagoKit's `numberDensity` on the density
@@ -380,6 +479,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         if strainAvailable {
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
         } else if let why = strainUnavailable { lines.append("# strain: not available: \(why)") }
+        if let summary = variantSummary, variantGroups != nil {
+            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; needle directions are the matrix cube axes; validation: none")
+            if let end = endOnDirection { lines.append("# end-on: needles along \(VariantGroup.directionName(end)) lie along the beam") }
+        } else if let why = variantUnavailable { lines.append("# variants: not available: \(why)") }
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
             var parts = ["\(s.countedObjects) counted of \(s.totalObjects)",
@@ -394,6 +497,12 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 parts.append("N_V \(Self.number(nv))" + (s.nVolumeSigmaPerUm3.map { " +/- \(Self.number($0))" } ?? "") + " per um^3")
             }
             lines.append("# class \(Self.csvField(s.phaseName)): " + parts.joined(separator: ", "))
+        }
+        for g in variantGroups ?? [] where g.kind != .variant || g.totalObjects > 0 {
+            var parts = ["\(g.countedObjects) counted of \(g.totalObjects)"]
+            if let areal = g.arealDensity { parts.append("density \(Self.number(areal)) per \(unit)^2") }
+            if let detail = g.detail { parts.append(detail) }
+            lines.append("# \(g.kind.rawValue) \(g.kind == .direction ? VariantGroup.directionName(g.index) : String(g.index)): " + parts.joined(separator: ", "))
         }
         lines.append(columnNames.joined(separator: ","))
         for r in rows {
@@ -416,6 +525,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             names.append("composition_px")
             for symbol in compositionElements { names.append(Self.csvName(symbol) + "_at_pct"); names.append(Self.csvName(symbol) + "_wt_pct") }
         }
+        if variantGroups != nil { names += ["variant", "direction", "variant_status", "variant_agreement", "variant_angle_deg"] }
         if strainAvailable {
             names += ["strain_px", "strain_rr", "strain_cc", "strain_rc", "rotation_deg", "strain_rr_sigma", "strain_cc_sigma", "strain_rc_sigma"]
         }
@@ -438,6 +548,18 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 let e = r.composition?.first { $0.symbol == symbol }
                 f.append(n(e?.atomicPercent)); f.append(n(e?.weightPercent))
             }
+        }
+        if variantGroups != nil {
+            let v = r.variant
+            let status: String = {
+                switch v?.status {
+                case .assigned?: "assigned"
+                case .ambiguous(let why)?: "ambiguous: " + why
+                case .noOrientation?: "no orientation"
+                case nil: ""
+                }
+            }()
+            f += [r.variantText, r.directionText, Self.csvField(status), v.map { Self.number($0.agreement) } ?? "", n(v?.angleDegrees)]
         }
         if strainAvailable {
             let s = r.strain

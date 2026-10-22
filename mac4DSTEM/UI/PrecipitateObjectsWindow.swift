@@ -244,6 +244,17 @@ struct PrecipitateObjectsWindow: View {
                 .width(min: 56, ideal: 70)
                 .alignment(.numeric)
             }
+            if report.variantGroups != nil {
+                TableColumn("Direction", value: \PrecipitateObjectReport.Row.directionSortKey) { row in
+                    Text(row.directionText).monospacedDigit().help(row.variantNote ?? "The matrix cube axis the needle lies along.")
+                }
+                .width(min: 64, ideal: 72)
+                TableColumn("Variant", value: \PrecipitateObjectReport.Row.variantSortKey) { row in
+                    Text(row.variantText).monospacedDigit().help(row.variantNote ?? "One of the twelve orientation-relationship variants.")
+                }
+                .width(min: 56, ideal: 64)
+                .alignment(.numeric)
+            }
             Group {
                 TableColumn("Orientation", value: \PrecipitateObjectReport.Row.orientationDegrees) { row in
                     Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
