@@ -202,7 +202,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             let belowMinimum = classObjects.objects.filter { $0.area < minimum }
             let nv = Self.numberDensity(arealDensity: density.arealDensity, pixelUnit: scale == nil ? nil : pixelUnit,
                                         thicknessNm: thicknessNm, thicknessSigmaNm: thicknessSigmaNm)
-            let feret = Self.feretSummary(classObjects.objects.filter { accepted.contains($0.id) && !$0.touchesEdge })
+            let feret = Self.feretSummary(classObjects.objects, minimumArea: minimum)
             summaries.append(ClassSummary(
                 label: classObjects.label, phaseName: phaseName,
                 totalObjects: classObjects.objects.count,
@@ -274,10 +274,15 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         return (nv.value * 1e9, nv.sigma.map { $0 * 1e9 })   // per nm³ to per µm³
     }
 
-    /// The median and mean of the counted objects' Feret lengths (ascending sum, middle of two for an even count), the app's
-    /// arithmetic for a statistic the kit does not yet offer on the Feret length: INTERIM, `delete at ImagoKit 0.7.1` (kit ask:
-    /// `ObjectStatistics.sizeSummary` / `arealDensity` with a length measure).
-    package nonisolated static func feretSummary(_ counted: [PrecipitateSegmentation.Object]) -> (median: Double?, mean: Double?) {
+    /// The median and mean of the counted objects' Feret lengths: the kit's `ObjectStatistics.feretSummary` (ImagoKit 0.8.0) over the objects'
+    /// regions; objects without one (built by hand) fall back to their stored `lengthPx`, summed the same way.
+    package nonisolated static func feretSummary(_ objects: [PrecipitateSegmentation.Object], minimumArea: Int) -> (median: Double?, mean: Double?) {
+        let regions = objects.compactMap(\.region)
+        if regions.count == objects.count {
+            let s = ObjectStatistics.feretSummary(regions, minimumArea: minimumArea)
+            return (s.medianFeret, s.meanFeret)
+        }
+        let counted = objects.filter { $0.area >= minimumArea && !$0.touchesEdge }
         guard !counted.isEmpty else { return (nil, nil) }
         let lengths = counted.map { Double($0.lengthPx) }.sorted()
         let median = lengths.count % 2 == 1 ? lengths[lengths.count / 2]

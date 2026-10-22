@@ -50,6 +50,8 @@ package nonisolated enum PrecipitateSegmentation {
         package let equivalentDiameterPx: Double
         package let axisMajorLengthPx: Double
         package let solidity: Double
+        /// The kit's measurements of this object (`Segmentation.regionProperties`); the class's Feret summary is the kit's `ObjectStatistics.feretSummary` over these.
+        package let region: RegionProperties?
 
         /// The inspector row's identity, in its OWN namespace — the object
         /// half of the pair described on
@@ -64,7 +66,8 @@ package nonisolated enum PrecipitateSegmentation {
             id: Int, pixelIndices: [Int], area: Int, centroidX: Float, centroidY: Float,
             lengthPx: Float, widthPx: Float, orientationDegrees: Float,
             touchesEdge: Bool, meanIntensity: Float,
-            perimeterPx: Double = 0, equivalentDiameterPx: Double = 0, axisMajorLengthPx: Double? = nil, solidity: Double = 1
+            perimeterPx: Double = 0, equivalentDiameterPx: Double = 0, axisMajorLengthPx: Double? = nil, solidity: Double = 1,
+            region: RegionProperties? = nil
         ) {
             self.id = id
             self.pixelIndices = pixelIndices
@@ -80,6 +83,7 @@ package nonisolated enum PrecipitateSegmentation {
             self.equivalentDiameterPx = equivalentDiameterPx
             self.axisMajorLengthPx = axisMajorLengthPx ?? Double(lengthPx)
             self.solidity = solidity
+            self.region = region
         }
     }
 
@@ -246,7 +250,7 @@ package nonisolated enum PrecipitateSegmentation {
                 orientationDegrees: Float(m.orientationDegrees),
                 touchesEdge: m.touchesEdge, meanIntensity: 1,
                 perimeterPx: entry.p.perimeter, equivalentDiameterPx: entry.p.equivalentDiameterArea,
-                axisMajorLengthPx: m.axisMajorLength, solidity: entry.p.solidity)
+                axisMajorLengthPx: m.axisMajorLength, solidity: entry.p.solidity, region: entry.p)
         }
     }
 
