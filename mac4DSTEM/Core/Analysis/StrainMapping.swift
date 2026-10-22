@@ -198,20 +198,15 @@ package nonisolated enum StrainMapper {
 
         // Centred peaks (Float subtraction, as the detector measured them). A non-finite coordinate cannot be
         // indexed and is dropped; a negative or non-finite intensity weighs as 0 (the kit floors weights at 1e-6).
-        // The fit depends on the intensities only through their ratios, and `LatticeStrain.fitRobust` refuses a value
-        // of 1e10 or more before it rescales, so a position's intensities are divided by their largest when it is
-        // that bright (the same division the original fit made). Interim: delete at CuboKit 0.7.1 if the kit scales
-        // before its guard (ask on the board).
+        // The fit depends on the intensities only through their ratios; `LatticeStrain.fitRobust` rescales an intensity of 1e10 or more
+        // itself since CuboKit 0.9.0 (the app's own division is gone).
         let peaks: [[StrainPeak]] = bragg.peaks.map { list in
-            let kept: [StrainPeak] = list.compactMap { p in
+            list.compactMap { p in
                 let vx = p.x - originX, vy = p.y - originY
                 guard vx.isFinite, vy.isFinite else { return nil }
                 return StrainPeak(row: Double(vx), column: Double(vy),
                                   intensity: p.intensity.isFinite ? max(Double(p.intensity), 0) : 0)
             }
-            let top = kept.reduce(0.0) { max($0, $1.intensity) }
-            guard top >= 1e9 else { return kept }
-            return kept.map { StrainPeak(row: $0.row, column: $0.column, intensity: $0.intensity / top) }
         }
         var options = StrainMapOptions(maximumPeakSpacing: Double(basisEstimate.indexingTolerancePixels))
         options.minimumPeaks = minNumPeaks

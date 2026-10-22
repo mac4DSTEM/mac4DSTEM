@@ -38,8 +38,8 @@ final class CuboStrainSwitchTests: XCTestCase {
         XCTAssertEqual(dirty.indexedFraction, 1)
     }
 
-    /// Mutation: drop the division by the position's largest intensity in `StrainMapper.compute` - an intensity of 1e11 trips the kit's 1e10 guard,
-    /// every position is refused, and indexedFraction is 0.
+    /// An intensity of 1e11 used to trip the kit's 1e10 guard (the app divided by the position's largest first); since CuboKit 0.9.0 the kit
+    /// rescales it itself, so the app passes the raw intensities and this still indexes every position with the same strain.
     func testAWeightAboveTheKitsGuardStillIndexesAndGivesTheSameStrain() throws {
         let light = try compute(vectors(weight: 1))
         let heavy = try compute(vectors(weight: 1e11))
