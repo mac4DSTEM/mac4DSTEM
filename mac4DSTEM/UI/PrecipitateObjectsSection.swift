@@ -91,6 +91,8 @@ struct PrecipitateObjectsSection: View {
             InspectorNote(excluded)
         }
 
+        PrecipitateThicknessRows(report: report)
+
         Toggle("Objects on panes", isOn: $appState.precipitateOverlay.onPanes)
             .help("Draw every object as an ellipse on the scan panes (virtual image, phase map): counted in their phase colour, "
                   + "edge and small ones dimmed when counted-only is off, table-selected ones outlined in white.")

@@ -337,7 +337,9 @@ extension AppState {
             pixelSize: calibration.rPixelSize, pixelUnit: calibration.rPixelUnits,
             minimumAreaPx: precipitateClassification.minimumObjectAreaPx,
             provenance: precipitateReportProvenance(map: map),
-            sourceID: precipitateClassification.sourceID)
+            sourceID: precipitateClassification.sourceID,
+            thicknessNm: precipitateThickness.flatMap { $0.isUsable ? $0.nanometres : nil },
+            thicknessSigmaNm: precipitateThickness.flatMap { $0.isUsable ? $0.sigmaNanometres : nil })
     }
 
     /// The outline of the objects selected in the object table, for the scan

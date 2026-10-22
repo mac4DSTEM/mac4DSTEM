@@ -100,6 +100,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         /// Counted objects, each edge-weighted (Miles–Lantuéjoul,
         /// `ObjectStatistics.arealDensity`), per unit² of analysed area; nil without a scale.
         package let arealDensity: Double?
+        /// N_V = areal density / thickness per µm³ and its σ from the thickness's σ (ImagoKit's `numberDensity`); nil without a scale, a
+        /// thickness, or a unit the app can convert to nm.
+        package let nVolumePerUm3: Double?
+        package let nVolumeSigmaPerUm3: Double?
         package var id: Int32 { label }
     }
 
@@ -123,6 +127,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     /// only ever drawn on the map of the run it came from. Nil for a report
     /// with no such source (or decoded from before the field existed).
     package let sourceID: UUID?
+    /// The typed thickness behind N_V (nm) and the kit's validation word for it ("none"); nil without a usable thickness.
+    package let thicknessNm: Double?
+    package let thicknessSigmaNm: Double?
+    package let numberDensityValidation: String?
 
     package var hasPhysicalScale: Bool { pixelSize != nil && pixelUnit != nil }
 
@@ -139,7 +147,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         pixelUnit: String?,
         minimumAreaPx: Int,
         provenance: [(String, String)] = [],
-        sourceID: UUID? = nil
+        sourceID: UUID? = nil,
+        thicknessNm: Double? = nil,
+        thicknessSigmaNm: Double? = nil
     ) -> PrecipitateObjectReport {
         let minimum = max(1, minimumAreaPx)
         let scale: Double? = {
@@ -161,6 +171,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 width: objects.width, height: objects.height,
                 pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit)
             let belowMinimum = classObjects.objects.filter { $0.area < minimum }
+            let nv = Self.numberDensity(arealDensity: density.arealDensity, pixelUnit: scale == nil ? nil : pixelUnit,
+                                        thicknessNm: thicknessNm, thicknessSigmaNm: thicknessSigmaNm)
             let feret = Self.feretSummary(classObjects.objects.filter { accepted.contains($0.id) && !$0.touchesEdge })
             summaries.append(ClassSummary(
                 label: classObjects.label, phaseName: phaseName,
@@ -172,7 +184,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 medianLengthPx: feret.median,
                 meanLengthPx: feret.mean,
                 meanWidthPx: density.meanWidth,
-                arealDensity: density.arealDensity))
+                arealDensity: density.arealDensity,
+                nVolumePerUm3: nv?.value, nVolumeSigmaPerUm3: nv?.sigma))
             for object in classObjects.objects {
                 let length = Double(object.lengthPx), width = Double(object.widthPx)
                 rows.append(Row(
@@ -202,7 +215,25 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             analysedAreaRule: objects.analysedAreaRule,
             rows: rows, summaries: summaries,
             provenance: provenance.map { [$0.0, $0.1] },
-            sourceID: sourceID)
+            sourceID: sourceID,
+            thicknessNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessNm : nil,
+            thicknessSigmaNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessSigmaNm : nil,
+            numberDensityValidation: summaries.contains { $0.nVolumePerUm3 != nil }
+                ? (try? ObjectStatistics.numberDensity(arealDensity: 0, thickness: 1))?.validation : nil)
+    }
+
+    /// N_V per µm³ from a class's areal density (per pixel-unit²) and the typed thickness (nm): ImagoKit's `numberDensity` on the density
+    /// converted to nm⁻². Nil unless every input is there and the pixel unit converts to nm. The kit refuses a thickness that is not
+    /// positive and finite; so does this (nil).
+    package nonisolated static func numberDensity(arealDensity: Double?, pixelUnit: String?, thicknessNm: Double?, thicknessSigmaNm: Double?)
+        -> (value: Double, sigma: Double?)? {
+        guard let arealDensity, let pixelUnit, let thicknessNm,
+              let angstrom = CalibrationUnitConversion.realAngstromPerPixel(value: 1, units: pixelUnit) else { return nil }
+        let nmPerUnit = angstrom * 0.1
+        let perNm2 = arealDensity / (nmPerUnit * nmPerUnit)
+        guard let nv = try? ObjectStatistics.numberDensity(arealDensity: perNm2, thickness: thicknessNm, thicknessSigma: thicknessSigmaNm)
+        else { return nil }
+        return (nv.value * 1e9, nv.sigma.map { $0 * 1e9 })   // per nm³ to per µm³
     }
 
     /// The median and mean of the counted objects' Feret lengths (ascending sum, middle of two for an even count), the app's
@@ -296,6 +327,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         lines.append("# counting: objects touching the scan edge are listed, not counted")
         lines.append("# length: the Feret diameter (the largest caliper distance, scikit-image feret_diameter_max); axis_major_length is 4*sqrt(largest inertia eigenvalue), width the extent across the principal axis")
         lines.append("# density: each counted object weighted by W*H / ((W - bx - 1)(H - by - 1)) for its bounding box (Miles-Lantuejoul edge correction), over the analysed area")
+        if let t = thicknessNm {
+            lines.append("# N_V: areal density / thickness (\(Self.number(t)) nm" + (thicknessSigmaNm.map { " +/- \(Self.number($0))" } ?? "")
+                + "), assuming the objects span the foil; validation: \(numberDensityValidation ?? "none")")
+        }
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
             var parts = ["\(s.countedObjects) counted of \(s.totalObjects)",
@@ -306,6 +341,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                              ?? "median length \(Self.number(median)) px")
             }
             if let areal = s.arealDensity { parts.append("density \(Self.number(areal)) per \(unit)^2") }
+            if let nv = s.nVolumePerUm3 {
+                parts.append("N_V \(Self.number(nv))" + (s.nVolumeSigmaPerUm3.map { " +/- \(Self.number($0))" } ?? "") + " per um^3")
+            }
             lines.append("# class \(Self.csvField(s.phaseName)): " + parts.joined(separator: ", "))
         }
         lines.append(columnNames.joined(separator: ","))
