@@ -34,6 +34,7 @@ struct SpectroscopyRoomHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .bottom) { Divider() }
         .accessibilityElement(children: .contain)
+        .accessibilityLabel("Spectroscopy header")   // a labelled group: XCUITest does not resolve a bare container by its identifier alone (macOS 27)
         .accessibilityIdentifier("spectroscopy.header")
     }
 
