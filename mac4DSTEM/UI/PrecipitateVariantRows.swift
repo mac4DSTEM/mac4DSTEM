@@ -98,14 +98,15 @@ struct PrecipitateVariantRows: View {
     @ViewBuilder private func legend(_ groups: [PrecipitateObjectReport.VariantGroup]) -> some View {
         let directions = report.variantDirections ?? []
         ForEach(groups.filter { $0.kind == .direction }) { g in
-            row(g, swatch: VariantPalette.rgb(direction: g.index), suffix: report.endOnDirection == g.index ? "end-on" : nil)
+            row(g, swatch: VariantPalette.rgb(direction: g.index),
+                suffix: report.endOnDirection == g.index ? (report.variantHabit == .plate ? "face-on" : "end-on") : nil)
                 .accessibilityIdentifier("precipitates.variants.legend.direction.\(g.index)")
         }
         DisclosureGroup("Variants") {
             ForEach(groups.filter { $0.kind == .variant }) { g in
                 let d = directions.indices.contains(g.index - 1) ? directions[g.index - 1] : 0
                 row(g, swatch: VariantPalette.rgb(direction: d, rank: VariantPalette.rank(variant: g.index, directions: directions)),
-                    suffix: VariantGroupText.directionName(d))
+                    suffix: groups.first { $0.kind == .direction && $0.index == d }?.title ?? VariantGroupText.directionName(d))
                     .accessibilityIdentifier("precipitates.variants.legend.variant.\(g.index)")
             }
         }

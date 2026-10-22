@@ -10,7 +10,7 @@ import Foundation
 nonisolated enum VariantPalette {
     typealias RGB = (r: Double, g: Double, b: Double)
 
-    static let directionHues: [RGB] = [(0.34, 0.71, 0.91), (0.00, 0.62, 0.45), (0.84, 0.37, 0.00)]
+    static let directionHues: [RGB] = [(0.34, 0.71, 0.91), (0.00, 0.62, 0.45), (0.84, 0.37, 0.00), (0.80, 0.47, 0.65)]   // the fourth, reddish purple, is T1's fourth <111> family
     /// Lightness of a variant's rank within its direction: toward white (+) or black (-) by this fraction.
     static let steps: [Double] = [0, 0.2, 0.4, -0.2]
     /// Neither a direction nor a variant: the unassigned objects.

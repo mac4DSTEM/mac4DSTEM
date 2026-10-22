@@ -22,26 +22,73 @@ import DiffractoCore
 import DiffractoOrientation
 #endif
 
-/// The orientation relationships the variant block offers. One today; the picker exists because a second is a case here.
+/// The orientation relationships the variant block offers. beta'' stays the default; theta' and T1 are plates (suite task 40 follow-up).
 package nonisolated enum OrientationRelationshipPreset: String, Codable, Sendable, CaseIterable, Identifiable {
     case betaDoublePrimeInAl = "beta-double-prime-in-al"
+    case thetaPrimeInAl = "theta-prime-in-al"
+    case t1InAl = "t1-in-al"
+
+    /// What the precipitate looks like along its habit axis: a needle lies along it, a plate stands on it.
+    package enum Habit: String, Codable, Sendable { case needle, plate }
 
     package var id: String { rawValue }
     package var title: String {
-        switch self { case .betaDoublePrimeInAl: "\u{03B2}\u{2033} in Al, Andersen 1998" }
+        switch self {
+        case .betaDoublePrimeInAl: "\u{03B2}\u{2033} in Al, Andersen 1998"
+        case .thetaPrimeInAl: "\u{03B8}\u{2032} in Al, Thronsen 2024"
+        case .t1InAl: "T1 in Al, Thronsen 2024"
+        }
     }
-    /// The needle axis of the precipitate as lattice indices: b of the monoclinic cell (Andersen 1998: b ∥ Al <001>).
-    package var needleAxis: SIMD3<Int> {
-        switch self { case .betaDoublePrimeInAl: SIMD3(0, 1, 0) }
+    package var habit: Habit {
+        switch self { case .betaDoublePrimeInAl: .needle; case .thetaPrimeInAl, .t1InAl: .plate }
     }
-    /// The two statements the rotation is built from (`OrientationRelationship.rotation`, the kit's planted case): a ∥ [3 2 0] and
-    /// b ∥ [0 0 1] of the matrix.
+    /// The habit axis of the precipitate as lattice indices (a direction): the needle axis (b of the monoclinic cell for beta'', Andersen 1998:
+    /// b ∥ Al <001>) or the plate normal (c of the tetragonal theta' cell, [0001] of the hexagonal T1 cell).
+    package var habitAxis: SIMD3<Int> {
+        switch self { case .betaDoublePrimeInAl: SIMD3(0, 1, 0); case .thetaPrimeInAl, .t1InAl: SIMD3(0, 0, 1) }
+    }
+    /// The matrix directions the habit axis can lie along, in the matrix's Cartesian frame (cubic Al: the lattice indices themselves), ±n
+    /// being one family; `familyNames` names them in the same order. Cube axes for beta'' and theta', the four <111> normals for T1.
+    package var habitFamilies: [SIMD3<Double>] {
+        switch self {
+        case .betaDoublePrimeInAl, .thetaPrimeInAl: [SIMD3(1, 0, 0), SIMD3(0, 1, 0), SIMD3(0, 0, 1)]
+        case .t1InAl: [SIMD3(1, 1, 1), SIMD3(-1, 1, 1), SIMD3(1, -1, 1), SIMD3(1, 1, -1)]
+        }
+    }
+    package var familyNames: [String] {
+        switch self {
+        case .betaDoublePrimeInAl, .thetaPrimeInAl: ["[100]", "[010]", "[001]"]
+        case .t1InAl: ["[111]", "[-111]", "[1-11]", "[11-1]"]
+        }
+    }
+    /// The two statements the rotation is built from (`OrientationRelationship.rotation`; the first fixes an axis exactly, the second the
+    /// rotation about it). beta'': a ∥ [3 2 0] and b ∥ [0 0 1] of the matrix. theta' (Thronsen 2024): (001) ∥ (001) and [100] ∥ [100].
+    /// T1: (0001) ∥ (111) and, with the kit's three-index direction u a1 + v a2 + w c, [2 1 0] (four-index [10-10]) ∥ [1 -1 0].
     package var statements: (OrientationRelationship, OrientationRelationship) {
         switch self {
         case .betaDoublePrimeInAl:
             (OrientationRelationship(candidate: .direction(SIMD3(1, 0, 0)), matrix: .direction(SIMD3(3, 2, 0))),
              OrientationRelationship(candidate: .direction(SIMD3(0, 1, 0)), matrix: .direction(SIMD3(0, 0, 1))))
+        case .thetaPrimeInAl:
+            (OrientationRelationship(candidate: .plane(SIMD3(0, 0, 1)), matrix: .plane(SIMD3(0, 0, 1))),
+             OrientationRelationship(candidate: .direction(SIMD3(1, 0, 0)), matrix: .direction(SIMD3(1, 0, 0))))
+        case .t1InAl:
+            (OrientationRelationship(candidate: .plane(SIMD3(0, 0, 1)), matrix: .plane(SIMD3(1, 1, 1))),
+             OrientationRelationship(candidate: .direction(SIMD3(2, 1, 0)), matrix: .direction(SIMD3(1, -1, 0))))
         }
+    }
+
+    /// The family whose direction is most parallel to `axis` (largest |dot|, ±n one family), in `habitFamilies` order.
+    package func family(nearest axis: SIMD3<Double>) -> Int {
+        let unit = simd_length(axis) > 0 ? simd_normalize(axis) : axis
+        let dots = habitFamilies.map { abs(simd_dot(simd_normalize($0), unit)) }
+        return dots.indices.max { dots[$0] < dots[$1] } ?? 0
+    }
+    /// The family lying along `axis` (a beam direction) to within a tenth of a degree, or nil when it lies along none.
+    package func family(alongBeam axis: SIMD3<Double>) -> Int? {
+        guard simd_length(axis) > 0 else { return nil }
+        let i = family(nearest: axis)
+        return abs(simd_dot(simd_normalize(habitFamilies[i]), simd_normalize(axis))) > cos(0.1 * .pi / 180) ? i : nil
     }
 }
 
@@ -91,8 +138,10 @@ package nonisolated struct VariantAssignment: Codable, Hashable, Sendable {
     }
     /// 1...12 in the kit's order; nil unless assigned.
     package let variant: Int?
-    /// Which of the matrix's three cube axes the needle lies along (0, 1, 2 for [100], [010], [001]); nil unless assigned.
+    /// Which of the preset's matrix directions the habit axis lies along (index into `familyNames`: 0, 1, 2 for [100], [010], [001] for beta''); nil unless assigned.
     package let direction: Int?
+    /// That direction's name ("[100]"); nil unless assigned, and in a snapshot from before the presets (the cube axes then).
+    package let directionName: String?
     /// Mean angle from the voting pixels' orientations to the variant, degrees.
     package let angleDegrees: Double?
     /// The share of the object's pixels that voted for the winning variant.
@@ -100,17 +149,18 @@ package nonisolated struct VariantAssignment: Codable, Hashable, Sendable {
     package let status: Status
 
     package var isAssigned: Bool { status == .assigned }
-    package init(variant: Int?, direction: Int?, angleDegrees: Double?, agreement: Double, status: Status) {
-        self.variant = variant; self.direction = direction; self.angleDegrees = angleDegrees
+    package init(variant: Int?, direction: Int?, directionName: String? = nil, angleDegrees: Double?, agreement: Double, status: Status) {
+        self.variant = variant; self.direction = direction; self.directionName = directionName; self.angleDegrees = angleDegrees
         self.agreement = agreement; self.status = status
     }
 }
 
-/// The kit's variant set for one precipitate in one matrix, with each variant's needle direction.
+/// The kit's variant set for one precipitate in one matrix, with the matrix direction each variant's habit axis lies along.
 package nonisolated struct VariantSetup: Sendable {
     package let set: OrientationVariantSet
-    /// Per variant (kit order): the matrix cube axis its needle lies along.
-    package let needleDirection: [Int]
+    /// Per variant (kit order): the index into `familyNames` of the matrix direction its habit axis (needle axis or plate normal) lies along.
+    package let habitFamily: [Int]
+    package var familyNames: [String] { preset.familyNames }
     package let preset: OrientationRelationshipPreset
 
     package init(precipitate: CrystalStructure, matrix: CrystalStructure, preset: OrientationRelationshipPreset) throws {
@@ -118,11 +168,8 @@ package nonisolated struct VariantSetup: Sendable {
               let precipitateSymmetry = PhaseModel.orientationSymmetry(of: precipitate) else { throw VariantError.noStandardSetting }
         let relation = try OrientationRelationship.rotation(preset.statements.0, preset.statements.1, precipitate: precipitate, matrix: matrix)
         set = try OrientationVariantSet(matrix: relation, matrixSymmetry: matrixSymmetry, precipitateSymmetry: precipitateSymmetry)
-        guard let needle = PhaseReferenceLibrary.cartesianZoneAxis(preset.needleAxis, crystal: precipitate) else { throw VariantError.noStandardSetting }
-        needleDirection = set.variants.map { rotation in
-            let axis = rotation * needle
-            return (0..<3).max { abs(axis[$0]) < abs(axis[$1]) } ?? 0
-        }
+        guard let habit = PhaseReferenceLibrary.cartesianZoneAxis(preset.habitAxis, crystal: precipitate) else { throw VariantError.noStandardSetting }
+        habitFamily = set.variants.map { preset.family(nearest: $0 * habit) }
         self.preset = preset
     }
 }
@@ -146,13 +193,15 @@ package nonisolated enum ObjectVariantAssigner {
         package var entryOrientation: [simd_double3x3?]
         package var matrixOrientation: simd_double3x3
         package var inPlaneStepDegrees: Double
-        /// The matrix's own cube axis along the beam, when the matrix zone axis is one: the "end-on" direction.
+        /// The matrix's own cube axis along the beam, when the matrix zone axis is one: the "end-on" direction of the cube-axis presets.
         package var matrixBeamDirection: Int?
+        /// The beam as a unit vector in the matrix's Cartesian frame (the matrix entry's zone axis): the presets name the family along it.
+        package var matrixBeamAxis: SIMD3<Double>?
 
         package init(entryPhase: [Int], entryOrientation: [simd_double3x3?], matrixOrientation: simd_double3x3, inPlaneStepDegrees: Double,
-                     matrixBeamDirection: Int? = nil) {
+                     matrixBeamDirection: Int? = nil, matrixBeamAxis: SIMD3<Double>? = nil) {
             self.entryPhase = entryPhase; self.entryOrientation = entryOrientation; self.matrixOrientation = matrixOrientation
-            self.inPlaneStepDegrees = inPlaneStepDegrees; self.matrixBeamDirection = matrixBeamDirection
+            self.inPlaneStepDegrees = inPlaneStepDegrees; self.matrixBeamDirection = matrixBeamDirection; self.matrixBeamAxis = matrixBeamAxis
         }
 
         /// From the phase map's library and its matrix entry. Nil without a matrix entry.
@@ -164,13 +213,14 @@ package nonisolated enum ObjectVariantAssigner {
             }
             let matrixEntry = library.entries[matrixEntryIndex]
             guard let matrix = orientation(matrixEntry) else { return nil }
-            let beam = PhaseReferenceLibrary.cartesianZoneAxis(matrixEntry.zoneAxis, crystal: library.phases[matrixEntry.phaseIndex].crystal)
+            let beamAxis = PhaseReferenceLibrary.cartesianZoneAxis(matrixEntry.zoneAxis, crystal: library.phases[matrixEntry.phaseIndex].crystal)
+            let beam = beamAxis
                 .flatMap { axis -> Int? in
                     let m = (0..<3).max { abs(axis[$0]) < abs(axis[$1]) } ?? 0
                     return abs(abs(axis[m]) - 1) < 1e-6 ? m : nil
                 }
             return Orientations(entryPhase: library.entries.map(\.phaseIndex), entryOrientation: library.entries.map(orientation),
-                                matrixOrientation: matrix, inPlaneStepDegrees: library.settings.inPlaneStepDeg, matrixBeamDirection: beam)
+                                matrixOrientation: matrix, inPlaneStepDegrees: library.settings.inPlaneStepDeg, matrixBeamDirection: beam, matrixBeamAxis: beamAxis)
         }
     }
 
@@ -241,7 +291,8 @@ package nonisolated enum ObjectVariantAssigner {
                     out.perObject[object.id] = VariantAssignment(variant: nil, direction: nil, angleDegrees: angle, agreement: agreement, status: .ambiguous(why))
                     out.reasons[object.id] = why
                 } else {
-                    out.perObject[object.id] = VariantAssignment(variant: winner + 1, direction: setup.needleDirection[winner], angleDegrees: angle,
+                    out.perObject[object.id] = VariantAssignment(variant: winner + 1, direction: setup.habitFamily[winner],
+                                                                 directionName: setup.familyNames[setup.habitFamily[winner]], angleDegrees: angle,
                                                                  agreement: agreement, status: .assigned)
                 }
             }
@@ -257,15 +308,15 @@ package nonisolated enum ObjectVariantAssigner {
 package nonisolated enum ObjectVariantJoin {
     package nonisolated struct Outcome: Sendable, Equatable {
         package var result: ObjectJoinResult<VariantAssignment>
-        /// The matrix cube axis along the beam, when it is one.
+        /// The preset's matrix direction along the beam (the needles seen end-on, the plates face-on), when there is one.
         package var endOnDirection: Int?
-        /// Each variant's needle direction, in the kit's order.
-        package var needleDirections: [Int] = []
+        /// Each variant's habit direction (index into the preset's family names), in the kit's order.
+        package var habitFamilies: [Int] = []
     }
 
     package static func run(objects: PrecipitateSegmentation.ClassMapObjects, map: PhaseMap?, library: PhaseReferenceLibrary?,
                             matrixEntryIndex: Int?, settings: VariantSettings) -> Outcome {
-        func unavailable(_ why: String) -> Outcome { Outcome(result: ObjectJoinResult(unavailable: why), endOnDirection: nil, needleDirections: []) }
+        func unavailable(_ why: String) -> Outcome { Outcome(result: ObjectJoinResult(unavailable: why), endOnDirection: nil, habitFamilies: []) }
         guard settings.source == "known_variants" else { return unavailable("Variants from ACOM orientations are not built yet.") }
         guard let map else { return unavailable("There is no phase map.") }
         guard let library else { return unavailable("The phase map's reference library is not kept; map the phases again.") }
@@ -284,6 +335,8 @@ package nonisolated enum ObjectVariantJoin {
         catch { return unavailable((error as? LocalizedError)?.errorDescription ?? "\(error)") }
         let result = ObjectVariantAssigner.run(objects: objects, results: map.results, orientations: orientations, precipitatePhaseIndex: phase,
                                                setup: setup, settings: settings)
-        return Outcome(result: result, endOnDirection: orientations.matrixBeamDirection, needleDirections: setup.needleDirection)
+        // The cube-axis presets keep the orientation's own cube-axis index (unchanged for beta''); a beam along no cube axis can still be a <111> family.
+        let endOn = orientations.matrixBeamAxis.map { settings.orientationRelationship.family(alongBeam: $0) } ?? orientations.matrixBeamDirection
+        return Outcome(result: result, endOnDirection: endOn, habitFamilies: setup.habitFamily)
     }
 }

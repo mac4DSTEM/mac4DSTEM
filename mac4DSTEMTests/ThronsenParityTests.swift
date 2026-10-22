@@ -21,7 +21,7 @@ import DiffractoOrientation
 import ImagoCore
 @testable import mac4DSTEM
 
-private enum ThronsenReference {
+enum ThronsenReference {
     /// T1, Al₂CuLi: P6/mmm, a = 4.94775 Å, c = 14.14499 Å (their Table 2).
     static let t1 = CrystalPresets.structure(a: 4.94775, b: 4.94775, c: 14.14499, alphaDeg: 90, betaDeg: 90, gammaDeg: 120, sites: t1Sites)
     static let t1Sites: [AtomSite] = [

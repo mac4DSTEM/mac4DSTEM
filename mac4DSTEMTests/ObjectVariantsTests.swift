@@ -100,7 +100,7 @@ final class ObjectVariantsTests: XCTestCase {
         for k in 0..<12 {
             let a = try XCTUnwrap(run.perObject[try XCTUnwrap(s.idAt["v\(k)"])])
             XCTAssertEqual(a.variant, k + 1, "needle \(k)")
-            XCTAssertEqual(a.direction, try setup.needleDirection[k])
+            XCTAssertEqual(a.direction, try setup.habitFamily[k])
             XCTAssertEqual(a.agreement, 1)
             XCTAssertEqual(try XCTUnwrap(a.angleDegrees), 0.3, accuracy: 0.01, "the planted 0.3 degrees")
         }
@@ -137,7 +137,7 @@ final class ObjectVariantsTests: XCTestCase {
                                                   minimumAreaPx: 1, variantJoin: run, variantSettings: settings, endOnDirection: 2)
         let groups = try XCTUnwrap(report.variantGroups)
         func group(_ kind: PrecipitateObjectReport.VariantGroup.Kind, _ i: Int) -> PrecipitateObjectReport.VariantGroup { groups.first { $0.kind == kind && $0.index == i }! }
-        let direction = try (0..<12).map { try setup.needleDirection[$0] }
+        let direction = try (0..<12).map { try setup.habitFamily[$0] }
         for d in 0..<3 {
             let expected = direction.filter { $0 == d }.count + (direction[0] == d ? 1 : 0)   // plus the majority object, variant 1
             XCTAssertEqual(group(.direction, d).totalObjects, expected, "direction \(d)")
@@ -254,5 +254,132 @@ final class VariantPaletteTests: XCTestCase {
         }
         let groups = [g(.direction, 0, 6), g(.direction, 1, 7), g(.direction, 2, 9), g(.unassigned, 0, 3)]
         XCTAssertEqual(VariantGroupText.totals(groups), "22 assigned + 3 unassigned = 25 counted.")
+    }
+}
+
+/// The plate presets (theta' and T1 in Al, Thronsen 2024): the variant set, the family of each variant by its plate normal, the planted counts
+/// per family, the words. Planted truth from the kit's own variants, no Python reference; validation "none". Same file as `ObjectVariantsTests`
+/// so the scene helper is shared.
+extension ObjectVariantsTests {
+    private func plateSetup(_ preset: OrientationRelationshipPreset) throws -> VariantSetup {
+        let precipitate = preset == .t1InAl ? ThronsenReference.t1 : ThronsenReference.thetaPrime
+        return try VariantSetup(precipitate: precipitate, matrix: CrystalPresets.aluminum, preset: preset)
+    }
+
+    /// `precipitateOrientation(variant:)` for another setup: `M_p = (R_k S delta)^T M_m`.
+    private func plateOrientation(_ setup: VariantSetup, variant k: Int, symmetry s: Int) -> simd_double3x3 {
+        let a = 0.3 * .pi / 180
+        let delta = simd_double3x3(columns: (SIMD3(cos(a), sin(a), 0), SIMD3(-sin(a), cos(a), 0), SIMD3(0, 0, 1)))
+        let ops = setup.set.precipitateSymmetry.operators
+        return (setup.set.variants[k] * ops[s % ops.count] * delta).transpose * matrixOrientationAl
+    }
+
+    private var matrixOrientationAl: simd_double3x3 {
+        let n = PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: CrystalPresets.aluminum)!
+        return ZoneAxisFrame.matrix(detectorBasis: ZoneAxisFrame.detectorBasis(zoneAxis: n), inPlaneAngle: 0)
+    }
+
+    /// The kit's variant counts and the relation itself. Counts = |matrix group| / |matrix operators that leave the relation unchanged up to
+    /// the precipitate group|: m-3m has 24 proper rotations. theta' (001)||(001), [100]||[100]: the relation is the identity, every proper
+    /// rotation of the tetragonal group about the cube axis stays inside Al's group, so the count is 24 / |precipitate group|; T1 (0001)||(111),
+    /// [10-10]||[1-10]: the six operators of 3-fold about [111] and the three 2-folds about <110> in that plane leave it unchanged, 24 / 6 = 4 =
+    /// the four plate normals with one in-plane placement each. The numbers asserted are the kit's; the arithmetic is the explanation. The
+    /// relation is read back: variant 1's rotation takes the plate normal onto a plate normal and the T1 [2 1 0] / theta' [100] onto the Al
+    /// direction the statement names. Mutations: the second statement swapped for a direction 30 degrees off (T1 [1 0 0] || [1 -1 0]), the
+    /// first statement changed to (111) || (001) - the read-back direction or the count moves.
+    func testThePlatePresetsGiveTheKitsVariantCountsAndTheStatedRelation() throws {
+        let theta = try plateSetup(.thetaPrimeInAl), t1 = try plateSetup(.t1InAl)
+        XCTAssertEqual(t1.set.precipitateSymmetry.operators.count, 12, "6/mmm proper rotations (D6)")
+        XCTAssertEqual(t1.set.variants.count, 4, "24 / 6: four plate normals, one in-plane placement each")
+        XCTAssertEqual(t1.habitFamily.sorted(), [0, 1, 2, 3], "every <111> family has exactly one T1 variant")
+        let thetaOps = theta.set.precipitateSymmetry.operators.count
+        XCTAssertEqual(thetaOps, 8, "4/mmm proper rotations (D4)")
+        XCTAssertEqual(theta.set.variants.count, 3, "24 / 8: the three plate normals, one in-plane placement each (the relation is the identity)")
+        for f in 0..<3 {
+            XCTAssertEqual(theta.habitFamily.filter { $0 == f }.count, theta.set.variants.count / 3, "the same number of variants per cube axis")
+        }
+        let c = PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: ThronsenReference.t1)!
+        let r = t1.set.matrix   // the stated relation itself; the variants are its images under the matrix group
+        let normal = simd_normalize(r * c)
+        XCTAssertEqual(abs(simd_dot(normal, simd_normalize(SIMD3(1, 1, 1)))), 1, accuracy: 1e-9, "(0001) || (111)")
+        let a210 = simd_normalize(LatticeVector.direction(SIMD3(2, 1, 0)).cartesian(in: ThronsenReference.t1))
+        XCTAssertEqual(abs(simd_dot(simd_normalize(r * a210), simd_normalize(SIMD3(1, -1, 0)))), 1, accuracy: 1e-9, "[2 1 0] (= [10-10]) || [1 -1 0]")
+        let a100 = simd_normalize(LatticeVector.direction(SIMD3(1, 0, 0)).cartesian(in: ThronsenReference.thetaPrime))
+        XCTAssertEqual(simd_dot(simd_normalize(theta.set.matrix * a100), SIMD3(1, 0, 0)), 1, accuracy: 1e-9, "theta' [100] || [100]")
+    }
+
+    /// The family of each variant is chosen by the plate normal; the preset's names, families and habit are what the legend reads.
+    /// Mutation: the families left at the three cube axes for T1 (the fourth family empty, another overfull), or the names of T1 the cube ones.
+    func testThePresetsNameTheirFamiliesAndHabit() {
+        XCTAssertEqual(OrientationRelationshipPreset.thetaPrimeInAl.rawValue, "theta-prime-in-al")
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.rawValue, "t1-in-al")
+        XCTAssertEqual(OrientationRelationshipPreset.betaDoublePrimeInAl.familyNames, ["[100]", "[010]", "[001]"])
+        XCTAssertEqual(OrientationRelationshipPreset.thetaPrimeInAl.familyNames, ["[100]", "[010]", "[001]"])
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.familyNames, ["[111]", "[-111]", "[1-11]", "[11-1]"])
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.habitFamilies.count, 4)
+        XCTAssertEqual(OrientationRelationshipPreset.betaDoublePrimeInAl.habit, .needle)
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.habit, .plate)
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.family(nearest: SIMD3(-1, -1, 1) * 2), 3, "+-n is one family: [-1 -1 1] is the opposite of [1 1 -1]")
+        XCTAssertEqual(OrientationRelationshipPreset.thetaPrimeInAl.title, "\u{03B8}\u{2032} in Al, Thronsen 2024")
+        XCTAssertEqual(OrientationRelationshipPreset.t1InAl.title, "T1 in Al, Thronsen 2024")
+        var settings = VariantSettings(); settings.orientationRelationship = .t1InAl
+        XCTAssertEqual(settings.parameters["variant_or"], "t1-in-al")
+        XCTAssertEqual(VariantSettings(parameters: settings.parameters), settings)
+    }
+
+    /// The planted scene for a plate preset: one object per variant (each through another precipitate operator, 0.3 degrees off). Each is
+    /// assigned its variant and the family of its plate normal, the legend's direction groups count them per family with the preset's names,
+    /// the CSV carries the names, the plate wording and the face-on line (only when a family lies along the beam), and the report round-trips.
+    /// Mutations: a variant counted into the wrong family, a family missing from the groups, the needle wording kept for plates, the face-on
+    /// line written for a beam along no family - each moves a planted number or string.
+    func testPlantedPlatesAreCountedPerFamilyWithTheirNames() throws {
+        for (preset, beam) in [(OrientationRelationshipPreset.thetaPrimeInAl, 2 as Int?), (.t1InAl, nil)] {
+            let setup = try plateSetup(preset)
+            let n = setup.set.variants.count
+            let entries = (0..<n).map { plateOrientation(setup, variant: $0, symmetry: $0) }
+            let plan: [(name: String, votes: [(entry: Int, count: Int)])] = (0..<n).map { ("v\($0)", [(entry: $0, count: 9)]) }
+            let s = try scene(plan, entries: entries)
+            var settings = VariantSettings(); settings.orientationRelationship = preset
+            let run = ObjectVariantAssigner.run(objects: s.objects, results: s.results, orientations: s.orientations, precipitatePhaseIndex: 1,
+                                                setup: setup, settings: settings)
+            for k in 0..<n {
+                let a = try XCTUnwrap(run.perObject[try XCTUnwrap(s.idAt["v\(k)"])])
+                XCTAssertEqual(a.variant, k + 1, "\(preset) plate \(k)")
+                XCTAssertEqual(a.direction, setup.habitFamily[k])
+                XCTAssertEqual(a.directionName, preset.familyNames[setup.habitFamily[k]])
+            }
+            let report = PrecipitateObjectReport.make(objects: s.objects, phaseNames: ["Al", "plate"], matrixPhaseIndex: 0, pixelSize: 1, pixelUnit: "nm",
+                                                      minimumAreaPx: 1, variantJoin: run, variantSettings: settings, endOnDirection: beam,
+                                                      variantDirections: setup.habitFamily)
+            let groups = try XCTUnwrap(report.variantGroups)
+            let directionGroups = groups.filter { $0.kind == .direction }
+            XCTAssertEqual(directionGroups.map(\.title), preset.familyNames)
+            XCTAssertEqual(directionGroups.map(\.totalObjects), preset.familyNames.indices.map { f in setup.habitFamily.filter { $0 == f }.count })
+            XCTAssertTrue(directionGroups.allSatisfy { $0.totalObjects > 0 }, "every family is used")
+            XCTAssertEqual(groups.filter { $0.kind == .variant }.count, n)
+            XCTAssertEqual(report.variantHabit, .plate)
+            let csv = report.csv()
+            XCTAssertTrue(csv.contains("plate normals are matrix directions"))
+            XCTAssertFalse(csv.contains("end-on"))
+            for name in preset.familyNames { XCTAssertTrue(csv.contains("# direction \(name): "), name) }
+            XCTAssertEqual(report.rows.filter { $0.variant?.isAssigned == true }.map(\.directionText).sorted(),
+                           setup.habitFamily.map { preset.familyNames[$0] }.sorted())
+            if beam != nil { XCTAssertTrue(csv.contains("# face-on: plates on [001] lie face-on to the beam")) }
+            else { XCTAssertFalse(csv.contains("face-on")) }
+            XCTAssertEqual(try JSONDecoder().decode(PrecipitateObjectReport.self, from: JSONEncoder().encode(report)), report)
+        }
+    }
+
+    /// Which family lies along the beam: Al [001] along theta' plate normals names [001] (face-on), along T1's <111> plates names none, an
+    /// Al <111> beam names its T1 family; a tilt of a degree names none. Mutation: the nearest family returned without the tolerance
+    /// (T1 along [001] would name a family), or the beam sign mattering.
+    func testTheFaceOnFamilyIsTheOneAlongTheBeam() {
+        let theta = OrientationRelationshipPreset.thetaPrimeInAl, t1 = OrientationRelationshipPreset.t1InAl
+        XCTAssertEqual(theta.family(alongBeam: SIMD3(0, 0, 1)), 2)
+        XCTAssertEqual(theta.family(alongBeam: SIMD3(0, 0, -1)), 2)
+        XCTAssertNil(t1.family(alongBeam: SIMD3(0, 0, 1)))
+        XCTAssertEqual(t1.family(alongBeam: SIMD3(1, 1, 1)), 0)
+        XCTAssertEqual(t1.family(alongBeam: SIMD3(1, -1, -1)), 1, "[1 -1 -1] is the opposite of [-1 1 1]")
+        XCTAssertNil(theta.family(alongBeam: SIMD3(sin(1 * .pi / 180), 0, cos(1 * .pi / 180))))
     }
 }

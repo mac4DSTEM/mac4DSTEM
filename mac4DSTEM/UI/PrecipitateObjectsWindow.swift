@@ -246,7 +246,7 @@ struct PrecipitateObjectsWindow: View {
             }
             if report.variantGroups != nil {
                 TableColumn("Direction", value: \PrecipitateObjectReport.Row.directionSortKey) { row in
-                    Text(row.directionText).monospacedDigit().help(row.variantNote ?? "The matrix cube axis the needle lies along.")
+                    Text(row.directionText).monospacedDigit().help(row.variantNote ?? "The matrix direction the needle axis or plate normal lies along.")
                 }
                 .width(min: 64, ideal: 72)
                 TableColumn("Variant", value: \PrecipitateObjectReport.Row.variantSortKey) { row in

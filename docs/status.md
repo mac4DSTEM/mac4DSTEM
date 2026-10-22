@@ -13,7 +13,7 @@ Stays in the app on purpose: the learned disk detector (training and refine), li
 
 ## Rooms
 
-Prepare, Imaging, Bragg Disks, Crystal Maps, Reconstruction, Results, Spectroscopy (EDX: fit, Auto ID, quantification, pooling; several regions with a list, a line tool with a Profile tab, a Table tab with the fitted composition per region and the map means; the corrected layout: maps over the spectrum and results on draggable dividers, the colour mix as the anchor tile with MacEMUI's tiles, shared zoom and pan, Maps and Tools in the inspector; tile size and solo tiles are gone). Precipitates: objects, N_V, composition and strain per object, and the variant map (task 40: variants per needle direction, legend, colours, table and CSV columns).
+Prepare, Imaging, Bragg Disks, Crystal Maps, Reconstruction, Results, Spectroscopy (EDX: fit, Auto ID, quantification, pooling; several regions with a list, a line tool with a Profile tab, a Table tab with the fitted composition per region and the map means; the corrected layout: maps over the spectrum and results on draggable dividers, the colour mix as the anchor tile with MacEMUI's tiles, shared zoom and pan, Maps and Tools in the inspector; tile size and solo tiles are gone). Precipitates: objects, N_V, composition and strain per object, and the variant map (task 40: variants per needle direction or plate normal, with presets for beta'' needles, θ′ plates on {001} and T1 plates on {111}; legend, colours, table and CSV columns).
 
 ## Badged unvalidated
 

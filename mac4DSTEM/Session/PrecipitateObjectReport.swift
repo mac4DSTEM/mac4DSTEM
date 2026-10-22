@@ -82,7 +82,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package var soliditySortKey: Double { solidity ?? -1 }
 
         /// The table's Direction and Variant cells ("" when the object has none; the reason is the row's help).
-        package var directionText: String { variant?.direction.map(VariantGroup.directionName) ?? "" }
+        package var directionText: String { variant?.directionName ?? variant?.direction.map { VariantGroup.directionName($0) } ?? "" }
         package var variantText: String { variant?.variant.map(String.init) ?? "" }
         package var directionSortKey: Int { variant?.direction ?? -1 }
         package var variantSortKey: Int { variant?.variant ?? 0 }
@@ -129,22 +129,24 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package nonisolated struct VariantGroup: Sendable, Codable, Hashable, Identifiable {
         package enum Kind: String, Sendable, Codable { case direction, variant, unassigned }
         package let kind: Kind
-        /// Direction 0...2, variant 1...12, 0 for the unassigned.
+        /// Direction 0...2 (0...3 for T1; an index into the preset's family names), variant 1...12, 0 for the unassigned.
         package let index: Int
         package let totalObjects: Int
         package let countedObjects: Int
         package let arealDensity: Double?
         /// For the unassigned: "ambiguous 2, no orientation 1".
         package let detail: String?
-        package init(kind: Kind, index: Int, totalObjects: Int, countedObjects: Int, arealDensity: Double?, detail: String?) {
+        /// A direction group's name from the preset ("[111]"); nil elsewhere and in a snapshot from before the presets (the cube axes then).
+        package var name: String? = nil
+        package init(kind: Kind, index: Int, totalObjects: Int, countedObjects: Int, arealDensity: Double?, detail: String?, name: String? = nil) {
             self.kind = kind; self.index = index; self.totalObjects = totalObjects; self.countedObjects = countedObjects
-            self.arealDensity = arealDensity; self.detail = detail
+            self.arealDensity = arealDensity; self.detail = detail; self.name = name
         }
         package var id: String { "\(kind.rawValue)-\(index)" }
         package static func directionName(_ i: Int) -> String { ["[100]", "[010]", "[001]"].indices.contains(i) ? ["[100]", "[010]", "[001]"][i] : "[?]" }
         package var title: String {
             switch kind {
-            case .direction: Self.directionName(index)
+            case .direction: name ?? Self.directionName(index)
             case .variant: "Variant \(index)"
             case .unassigned: "Unassigned"
             }
@@ -209,6 +211,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package var variantUnavailable: String? = nil
     /// The direction the beam runs along in the matrix (0...2) when it is a cube axis: that direction's needles are seen end-on.
     package var endOnDirection: Int? = nil
+    /// Needle or plate (the preset's habit); nil in a snapshot from before the plate presets, which read as needles.
+    package var variantHabit: OrientationRelationshipPreset.Habit? = nil
     /// Each variant's direction in the kit's order (12 values): what ranks a variant among the four of its direction for the colours.
     package var variantDirections: [Int]? = nil
 
@@ -320,7 +324,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             if let why = variantJoin.unavailable {
                 report.variantUnavailable = why
             } else {
-                report.variantGroups = Self.variantGroups(objects: objects, rows: rows, minimum: minimum, scale: scale, pixelUnit: pixelUnit)
+                let preset = variantSettings?.orientationRelationship ?? .betaDoublePrimeInAl
+                report.variantGroups = Self.variantGroups(objects: objects, rows: rows, minimum: minimum, scale: scale, pixelUnit: pixelUnit,
+                                                          familyNames: preset.familyNames, variantCount: variantDirections?.count ?? 12)
+                report.variantHabit = preset.habit
                 report.variantSummary = variantSettings.map { Self.variantSummary($0) }
                 report.endOnDirection = endOnDirection
                 report.variantDirections = variantDirections
@@ -336,10 +343,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     }
 
     /// The three needle directions, the twelve variants and the unassigned, over the objects the variant run covered.
-    private nonisolated static func variantGroups(objects: PrecipitateSegmentation.ClassMapObjects, rows: [Row], minimum: Int, scale: Double?, pixelUnit: String?) -> [VariantGroup] {
+    private nonisolated static func variantGroups(objects: PrecipitateSegmentation.ClassMapObjects, rows: [Row], minimum: Int, scale: Double?, pixelUnit: String?,
+                                                    familyNames: [String], variantCount: Int) -> [VariantGroup] {
         let covered = rows.filter { $0.variant != nil }
         let allObjects = objects.classes.flatMap(\.objects)
-        func group(_ kind: VariantGroup.Kind, _ index: Int, _ members: [Row], detail: String? = nil) -> VariantGroup {
+        func group(_ kind: VariantGroup.Kind, _ index: Int, _ members: [Row], detail: String? = nil, name: String? = nil) -> VariantGroup {
             let ids = Set(members.map(\.id))
             let subset = allObjects.filter { ids.contains($0.id) }
             let accepted = Set(members.filter(\.isCounted).map(\.id))
@@ -347,11 +355,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 objects: subset, accepted: accepted, analysedPixels: objects.analysedPixels, width: objects.width, height: objects.height,
                 pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit)
             return VariantGroup(kind: kind, index: index, totalObjects: members.count, countedObjects: accepted.count,
-                                arealDensity: members.isEmpty ? nil : density.arealDensity, detail: detail)
+                                arealDensity: members.isEmpty ? nil : density.arealDensity, detail: detail, name: name)
         }
         var out: [VariantGroup] = []
-        for d in 0..<3 { out.append(group(.direction, d, covered.filter { $0.variant?.direction == d })) }
-        for v in 1...12 { out.append(group(.variant, v, covered.filter { $0.variant?.variant == v })) }
+        for d in familyNames.indices { out.append(group(.direction, d, covered.filter { $0.variant?.direction == d }, name: familyNames[d])) }
+        for v in 1...max(variantCount, 1) { out.append(group(.variant, v, covered.filter { $0.variant?.variant == v })) }
         let unassigned = covered.filter { !($0.variant?.isAssigned ?? false) }
         let ambiguous = unassigned.filter { if case .ambiguous? = $0.variant?.status { true } else { false } }.count
         let none = unassigned.count - ambiguous
@@ -480,8 +488,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
         } else if let why = strainUnavailable { lines.append("# strain: not available: \(why)") }
         if let summary = variantSummary, variantGroups != nil {
-            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; needle directions are the matrix cube axes; validation: none")
-            if let end = endOnDirection { lines.append("# end-on: needles along \(VariantGroup.directionName(end)) lie along the beam") }
+            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; \(variantHabit == .plate ? "plate normals are matrix directions" : "needle directions are the matrix cube axes"); validation: none")
+            if let end = endOnDirection {
+                let name = variantGroups?.first { $0.kind == .direction && $0.index == end }?.title ?? VariantGroup.directionName(end)
+                lines.append(variantHabit == .plate ? "# face-on: plates on \(name) lie face-on to the beam" : "# end-on: needles along \(name) lie along the beam")
+            }
         } else if let why = variantUnavailable { lines.append("# variants: not available: \(why)") }
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
@@ -502,7 +513,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             var parts = ["\(g.countedObjects) counted of \(g.totalObjects)"]
             if let areal = g.arealDensity { parts.append("density \(Self.number(areal)) per \(unit)^2") }
             if let detail = g.detail { parts.append(detail) }
-            lines.append("# \(g.kind.rawValue) \(g.kind == .direction ? VariantGroup.directionName(g.index) : String(g.index)): " + parts.joined(separator: ", "))
+            lines.append("# \(g.kind.rawValue) \(g.kind == .direction ? g.title : String(g.index)): " + parts.joined(separator: ", "))
         }
         lines.append(columnNames.joined(separator: ","))
         for r in rows {

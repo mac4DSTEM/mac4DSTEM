@@ -42,7 +42,7 @@ extension AppState {
                     composition: ObjectCompositionJoin.run(objects: objects, maps: maps, registration: registration),
                     strain: ObjectStrainJoin.run(objects: objects, strain: strainMap),
                     variants: variants?.result, variantEndOnDirection: variants?.endOnDirection,
-                    variantDirections: variants?.needleDirections)
+                    variantDirections: variants?.habitFamilies)
             }.value
             guard let self, self.precipitateJoinGeneration == generation else { return }
             self.assignPrecipitateJoins(joins)
