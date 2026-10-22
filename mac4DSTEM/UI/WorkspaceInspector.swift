@@ -1,3 +1,6 @@
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -29,36 +32,16 @@ import DSTEMSession
 /// string, `.help`, accessibility identifier, binding, default or
 /// computation moved (Gate D: not applicable — no scientific number moves).
 struct WorkspaceInspector: View {
-    /// Persisted so the column comes back on the tab the user left it on.
-    private enum InspectorTab: String, CaseIterable {
-        case settings, info
+    @Environment(AppState.self) private var appState
 
-        var title: String {
-            switch self {
-            case .settings: "Settings"
-            case .info: "Info"
-            }
-        }
-
-        var help: String {
-            switch self {
-            case .settings: "Settings — the room's controls"
-            case .info: "Info — what the dataset and the product are"
-            }
-        }
-    }
-
-    /// The tab's storage key. The first generation was `ui2.inspectorTab`, a
-    /// relic of the UI rebuild's working name; `migrateLegacyTab` carries a
-    /// saved choice over once so nobody's inspector resets to Settings.
-    static let tabKey = "inspector.tab"
+    /// The tab's storage key is the shell's (`ShellStorageKeys.inspectorTab`). The first generation was `ui2.inspectorTab`, a
+    /// relic of the UI rebuild's working name; `migrateLegacyTab` carries a saved choice over once so nobody's inspector resets
+    /// to Settings. App-side: macTEM never had the legacy key.
+    static let tabKey = ShellStorageKeys.inspectorTab
     static let legacyTabKey = "ui2.inspectorTab"
-
-    @AppStorage(WorkspaceInspector.tabKey) private var tab: InspectorTab = .settings
 
     init() {
         Self.migrateLegacyTab()
-        _tab = AppStorage(wrappedValue: .settings, Self.tabKey)
     }
 
     /// Copies the legacy key's value to `tabKey` when the new key has none,
@@ -69,104 +52,16 @@ struct WorkspaceInspector: View {
         defaults.set(legacy, forKey: tabKey)
         defaults.removeObject(forKey: legacyTabKey)
     }
-    @Environment(\.colorScheme) private var colorScheme
-
-    /// Xcode's inspector anatomy (owner decision): the tabs are icons in the
-    /// column's own first row under the toolbar, centred, a hairline
-    /// beneath; the toolbar over the inspector carries only its toggle. Two
-    /// rejected alternatives: a text picker up in the toolbar row (it
-    /// "jumped to the left of the toggle") and a text picker row inside the
-    /// column ("ugly").
-    /// Settings · Info sit in that first row as Xcode's inspector tab bar
-    /// with words (owner decision): one glass capsule, the segments inside
-    /// it, the current one a lighter pill, in Liquid Glass (the floor is
-    /// macOS 27, so there is no pre-glass branch).
-    @ViewBuilder
-    private var tabRow: some View {
-        HStack(spacing: 0) {
-            ForEach(InspectorTab.allCases, id: \.self) { candidate in
-                let isCurrent = candidate == tab
-                Button {
-                    tab = candidate
-                } label: {
-                    Text(candidate.title)
-                        .fontWeight(isCurrent ? .semibold : .regular)
-                        .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, LayoutPolicy.inspectorTabVerticalPadding)
-                        .background {
-                            if isCurrent {
-                                Capsule().fill(colorScheme == .dark ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.background))
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help(candidate.help)
-                .accessibilityAddTraits(isCurrent ? .isSelected : [])
-            }
-        }
-        .padding(LayoutPolicy.inspectorTabInset)
-        // Plain `.glassEffect` — no manual rim, shadow or highlight layered
-        // on top to fake the look: a hand-built approximation (rim, shadow,
-        // top-down highlight) read as "not the real deal, made to look like
-        // it" against this capsule's flat background. The system material
-        // alone is simpler and more robust than approximating it.
-        .glassEffect(.regular, in: .capsule)
-        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Inspector tab")
-    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            tabRow
-                .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("inspector.tabPicker")
-            switch tab {
-            case .settings: InspectorSettingsTab()
-            case .info: InspectorInfoTab()
-            }
-        }
-        // Pinned to the top: with no dataset the tab's content is a short
-        // placeholder that does not fill the column, and an unpinned stack
-        // centres it — the tab bar sat mid-column at launch (owner
-        // feedback).
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // The one inspector toggle, in the inspector's own toolbar section:
-        // it stays in the toolbar, once, while the column is hidden
-        // (measured 2026-09-22), so it needs no fallback and a fallback
-        // doubles it.
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                InspectorToggleButton()
-            }
-        }
+        WorkspaceInspectorFrame(
+            navigation: appState.navigation.panels,
+            infoHelp: "Info — what the dataset and the product are",
+            settings: { InspectorSettingsTab() },
+            info: { InspectorInfoTab() })
     }
 }
 
-/// The inspector's toggle, declared once, in the inspector's own toolbar.
-/// ⌥⌘I here and in the View menu: one visible key (UI audit 2026-10-14, G2; it was a hidden ⌥⌘0 here and ⌃⌘I there).
-struct InspectorToggleButton: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        Button {
-            appState.navigation.showInspectorPane.toggle()
-        } label: {
-            Label(appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
-                  systemImage: "sidebar.trailing")
-        }
-        .help(help)
-        .keyboardShortcut("i", modifiers: [.command, .option])
-        .accessibilityIdentifier("toolbar.inspectorToggle")
-    }
-
-    private var help: String {
-        appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
-    }
-}
 
 // MARK: - Settings tab
 
@@ -176,15 +71,13 @@ private struct InspectorSettingsTab: View {
 
     var body: some View {
         if appState.hasDataset {
-            ScrollView {
-                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
-                    RequirementsSection()
-                    GuidanceSection()
-                    WorkspaceSettings()
-                    DatasetActionSections()
-                }
-                .padding()
-            }
+            InspectorScrollColumn(lead: {
+                RequirementsSection()
+                GuidanceSection()
+            }, content: {
+                WorkspaceSettings()
+                DatasetActionSections()
+            })
             // The Settings tab's own base scope — everything here that isn't
             // one workspace room's own controls (Requirements, Interpretation,
             // the Dataset actions). A room below overrides this to its own,
@@ -297,8 +190,7 @@ private struct InspectorInfoTab: View {
 
     var body: some View {
         if let descriptor = appState.descriptor {
-            ScrollView {
-                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
+            InspectorScrollColumn {
                     DatasetInfoSections(descriptor: descriptor)
                     ProductInfoSections()
                     // Moved here from the Settings tab ("Computed this
@@ -308,8 +200,6 @@ private struct InspectorInfoTab: View {
                     // it now shows once per session rather than once per room.
                     SessionProductsSections()
                     InspectorDiagnosticsSections()
-                }
-                .padding()
             }
             // Scoped distinctly from the Settings tab's own "settings" (and
             // its per-room children), so e.g. this tab's "Dataset" section
@@ -318,11 +208,8 @@ private struct InspectorInfoTab: View {
             // expansion separately.
             .environment(\.inspectorScope, "info")
         } else if let metadata = appState.spectroscopy.metadata {
-            ScrollView {
-                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
-                    SpectrumImageInfoSection(metadata: metadata)
-                }
-                .padding()
+            InspectorScrollColumn {
+                SpectrumImageInfoSection(metadata: metadata)
             }
             .environment(\.inspectorScope, "info")
         } else {

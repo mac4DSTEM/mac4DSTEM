@@ -8,6 +8,9 @@
 //        `AppState.precipitateObjectReport`, never computed here.
 //
 
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module

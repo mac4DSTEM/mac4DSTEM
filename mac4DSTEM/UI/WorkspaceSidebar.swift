@@ -1,3 +1,5 @@
+import ShellControls
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -17,7 +19,7 @@ struct WorkspaceSidebar: View {
     @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
-        List(selection: appState.workspaceRoute) {
+        WorkspaceSidebarFrame(selection: appState.workspaceRoute) {
             if !appState.hasDocument {
                 Section("Dataset") {
                     Button {
@@ -39,16 +41,15 @@ struct WorkspaceSidebar: View {
                 }
             }
 
-            Section("Workspace") {
-                ForEach(WorkspaceArea.allCases) { area in
-                    // A 4D room in a spectrum-only window is listed, greyed and
-                    // not selectable: the list keeps its seven rows and its
-                    // shortcuts, and nothing leads into an empty room.
-                    let withheld = appState.isWorkspaceWithheld(area)
-                    workspaceRow(area).tag(WorkspaceRoute.workspace(area))
-                        .disabled(withheld)
-                        .selectionDisabled(withheld)
-                }
+            // A 4D room in a spectrum-only window is listed, dimmed and not selectable: the list keeps its seven rows and its
+            // shortcuts, and nothing leads into an empty room (`WorkspaceRoomsSection`).
+            WorkspaceRoomsSection(
+                rooms: WorkspaceArea.allCases,
+                tag: { WorkspaceRoute.workspace($0) },
+                isAvailable: { !appState.isWorkspaceWithheld($0) },
+                unavailableHelp: { "\($0.title) works on a 4D-STEM scan; this window holds a spectrum image only." },
+                badge: { $0 == .results ? appState.sessionInventory.results.count : 0 }
+            ) {
                 if let hint = ProductWorkflow.nextStepHint(
                     for: appState.navigation.workspaceArea,
                     readiness: appState.productWorkflowReadiness,
@@ -94,20 +95,7 @@ struct WorkspaceSidebar: View {
 
             SessionSection(pendingResultRemoval: $pendingResultRemoval)
         }
-        .listStyle(.sidebar)
         .id(WorkspaceRoute.sidebarListIdentity(area: appState.navigation.workspaceArea, spectrumOnly: appState.isSpectrumOnly))
-        // One material per column, and it is the system's — a `.sidebar` List
-        // paints a second one inside the scroll view that composites
-        // differently where the sidebar's own material already shows. No test
-        // can see it (a hosted layout is blind to materials), so this line is
-        // held by review and the drive. The row selection capsule is drawn by
-        // the table, not by this background, so hiding it costs nothing
-        // visible. The glass lives on the buttons, not on a floating pane: the
-        // owner tried the pane (ADR 058 §5) and preferred the flat column.
-        .scrollContentBackground(.hidden)
-        // Bounce only when there is something to scroll, so elastic
-        // overscroll can never park the clip origin above the top.
-        .scrollBounceBehavior(.basedOnSize)
         .confirmationDialog(
             "Remove Saved Result?",
             isPresented: Binding(
@@ -125,19 +113,6 @@ struct WorkspaceSidebar: View {
         } message: { result in
             Text("This removes \(result.displayName) from the session sidecar.")
         }
-    }
-
-    /// A source-list row: a `Label`, and a count as macOS carries one — a
-    /// `.badge`, which hides itself at zero.
-    private func workspaceRow(_ area: WorkspaceArea) -> some View {
-        Label(area.title, systemImage: area.systemImage)
-            .badge(area == .results ? appState.sessionInventory.results.count : 0)
-            .help(appState.isWorkspaceWithheld(area)
-                  ? "\(area.title) works on a 4D-STEM scan; this window holds a spectrum image only."
-                  : area.subtitle)
-            .accessibilityLabel(area.title)
-            .accessibilityIdentifier("workspace.\(area.rawValue)")
-            .accessibilityHint(area.subtitle)
     }
 
     /// Three states, matching the inspector's own "Computed this session"

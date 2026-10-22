@@ -21,6 +21,7 @@
 //  claim "Resident" about a cube that is being streamed.
 //
 
+import ShellLayout
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore

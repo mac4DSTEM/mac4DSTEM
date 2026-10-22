@@ -6,6 +6,7 @@
 //  blind to a hosted-layout test: it is held by review and the drive. Each test names its mutation.
 //
 
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession
@@ -16,8 +17,8 @@ final class SpectroscopyDriveL6Tests: XCTestCase {
 
     /// Mutation: return nil for `.virtualDetector` -> red. Mutation: return "Compute Image" for both modes -> the second line goes red.
     func testTheImagingVerbIsComputeImageAndGroupPatterns() {
-        XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .virtualDetector), "Compute Image")
-        XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .diffractionGroups), "Group Patterns")
+        XCTAssertEqual(WorkspacePrimaryAction.imagingActionTitle(for: .virtualDetector), "Compute Image")
+        XCTAssertEqual(WorkspacePrimaryAction.imagingActionTitle(for: .diffractionGroups), "Group Patterns")
     }
 
     /// Every imaging mode has a verb, and only the imaging room's answer moved: Results still has none, Prepare keeps its own.

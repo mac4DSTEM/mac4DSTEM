@@ -1,3 +1,4 @@
+import ShellLayout
 import Foundation
 import DiffractoOrientation
 import DiffractoGeometry   // EllipseCalibrationFit: DiffractoKit's (2026-10-15)

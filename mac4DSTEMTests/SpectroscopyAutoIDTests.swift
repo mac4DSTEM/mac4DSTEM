@@ -5,6 +5,7 @@
 //  Every test names the mutation it catches; break each one before trusting it.
 //
 
+import ShellLayout
 import AppKit
 import DSTEMCore
 import DSTEMSession

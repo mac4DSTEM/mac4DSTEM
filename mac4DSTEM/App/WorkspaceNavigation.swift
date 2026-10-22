@@ -1,3 +1,4 @@
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -9,6 +10,9 @@ import DSTEMSession
 /// visible: pure view-state, no science. `AppState` holds it as
 /// `navigation` without forwarding properties — the same contract
 /// `StrainProductTests` pins for `strain`.
+///
+/// The panes (the process area and its fraction, the sidebar and inspector intent, the width collapse) are ShellLayout's
+/// `PanelNavigation` (suite task 8, MacEMUI), held as `panels`; the room and the task are this app's.
 ///
 /// Orchestration stays on `AppState` (`selectWorkspace`, `changeMode`):
 /// switching tasks touches result bookkeeping and recovery, which are
@@ -24,95 +28,8 @@ final class WorkspaceNavigation {
         didSet { if analysisMode != oldValue { onModeChange?() } }
     }
 
-    /// The process area's share of the centre column (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4,
-    /// phase 1): 0 hides it, 1 hides the canvas instead — the infobar's two
-    /// extremes. `didSet` remembers the last NON-ZERO fraction it saw, so
-    /// hiding the area never forgets the height the user dragged it to —
-    /// the same shape `PaneSplit`'s `@SceneStorage` fraction protects
-    /// against a reset-to-default, here against a reset-to-hidden.
-    var processFraction: Double = 0 {
-        didSet {
-            if processFraction > 0 { lastProcessFraction = processFraction }
-        }
-    }
-
-    /// What `processFraction` restores to when the process area re-opens.
-    /// `LayoutPolicy.processAreaIdealFraction` (UI/) is a same-module,
-    /// same-app-target reference, not a package import (`docs/architecture.md`:
-    /// `App/` and `UI/` are one compiled unit; only `Session/`/`Core/` are
-    /// the enforced package boundary) — so this reads the owner's "default
-    /// ideal" from the one place it is named rather than repeating 0.3 here.
-    var lastProcessFraction: Double = LayoutPolicy.processAreaIdealFraction
-
-    /// The process area's visibility, as the Bool the ⌃⌘L menu item
-    /// (`mac4DSTEMApp.swift`) and `NavigationSeamTests` have always driven.
-    /// Not stored: `Mirror` (`NavigationSeamTests`) sees stored properties
-    /// only, so a computed forwarder is invisible to it by design (the same
-    /// limit that test's own doc comment already states). The setter is the
-    /// toggle: shutting remembers nothing extra (`processFraction`'s own
-    /// `didSet` already keeps `lastProcessFraction` current), opening
-    /// restores it.
-    var showLogPane: Bool {
-        get { processFraction > 0 }
-        set {
-            processFraction = newValue ? lastProcessFraction : 0
-            // Opening the area with no pane shown shows Output — an open,
-            // empty area is not a valid state (owner decision).
-            if newValue, !showsOutputPane, !showsLineagePane { showsOutputPane = true }
-        }
-    }
-
-    /// The process area's two panes, modeled on Xcode's debug area: Output
-    /// on the left, Lineage on the right, each with its own toggle at the
-    /// infobar's right end. Not persisted, like the tab they replace.
-    var showsOutputPane = true
-    var showsLineagePane = false
-
-    enum ProcessPane { case output, lineage }
-
-    /// Toggling a pane: hiding the last visible pane closes the area, and
-    /// showing a pane while the area is closed opens it — the two buttons
-    /// never leave the area open and empty, or a pane chosen but unseen.
-    func toggleProcessPane(_ pane: ProcessPane) {
-        switch pane {
-        case .output: showsOutputPane.toggle()
-        case .lineage: showsLineagePane.toggle()
-        }
-        if !showsOutputPane && !showsLineagePane {
-            showLogPane = false
-        } else if !showLogPane {
-            showLogPane = true
-        }
-    }
-
-    /// The user's INTENT for each side panel — what the toggles, the menu
-    /// items and the scene storage read and write.
-    var showToolsPane = true
-    var showInspectorPane = false
-
-    /// Set by the window, never by a click: the sidebar steps aside when the
-    /// window narrows past the line where the science panes would fall under
-    /// `LayoutPolicy.sciencePaneComfortable`, as Xcode hides its navigator
-    /// (owner's decision 2026-09-30). Cleared only by the user showing the
-    /// sidebar (`toggleNavigator`) — it never returns by itself, because a
-    /// returning sidebar grows the window. Never saved, so the intent above
-    /// survives a relaunch.
-    var navigatorCollapsedForWidth = false
-
-    var navigatorIsVisible: Bool { showToolsPane && !navigatorCollapsedForWidth }
-
-    /// The Show/Hide Tools action: acts on what is on screen. Showing clears
-    /// the width collapse — the user asked for the sidebar at this width.
-    func toggleNavigator() {
-        if navigatorIsVisible {
-            showToolsPane = false
-        } else {
-            showToolsPane = true
-            navigatorCollapsedForWidth = false
-        }
-    }
-
-    var inspectorIsVisible: Bool { showInspectorPane }
+    /// The panes: the process area (Output, Lineage), the sidebar and the inspector.
+    let panels = PanelNavigation()
 
     @ObservationIgnored var onModeChange: (() -> Void)?
 }

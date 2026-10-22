@@ -1,3 +1,4 @@
+@testable import ShellControls
 import AppKit
 import DiffractoCore
 import DiffractoScattering

@@ -21,6 +21,9 @@
 //  method has never been scored against an external truth in this app.
 //
 
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)

@@ -3,18 +3,19 @@
 //  Lane H (Slot 4½ polish, owner card S7a): wording in the frozen shell.
 //
 
+import ShellLayout
 import XCTest
 @testable import mac4DSTEM
 
 final class PolishHTests: XCTestCase {
     func testDPCVerbIsReRunOnceDPCRan() {
-        XCTAssertEqual(PrimaryActionButton.dpcActionTitle(hasRun: false), "Run DPC")
-        XCTAssertEqual(PrimaryActionButton.dpcActionTitle(hasRun: true), "Re-run DPC")
+        XCTAssertEqual(WorkspacePrimaryAction.dpcActionTitle(hasRun: false), "Run DPC")
+        XCTAssertEqual(WorkspacePrimaryAction.dpcActionTitle(hasRun: true), "Re-run DPC")
     }
 
     func testOnePositionIsSingular() {
-        XCTAssertEqual(ToolbarDisplayFormat.idle(file: "a.h5", room: "Prepare", positions: 1), "a.h5 · Prepare · 1 position")
-        XCTAssertTrue(ToolbarDisplayFormat.idle(file: "a.h5", room: "Prepare", positions: 2).hasSuffix("2 positions"))
+        XCTAssertEqual(ToolbarDisplayFormat.idle(file: "a.h5", room: "Prepare", detail: "1 position"), "a.h5 · Prepare · 1 position")
+        XCTAssertTrue(ToolbarDisplayFormat.idle(file: "a.h5", room: "Prepare", detail: "2 positions").hasSuffix("2 positions"))
     }
 
     /// The glance is Finder-style (1000-based): 1000 decimal MB is "1.0 GB", not "1000 MB".

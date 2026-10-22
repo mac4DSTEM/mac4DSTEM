@@ -1,3 +1,4 @@
+import ShellLayout
 import SwiftUI
 import XCTest
 import DSTEMCore
@@ -192,8 +193,8 @@ final class SpectroscopyRoomTests: XCTestCase {
 
     /// The centre display for a spectrum image names the scan grid in pixels, as the mock does.
     func testTheToolbarDisplayNamesASpectrumImagesGrid() {
-        XCTAssertEqual(ToolbarDisplayFormat.idleSpectrumImage(file: "Al-Mg-Si_190330.emd",
-                                                              room: "Spectroscopy", width: 256, height: 256),
+        XCTAssertEqual(ToolbarDisplayFormat.idle(file: "Al-Mg-Si_190330.emd",
+                                                     room: "Spectroscopy", detail: "256 × 256 px"),
                        "Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px")
     }
 
@@ -202,7 +203,7 @@ final class SpectroscopyRoomTests: XCTestCase {
     func testTheRoomsVerbIsQuantifyAndRunsOnceAnElementIsOn() {
         let state = AppState()
         state.openSpectrumImage(StubSpectrumImage())
-        XCTAssertEqual(PrimaryActionButton.spectroscopyActionTitle, "Quantify")
+        XCTAssertEqual(WorkspacePrimaryAction.spectroscopyActionTitle, "Quantify")
         XCTAssertTrue(state.hasPrimaryWorkspaceTask)
         XCTAssertFalse(state.canRunPrimaryWorkspaceTask)
         XCTAssertNotNil(state.spectroscopyRoom.quantifyBlocker)
@@ -262,7 +263,7 @@ final class SpectroscopyRoomTests: XCTestCase {
         state.openInNewWindow = { url, _ in routed.append(url) }
         state.openSpectrumImage(StubSpectrumImage())
         let url = URL(fileURLWithPath: "/tmp/does-not-exist.h5")
-        MenuActionRelay.run(.openFile(url, configure: false), in: state)
+        ShellLayout.MenuActionRelay<MenuAction>.run(.openFile(url, configure: false), in: state)
         XCTAssertEqual(routed, [url], "run reached openFile (which, spectrum-only here, routes it on)")
     }
 

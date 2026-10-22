@@ -1,3 +1,5 @@
+import ShellControls
+import ShellInspector
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore

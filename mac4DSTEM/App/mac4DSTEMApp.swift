@@ -1,3 +1,5 @@
+import ShellControls
+import ShellLayout
 import SwiftUI
 import AppKit
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -256,18 +258,18 @@ private struct DatasetCommands: Commands {
             // (`toggleNavigator`): a sidebar the narrow window stepped aside
             // reads "Show Sidebar", and showing it keeps it shown. No
             // enablement check: the window's minimum fits both panels open.
-            Button(appState?.navigation.navigatorIsVisible == true ? "Hide Sidebar" : "Show Sidebar") {
-                appState?.navigation.toggleNavigator()
+            Button(appState?.navigation.panels.sidebarIsVisible == true ? "Hide Sidebar" : "Show Sidebar") {
+                appState?.navigation.panels.toggleSidebar()
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
-            Button(appState?.navigation.inspectorIsVisible == true ? "Hide Inspector" : "Show Inspector") {
-                appState?.navigation.showInspectorPane.toggle()
+            Button(appState?.navigation.panels.inspectorIsVisible == true ? "Hide Inspector" : "Show Inspector") {
+                appState?.navigation.panels.showInspectorPane.toggle()
             }
             // The one key, also the toolbar button's (`InspectorToggleButton`): Opt-Cmd-I, as Mac apps with an
             // inspector have it (HIG, Keyboards). It was Ctrl-Cmd-I here and a hidden Opt-Cmd-0 on the button.
             .keyboardShortcut("i", modifiers: [.command, .option])
-            Button(appState?.navigation.showLogPane == true ? "Hide Bottom Pane" : "Show Bottom Pane") {
-                appState?.navigation.showLogPane.toggle()
+            Button(appState?.navigation.panels.showProcessArea == true ? "Hide Bottom Pane" : "Show Bottom Pane") {
+                appState?.navigation.panels.showProcessArea.toggle()
             }
             .keyboardShortcut("l", modifiers: [.command, .control])
             .disabled(appState?.hasDataset != true || appState?.navigation.workspaceArea == .results)
@@ -349,7 +351,7 @@ private struct DatasetCommands: Commands {
     }
 
     /// Runs `action` in the focused window, or — with none — asks for it and opens a window that takes it.
-    private func perform(_ action: MenuActionRelay.Action) {
+    private func perform(_ action: MenuAction) {
         if let appState {
             MenuActionRelay.run(action, in: appState)
         } else {

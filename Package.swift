@@ -121,7 +121,8 @@ let package = Package(
                            .product(name: "CuboPhase", package: "CuboKit"),
                            .product(name: "CuboParallax", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit"),
-                           .product(name: "ShellMetal", package: "MacEMUI")],
+                           .product(name: "ShellMetal", package: "MacEMUI"),
+                           .product(name: "ShellLayout", package: "MacEMUI")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

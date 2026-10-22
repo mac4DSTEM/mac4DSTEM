@@ -28,6 +28,8 @@
 //  that is not a sample.
 //
 
+import ShellInspector
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore

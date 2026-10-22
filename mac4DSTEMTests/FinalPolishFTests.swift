@@ -10,6 +10,7 @@
 //  Each test names the mutation it catches.
 //
 
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession
@@ -69,12 +70,12 @@ final class FinalPolishFTests: XCTestCase {
     /// Mutation: drop the floor in `ProcessAreaLayout.height` (the same one line as the first test).
     func testARestoredSliverIsNeverDrawnAsOne() {
         let navigation = WorkspaceNavigation()
-        navigation.lastProcessFraction = 0.01
-        navigation.showLogPane = true   // the toggle's and ⌃⌘L's restore
-        XCTAssertTrue(navigation.showLogPane, "the area opens")
+        navigation.panels.lastProcessFraction = 0.01
+        navigation.panels.showProcessArea = true   // the toggle's and ⌃⌘L's restore
+        XCTAssertTrue(navigation.panels.showProcessArea, "the area opens")
         for usable in [CGFloat(554), 836, 1100] {
             XCTAssertGreaterThanOrEqual(
-                ProcessAreaLayout.heights(fraction: navigation.processFraction, available: usable).process, 140,
+                ProcessAreaLayout.heights(fraction: navigation.panels.processFraction, available: usable).process, 140,
                 "restored last fraction at \(usable) pt")
         }
 
@@ -83,7 +84,7 @@ final class FinalPolishFTests: XCTestCase {
         XCTAssertEqual(ProcessAreaLayout.heights(fraction: viaToggle, available: 836).process, 140)
 
         // The scene's saved processFraction.
-        let saved = WorkspaceNavigation()
+        let saved = PanelNavigation()
         saved.processFraction = 0.05
         XCTAssertEqual(ProcessAreaLayout.heights(fraction: saved.processFraction, available: 836).process, 140)
 
@@ -152,26 +153,26 @@ final class FinalPolishFTests: XCTestCase {
     func testTheSnapIsLiveAndAfterAClosingDragTheToggleReopensAtTheFloor() {
         let usable: CGFloat = 800
         let navigation = WorkspaceNavigation()
-        navigation.processFraction = 0.25   // 200 pt: where the drag starts
-        let start = navigation.processFraction
+        navigation.panels.processFraction = 0.25   // 200 pt: where the drag starts
+        let start = navigation.panels.processFraction
         func sample(_ translation: CGFloat) {   // one drag sample, as StatusBar feeds it
-            navigation.processFraction = ProcessAreaLayout.fraction(afterDrag: translation, available: usable, from: start)
+            navigation.panels.processFraction = ProcessAreaLayout.fraction(afterDrag: translation, available: usable, from: start)
         }
         func drawn() -> CGFloat {
-            ProcessAreaLayout.heights(fraction: navigation.processFraction, available: usable).process
+            ProcessAreaLayout.heights(fraction: navigation.panels.processFraction, available: usable).process
         }
         for translation in stride(from: CGFloat(0), through: 130, by: 10) {   // down to exactly 70 pt
             sample(translation)
-            XCTAssertTrue(navigation.showLogPane, "\(translation) pt of travel leaves the area open")
+            XCTAssertTrue(navigation.panels.showProcessArea, "\(translation) pt of travel leaves the area open")
         }
         sample(140)   // 60 pt proposed, the pointer still held
-        XCTAssertFalse(navigation.showLogPane, "closes the moment a sample proposes under 70 pt, before release")
+        XCTAssertFalse(navigation.panels.showProcessArea, "closes the moment a sample proposes under 70 pt, before release")
         sample(100)   // the pointer comes back up before release: 100 pt proposed
-        XCTAssertTrue(navigation.showLogPane, "reversible until release")
+        XCTAssertTrue(navigation.panels.showProcessArea, "reversible until release")
         XCTAssertEqual(drawn(), 140, "reopened by the drag at the floor")
         sample(140)   // closes again, and the gesture ends here
-        XCTAssertFalse(navigation.showLogPane)
-        navigation.showLogPane = true   // the toggle's and ⌃⌘L's restore
+        XCTAssertFalse(navigation.panels.showProcessArea)
+        navigation.panels.showProcessArea = true   // the toggle's and ⌃⌘L's restore
         XCTAssertEqual(drawn(), 140, "reopens at the floor, the last open value the drag passed through — not at 200 pt")
     }
 
@@ -192,8 +193,8 @@ final class FinalPolishFTests: XCTestCase {
     /// The toolbar's title: Group Patterns keeps its own, the virtual detector's is "Compute Image" again.
     /// Mutation: return nil for `.virtualDetector` (the 2026-10-04 state) -> red.
     func testBothImagingModesCarryAVerb() {
-        XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .virtualDetector), "Compute Image")
-        XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .diffractionGroups), "Group Patterns")
+        XCTAssertEqual(WorkspacePrimaryAction.imagingActionTitle(for: .virtualDetector), "Compute Image")
+        XCTAssertEqual(WorkspacePrimaryAction.imagingActionTitle(for: .diffractionGroups), "Group Patterns")
     }
 
     /// ⌘R and ⌘↩ follow the toolbar: the imaging room has a primary task in both of its modes.

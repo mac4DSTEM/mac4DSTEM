@@ -16,6 +16,7 @@
 //  literals: the tests run in an explicit German-region locale, so a comma-region Mac and a period-region Mac agree.
 //
 
+@testable import ShellControls
 import XCTest
 import DSTEMCore
 import DSTEMSession

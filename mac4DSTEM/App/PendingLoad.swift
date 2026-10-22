@@ -22,6 +22,7 @@
 //  want, and a defect in it would block all opens rather than one path.
 //
 
+import ShellLayout
 import Foundation
 import Metal
 import ShellMetal

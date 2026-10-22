@@ -1,3 +1,4 @@
+import ShellLayout
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -7,7 +8,7 @@ import DSTEMSession
 /// The product-level information architecture. Scientific algorithms remain
 /// represented by `AnalysisMode`; these areas describe the outcome a user is
 /// trying to reach and keep implementation details out of primary navigation.
-enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable, WorkspaceRoom {
     case prepare
     case image
     case braggDisks
@@ -62,6 +63,9 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .results: "square.grid.2x2"
         }
     }
+
+    /// The shell's name for `systemImage` (`WorkspaceRoom`).
+    var symbolName: String { systemImage }
 
     var analysisModes: [AnalysisMode] {
         switch self {

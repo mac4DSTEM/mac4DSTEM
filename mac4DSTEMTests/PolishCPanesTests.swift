@@ -5,6 +5,7 @@
 //  the pattern readout after a promote. Each test names the mutation it catches.
 //
 
+import ShellControls
 import XCTest
 import DSTEMCore
 import DSTEMSession

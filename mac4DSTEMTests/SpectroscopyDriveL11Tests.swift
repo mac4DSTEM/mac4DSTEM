@@ -1,3 +1,5 @@
+import ShellInspector
+import ShellLayout
 import AppKit
 import SwiftUI
 import XCTest

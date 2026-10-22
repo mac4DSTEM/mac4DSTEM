@@ -1,3 +1,4 @@
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession
@@ -164,8 +165,8 @@ final class BottomWorkspaceTests: XCTestCase {
 
     func testOutputIsShownAndLineageHiddenByDefault() {
         let navigation = WorkspaceNavigation()
-        XCTAssertTrue(navigation.showsOutputPane)
-        XCTAssertFalse(navigation.showsLineagePane)
+        XCTAssertTrue(navigation.panels.shownProcessPanes.contains(.output))
+        XCTAssertFalse(navigation.panels.shownProcessPanes.contains(.lineage))
     }
 
     /// The two bar buttons never leave the area open and empty, or a pane
@@ -174,21 +175,21 @@ final class BottomWorkspaceTests: XCTestCase {
     /// pane chosen shows Output.
     func testHidingTheLastPaneClosesTheAreaAndShowingOneOpensIt() {
         let navigation = WorkspaceNavigation()
-        navigation.showLogPane = true
-        XCTAssertTrue(navigation.showLogPane)
+        navigation.panels.showProcessArea = true
+        XCTAssertTrue(navigation.panels.showProcessArea)
 
-        navigation.toggleProcessPane(.output)
-        XCTAssertFalse(navigation.showsOutputPane)
-        XCTAssertFalse(navigation.showLogPane, "hiding the last visible pane closes the area")
+        navigation.panels.toggleProcessPane(.output)
+        XCTAssertFalse(navigation.panels.shownProcessPanes.contains(.output))
+        XCTAssertFalse(navigation.panels.showProcessArea, "hiding the last visible pane closes the area")
 
-        navigation.toggleProcessPane(.lineage)
-        XCTAssertTrue(navigation.showsLineagePane)
-        XCTAssertTrue(navigation.showLogPane, "showing a pane while the area is closed opens it")
+        navigation.panels.toggleProcessPane(.lineage)
+        XCTAssertTrue(navigation.panels.shownProcessPanes.contains(.lineage))
+        XCTAssertTrue(navigation.panels.showProcessArea, "showing a pane while the area is closed opens it")
 
-        navigation.toggleProcessPane(.lineage)
-        XCTAssertFalse(navigation.showLogPane)
-        navigation.showLogPane = true
-        XCTAssertTrue(navigation.showsOutputPane, "opening the area with no pane chosen shows Output")
+        navigation.panels.toggleProcessPane(.lineage)
+        XCTAssertFalse(navigation.panels.showProcessArea)
+        navigation.panels.showProcessArea = true
+        XCTAssertTrue(navigation.panels.shownProcessPanes.contains(.output), "opening the area with no pane chosen shows Output")
     }
 
     // MARK: - The status strip's memory/residency glance

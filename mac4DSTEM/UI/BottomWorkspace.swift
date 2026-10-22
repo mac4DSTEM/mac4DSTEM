@@ -1,108 +1,22 @@
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
 #endif
-
-/// The process area beneath the science panes — Xcode's debug area
-/// (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §9.3): two panes side by side, Output
-/// on the left and Lineage on the right, each shown or hidden by its own
-/// button at the infobar's right end. The live run's numbers, once a Run
-/// tab here, are the infobar's. `WorkspaceView` gives this view its exact
-/// height; which panes are visible only changes what fills it — nothing
-/// here can move the bar: a tab whose content doesn't fill the pane lets
-/// the stack recenter it and the bar moves.
-struct BottomWorkspace: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        let navigation = appState.navigation
-        Group {
-            if navigation.showsOutputPane && navigation.showsLineagePane {
-                PaneSplit(storageKey: "workspace.processSplit.fraction") {
-                    OutputPane()
-                } trailing: {
-                    LineagePane()
-                }
-            } else if navigation.showsLineagePane {
-                LineagePane()
-            } else {
-                OutputPane()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
+/// The app's registration of the process area's panes (suite task 8: the area, its toggles and its split are ShellLayout's
+/// `WorkspaceColumn`; Output is the shared pane, Lineage is this app's). Output on the left, Lineage on the right, each shown or hidden
+/// by its own button at the infobar's right end.
+extension ProcessPaneID {
+    static let lineage = ProcessPaneID("lineage")
 }
 
-/// A pane's header row: its name at the left, its one action at the right.
-private struct PaneHeader<Action: View>: View {
-    let title: String
-    @ViewBuilder let action: () -> Action
-
-    var body: some View {
-        HStack(spacing: LayoutPolicy.inspectorRowSpacing) {
-            Text(title)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
-            action()
-        }
-        .controlSize(.small)
-        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .frame(height: LayoutPolicy.bottomTabBarHeight)
-        .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-// MARK: - Output
-
-/// The rolling output log, auto-scrolled to the latest line (ADR 034: copy,
-/// search and filter are later work).
-private struct OutputPane: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        VStack(spacing: 0) {
-            PaneHeader(title: "Output") {
-                Button("Clear") { appState.activityLog.clear() }
-                    .disabled(appState.activityLog.messages.isEmpty)
-                    .help("Clears the output log")
-                    .accessibilityIdentifier("bottomWorkspace.output.clear")
-            }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 1) {
-                        ForEach(appState.activityLog.lines) { line in
-                            Text(line.text)
-                                .font(.callout.monospaced())
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                                .id(line.id)
-                        }
-                    }
-                    .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-                    .padding(.vertical, 4)
-                }
-                .onChange(of: appState.activityLog.lines.last?.id) {
-                    if let target = ActivityLog.scrollTarget(for: appState.activityLog.lines) {
-                        proxy.scrollTo(target, anchor: .bottom)
-                    }
-                }
-                .onAppear {
-                    // `.onChange` never fires the first time the panel
-                    // appears; the rows may not exist yet on this tick, so
-                    // the scroll is deferred a runloop turn.
-                    guard let target = ActivityLog.scrollTarget(for: appState.activityLog.lines) else { return }
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(target, anchor: .bottom)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .accessibilityIdentifier("bottomWorkspace.output")
+enum ProcessTabs {
+    @MainActor static func all(activityLog: ActivityLog) -> [ProcessTab] {
+        [ProcessTab.output { OutputPane(log: activityLog) },
+         ProcessTab(id: .lineage, title: "Lineage", systemImage: "rectangle.trailinghalf.inset.filled") { LineagePane() }]
     }
 }
 
@@ -113,7 +27,7 @@ private struct OutputPane: View {
 /// trailing column (`LineageGraphView`). A session recorded before lineage
 /// existed draws in order only, and says so. The displayed product's
 /// provenance stays one disclosure below.
-private struct LineagePane: View {
+struct LineagePane: View {
     @Environment(AppState.self) private var appState
     @State private var activePathOnly = false
     @State private var showsProvenance = false
@@ -127,7 +41,7 @@ private struct LineagePane: View {
             activePathOnly: activePathOnly,
             producedSteps: appState.replay.producedStep)
         VStack(spacing: 0) {
-            PaneHeader(title: "Lineage") { headerTrailing(model) }
+            ProcessPaneHeader(title: "Lineage") { headerTrailing(model) }
             LineageGraphView(model: model, rewind: { step in
                 Task { await appState.rewindLineage(to: step) }
             })
@@ -225,19 +139,4 @@ enum ProvenanceKeyLabel {
         ("_angstrom", "Å"), ("_mrad", "mrad"), ("_nm", "nm"), ("_kev", "keV"), ("_deg", "°"), ("_rad", "rad"),
         ("_px", "px"),
     ]
-}
-
-/// A provenance value as a person reads it: a long decimal (`10.056641535141353`)
-/// prints at 5 significant figures; anything short, non-numeric or outside
-/// 0.001–99999 is left as written. Display only: the stored value and the
-/// row's help text stay exact.
-enum ProvenanceValueText {
-    static func display(_ raw: String) -> String {
-        let digits = raw.filter(\.isNumber).count
-        guard digits > 7, !raw.contains("e"), !raw.contains("E"),
-              let number = Double(raw), number.isFinite else { return raw }
-        let magnitude = abs(number)
-        guard magnitude >= 0.001, magnitude < 100_000 else { return raw }
-        return String(format: "%.5g", locale: .autoupdatingCurrent, number)
-    }
 }

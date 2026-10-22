@@ -16,6 +16,8 @@
 //  scientific-bundle-test are the check that transcription introduced none).
 //
 
+import ShellControls
+import ImagoCore
 import AppKit
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -398,9 +400,9 @@ extension FigureRendering {
     /// together: at any export scale the label is the same and the length grows with the pixels.
     static func ladderBarPlan(width outW: Int, unitsPerOutPixel: Double, unit unitLabel: String) -> LadderBarPlan {
         // Bar sized to a nice 1-2-5 value near 1/5 of the image width.
-        let nice = ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
+        let nice = ScaleBarMath.nice125(unitsPerOutPixel * Double(outW) / 5)
         // The same unit ladder as the on-screen bar, so an export reads what the pane read.
-        let shown = ScaleBar.ladder(nice, unit: unitLabel)
+        let shown = ScaleBarMath.ladder(nice, unit: unitLabel)
         return LadderBarPlan(label: "\(ScaleBar.format(shown.value, locale: Locale(identifier: "en_US_POSIX"))) \(shown.unit)",
                              lengthPixels: nice / unitsPerOutPixel)
     }

@@ -1,3 +1,4 @@
+import ShellLayout
 import AppKit
 import DSTEMCore
 import DSTEMSession
@@ -147,7 +148,7 @@ final class StatusBarMetricsTests: XCTestCase {
     /// size with a thousands separator, so "Demo.h5 · Prepare · 4,050
     /// positions" reads the same as the Run tab's counts.
     func testTheToolbarIdleDisplayNamesFileRoomAndPositionsInThatOrder() {
-        let line = ToolbarDisplayFormat.idle(file: "Demo.h5", room: "Prepare", positions: 4050)
+        let line = ToolbarDisplayFormat.idle(file: "Demo.h5", room: "Prepare", detail: "\(SystemMonitor.count(4050)) positions")
         XCTAssertEqual(line, "Demo.h5 · Prepare · \(SystemMonitor.count(4050)) positions")
         XCTAssertTrue(line.hasPrefix("Demo.h5"), "the file leads")
         XCTAssertTrue(line.hasSuffix("positions"))

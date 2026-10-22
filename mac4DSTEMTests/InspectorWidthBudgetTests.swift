@@ -10,6 +10,8 @@
 //  settings view for its narrowest width and holds it to the column's.
 //
 
+import ShellInspector
+import ShellLayout
 import AppKit
 import DSTEMCore
 import DSTEMSession
@@ -180,16 +182,16 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// ignoring the collapse; `toggleNavigator` not clearing it.
     func testShowingToolsOnANarrowWindowKeepsThemShown() {
         let navigation = WorkspaceNavigation()
-        navigation.showToolsPane = true
-        navigation.navigatorCollapsedForWidth = true
-        XCTAssertFalse(navigation.navigatorIsVisible, "a narrow window hides the sidebar")
-        XCTAssertTrue(navigation.showToolsPane, "…without touching the user's intent")
-        navigation.toggleNavigator()
-        XCTAssertTrue(navigation.navigatorIsVisible, "Show Tools on a narrow window shows it")
-        XCTAssertFalse(navigation.navigatorCollapsedForWidth)
-        navigation.toggleNavigator()
-        XCTAssertFalse(navigation.navigatorIsVisible)
-        XCTAssertFalse(navigation.showToolsPane, "Hide Tools records the intent")
+        navigation.panels.showSidebarPane = true
+        navigation.panels.sidebarCollapsedForWidth = true
+        XCTAssertFalse(navigation.panels.sidebarIsVisible, "a narrow window hides the sidebar")
+        XCTAssertTrue(navigation.panels.showSidebarPane, "…without touching the user's intent")
+        navigation.panels.toggleSidebar()
+        XCTAssertTrue(navigation.panels.sidebarIsVisible, "Show Tools on a narrow window shows it")
+        XCTAssertFalse(navigation.panels.sidebarCollapsedForWidth)
+        navigation.panels.toggleSidebar()
+        XCTAssertFalse(navigation.panels.sidebarIsVisible)
+        XCTAssertFalse(navigation.panels.showSidebarPane, "Hide Tools records the intent")
     }
 
     /// Every (workspace, task) pair, hosted through `WorkspaceSettings` — the

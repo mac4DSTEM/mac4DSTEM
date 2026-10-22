@@ -4,6 +4,7 @@
 //  each test names the mutation it catches.
 //
 
+import ShellLayout
 import XCTest
 import SwiftUI
 @testable import mac4DSTEM

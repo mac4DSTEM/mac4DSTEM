@@ -19,6 +19,7 @@
 //  instead — an extension cannot declare stored properties.
 //
 
+import ShellLayout
 import Foundation
 import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module

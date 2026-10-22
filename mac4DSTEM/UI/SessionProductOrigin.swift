@@ -6,6 +6,7 @@
 //  Shell file that draws them (WorkspaceInspector.swift, ADR 035).
 //
 
+import ShellLayout
 import DSTEMCore
 import DSTEMSession
 

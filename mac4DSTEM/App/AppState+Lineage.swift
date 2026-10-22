@@ -16,6 +16,7 @@
 //
 
 import Foundation
+import ShellLayout
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession

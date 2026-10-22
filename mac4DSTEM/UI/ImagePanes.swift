@@ -1,3 +1,5 @@
+import ShellControls
+import ShellLayout
 import SwiftUI
 import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -345,7 +347,7 @@ struct DiffractionPane: View {
                     // The annulus Fit Ellipse samples, around the centre the fit takes (the aperture's), while its section is open.
                     if EllipseFitAnnulus.isShown(
                         workspace: appState.navigation.workspaceArea, sectionIsOpen: ellipseSectionIsOpen,
-                        inspectorIsVisible: appState.navigation.inspectorIsVisible),
+                        inspectorIsVisible: appState.navigation.panels.inspectorIsVisible),
                        let annulus = EllipseFitAnnulus.metrics(
                         centerX: appState.aperture.centerX, centerY: appState.aperture.centerY,
                         inner: appState.calibrationSession.ellipseFitInnerRadius,
@@ -454,7 +456,7 @@ struct DiffractionPane: View {
                 } trailing: {
                     if let range = appState.patternDisplayedValueRange {
                         // The chip IS the colormap control — click it.
-                        ColormapChip(pane: .diffraction) {
+                        PaneColormapChip(pane: .diffraction) {
                             Colorbar(
                                 colormap: appState.patternColormap,
                                 low: range.low,
@@ -1441,7 +1443,7 @@ struct RealSpacePane: View {
                     // The chip IS the colormap control — click it. (The
                     // quality-field chip above stays plain: its map is fixed
                     // by design.)
-                    ColormapChip(pane: .result) {
+                    PaneColormapChip(pane: .result) {
                         Colorbar(
                             colormap: appState.displayedResultColormap,
                             low: range.low,

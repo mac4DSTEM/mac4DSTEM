@@ -6,6 +6,7 @@
 //        unusable one marks itself and leaves the run alone. Read the EELS method JSON fills the source words, never the number.
 //
 
+import ShellInspector
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module

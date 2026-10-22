@@ -12,6 +12,7 @@
 //      because nothing could compare them.
 //
 
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession

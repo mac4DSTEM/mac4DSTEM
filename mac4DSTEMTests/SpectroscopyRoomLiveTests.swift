@@ -5,6 +5,7 @@
 //  map modes. Every test names the mutation it catches; each was broken once and seen red (docs in the lane report).
 //
 
+import ShellLayout
 import XCTest
 import SwiftUI
 @testable import DSTEMCore

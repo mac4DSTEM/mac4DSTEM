@@ -1,3 +1,4 @@
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession

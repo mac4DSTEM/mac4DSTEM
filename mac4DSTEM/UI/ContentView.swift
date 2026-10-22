@@ -1,3 +1,4 @@
+import ShellLayout
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -6,36 +7,21 @@ import DSTEMSession
 import SpectroCore
 #endif
 
-/// The app's window: a SwiftUI-only shell.
+/// The app's window: a SwiftUI-only shell. The skeleton (the split view, the inspector, where the toolbar is declared, the width at
+/// which the sidebar steps aside, the scene-stored panel intent and the launch flags) is ShellLayout's `ShellWindow` (suite task 8,
+/// MacEMUI); this file adds what is the app's: the importer, the sheets, the alert and the observers of app state, the toolbar's
+/// content, and the `--lineage-shown` flag (the Lineage pane is this app's).
 ///
-/// **The frozen rules** (ADR 035). `NavigationSplitView` and the native
-/// `.inspector` are the whole window structure — no `NSSplitViewController`,
-/// no hosted AppKit shell, no custom pane chrome, no pane focus ring, and no
-/// call into a view under `UI/`. UI reads and drives the shared `App/`,
-/// `Session/` and `Core/` logic, and nothing else.
+/// **The frozen rules** (ADR 035). `NavigationSplitView` and the native `.inspector` are the whole window structure — no
+/// `NSSplitViewController`, no hosted AppKit shell, no custom pane chrome, no pane focus ring, and no call into a view under `UI/`.
 ///
-/// **The shape** is Xcode's:
-///
-/// - **Left** is navigation and nothing else: seven workspaces and their
-///   tasks, in a source list narrow enough to stay narrow.
-/// - **Centre** owns the breadcrumb/action header, science panes, infobar,
-///   and the process area below that draggable bar.
-/// - **Right** is the inspector, in two tabs — **Settings**, every control
-///   the selected workspace owns, and **Info**, what the dataset and the
-///   displayed product actually are.
-///
-/// The standard toolbar holds the dataset switcher and panel toggles; room
-/// actions stay inside the centre header as the side panels come and go.
+/// **The shape** is Xcode's: left, navigation and nothing else (seven workspaces and their tasks); centre, the science panes, the
+/// infobar and the process area; right, the inspector in two tabs, Settings and Info. The toolbar holds the activity display, the
+/// room's verb, Save to Session and the dataset menu.
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showExportSheet = false
-    @SceneStorage("workspace.navigatorVisible") private var savedNavigatorVisible = true
-    @SceneStorage("workspace.inspectorVisible") private var savedInspectorVisible = true
-    /// The window's width, read from outside the split (never from a column's
-    /// content, which is the constraint-loop shape): it decides when the
-    /// sidebar steps aside (`LayoutPolicy.navigatorFits`).
-    @State private var windowWidth: CGFloat = LayoutPolicy.datasetWindowIdealSize.width
 
     private var datasetTypes: [UTType] {
         ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
@@ -43,39 +29,18 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // `WindowFillingLayout` reports the window's width, not the split's
-        // rigid one: `.onGeometryChange` on the split itself measured 1190 pt
-        // in a 915-pt window after a Show Sidebar that could not grow the
-        // window, so the step-aside line below never fired (S6, 2026-09-30).
-        WindowFillingLayout { splitWindow }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
-        // Steps aside when the window narrows past the line (and at a narrow
-        // launch); never comes back by itself — a returning sidebar made
-        // macOS grow the window (1150 -> 1420 pt, 2026-09-30 drive). The user
-        // brings it back with the toggle, which clears the flag.
-        .onChange(of: navigatorFits, initial: true) {
-            if !navigatorFits { appState.navigation.navigatorCollapsedForWidth = true }
-        }
-        .onAppear {
-            appState.navigation.showToolsPane = savedNavigatorVisible
-            appState.navigation.showInspectorPane = savedInspectorVisible
-            // Capture scaffolding, the `--demo-fixture` shape: a launch can
-            // force a panel state, so a scripted capture of the hidden or
-            // shown toolbar does not depend on whatever state the last
-            // window left behind.
-            applyPanelLaunchFlags()
-        }
+        ShellWindow(
+            navigation: appState.navigation.panels,
+            title: appState.descriptor?.fileName ?? appState.spectroscopy.metadata?.fileName ?? "mac4DSTEM",
+            sidebar: { WorkspaceSidebar() },
+            canvas: { WorkspaceView() },
+            inspector: { WorkspaceInspector() },
+            toolbar: { windowToolbarContent })
+        .onAppear { applyLineageLaunchFlag() }
         .task {
-            // Once more after the first layout: scene restoration can land
-            // after `onAppear` and put the saved state back.
+            // Once more after the first layout, as the shell does for the panels: scene restoration can land after `onAppear`.
             try? await Task.sleep(for: .milliseconds(500))
-            applyPanelLaunchFlags()
-        }
-        .onChange(of: appState.navigation.showToolsPane) {
-            savedNavigatorVisible = appState.navigation.showToolsPane
-        }
-        .onChange(of: appState.navigation.showInspectorPane) {
-            savedInspectorVisible = appState.navigation.showInspectorPane
+            applyLineageLaunchFlag()
         }
         .onChange(of: appState.resultPresentation.virtualShape) { appState.commitApertureChange() }
         .onChange(of: appState.realSpaceShape) { appState.updateRealSpaceRegion() }
@@ -118,152 +83,53 @@ struct ContentView: View {
         }
     }
 
-    private var splitWindow: some View {
-        NavigationSplitView(columnVisibility: sidebarVisibility) {
-            WorkspaceSidebar()
-                .navigationSplitViewColumnWidth(
-                    min: LayoutPolicy.sidebarWidth.min,
-                    ideal: LayoutPolicy.sidebarWidth.ideal,
-                    max: LayoutPolicy.sidebarWidth.max
-                )
-        } detail: {
-            WorkspaceView()
-                // Declared on the detail column, not on the split view.
-                // Measured 2026-09-22 on macOS 27: with the title removed,
-                // a toolbar declared on the split view laid these
-                // `.primaryAction` items out at the content's LEADING edge,
-                // beside the sidebar toggle, and a flexible `ToolbarSpacer`
-                // (automatic or `.primaryAction` placement) did not move
-                // them. Declared here they take the trailing edge — over
-                // the inspector when it is open, at the window's edge when
-                // it is not — and the toggle stays reachable either way.
-                .toolbar { windowToolbarContent }
+    /// Capture scaffolding: the Lineage pane is this app's, so its launch flag is too (the panel flags are the shell's).
+    private func applyLineageLaunchFlag() {
+        if ProcessInfo.processInfo.arguments.contains("--lineage-shown") {
+            appState.navigation.panels.shownProcessPanes.insert(.lineage)
         }
-        // Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4–§6): `.inspector`
-        // moved here, off the detail view, so the column runs from the
-        // toolbar to the window's bottom edge exactly the way the sidebar
-        // already does.
-        .inspector(isPresented: inspectorPresented) {
-            WorkspaceInspector()
-                .inspectorColumnWidth(
-                    min: LayoutPolicy.inspectorWidth.min,
-                    ideal: LayoutPolicy.inspectorWidth.ideal,
-                    // Fixed. A maximum that followed the window was tried and
-                    // failed on screen (2026-09-30): SwiftUI does not shrink a
-                    // column whose maximum drops below its width, and the
-                    // overflow looped. What keeps 460 inside a narrow window is
-                    // the sidebar stepping aside (`navigatorFits`).
-                    max: LayoutPolicy.inspectorWidth.max
-                )
-                // The inspector's own toolbar carries its Settings · Info
-                // picker and its ONE toggle (`WorkspaceInspector`): items
-                // declared there stay in the toolbar, once, while the column
-                // is hidden (measured 2026-09-22) — nothing here may add a
-                // second toggle.
-        }
-        // The window keeps a title — the dataset, as a document window's is —
-        // for the Window menu, Mission Control and accessibility, but the
-        // toolbar does not draw it: the centre header's breadcrumb already
-        // reads "Prepare › dataset", and drawing the title too would
-        // duplicate it 30 pt above. Xcode's toolbar carries no title either;
-        // its jump bar does.
-        .navigationTitle(appState.descriptor?.fileName ?? appState.spectroscopy.metadata?.fileName ?? "mac4DSTEM")
-        .toolbar(removing: .title)
-        // Flat columns, glass on the buttons (owner, 2026-10-07): glass panes for the sidebar and inspector over a window
-        // material were tried (ADR 058 §5) and he preferred the flat columns with only the buttons in Liquid Glass, as in
-        // Xcode — the toolbar's items are the system's glass, the bordered buttons in the columns are `.glass`.
     }
 
-    /// What the split view shows and what a click writes are both intent
-    /// now (`WorkspaceNavigation`) — nothing narrows it further.
-    private var inspectorPresented: Binding<Bool> {
-        Binding(
-            get: { appState.navigation.inspectorIsVisible },
-            set: { appState.navigation.showInspectorPane = $0 }
-        )
-    }
-
-    /// The sidebar's visibility rides on the same state as the Show/Hide
-    /// Tools menu item (`navigatorIsVisible`), so the two can never disagree;
-    /// the toolbar toggle acts through the same `toggleNavigator`.
-    private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { appState.navigation.navigatorIsVisible ? .all : .detailOnly },
-            set: {
-                if ($0 != .detailOnly) != appState.navigation.navigatorIsVisible {
-                    appState.navigation.toggleNavigator()
-                }
-            }
-        )
-    }
-
-    /// Whether the sidebar fits beside the inspector and two comfortable
-    /// science panes at this window's width (`LayoutPolicy.navigatorFits`).
-    private var navigatorFits: Bool {
-        LayoutPolicy.navigatorFits(windowWidth: windowWidth,
-                                   inspectorVisible: appState.navigation.inspectorIsVisible)
-    }
-
-    /// Capture scaffolding (see `onAppear`): only a launch flag writes here.
-    private func applyPanelLaunchFlags() {
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--inspector-hidden") { appState.navigation.showInspectorPane = false }
-        if arguments.contains("--inspector-shown") { appState.navigation.showInspectorPane = true }
-        if arguments.contains("--navigator-hidden") { appState.navigation.showToolsPane = false }
-        if arguments.contains("--navigator-shown") { appState.navigation.showToolsPane = true }
-        if arguments.contains("--lineage-shown") { appState.navigation.showsLineagePane = true }
-        if arguments.contains("--process-area-open") { appState.navigation.showLogPane = true }
-    }
-
-    /// Only window-level controls live here. The split view supplies the
-    /// leading navigator toggle; this trailing toggle survives closing the
-    /// inspector. ⌥⌘I, on the button and in the View menu, reaches the same state.
-    /// The arrangement (ADR 036, ../_archive/mac4DSTEM/docs/archive/v4/window-design.md §8.1): the
-    /// file, the room and the live run as a DISPLAY in the centre, never a
-    /// button (the 2026-09-04 "C…" trap); over the room at the trailing
-    /// edge, the run button — Stop while it runs — then Save to Session,
-    /// Reveal in Finder and the dataset menu as icons; only the inspector's
-    /// toggle over the inspector. Always there, so the analysis runs with
-    /// both side panels hidden and the data at full size. Supersedes the
-    /// breadcrumb row it replaces, now gone (`WorkspaceView`).
+    /// The arrangement (ADR 036): the file, the room and the live run as a DISPLAY in the centre, never a button (the 2026-09-04
+    /// "C…" trap); over the room at the trailing edge, the run button — Stop while it runs — then Save to Session and the dataset menu
+    /// as icons (Reveal in Finder is File > Show in Finder, owner decision 2026-10-22); only the inspector's toggle over the
+    /// inspector (the shell's). Always there, so the analysis runs with both side panels hidden and the data at full size.
     @ToolbarContentBuilder
     private var windowToolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            ToolbarRunDisplay()
+        ShellToolbar(
+            display: { ToolbarRunDisplay(toolbarDisplay) },
+            verb: { PrimaryActionButton(WorkspacePrimaryAction.current(appState)) },
+            utility: {
+                ToolbarItem(placement: .primaryAction) {
+                    SaveResultButton()
+                }
+                .visibilityPriority(.low)
+            },
+            documentMenu: { DatasetMenu() })
+    }
+
+    /// What the toolbar's centre shows: nothing without a document or while it loads; the running operation and its clock while busy;
+    /// else "file · room · size".
+    private var toolbarDisplay: ToolbarDisplayState? {
+        guard !appState.datasetSession.isLoading else { return nil }
+        let room = WorkspaceRoute.current(appState.navigation).title
+        if let descriptor = appState.descriptor {
+            if appState.isBusy {
+                return .busy(operation: appState.activeOperation ?? appState.statusText, progress: appState.progress,
+                             metrics: { date in
+                                 appState.activeOperationMetrics(at: date).map { ($0.elapsed, nil) }
+                             })
+            }
+            let positions = descriptor.rx * descriptor.ry
+            return .idle(file: descriptor.fileName, room: room,
+                         detail: "\(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")",
+                         help: descriptor.filePath)
         }
-        // The flexible spacer alone did NOT hold these items at the trailing
-        // edge once the title was removed (two captures, 2026-09-22, with
-        // `.automatic` and `.primaryAction` placement); declaring the toolbar
-        // on the detail column did (see `splitWindow`). The spacer stays as
-        // the new toolbar model's own separator between the centre display
-        // and this group.
-        ToolbarSpacer(.flexible, placement: .primaryAction)
-        // The room's verb heads the trailing group, beside the actions on
-        // its result and under the inspector where its parameters are set
-        // (ADR 036: parameters of the current workspace live on the right;
-        // the Xcode mock's Run-on-the-left position does not fit this app).
-        // Stop takes its place while a run is in flight. `visibilityPriority`
-        // says what overflows first when the window narrows: the run verb
-        // and the dataset switcher stay, Save/Reveal go into the overflow
-        // menu.
-        ToolbarItem(placement: .primaryAction) {
-            PrimaryActionButton()
+        if let metadata = appState.spectroscopy.metadata {
+            // A spectrum-only window (v5.0 WP2): the same display, its grid in pixels.
+            return .idle(file: metadata.fileName, room: room, detail: "\(metadata.scanWidth) × \(metadata.scanHeight) px", help: metadata.filePath)
         }
-        .visibilityPriority(.high)
-        // The text-labelled verb sat flush against the icon buttons beside it; a fixed gap sets it apart as the
-        // room's one verb (HIG, Toolbars: group items by function). UI audit 2026-10-14, G3.
-        ToolbarSpacer(.fixed, placement: .primaryAction)
-        ToolbarItem(placement: .primaryAction) {
-            SaveResultButton()
-        }
-        .visibilityPriority(.low)
-        // Reveal in Finder is File > Show in Finder (owner decision 2026-10-22): a lone folder glyph beside the archive icon read as Open.
-        ToolbarItem(placement: .primaryAction) {
-            DatasetMenu()
-        }
-        .visibilityPriority(.high)
-        // No inspector toggle here: it is the inspector's own (see
-        // `.inspector` above).
+        return nil
     }
 
     /// The importer's completion, as a method rather than an inline closure:
@@ -296,124 +162,5 @@ struct ContentView: View {
         #else
         UIPasteboard.general.string = text
         #endif
-    }
-}
-
-
-/// A single-child container that is exactly as large as the space it is
-/// offered, whatever its child's minimum is (the child may overflow, topLeading).
-/// A rigid child — `NavigationSplitView` pinning its columns after a sidebar
-/// that could not grow the window — otherwise makes its parent, and so any
-/// `.onGeometryChange` on it, report the child's width instead of the
-/// window's. A finite proposal is answered with itself (so the window's
-/// minimum comes from the frame above ContentView, not from the split); an
-/// ideal or unbounded query is answered by the child, so the window's ideal
-/// and maximum sizes are unchanged.
-struct WindowFillingLayout: Layout {
-    static func reportedSize(proposal: ProposedViewSize, child: CGSize) -> CGSize {
-        func axis(_ offered: CGFloat?, _ own: CGFloat) -> CGFloat {
-            if let offered, offered.isFinite { return offered }
-            return own
-        }
-        return CGSize(width: axis(proposal.width, child.width),
-                      height: axis(proposal.height, child.height))
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        Self.reportedSize(proposal: proposal,
-                          child: subviews.first?.sizeThatFits(proposal) ?? .zero)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
-                              proposal: ProposedViewSize(bounds.size))
-    }
-}
-
-/// The toolbar's centre — Xcode's activity viewer (ADR 036: the dataset's
-/// name and the current process belong in the toolbar).
-/// Idle: the file, the room and the scan size, one line, middle-truncating.
-/// Busy: the running operation, its bar and its elapsed/ETA, ticking once a
-/// second. A display, never a button, at a constant width
-/// (`LayoutPolicy.toolbarDisplayWidth`) so a ticking string never reflows the
-/// toolbar (011). Absent without a dataset, like every room action.
-struct ToolbarRunDisplay: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        if let descriptor = appState.descriptor, !appState.datasetSession.isLoading {
-            Group {
-                if appState.isBusy {
-                    busy
-                } else {
-                    Text(ToolbarDisplayFormat.idle(
-                        file: descriptor.fileName,
-                        room: WorkspaceRoute.current(appState.navigation).title,
-                        positions: descriptor.rx * descriptor.ry
-                    ))
-                    .font(.subheadline)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(descriptor.filePath)
-                    .accessibilityIdentifier("toolbar.display.idle")
-                }
-            }
-            // No constant ideal: at a constant 380 the toolbar dropped the
-            // display below ~1000 pt and the actions jumped leading
-            // (measured 2026-09-22). The toolbar is not split content, so
-            // the constraint-loop rule does not bind here; the busy line's
-            // monospaced digits change its width only when a digit is added.
-            .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
-                   maxWidth: LayoutPolicy.toolbarDisplayWidth)
-            // Outside the frame, so the system's capsule gets room around
-            // the text rather than hugging it (owner decision, on a real
-            // cube).
-            .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
-        } else if let metadata = appState.spectroscopy.metadata, !appState.datasetSession.isLoading {
-            // A spectrum-only window (v5.0 WP2): the same display, its grid in pixels.
-            Text(ToolbarDisplayFormat.idleSpectrumImage(
-                file: metadata.fileName,
-                room: WorkspaceRoute.current(appState.navigation).title,
-                width: metadata.scanWidth, height: metadata.scanHeight
-            ))
-            .font(.subheadline)
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .help(metadata.filePath)
-            .accessibilityIdentifier("toolbar.display.idle")
-            .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
-                   maxWidth: LayoutPolicy.toolbarDisplayWidth)
-            .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
-        }
-    }
-
-    /// Name and elapsed time only: the bar, the counts, the rate, the ETA
-    /// and Stop are the infobar's — one progress bar on screen, never two
-    /// (010).
-    private var busy: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Text([appState.activeOperation ?? appState.statusText,
-                  appState.activeOperationMetrics(at: context.date).map { OperationMetricsFormat.duration($0.elapsed) }]
-                    .compactMap { $0 }.joined(separator: " · "))
-                .font(.subheadline.monospacedDigit())
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityIdentifier("toolbar.display.busy")
-        }
-    }
-}
-
-/// How the toolbar's idle display is worded, in one place, tested.
-enum ToolbarDisplayFormat {
-    /// "Demo.h5 · Prepare · 144 positions" — the file first (it is the
-    /// window's subject), the room, then the scan size.
-    static func idle(file: String, room: String, positions: Int) -> String {
-        "\(file) · \(room) · \(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")"
-    }
-
-    /// "Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px" — a spectrum image
-    /// with no cube (the room mock's screen 1).
-    static func idleSpectrumImage(file: String, room: String, width: Int, height: Int) -> String {
-        "\(file) · \(room) · \(width) × \(height) px"
     }
 }

@@ -4,6 +4,7 @@
 //  ticked element and says who is not ticked. Each test names the mutation it catches.
 //
 
+import ShellLayout
 import XCTest
 import SwiftUI
 import DSTEMCore

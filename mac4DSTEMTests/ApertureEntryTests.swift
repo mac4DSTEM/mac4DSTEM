@@ -4,6 +4,7 @@
 //  (`Aperture.snappedEdit`, then `updateAperture` and `commitApertureChange`). UI audit 2026-10-14, "Aperture is drag-only".
 //
 
+import ShellControls
 import XCTest
 import DSTEMCore
 import DSTEMSession

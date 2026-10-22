@@ -1,3 +1,6 @@
+import ShellControls
+import ImagoCore
+import ImagoCore
 import SwiftUI
 import ImageIO
 import CoreText
@@ -74,11 +77,11 @@ enum MapScaleBar {
                      locale: Locale = .autoupdatingCurrent) -> Plan? {
         guard pixelSize > 0, pixelSize.isFinite, pointsPerPixel > 0, pointsPerPixel.isFinite, targetPoints > 0 else { return nil }
         guard let nm = nanometres(per: unit) else {
-            let nice = ScaleBar.nice125(targetPoints * pixelSize / pointsPerPixel)
+            let nice = ScaleBarMath.nice125(targetPoints * pixelSize / pointsPerPixel)
             return Plan(label: "\(ScaleBar.format(nice, locale: locale)) \(unit)", lengthPoints: nice / (pixelSize / pointsPerPixel))
         }
         let nmPerPoint = pixelSize * nm / pointsPerPixel
-        let nice = ScaleBar.nice125(targetPoints * nmPerPoint)
+        let nice = ScaleBarMath.nice125(targetPoints * nmPerPoint)
         let label = nice >= 1000 ? "\(ScaleBar.format(nice / 1000, locale: locale)) \u{00B5}m" : "\(ScaleBar.format(nice, locale: locale)) nm"
         return Plan(label: label, lengthPoints: nice / nmPerPoint)
     }

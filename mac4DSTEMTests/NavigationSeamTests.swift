@@ -1,3 +1,4 @@
+import ShellLayout
 import SwiftUI
 import XCTest
 import DSTEMCore
@@ -113,12 +114,12 @@ final class NavigationSeamTests: XCTestCase {
 
     func testProcessAreaToggleRestoresTheLastDraggedFraction() {
         let navigation = WorkspaceNavigation()
-        navigation.processFraction = 0.6
-        navigation.showLogPane = false
-        XCTAssertEqual(navigation.processFraction, 0)
-        XCTAssertEqual(navigation.lastProcessFraction, 0.6)
-        navigation.showLogPane = true
-        XCTAssertEqual(navigation.processFraction, 0.6)
+        navigation.panels.processFraction = 0.6
+        navigation.panels.showProcessArea = false
+        XCTAssertEqual(navigation.panels.processFraction, 0)
+        XCTAssertEqual(navigation.panels.lastProcessFraction, 0.6)
+        navigation.panels.showProcessArea = true
+        XCTAssertEqual(navigation.panels.processFraction, 0.6)
         XCTAssertEqual(ProcessAreaLayout.toggled(from: 0.6, last: 0.6), 0)
         XCTAssertEqual(ProcessAreaLayout.toggled(from: 0, last: 0.6), 0.6)
     }

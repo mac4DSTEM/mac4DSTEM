@@ -18,6 +18,9 @@
 //  trailing; kind name and detail leading, under the title.
 //
 
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore

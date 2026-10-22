@@ -1,3 +1,5 @@
+import ShellControls
+import ShellInspector
 import XCTest
 import DSTEMCore
 import DSTEMSession

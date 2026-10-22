@@ -19,6 +19,9 @@
 //  green measured) are ported without re-derivation.
 //
 
+import ShellControls
+import ShellInspector
+import ShellLayout
 import SwiftUI
 import simd
 import ShellMetal
@@ -28,67 +31,11 @@ import DSTEMSession
 import DiffractoOrientation
 #endif
 
-// MARK: - Pane footer
+// MARK: - Pane footer and scale bar
 
-/// The bottom overlay row of an image pane: the scale bar at the leading edge,
-/// the colour legend at the trailing edge.
-///
-/// On a tall, narrow pane there is not enough width for both: the legend is
-/// 146pt wide before its label, and the bar is quantized to ~70pt of *drawn*
-/// length plus its own caption, so a collision is a property of the width of
-/// the **drawn image box** — `LayoutPolicy.fitted(in:aspect:)`, which this
-/// overlay sits inside — and NOT of the pane. For a square pattern in a pane
-/// taller than it is wide the two coincide; for a rotated tall-narrow scan
-/// the box stays narrow at any divider position, so that pane is stacked
-/// always and correctly.
-///
-/// `ViewThatFits` picks side-by-side while both ideal widths fit and stacks
-/// them otherwise, which keeps the wide case pixel-identical to what shipped
-/// and makes the narrow case legible instead of overlapping.
-struct PaneFooter<Leading: View, Trailing: View>: View {
-    private let leading: Leading
-    private let trailing: Trailing
-
-    init(@ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing) {
-        self.leading = leading()
-        self.trailing = trailing()
-    }
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .bottom, spacing: 8) {
-                leading
-                Spacer(minLength: 8)
-                trailing
-            }
-            // Legend above bar: the legend is the taller, fixed-width block, so
-            // stacking it on top keeps the bar against the pane's bottom-left
-            // corner where it sits in the wide case.
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 0) { Spacer(minLength: 0); trailing }
-                leading
-            }
-        }
-        .padding(8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-    }
-}
-
-// MARK: - Scale bar
-
-/// Calibrated scale bar overlay for the image panes. Picks a "nice" 1-2-5
-/// length near a target on-screen size, so it re-quantizes as the user zooms.
-/// Falls back to pixel units when no calibration exists — an uncalibrated bar
-/// labelled "px" is still honest and useful.
-struct ScaleBar: View {
-    /// Physical units per screen POINT at the current zoom
-    /// (= pixelSize * imagePixels / (fittedWidthPoints * zoom)).
-    let unitsPerPoint: Double
-    /// Unit label ("nm", "1/nm", "px", …).
-    let unitLabel: String
-
-    private static let targetPoints = 70.0
-
+// `PaneFooter`, `ScaleBar` and `Colorbar` are ShellControls' (suite task 8, MacEMUI). What stays here is the one function that needs
+// the app's unit conversion.
+extension ScaleBar {
     /// What the bar measures for a displayed product: the physical sampling
     /// along the SCREEN horizontal and its unit, or pixels when the product
     /// carries no unit. A sampling with no unit is not a physical sampling —
@@ -102,101 +49,8 @@ struct ScaleBar: View {
         }
         return (along, CalibrationUnitConversion.displayLabel(units))
     }
-
-    var body: some View {
-        if unitsPerPoint > 0, unitsPerPoint.isFinite {
-            let nice = Self.nice125(unitsPerPoint * Self.targetPoints)
-            let lengthPt = CGFloat(nice / unitsPerPoint)
-            let shown = Self.ladder(nice, unit: unitLabel)
-            VStack(alignment: .leading, spacing: 3) {
-                // verbatim: the label is data, not a localisation key.
-                Text(verbatim: "\(Self.format(shown.value)) \(shown.unit)")
-                    .accessibilityLabel(Self.spokenLabel(value: shown.value, unit: shown.unit))
-                Rectangle()
-                    .frame(width: lengthPt, height: 2)
-            }
-            .font(.caption2.monospaced())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            // Legibility plate: this sits on top of arbitrary scientific
-            // image data, where white-on-white is unreadable. Not chrome.
-            .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
-            .allowsHitTesting(false)
-        }
-    }
-
-    /// The length unit the bar is READ in: nm / µm / mm only, chosen so the
-    /// number lies in [1, 1000). The bar's drawn length is untouched; the
-    /// number is the same length written in a neighbouring unit (×1000 steps,
-    /// re-snapped to the 1-2-5 value so no float residue like 20.000000000000004
-    /// reaches the label). Å, pm, reciprocal units, mrad and px are left alone;
-    /// so is anything unrecognised. Presentation only.
-    static func ladder(_ value: Double, unit: String) -> (value: Double, unit: String) {
-        let rungs = ["nm", "\u{00B5}m", "mm"]
-        let canonical: String
-        switch unit {
-        case "nm", "nanometre", "nanometres", "nanometer", "nanometers": canonical = "nm"
-        case "\u{00B5}m", "\u{03BC}m", "um": canonical = "\u{00B5}m"
-        case "mm": canonical = "mm"
-        default: return (value, unit)
-        }
-        guard value > 0, value.isFinite, var index = rungs.firstIndex(of: canonical) else {
-            return (value, unit)
-        }
-        var v = value
-        while v >= 1000, index < rungs.count - 1 { v /= 1000; index += 1 }
-        while v < 1, index > 0 { v *= 1000; index -= 1 }
-        return (index == rungs.firstIndex(of: canonical) ? value : nice125(v), rungs[index])
-    }
-
-    /// The unit as VoiceOver should say it ("nm" is read letter by letter
-    /// otherwise). Covers every spelling `CalibrationUnitConversion.displayLabel`
-    /// can hand the bar; an unknown unit is spoken as written.
-    static func spokenUnit(_ unit: String) -> String {
-        switch unit {
-        case "nm": return "nanometres"
-        case "\u{00B5}m", "\u{03BC}m", "um": return "micrometres"
-        case "mm": return "millimetres"
-        case "pm": return "picometres"
-        case "\u{00C5}", "A": return "\u{00E5}ngstr\u{00F6}ms"
-        case "1/nm", "nm\u{207B}\u{00B9}", "nm^-1": return "inverse nanometres"
-        case "1/\u{00C5}", "\u{00C5}\u{207B}\u{00B9}", "A^-1": return "inverse \u{00E5}ngstr\u{00F6}ms"
-        case "mrad": return "milliradians"
-        case "px": return "pixels"
-        default: return unit
-        }
-    }
-
-    /// "Scale bar, 10 nanometres" - the number as the bar prints it.
-    static func spokenLabel(value: Double, unit: String, locale: Locale = .autoupdatingCurrent) -> String {
-        // "1 nanometre", not "1 nanometres": the bar's 1-2-5 values reach exactly 1.
-        let spoken = spokenUnit(unit)
-        let unitWords = value == 1 && spoken != unit && spoken.hasSuffix("s") ? String(spoken.dropLast()) : spoken
-        return "Scale bar, \(format(value, locale: locale)) \(unitWords)"
-    }
-
-    /// Round to the nearest 1 / 2 / 5 × 10ⁿ.
-    static func nice125(_ value: Double) -> Double {
-        guard value > 0, value.isFinite else { return 1 }
-        let exponent = floor(log10(value))
-        let base = pow(10, exponent)
-        let mantissa = value / base
-        let nice: Double = mantissa < 1.5 ? 1 : (mantissa < 3.5 ? 2 : (mantissa < 7.5 ? 5 : 10))
-        return nice * base
-    }
-
-    /// The bar's number in the reader's locale ("0,05" in de_DE). The digits are
-    /// the C-format ones the bar always printed; only the decimal separator is
-    /// localised, so en output is byte-identical. Exports burn with en_US_POSIX.
-    static func format(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
-        let text: String
-        if value >= 10 { text = String(format: "%.0f", value) }
-        else if value >= 1 { text = String(format: "%g", value) }
-        else { text = String(format: "%.3g", value) }
-        return CalibrationUnitConversion.localizedDecimal(text, locale: locale)
-    }
 }
+
 
 // MARK: - Origin robust-trim wash
 
@@ -257,124 +111,13 @@ struct OriginTrimLegend: View {
     }
 }
 
-// MARK: - Colorbar
-
-/// Numeric scalar legend for the exact colormap and contrast window displayed
-/// by a pane. Pre-colored scientific images use their own directional keys.
-struct Colorbar: View {
-    let colormap: ColormapKind
-    let low: Double
-    let high: Double
-    let unitLabel: String
-    var gamma: Float = 1
-    var marksZero = false
-    /// True when the displayed image contains masked (no-data) pixels, which
-    /// render as neutral gray; adds a swatch so the gray is self-explanatory.
-    var showsMasked = false
-
-    /// Drawing geometry: the width of the colour strip and of the numeric row
-    /// under it, which must agree so the end labels sit at the strip's ends.
-    private static let stripWidth: CGFloat = 132
-    private static let stripHeight: CGFloat = 9
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Canvas { context, size in
-                let lut = Colormaps.lutRGBA(colormap, count: 128)
-                let stripWidth = size.width / 128
-                for index in 0..<128 {
-                    let fraction = Float(index) / 127
-                    let mapped = pow(fraction, 1 / max(gamma, 0.05))
-                    let lutIndex = min(127, Int((mapped * 127).rounded()))
-                    let offset = lutIndex * 4
-                    let color = Color(
-                        red: Double(lut[offset]) / 255,
-                        green: Double(lut[offset + 1]) / 255,
-                        blue: Double(lut[offset + 2]) / 255
-                    )
-                    context.fill(Path(CGRect(x: CGFloat(index) * stripWidth, y: 0,
-                                             width: stripWidth + 0.5, height: size.height)),
-                                 with: .color(color))
-                }
-                if marksZero, low < 0, high > 0 {
-                    let fraction = CGFloat(-low / (high - low))
-                    let x = fraction * size.width
-                    context.stroke(Path { path in
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: size.height))
-                    }, with: .color(.white), lineWidth: 1)
-                }
-            }
-            .frame(width: Self.stripWidth, height: Self.stripHeight)
-            .overlay(RoundedRectangle(cornerRadius: 1)
-                .stroke(Color.white.opacity(0.45), lineWidth: 0.5))
-
-            HStack(spacing: 4) {
-                Text(Self.format(low))
-                Spacer()
-                if marksZero, low < 0, high > 0 { Text("0") }
-                Spacer()
-                Text(Self.format(high))
-            }
-            .frame(width: Self.stripWidth)
-            if !unitLabel.isEmpty {
-                Text(unitLabel)
-                    .foregroundStyle(.white.opacity(0.75))
-            }
-            if showsMasked {
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 1)
-                        // The exact neutral gray the renderer writes for a
-                        // masked (no-fit) pixel — a scientific key, not a tint.
-                        .fill(Color(red: 0.32, green: 0.32, blue: 0.34))
-                        .frame(width: 10, height: 7)
-                        .overlay(RoundedRectangle(cornerRadius: 1)
-                            .stroke(Color.white.opacity(0.45), lineWidth: 0.5))
-                    Text("masked · no fit")
-                        .foregroundStyle(.white.opacity(0.75))
-                }
-            }
-        }
-        .font(.caption2.monospacedDigit())
-        .foregroundStyle(.white)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 5)
-        // Legibility plate over the image, as on the scale bar.
-        .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
-        // This view is the LABEL of `ColormapChip`'s button (R23):
-        // `.allowsHitTesting(false)` here would make the button's whole area
-        // transparent to real clicks, though AXPress would still open the
-        // popover. Plain (non-button) uses opt out at their call site instead.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)"
-                            + (showsMasked ? ", gray marks masked pixels with no fit" : ""))
-    }
-
-    /// The range ends in the reader's locale, the same decimal mark as the scale bar beside them.
-    static func format(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
-        guard value.isFinite else { return "—" }
-        if value == 0 { return "0" }
-        let magnitude = abs(value)
-        let text = magnitude >= 10_000 || magnitude < 0.001
-            ? String(format: "%.2e", value) : String(format: "%.4g", value)
-        return CalibrationUnitConversion.localizedDecimal(text, locale: locale)
-    }
-}
-
 // MARK: - Colormap chip
 
-/// Colormap choice lives ON the colorbar chip in each pane — click the
-/// gradient you are already looking at, pick from real swatches (owner
-/// decision D3). The chip exists wherever its pane exists, so there is no
-/// separate scoping concern like the old sidebar Display row had.
-///
-/// **Popover, not Menu — R23.** AppKit hosts a menu-button's label itself and
-/// does not render a SwiftUI `Canvas` there, so a `Menu`-based chip loses its
-/// gradient. A `.popover` is presented SwiftUI-side, so the chip and the
-/// swatches render exactly as authored.
-struct ColormapChip<Chip: View>: View {
+/// Colormap choice lives ON the colorbar chip in each pane (owner decision D3). The button, its help and VoiceOver text and the popover's
+/// shell are ShellControls' `ColormapChip`; what this wrapper adds is the popover's CONTENT: the swatch picker, the histogram, gamma,
+/// the ACOM confidence gate and the diffraction display options, which read `AppState`.
+struct PaneColormapChip<Chip: View>: View {
     @Environment(AppState.self) private var appState
-    @State private var isPresented = false
 
     enum Pane { case diffraction, result }
 
@@ -387,31 +130,17 @@ struct ColormapChip<Chip: View>: View {
     }
 
     var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            chip
-        }
-        .buttonStyle(.plain)
-        .help(pane == .diffraction
-              ? "Colormap and display options for the diffraction pattern"
-              : "Colormap for the result image")
-        .accessibilityLabel(pane == .diffraction
-                            ? "Diffraction colormap and display options"
-                            : "Result colormap")
-        .accessibilityIdentifier(pane == .diffraction
-                                 ? "pane.colormap.diffraction"
-                                 : "pane.colormap.result")
-        .popover(isPresented: $isPresented, arrowEdge: .top) {
-            popoverContent
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
-                .frame(width: LayoutPolicy.popoverWidth)
-                // Content height, not a scroller's default: with the
-                // histogram and gamma moved in, the grouped Form stopped at
-                // ~300 pt and hid its last rows behind a scroll.
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        ColormapChip(
+            help: pane == .diffraction
+                ? "Colormap and display options for the diffraction pattern"
+                : "Colormap for the result image",
+            accessibilityText: pane == .diffraction
+                ? "Diffraction colormap and display options"
+                : "Result colormap",
+            identifier: pane == .diffraction ? "pane.colormap.diffraction" : "pane.colormap.result",
+            popoverWidth: LayoutPolicy.popoverWidth,
+            chip: { chip },
+            popover: { popoverContent })
     }
 
     /// The chip's popover as a grouped Form: the swatch rows (D3), the

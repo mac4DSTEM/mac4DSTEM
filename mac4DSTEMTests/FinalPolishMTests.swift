@@ -5,6 +5,7 @@
 //  the parked annulus handle (P7c). Each test names the mutation it catches.
 //
 
+import ShellLayout
 import XCTest
 import Darwin
 import DSTEMCore
@@ -121,7 +122,7 @@ final class FinalPolishMTests: XCTestCase {
     func testRunningOpenDatasetIsTheWindowsOwnOpenRequest() {
         let state = AppState()
         let before = state.openDatasetRequest
-        MenuActionRelay.run(.openDataset, in: state)
+        ShellLayout.MenuActionRelay<MenuAction>.run(.openDataset, in: state)
         XCTAssertEqual(state.openDatasetRequest, before &+ 1, "the open-panel request counter ContentView observes")
         XCTAssertEqual(state.preprocessingExportRequest, 0, "and not the preprocess sheet's")
     }

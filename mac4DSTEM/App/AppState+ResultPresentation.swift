@@ -4,6 +4,7 @@
 //        presentation. Mutable presentation state lives in ResultPresentation.
 //
 
+import ShellLayout
 import Foundation
 import ShellMetal
 #if canImport(DSTEMCore)

@@ -1,3 +1,4 @@
+import ShellControls
 import XCTest
 import SwiftUI
 @testable import mac4DSTEM

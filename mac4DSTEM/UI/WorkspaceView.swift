@@ -1,83 +1,72 @@
+import ShellControls
+import ShellLayout
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The detail column: the science, and the infobar + process area along its
-/// bottom edge (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4) — the room actions and
-/// the file name live in the toolbar, not here.
+/// The detail column: the science, and the infobar + process area along its bottom edge. The column's chassis (the
+/// divider, its drag, the infobar, the process area and their scene-stored fractions) is ShellLayout's `WorkspaceColumn`
+/// (suite task 8, MacEMUI); what stays here is what the canvas shows (the room switch, welcome, loading, the 4D panes, scan
+/// stepping) and the words of the run readout, the last run and the glance.
 ///
 /// **There is no workspace header.** The old `ProductWorkspaceHeader`
 /// repeated the sidebar row's own title and cost about 100 pt off the top of
 /// both panes; the phase-1 breadcrumb row repeated it again at 34 pt.
 /// Readiness has exactly one owner — the inspector's Settings tab.
-///
-/// **Layout, top to bottom, one `GeometryReader` over the whole column**: the
-/// science panes, the infobar (`LayoutPolicy.statusStripHeight`, fixed — the
-/// column's own divider, drag gesture and all), the process area.
-/// `ProcessAreaLayout.heights(fraction:available:)` turns
-/// `appState.navigation.processFraction` into the canvas and process area's
-/// shares of what is left after the infobar: 0 hides the process area, 1
-/// hides the canvas — the owner's two extremes; an open area is never drawn
-/// under `LayoutPolicy.processAreaMinimumHeight` (owner card Q6 a). The
-/// process area's height depends on nothing but that fraction and the column,
-/// so switching its tab (`BottomWorkspace`) can never move the bar.
 struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
-    @SceneStorage("workspace.processFraction") private var savedProcessFraction = 0.0
-    @SceneStorage("workspace.lastProcessFraction") private var savedLastProcessFraction = LayoutPolicy.processAreaIdealFraction
-
-    /// Gates the process area exactly as the old `showsBottomWorkspace` did:
-    /// `navigation.processFraction > 0` (via `showLogPane`) still has to be
-    /// true, but a dataset that is absent or still loading forces it shut
-    /// regardless of the dragged fraction, which `processFraction` itself is
-    /// NOT reset for — reopening the same dataset restores the same split.
-    private var showsProcessArea: Bool {
-        appState.navigation.showLogPane && appState.hasDataset && !appState.datasetSession.isLoading
-    }
 
     var body: some View {
-        GeometryReader { geometry in
-            let usable = max(geometry.size.height - LayoutPolicy.statusStripHeight, 0)
-            let effectiveFraction = showsProcessArea ? appState.navigation.processFraction : 0
-            let heights = ProcessAreaLayout.heights(fraction: effectiveFraction, available: usable)
+        WorkspaceColumn(
+            navigation: appState.navigation.panels,
+            tabs: ProcessTabs.all(activityLog: appState.activityLog),
+            // A dataset that is absent or still loading forces the process area shut regardless of the dragged fraction,
+            // which is NOT reset for it: reopening the same dataset restores the same split.
+            hasDocument: appState.hasDataset && !appState.datasetSession.isLoading,
+            statusText: appState.statusText,
+            isRunning: showsOperationProgress,
+            canvas: { content },
+            run: { runSlot },
+            glance: { glanceSlot })
+    }
 
-            VStack(spacing: 0) {
-                // Always in the hierarchy, even at fraction 1 where its
-                // height is 0: an `if` here tore down both Metal views every
-                // time the infobar reached the top and rebuilt them on the
-                // way back (2026-09-22). `MetalImageView` already declines to
-                // draw without a drawable, so a 0-pt, clipped canvas costs
-                // nothing and keeps the panes' state.
-                content
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(height: heights.canvas)
-                    .clipped()
+    /// Whether the infobar draws the live run. `isBusy` alone was not the right question: during a dataset OPEN it is true
+    /// with no metrics and no Cancel, beside a loading column that has its own spinner and Cancel. A load that has started
+    /// an analysis inside its bracket still qualifies, because that pass is cancellable.
+    private var showsOperationProgress: Bool {
+        appState.isBusy && (!appState.datasetSession.isLoading || appState.activeOperation != nil)
+    }
 
-                StatusBar(availableHeight: usable)
+    /// The run's numbers while one is in flight (the bar, done / total, the rate, elapsed · ETA and Stop), the last run while idle
+    /// (owner decision: the Run tab's numbers belong in the bar).
+    @ViewBuilder
+    private var runSlot: some View {
+        if showsOperationProgress {
+            InfobarRunReadout(
+                operation: appState.activeOperation,
+                progress: appState.progress,
+                line: { date in
+                    OperationMetricsFormat.runLine(
+                        done: appState.operationCenter.unitsDone,
+                        total: appState.operationCenter.totalUnits,
+                        metrics: appState.activeOperationMetrics(at: date),
+                        for: appState.activeOperation)
+                },
+                onCancel: appState.canCancelActiveOperation ? { appState.cancelActiveOperation() } : nil)
+        } else if let last = appState.operationCenter.lastFinished {
+            InfobarLastRun(OperationMetricsFormat.lastRun(last.name, elapsed: last.elapsed, cancelled: last.outcome == .cancelled))
+        }
+    }
 
-                if heights.process > 0 {
-                    BottomWorkspace()
-                        .frame(height: heights.process)
-                        .clipped()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        }
-        .onAppear {
-            // Both saved fractions come back as stored: they are relative to a
-            // column height this window may not have, so the floor is applied
-            // where they are drawn (`ProcessAreaLayout.height`), which covers
-            // these two restores, the toggle's and a window that shrank.
-            appState.navigation.lastProcessFraction = savedLastProcessFraction
-            appState.navigation.processFraction = savedProcessFraction
-        }
-        .onChange(of: appState.navigation.processFraction) {
-            savedProcessFraction = appState.navigation.processFraction
-        }
-        .onChange(of: appState.navigation.lastProcessFraction) {
-            savedLastProcessFraction = appState.navigation.lastProcessFraction
+    /// The standing facts: the engine, app memory and whether the cube is resident or streamed.
+    private var glanceSlot: some View {
+        InfobarGlance {
+            OperationMetricsFormat.glance(
+                engine: SystemMonitor.gpuName,
+                residentMB: SystemMonitor.residentMemoryMB() * 1.048576,
+                residency: appState.residency.isResident)
         }
     }
 
@@ -104,7 +93,7 @@ struct WorkspaceView: View {
             // Two scientific panes, side by side, with a divider the user
             // owns. NOT `HSplitView` — see `PaneSplit` for the crash that
             // ruled it out.
-            PaneSplit {
+            PaneSplit(resizeLabel: "Resize the diffraction and real-space panes", leadingName: "Diffraction pane") {
                 DiffractionPane()
             } trailing: {
                 RealSpacePane()
@@ -222,78 +211,33 @@ struct DatasetMenu: View {
     }
 }
 
-
 // MARK: - The one action that runs the task
 
-/// The toolbar's run button, at the head of the trailing group under the
-/// inspector where the room's parameters are set: the single action the
-/// selected task runs, and — while it runs — the way to stop it. The run's
-/// progress is the toolbar's centre display (`ToolbarRunDisplay`), not this
-/// button.
+/// The toolbar's verb, as the shell's plain `PrimaryAction` value (suite task 8): the title, hint, enablement and run logic stay here,
+/// the button, its glass styles and Cancel are ShellLayout's `PrimaryActionButton`.
 ///
-/// Titles, hints and enablement follow the parallax staging rule that gates
-/// only `.ptychography` and the `ProductWorkflow.readiness` check the
-/// checklist and the replay executor ask the same question of. When the
-/// action is disabled by an unmet requirement, the help names the first one,
-/// so the disabled state explains itself without a second readiness surface.
-struct PrimaryActionButton: View {
-    @Environment(AppState.self) private var appState
+/// Titles, hints and enablement follow the parallax staging rule that gates only `.ptychography` and the `ProductWorkflow.readiness`
+/// check the checklist and the replay executor ask the same question of. When the action is disabled by an unmet requirement, the
+/// help names the first one, so the disabled state explains itself without a second readiness surface.
+struct WorkspacePrimaryAction {
+    let appState: AppState
 
-    var body: some View {
-        // The header only ever existed while a dataset was open and settled;
-        // the toolbar item follows the same rule, so the load's own progress
-        // (centre column) is never shadowed by a second bar up here.
-        if (appState.hasDataset || isSpectroscopyWithImage) && !appState.datasetSession.isLoading {
-            if appState.isBusy {
-                operationProgress
-            } else if let actionTitle = primaryActionTitle {
-                // Prominent only when it can run: on macOS 27 a disabled
-                // `.borderedProminent` in the toolbar's glass still draws the
-                // accent fill, so a blocked verb read as ready (drive,
-                // 2026-09-30). Disabled, it takes the plain `.glass` of its siblings.
-                // Liquid Glass like Xcode's (owner 2026-10-07).
-                if primaryActionEnabled {
-                    primaryAction(actionTitle).buttonStyle(.glassProminent)
-                } else {
-                    primaryAction(actionTitle).buttonStyle(.glass).disabled(true)
-                }
-            }
-        }
-    }
-
-    private func primaryAction(_ title: String) -> some View {
-        Button(title) { runPrimaryAction() }
-            .keyboardShortcut(.return, modifiers: .command)
-            .help(helpText)
-            .accessibilityHint(primaryActionHint)
-            .accessibilityIdentifier("workspace.primaryAction")
-    }
-
-    /// While a run is in flight this slot offers ONE thing: the way to
-    /// cancel it, labeled "Cancel". `Label` with an icon and `.bordered`,
-    /// matching every sibling toolbar item (`SaveResultButton`,
-    /// `DatasetMenu`) — a plain text button read as
-    /// collapsed beside them. A progress bar once shared this slot and
-    /// squeezed the button until its label truncated to "C…" (owner,
-    /// 2026-09-04); the bar is the centre display now, so the label has
-    /// room.
-    @ViewBuilder
-    private var operationProgress: some View {
-        if appState.canCancelActiveOperation {
-            Button(role: .cancel) {
-                appState.cancelActiveOperation()
-            } label: {
-                Label("Cancel", systemImage: "xmark.circle")
-            }
-            .buttonStyle(.bordered)
-            .help(appState.activeOperation ?? appState.statusText)
-            .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
-            .accessibilityIdentifier("workspace.cancelAction")
-        } else {
-            ProgressView()
-                .controlSize(.small)
-                .help(appState.activeOperation ?? appState.statusText)
-        }
+    /// The value for the toolbar, or nil when the verb does not apply: the header only ever existed while a dataset was open and
+    /// settled, so the toolbar item follows the same rule and the load's own progress (centre column) is never shadowed by a second
+    /// bar up here.
+    @MainActor
+    static func current(_ appState: AppState) -> PrimaryAction? {
+        let this = WorkspacePrimaryAction(appState: appState)
+        guard (appState.hasDataset || this.isSpectroscopyWithImage) && !appState.datasetSession.isLoading else { return nil }
+        return PrimaryAction(
+            title: this.primaryActionTitle,
+            isEnabled: this.primaryActionEnabled,
+            help: this.helpText,
+            hint: this.primaryActionHint,
+            isRunning: appState.isBusy,
+            operationName: appState.activeOperation ?? appState.statusText,
+            stop: appState.canCancelActiveOperation ? { appState.cancelActiveOperation() } : nil,
+            run: { this.runPrimaryAction() })
     }
 
     /// The hint, unless a requirement is what is holding the action back —
@@ -560,409 +504,6 @@ struct WelcomeWorkspace: View {
     }
 }
 
-// MARK: - The status strip / infobar
-
-/// The permanent status strip along the centre column's bottom edge — one
-/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (ADR 034:
-/// live operational detail lives in the process area's Run tab, so this
-/// strip only glances).
-///
-/// **Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4–§6): this IS the centre column's
-/// divider.** A `DragGesture` over the whole bar — every pixel of its
-/// width, via `.contentShape(Rectangle())` — reads `availableHeight` (the
-/// same denominator `WorkspaceView`'s `ProcessAreaLayout.heights` uses) and
-/// writes `appState.navigation.processFraction` through
-/// `ProcessAreaLayout.fraction(afterDrag:available:from:)`, the same way
-/// `PaneSplit`'s divider carries the science panes' resize. No event monitor,
-/// AppKit cursor, or hosted split view is involved.
-///
-/// Left: the status line. Then the live run while one is in flight — the
-/// bar, done / total, the rate, elapsed · ETA and Stop — or the last run
-/// while idle (owner decision: the Run tab's numbers belong in the bar).
-/// Then the engine · memory · residency glance, always on. Right: buttons
-/// styled after Xcode's debug bar — one per process pane (Output, Lineage)
-/// and the area's own toggle — `ProcessAreaLayout.toggled(from:last:)`, the
-/// same pure function `WorkspaceNavigation.showLogPane`'s setter
-/// reimplements for the ⌃⌘L menu item.
-///
-/// No bar of its own: a `Divider()` above and below (added by `WorkspaceView`,
-/// the one exception the hard rules carve out for the infobar) is its whole
-/// look.
-struct StatusBar: View {
-    @Environment(AppState.self) private var appState
-    let availableHeight: CGFloat
-
-    /// The fraction the current drag started from — without it the
-    /// gesture's cumulative `translation` re-applies on every change event
-    /// and the bar snaps to a limit after a few points of travel, the same
-    /// shape `PaneSplit.fractionAtDragStart` and `BottomWorkspace`'s old
-    /// `heightAtDragStart` both guarded against.
-    @State private var fractionAtDragStart: Double?
-
-    private var processAreaToggleBinding: Binding<Bool> {
-        Binding(
-            get: { appState.navigation.processFraction > 0 },
-            set: { _ in
-                appState.navigation.processFraction = ProcessAreaLayout.toggled(
-                    from: appState.navigation.processFraction,
-                    last: appState.navigation.lastProcessFraction
-                )
-            }
-        )
-    }
-
-    /// One per pane, each toggling its pane and, through
-    /// `toggleProcessPane`, the area itself when it is the last pane out or
-    /// the first pane in.
-    private func paneBinding(_ pane: WorkspaceNavigation.ProcessPane) -> Binding<Bool> {
-        Binding(
-            get: {
-                switch pane {
-                case .output: appState.navigation.showsOutputPane && appState.navigation.showLogPane
-                case .lineage: appState.navigation.showsLineagePane && appState.navigation.showLogPane
-                }
-            },
-            set: { _ in appState.navigation.toggleProcessPane(pane) }
-        )
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 1, coordinateSpace: .global)
-            .onChanged { value in
-                guard appState.hasDataset, !appState.datasetSession.isLoading else { return }
-                let start = fractionAtDragStart ?? appState.navigation.processFraction
-                if fractionAtDragStart == nil { fractionAtDragStart = start }
-                appState.navigation.processFraction = ProcessAreaLayout.fraction(
-                    afterDrag: value.translation.height, available: availableHeight, from: start
-                )
-            }
-            .onEnded { _ in fractionAtDragStart = nil }
-    }
-
-    var body: some View {
-        HStack(spacing: LayoutPolicy.infobarItemSpacing) {
-            // One line, truncating — the message never dictates the bar's
-            // height; `.help` carries the rest of a long line.
-            Text(appState.statusText)
-                .font(.callout)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .help(appState.statusText)
-                // The message is the line that says what just happened, so it keeps its width longest after the run's
-                // numbers: under compression the order is the run's numbers (`runReadout`, 1), this message (0), then
-                // the "Last run" line and the standing glance (-1) give way (design review 2026-10-21: the message was
-                // the part cut, "Strain ✓ 89%…", while the machine column kept its full width). `.help` carries the rest.
-                // Priorities are constant, so nothing here changes the strip's own minimum (the constraint-loop rule).
-                .layoutPriority(0)
-                .accessibilityIdentifier("status.bar")
-
-            Spacer(minLength: LayoutPolicy.infobarItemSpacing)
-
-            // The Run tab's numbers, here (owner decision): the bar,
-            // done / total, the rate, elapsed · ETA and Stop while a run is
-            // in flight; the last run while idle.
-            if showsOperationProgress {
-                runReadout
-                    .layoutPriority(1)
-            } else if let last = appState.operationCenter.lastFinished {
-                Text("Last run · " + OperationMetricsFormat.lastRun(
-                    last.name, elapsed: last.elapsed, cancelled: last.outcome == .cancelled))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(-1)
-                    .accessibilityIdentifier("status.footer.lastRun")
-            }
-
-            systemGlance
-                .layoutPriority(-1)
-
-            if appState.hasDataset && !appState.datasetSession.isLoading {
-                Toggle(isOn: paneBinding(.output)) {
-                    Image(systemName: "rectangle.leadinghalf.inset.filled")
-                }
-                .toggleStyle(.button)
-                .help("Output pane")
-                .accessibilityLabel("Toggle the Output pane")
-                .accessibilityIdentifier("status.footer.toggleOutput")
-                Toggle(isOn: paneBinding(.lineage)) {
-                    Image(systemName: "rectangle.trailinghalf.inset.filled")
-                }
-                .toggleStyle(.button)
-                .help("Lineage pane")
-                .accessibilityLabel("Toggle the Lineage pane")
-                .accessibilityIdentifier("status.footer.toggleLineage")
-                Toggle(isOn: processAreaToggleBinding) {
-                    Image(systemName: "rectangle.bottomthird.inset.filled")
-                }
-                .toggleStyle(.button)
-                .help(appState.navigation.showLogPane
-                      ? "Hide the bottom pane" : "Show the bottom pane")
-                .accessibilityLabel("Toggle bottom pane")
-                .accessibilityIdentifier("status.footer.toggleLog")
-            }
-        }
-        .controlSize(.small)
-        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .frame(height: LayoutPolicy.statusStripHeight)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .top) { Divider() }
-        .overlay(alignment: .bottom) { Divider() }
-        .contentShape(Rectangle())
-        .modifier(ResizePointer(axis: .row))
-        .simultaneousGesture(dragGesture)
-        // The strip is the bottom pane's divider and was drag-only (UI audit 2026-10-14, G4). VoiceOver gets two
-        // actions, not an adjustable value: the strip holds buttons of its own that must stay reachable, and an
-        // adjustable element would swallow them. Keyboard: Tab to the strip, then Up/Down. Both do what the drag
-        // does, `DividerNudge.step` at a time, and only with a dataset loaded, like the drag.
-        .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Make the bottom pane taller") { nudgeProcessArea(taller: true) }
-        .accessibilityAction(named: "Make the bottom pane shorter") { nudgeProcessArea(taller: false) }
-        .focusable(interactions: .activate)   // a keyboard-navigation stop only; see `PaneSplit.divider` for why not a click target
-        .onMoveCommand { direction in
-            switch direction {
-            case .up: nudgeProcessArea(taller: true)
-            case .down: nudgeProcessArea(taller: false)
-            default: break
-            }
-        }
-    }
-
-    private func nudgeProcessArea(taller: Bool) {
-        guard appState.hasDataset, !appState.datasetSession.isLoading else { return }
-        appState.navigation.processFraction = DividerNudge.processFraction(
-            from: appState.navigation.processFraction, taller: taller,
-            last: appState.navigation.lastProcessFraction, available: availableHeight)
-    }
-
-    /// Whether the strip draws the live run. `isBusy` alone was not the
-    /// right question: during a dataset OPEN it is true with no metrics and
-    /// no Cancel, beside a loading column that has its own spinner and
-    /// Cancel. A load that has started an analysis inside its bracket still
-    /// qualifies, because that pass is cancellable.
-    private var showsOperationProgress: Bool {
-        appState.isBusy && (!appState.datasetSession.isLoading || appState.activeOperation != nil)
-    }
-
-    /// The bar, the counts, the rate, elapsed · ETA, Stop — ticking once a
-    /// second, in a constant-width slot (`runReadoutWidth`, the
-    /// `operationReadoutWidth` rule: a ticking string never resizes its own
-    /// container — the constraint-loop rule).
-    private var runReadout: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
-                ProgressView(value: appState.progress)
-                    .frame(width: LayoutPolicy.inlineProgressWidth)
-                    .accessibilityLabel(appState.activeOperation ?? "Progress")
-                    .accessibilityValue(appState.progress
-                        .map { "\(Int($0 * 100)) percent" } ?? "")
-                Text(OperationMetricsFormat.runLine(
-                    done: appState.operationCenter.unitsDone,
-                    total: appState.operationCenter.totalUnits,
-                    metrics: appState.activeOperationMetrics(at: context.date),
-                    for: appState.activeOperation))
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    // Constant minimum, ideal and maximum, like the memory
-                    // glance below: none depends on the text, so nothing
-                    // ticks, yet a narrow window compresses the slot instead
-                    // of the inspector covering a pane.
-                    .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
-                           idealWidth: LayoutPolicy.runReadoutWidth,
-                           maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
-                    .accessibilityIdentifier("status.footer.metrics")
-                if appState.canCancelActiveOperation {
-                    // "Cancel", matching the toolbar's own button: both name
-                    // the same action on the same run. `.fixedSize()` +
-                    // `.layoutPriority(1)`: this row's other items (the
-                    // progress bar, the fixed-width metrics text) leave the
-                    // button no protected space of its own, and without them
-                    // it collapsed to a blank ~9pt pill with a zero-width
-                    // label when the metrics text was near its own longest
-                    // content.
-                    Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
-                        .fixedSize()
-                        .layoutPriority(1)
-                        .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
-                        .accessibilityIdentifier("status.footer.stop")
-                }
-            }
-        }
-    }
-
-    /// The standing facts — the engine, app memory and whether the cube is
-    /// resident or streamed — always on, in a fixed slot, with the chip
-    /// glyph the owner asked for ("some logos if it makes sense").
-    private var systemGlance: some View {
-        TimelineView(.periodic(from: .now, by: 2)) { _ in
-            Label {
-                Text(OperationMetricsFormat.glance(
-                    engine: SystemMonitor.gpuName,
-                    residentMB: SystemMonitor.residentMemoryMB() * 1.048576,
-                    residency: appState.residency.isResident
-                ))
-            } icon: {
-                Image(systemName: "memorychip")
-            }
-            .font(.callout.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            // Constant minimum, ideal and maximum, not a fixed width: none
-            // depends on the text, so a ticking value never moves the
-            // strip's size (the constraint-loop rule), yet it compresses. A
-            // fixed 250 pt floored the strip — and so the detail column —
-            // at ~432 pt, and the inspector drew over the right science
-            // pane (Gate D).
-            .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
-                   idealWidth: LayoutPolicy.statusGlanceWidth,
-                   maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
-            .accessibilityIdentifier("status.footer.memoryGlance")
-        }
-    }
-}
-
-// MARK: - The two-pane split
-
-/// Two scientific panes side by side with a divider the user drags.
-///
-/// **Why this is not `HSplitView`** (Gate D, 2026-09-04). `HSplitView` nested
-/// in the `NavigationSplitView` detail is half of a launch crash: with both it
-/// and the real panes present the app aborted in AppKit's update-constraints
-/// guard ~6 s after launching on the demo fixture, and removing either element
-/// removed the crash. Measured, one tree: HSplitView + real panes crashes (and
-/// still crashes with every `.frame(minWidth:)` removed, which refuted the
-/// first diagnosis); HSplitView + `Color.clear` children survives; `HStack` +
-/// real panes survives.
-///
-/// **What is NOT established is why.** The first written explanation — that
-/// `HSplitView` hosts each child in its own `NSHostingView` and loops on a
-/// content-derived minimum — was refuted by this repo's own shipping code: the
-/// old window (`UI/ContentView.swift`) puts two real scientific panes with
-/// explicit minimums inside an `HSplitView` and does not crash. The mechanism
-/// that fits every observation, including that one, is the one measured
-/// in-process on 2026-09-03 (`UI/SplitViewPolicy.swift`): a minimum
-/// travelling between a SwiftUI-owned split and its hosted content. UI stacks
-/// three such splits — `NavigationSplitView`, `.inspector`, `HSplitView` — and
-/// every surviving probe drops it to two. Two probes would separate the two
-/// readings and neither has been run; they are named in `open-items.md`.
-///
-/// The fix is safe under either reading, which is why it landed on an
-/// unfinished explanation: a `GeometryReader` reports the proposal and never
-/// consults its children, and `.frame(width:)` terminates each pane's
-/// minimum, so this view propagates no minimum upward at all. It is also
-/// portable — `HSplitView` is macOS-only.
-struct PaneSplit<Leading: View, Trailing: View>: View {
-    private let leading: () -> Leading
-    private let trailing: () -> Trailing
-
-    /// `storageKey` names the scene-storage slot the divider's position lives
-    /// in, so the science split and the process area's split each remember
-    /// their own fraction.
-    init(
-        storageKey: String = "workspace.paneSplit.fraction",
-        @ViewBuilder leading: @escaping () -> Leading,
-        @ViewBuilder trailing: @escaping () -> Trailing
-    ) {
-        self.leading = leading
-        self.trailing = trailing
-        self._storedFraction = SceneStorage(wrappedValue: 0.5, storageKey)
-    }
-
-    /// The divider's position as a fraction of the usable width. Where a
-    /// divider sits is window state, not app state, so it lives in the
-    /// scene's own storage: it survives this branch being rebuilt (a load, a
-    /// trip to Results) and the window being reopened, and each window keeps
-    /// its own. As `@State` it reset to centre on every rebuild — the
-    /// `PaneSplit` residual (c) and the first item of the UI polish list
-    /// (`open-items.md`).
-    @SceneStorage private var storedFraction: Double
-    @State private var fractionAtDragStart: CGFloat?
-
-    private var fraction: CGFloat {
-        get { CGFloat(storedFraction) }
-        nonmutating set { storedFraction = Double(newValue) }
-    }
-
-    private static var dividerWidth: CGFloat { LayoutPolicy.sciencePaneDividerWidth }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let usable = max(geometry.size.width - Self.dividerWidth, 1)
-            // Science: neither pane is driven below the image floor while
-            // there is room for two of them. The clamp lives here, on a
-            // number this view already has, rather than as a minimum the
-            // panes announce upward — announcing one is what the crash was
-            // about. Below 2 x the floor the fraction saturates at 0.5 and
-            // both panes go under it: with 300 pt of container there is no
-            // arrangement that honours a 180 pt floor twice, so the split
-            // divides what it has evenly rather than pretending otherwise.
-            let smallest = min(0.5, LayoutPolicy.imagePaneMinimum / usable)
-            let clamped = min(max(fraction, smallest), 1 - smallest)
-            let leadingWidth = (usable * clamped).rounded()
-
-            HStack(spacing: 0) {
-                leading()
-                    .frame(width: leadingWidth)
-                divider(usable: usable, smallest: smallest)
-                trailing()
-                    .frame(width: usable - leadingWidth)
-            }
-        }
-    }
-
-    private func divider(usable: CGFloat, smallest: CGFloat) -> some View {
-        Divider()
-            // The drawn line is 1 pt; the grab zone is the system's 9.
-            .contentShape(
-                Rectangle().inset(by: -LayoutPolicy.dividerGrabWidth / 2)
-            )
-            .modifier(ResizePointer(axis: .column))
-            // `.global` for the same reason as the infobar's gesture: the
-            // divider moves with the drag, and a local translation lags it.
-            .gesture(
-                DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                    .onChanged { value in
-                        let start = fractionAtDragStart ?? fraction
-                        fractionAtDragStart = start
-                        fraction = min(
-                            max(start + value.translation.width / usable, smallest),
-                            1 - smallest
-                        )
-                    }
-                    .onEnded { _ in fractionAtDragStart = nil }
-            )
-            .accessibilityLabel("Resize the diffraction and real-space panes")
-            // A route without the mouse (UI audit 2026-10-14, G4): Tab to the divider, then Left/Right; and for
-            // VoiceOver an adjustable value, Up/Down on the rotor's adjust. Both move it `DividerNudge.step`.
-            .accessibilityValue("Diffraction pane \(Int((min(max(fraction, smallest), 1 - smallest) * 100).rounded())) percent")
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: nudge(DividerNudge.step, usable: usable, smallest: smallest)
-                case .decrement: nudge(-DividerNudge.step, usable: usable, smallest: smallest)
-                @unknown default: break
-                }
-            }
-            // `.activate`: a keyboard-navigation stop only (Full Keyboard Access), never a click target, so dragging the
-            // divider leaves focus on the panes and their arrow keys keep stepping the scan position (see `content`).
-            .focusable(interactions: .activate)
-            .onMoveCommand { direction in
-                switch direction {
-                case .right: nudge(DividerNudge.step, usable: usable, smallest: smallest)
-                case .left: nudge(-DividerNudge.step, usable: usable, smallest: smallest)
-                default: break
-                }
-            }
-    }
-
-    private func nudge(_ points: CGFloat, usable: CGFloat, smallest: CGFloat) {
-        fraction = DividerNudge.paneFraction(from: fraction, by: points, usable: usable, smallest: smallest)
-    }
-}
-
 // MARK: - Keeping a result
 
 /// "Save to Session", in the toolbar beside Reveal (owner decision): always
@@ -996,22 +537,6 @@ struct SaveResultButton: View {
             .help(saveReason ?? "Save to Session — keeps the displayed result with this dataset, in "
                   + "its session sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
-        }
-    }
-}
-
-/// The resize cursor over a divider. `.column` is the pane split's
-/// left–right pair; `.row` is the infobar's up–down pair — the bar is
-/// draggable over its whole width and needs a cursor that says so
-/// (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §1).
-private struct ResizePointer: ViewModifier {
-    enum Axis { case column, row }
-    let axis: Axis
-
-    func body(content: Content) -> some View {
-        switch axis {
-        case .column: content.pointerStyle(.columnResize)
-        case .row: content.pointerStyle(.rowResize)
         }
     }
 }

@@ -28,7 +28,9 @@
 //  the closure does, and the graph redraws from the lineage it changed.
 //
 
+import ShellLayout
 import SwiftUI
+import ShellInspector
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession

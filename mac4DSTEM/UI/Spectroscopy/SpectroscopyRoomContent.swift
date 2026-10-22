@@ -1,3 +1,4 @@
+import ShellLayout
 import SwiftUI
 
 /// The room's centre (ADR 056, mock v2.1; spec 2 D-4, D-7): the maps block on top (the grid only) and the spectrum, full width,

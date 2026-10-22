@@ -15,6 +15,7 @@ import DSTEMSession
 import DiffractoOrientation
 import ImageIO
 import UniformTypeIdentifiers
+import ShellLayout
 
 extension AppState {
 

@@ -9,6 +9,7 @@
 //  Each test names the mutation it was broken with.
 //
 
+import ShellControls
 import XCTest
 import DSTEMCore
 import DSTEMSession

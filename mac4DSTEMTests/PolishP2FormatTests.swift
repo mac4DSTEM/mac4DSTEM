@@ -3,6 +3,8 @@
 //  Polish lane P2: display formatters only (negative zero, provenance values and labels, one byte style).
 //
 
+import ShellControls
+import ShellLayout
 import XCTest
 import DSTEMCore
 import DSTEMSession
