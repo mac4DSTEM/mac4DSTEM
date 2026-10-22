@@ -28,9 +28,7 @@ let package = Package(
     // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
         .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.8.2"),
-        // DEVELOPMENT PATH until FormatoKit 0.10.0 is tagged (FormatoPeek, the Quick Look extensions' reader); restore `exact: "0.10.0"` in the
-        // commit after the tag (delete at FormatoKit tag 0.10.0).
-        .package(path: "../FormatoKit"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.10.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.9.1"),
@@ -38,9 +36,8 @@ let package = Package(
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (GPL-3.0 from 0.1.1; the app's copy was its origin,
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.7.0"),
-        // The window shell, controls and Metal image view both apps share (suite task 8). LOCAL PATH until the package has its own repo and a tag
-        // (delete at MacEMUI 0.1.0: restore `exact: "0.1.0"`); DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
-        .package(path: "../MacEMUI"),
+        // The window shell, controls and Metal image view both apps share (suite task 8). DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
+        .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.1.0"),
     ],
     targets: [
         .target(

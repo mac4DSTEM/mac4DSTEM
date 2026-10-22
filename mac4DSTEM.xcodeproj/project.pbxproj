@@ -548,9 +548,9 @@
 				300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */,
 				30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */,
 				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
-				30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */,
+				30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */,
 				30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */,
-				300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */,
+				300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -1370,14 +1370,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
-		30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../FormatoKit;
-		};
-		300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../MacEMUI;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1411,6 +1403,22 @@
 			requirement = {
 				kind = exactVersion;
 				version = 0.7.0;
+			};
+		};
+		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/FormatoKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.10.0;
+			};
+		};
+		300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
+			requirement = {
+				kind = exactVersion;
+				version = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1470,22 +1478,22 @@
 		};
 		30000000000000000000001E /* FormatoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoCore;
 		};
 		300000000000000000000020 /* FormatoDM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoDM;
 		};
 		300000000000000000000022 /* FormatoEMD */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoEMD;
 		};
 		300000000000000000000024 /* FormatoHDF5 */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoHDF5;
 		};
 		300000000000000000000030 /* ImagoCore */ = {
@@ -1515,7 +1523,7 @@
 		};
 		500000000000000000000303 /* FormatoPeek */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoPeek;
 		};
 		600000000000000000000301 /* DSTEMQuickLook */ = {
@@ -1525,7 +1533,7 @@
 		};
 		600000000000000000000303 /* FormatoPeek */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCLocalSwiftPackageReference "../FormatoKit" */;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoPeek;
 		};
 		300000000000000000000210 /* DSTEMQuickLook */ = {
@@ -1535,22 +1543,22 @@
 		};
 		300000000000000000000401 /* ShellMetal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellMetal;
 		};
 		300000000000000000000403 /* ShellControls */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellControls;
 		};
 		300000000000000000000405 /* ShellInspector */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellInspector;
 		};
 		300000000000000000000407 /* ShellLayout */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellLayout;
 		};
 /* End XCSwiftPackageProductDependency section */
