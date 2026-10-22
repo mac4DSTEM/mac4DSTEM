@@ -77,5 +77,13 @@ final class SpectroscopyJourney: Journey {
                 XCTAssertTrue(row.waitForExistence(timeout: 30), "no \(symbol) in the results")
             }
         }
+        step("the Table tab holds the fitted composition of the whole map and both regions") {
+            app.radioButtons["Table"].firstMatch.click()
+            let fitted = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Fitted composition")).firstMatch
+            XCTAssertTrue(fitted.waitForExistence(timeout: 60), "no fitted composition after Quantify")
+            for name in ["Whole map", "Region 1", "Region 2"] {
+                XCTAssertTrue(app.staticTexts[name].firstMatch.waitForExistence(timeout: 60), "no \(name) row in the fitted composition")
+            }
+        }
     }
 }

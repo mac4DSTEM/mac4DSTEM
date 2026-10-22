@@ -503,6 +503,44 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         XCTAssertNotEqual(reference.netCounts, 0, "the Al-only reference is a real measurement")
     }
 
+    /// The Table tab's fitted composition (2026-10-22): after Quantify the same method is fitted on every drawn region and on the whole map
+    /// (SpectroKit's `RegionQuantResult`), so each row is the Results table's number for that region. The planted scan has Cu only in the
+    /// top-left quadrant: a region over it reads more Cu than the whole map, a region over the Cu-free corner reads none (held at 0).
+    /// Mutations: the whole map's fit not made, the regions given the selected region's numbers, or the fit not cleared when Quantify is
+    /// stopped - each fails one of the assertions.
+    func testEveryRegionIsFittedForTheTable() async throws {
+        let (_, c, _) = open(autoID: false)
+        let m = c.model
+        m.elements.click(13); m.elements.click(29); c.elementsChanged()
+        c.beginRegionEdit(nil); c.editRegion(.rectangle(PixelRect(x0: 0, y0: 0, x1: 4, y1: 3)), final: true)   // the Cu quadrant (8 x 6 scan)
+        c.beginRegionEdit(nil); c.editRegion(.rectangle(PixelRect(x0: 4, y0: 3, x1: 8, y1: 6)), final: true)   // the Cu-free quadrant
+        let ok = await c.quantify()
+        XCTAssertTrue(ok, m.fitFailure ?? "")
+        try await waitFor("a fit of every region") { m.regionFits.count == 3 }
+        let drawn = m.regions.filter(\.isDrawn)
+        func cu(_ id: Int) -> RegionQuantResult.Line? { m.regionFits[id]?.lines.first { $0.element == "Cu" } }
+        let whole = try XCTUnwrap(cu(0)?.atomicPercent), cuRegion = try XCTUnwrap(cu(drawn[0].id)?.atomicPercent)
+        XCTAssertGreaterThan(cuRegion, whole, "the Cu quadrant holds more Cu than the whole map")
+        XCTAssertTrue(cu(drawn[1].id)?.atBound == true || (cu(drawn[1].id)?.atomicPercent ?? 0) < whole, "the Cu-free quadrant holds none")
+        XCTAssertEqual(m.regionFits[drawn[0].id]?.pixelCount, 12)
+        XCTAssertEqual(m.regionFits[0]?.pixelCount, 48)
+        XCTAssertEqual(RegionTableView.fitText(cu(drawn[0].id), unit: .atomic).contains("\u{00B1}"), true, "a number with its sigma")
+    }
+
+    /// The table's cell text: the unit picks at% or wt%, a line held at zero is "n.d.", no line is a dash, no at% shows the net counts.
+    func testTheTableCellText() {
+        var line = RegionQuantResult.Line(element: "Mg", line: "Mg_Ka", netCounts: 1, netSigma: 1, atBound: false, isReference: false, k: nil, kRelativeSigma: nil,
+                                          weightPercent: 12.34, weightSigma: 0.5, atomicPercent: 36.21, atomicSigma: 1.12, weightSigmaText: "", atomicSigmaText: "",
+                                          kFreeRatio: nil, kFreeSigma: nil, flags: [])
+        XCTAssertEqual(RegionTableView.fitText(line, unit: .atomic), "36.2 \u{00B1} 1.12")
+        XCTAssertEqual(RegionTableView.fitText(line, unit: .weight), "12.3 \u{00B1} 0.5")
+        line.atBound = true
+        XCTAssertEqual(RegionTableView.fitText(line, unit: .atomic), "n.d.")
+        XCTAssertEqual(RegionTableView.fitText(nil, unit: .atomic), "\u{2013}")
+        line.atBound = false; line.atomicPercent = nil; line.weightPercent = nil
+        XCTAssertEqual(RegionTableView.fitText(line, unit: .atomic), "1 \u{00B1} 1 net", "no at%: the net counts, named")
+    }
+
     /// R4c (Gate B 2026-10-06 section 4), as spec 2 D-3 changed it: a landing that APPLIES a pick changes the listed elements, so
     /// the live fit follows (a refresh: Cu joins the table and the fit's check restarts); a landing with nothing to apply leaves
     /// `generation` and the in-flight unlisted-line check alone.

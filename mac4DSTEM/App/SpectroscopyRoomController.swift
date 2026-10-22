@@ -198,7 +198,7 @@ final class SpectroscopyRoomController {
         mapLineSummaries = [:]; tileLineLabels = [:]
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
-        m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.lines = []; m.selectedLine = nil; m.linesIssued = 0; m.pane = .spectrum; m.compare = .wholeMap; m.viewportIsManual = false
+        m.mapMode = .netCounts; m.pins = []; m.regionStyles = [:]; m.drawnShapes = [:]; m.regionCurves = [:]; m.regionsIssued = 0; m.lines = []; m.selectedLine = nil; m.linesIssued = 0; m.pane = .spectrum; m.regionFits = [:]; m.regionFitNotes = [:]; m.compare = .wholeMap; m.viewportIsManual = false
         liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
         m.validation = nil; m.wholeMapLine = nil; m.pendingExport = nil; m.exportNote = nil
@@ -477,7 +477,7 @@ final class SpectroscopyRoomController {
         guard quantifying, !quantifyStopped else { return }
         quantifyStopped = true
         quantifyActive = wasActive
-        if !wasActive { lastFit = nil }
+        if !wasActive { lastFit = nil; clearRegionFits() }
         refresh()
     }
 
@@ -597,6 +597,49 @@ final class SpectroscopyRoomController {
         if liveRegionID == id { liveRegionID = nil }
         syncRegionsFromSession()
         refresh()
+    }
+
+    // MARK: Fitted composition per region (the Table tab)
+
+    @ObservationIgnored private var regionFitGeneration = 0
+    @ObservationIgnored private var regionFitTask: Task<Void, Never>?
+
+    private func clearRegionFits() {
+        regionFitGeneration += 1
+        regionFitTask?.cancel(); regionFitTask = nil
+        model.regionFits = [:]; model.regionFitNotes = [:]
+    }
+
+    /// After the selected region's pooled fit landed: the same method on every other drawn region and on the whole map, off the main actor,
+    /// each into SpectroKit's `RegionQuantResult` (the per-region report record). The selected region's own fit is the one just made, so the
+    /// Table's numbers for it are the Results table's. A newer call (a shape, an element, a method change) supersedes this one.
+    private func refreshRegionFits(selected: Int, method: QuantificationMethod) {
+        guard let source, let session, let tables = Self.tables else { return }
+        regionFitGeneration += 1
+        let generation = regionFitGeneration
+        regionFitTask?.cancel()
+        let wanted = session.regions.filter { $0.kind == .wholeMap || $0.kind == .drawn }
+        let items = wanted.map { (region: $0, mask: session.mask(of: $0), name: model.regionName($0.id), cached: cache.spectrum($0.id)) }
+        let metadata = source.metadata, axis = source.energyAxis, cache = cache
+        regionFitTask = Task.detached(priority: .utility) { [weak self] in
+            var results: [Int: RegionQuantResult] = [:], notes: [Int: String] = [:]
+            for item in items {
+                if Task.isCancelled { return }
+                let counts = item.cached ?? source.sum(mask: item.mask)
+                if item.cached == nil { cache.setSpectrum(counts, item.region.id) }
+                let input = PooledQuantificationInput(counts: counts, axis: axis, method: method, metadata: metadata,
+                                                      regionName: item.name, pixelCount: item.region.pixelCount)
+                do {
+                    let fit = try PooledQuantifier.run(input, tables: tables)
+                    results[item.region.id] = RegionQuantResult.make(from: fit, regionName: item.name, pixelCount: item.region.pixelCount)
+                } catch { notes[item.region.id] = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
+            }
+            let landed = (results, notes)
+            await MainActor.run { [weak self] in
+                guard let self, self.regionFitGeneration == generation else { return }
+                self.model.regionFits = landed.0; self.model.regionFitNotes = landed.1
+            }
+        }
     }
 
     // MARK: Other drawn regions' spectra
@@ -1098,9 +1141,11 @@ final class SpectroscopyRoomController {
             m.export = ExportSettings(); m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
             m.unlisted = nil
             lastFit = nil
+            clearRegionFits()
             return
         }
         lastFit = fit
+        refreshRegionFits(selected: out.region, method: out.fitInput?.method ?? fit.method)
         heldWholeLine = out.wholeLine   // shown by `present` under the ratio line's gate
         if let input = out.fitInput {
             present(UnlistedLineChecker.holding(fit), region: out.region)

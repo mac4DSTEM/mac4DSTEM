@@ -82,6 +82,10 @@ final class SpectroscopyRoomModel {
     var selectedLine: Int?
     var linesIssued = 0
     var pane: SpectrumPane = .spectrum
+    /// The pooled fit of the whole map and of each drawn region (SpectroKit's per-region result), for the Table tab; empty before Quantify.
+    /// A region whose fit was refused has its sentence in `regionFitNotes`.
+    var regionFits: [Int: RegionQuantResult] = [:]
+    var regionFitNotes: [Int: String] = [:]
     /// How large the element tiles are drawn and the tile shown alone (a double click on it, again to return). View state.
     var tileSize: MapTileSize = .medium
     var soloMap: ActiveMap?
