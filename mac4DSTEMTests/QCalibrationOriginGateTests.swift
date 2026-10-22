@@ -117,32 +117,22 @@ final class QCalibrationOriginGateTests: XCTestCase {
                      "A refused calibration is recoverable and must stay off the modal path")
     }
 
-    /// The other half of the pair: the gate must not have simply disabled the
-    /// estimator. Same peaks, same model, a residual inside the probe disk.
+    /// The other half of the pair: the gate must not have simply disabled the estimator. Same origin gate, a residual inside the
+    /// probe disk, and rings planted on Al [001] (Δq 0.0320 Å⁻¹/px: {200}, {220}, {400} at 15.4, 21.8 and 30.9 px).
     ///
-    /// **This test used to assert 0.02 Å⁻¹/px with `accuracy: 0.006` — a 30%
-    /// tolerance on the one number it existed to pin, which hid a real error
-    /// entirely.** v2 S13 found the error; Gate B corrected its size and its
-    /// cause on the same day. What is true, measured:
-    ///
-    /// - `DemoFourDDataSource.pattern` draws **{110} at 45° and {200} on-axis**
-    ///   — a SIMPLE-CUBIC [001] zone, confirmed from the fixture's own pixel
-    ///   centroids — on a gold lattice constant. `CrystalPresets.gold.reflections`
-    ///   returns **zero** reflections at any permutation of (110).
-    /// - The demo's declared 0.02 Å⁻¹/px is honoured by the geometry: the outer
-    ///   ring is gold's {200} at that scale to **0.09%**.
-    /// - So paired with `au_fcc` the innermost detected peak is not the
-    ///   innermost allowed reflection, and the scale comes out wrong.
-    ///
-    /// **Nothing refuses it.** S13 shipped an estimator threshold that did, and
-    /// Gate B refuted the threshold's derivation, so it was cut — the estimator
-    /// now *measures* the shell ratio and reports it. This test pins both: the
-    /// value, tightly enough to be worth pinning, and the fact that the
-    /// disagreement is surfaced rather than swallowed.
-    func testAcceptableOriginCalibratesAndTheShellDisagreementIsSurfaced() async throws {
+    /// **This test used to pin the demo cube read against gold, 0.024440 Å⁻¹/px with a shell ratio 1.43 against 1.155 predicted:
+    /// the known-wrong result of taking the demo's first ring ({110} of a simple-cubic [001] zone) for gold's {111}.** Moved on
+    /// purpose, 2026-10-22, when the first ring stopped being assumed (`ShellAssignment`, calibration design section 6): that
+    /// pairing is now refused (`testTheDemoRingsFitTwoGoldAssignmentsAndAreRefused`), and a case that is assigned reads back
+    /// the planted scale. The measured shell ratio is still reported beside the crystal's, unjudged.
+    func testAcceptableOriginCalibratesAndTheAssignedShellIsSurfaced() async throws {
         let state = try await stateReadyToCalibrateQ()
         install(residual: Self.probeRadius * 0.2, on: state)
         let descriptor = try XCTUnwrap(state.descriptor)
+        state.acomSession.modelSelection = .library("al_fcc")
+        let deltaQ = 0.0320
+        PlantedQCalibration.setRings(
+            radiiPixels: [4.0, 8.0, 16.0].map { PlantedQCalibration.g($0) / deltaQ }, on: state)
 
         XCTAssertNil(state.gates.reciprocalMetrologyRefusal(
             for: state.calibrationSession.calibration, descriptor: descriptor,
@@ -154,75 +144,34 @@ final class QCalibrationOriginGateTests: XCTestCase {
         let scale = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize,
                                   "a usable origin must still calibrate: \(state.statusText)")
         XCTAssertEqual(state.calibrationSession.provenance.qScale, .measuredInApp)
-        XCTAssertNil(state.qCalibration.refusal, "the estimator refuses nothing")
+        XCTAssertNil(state.qCalibration.refusal)
+        XCTAssertEqual(scale, deltaQ, accuracy: 1e-6 * deltaQ, "the planted scale: \(state.statusText)")
+        XCTAssertEqual(state.qCalibration.estimate?.assignment?.label, "{200}")
 
-        // The value, pinned tightly. It is NOT the demo's declared 0.02 — it is
-        // what the app produces from a simple-cubic ring read as gold's {111},
-        // and pinning it is how a later session notices if the fixture or the
-        // estimator changes. If it moves, check why first, then rewrite this.
-        //
-        // Moved once already, deliberately: 0.021 → 0.024472 on 2026-09-01,
-        // when the probe-radius repair (meanDP instead of maxDP) took the
-        // demo's kernel from the over-measured 9.649 px to 6.93 px — still
-        // above the drawn 4.5, because the demo's rings are in EVERY pattern
-        // and the mean keeps them at reduced strength; the scan-union share
-        // is gone, the every-pattern share is not (Gate B measurement,
-        // 2026-09-01) — and the measured first shell from ~20.4 px to 17.36
-        // against the fixture's true 17.03, the kernel-following shift
-        // collapsing as the 2026-08-28 entry predicted. The demo stays
-        // wrong-by-construction, and MORE visibly so (shell ratio 1.433 vs
-        // 1.155, previously 1.373) — see
-        // ../_archive/mac4DSTEM/docs/archive/v2-session-records/probe-radius.md.
-        //
-        // Moved back on purpose, 2026-10-20 (owner decision 2026-10-19): the probe radius is measured on the
-        // MAX pattern again, py4DSTEM's `dp_max` default (`OriginCalibration.ProbeRadiusSource.maxPattern`), so the
-        // demo's kernel is over-measured as before and the scale returns to 0.021001 Å⁻¹/px (first shell 20.22 px,
-        // shell ratio 1.370 vs 1.155 predicted). The mean-pattern value, 0.024472, is `.meanPattern`'s.
-        // Moved again, 2026-10-21: Re-calibrate Origin's stored radius is the mean pattern's (py4DSTEM `get_probe_size`; the max-pattern
-        // radius stays the origin window's only), so the demo kernel is 6.93 px, first shell 17.38 px, scale 0.024440 (ratio 1.431).
-        XCTAssertEqual(scale, 0.024440, accuracy: 0.0001,
-                       "the known-wrong demo scale moved: \(state.statusText)")
-
-        // And the disagreement must reach the user. This is what survived of
-        // S13's §3: the measurement, without a verdict.
+        // The measured ratio of the second ring against the crystal's {220}/{200} reaches the user: the measurement, without a verdict.
         let mismatch = try XCTUnwrap(state.qCalibration.shellCheck?.mismatch,
                                      "a two-shell pattern must report a measured ratio")
-        XCTAssertGreaterThan(mismatch, 0.15,
-                             "the demo's shells disagree with gold's by far more than rounding, "
-                             + "and that must be visible: got \(mismatch)")
+        XCTAssertLessThan(mismatch, 1e-6, "planted rings sit on the crystal's ratio")
         let summary = try XCTUnwrap(state.qCalibration.selfCheckSummary)
-        XCTAssertTrue(summary.contains("predicted"),
-                      "the panel line must name both numbers: \(summary)")
-        XCTAssertTrue(summary.contains("positions"),
-                      "and how many positions it rests on: \(summary)")
+        XCTAssertTrue(summary.contains("predicted"), "the panel line must name both numbers: \(summary)")
+        XCTAssertTrue(summary.contains("positions"), "and how many positions it rests on: \(summary)")
     }
 
-    /// The finding, pinned so a later session that repairs `DemoFourDDataSource`
-    /// is told this test needs updating rather than discovering it.
-    ///
-    /// **Gate B measured that the obvious repair makes things worse**: drawing
-    /// gold's {111} and {200} at the declared 0.02 produces a shell ratio that
-    /// AGREES to 1.1% and a scale that is silently **−8.5%** wrong, because the
-    /// probe radius was over-measured 2.15× on this fixture and a constant
-    /// kernel bias moves the ratio by almost nothing. The radius half was
-    /// fixed 2026-09-01 (meanDP; demo kernel now 6.93 px — see
-    /// ../_archive/mac4DSTEM/docs/archive/v2-session-records/probe-radius.md); whether the −8.5%
-    /// figure still holds for a repaired fixture is unmeasured, so the
-    /// fixture stays as-is and this pin stays load-bearing.
-    func testTheDemoShellsDoNotMatchTheGoldModelItIsPairedWith() async throws {
+    /// The demo draws {110} at 45 degrees and {200} on the axes (a simple-cubic [001] zone, confirmed from the fixture's pixel
+    /// centroids) at a 1 : 1.433 ratio. Against gold that ratio fits two starting shells equally well: {200} then {220} (1.414),
+    /// and {220} then {400} (1.414). The estimator used to take the first ring for {111} and write a scale 22 % off; now it
+    /// refuses, names both assignments and writes nothing. Break it by assuming H0 again.
+    func testTheDemoRingsFitTwoGoldAssignmentsAndAreRefused() async throws {
         let state = try await stateReadyToCalibrateQ()
         install(residual: Self.probeRadius * 0.2, on: state)
 
         await state.calibrateQFromCrystal()
 
-        guard case .measured(let observed, let expected, _)?
-            = state.qCalibration.shellCheck else {
-            return XCTFail("expected a measured shell ratio: \(state.statusText)")
-        }
-        XCTAssertEqual(expected, 2.0 / 3.0.squareRoot(), accuracy: 1e-9,
-                       "gold's {200}/{111} is the prediction")
-        XCTAssertGreaterThan(observed, expected * 1.15,
-                             "and what the demo shows is well above it — observed \(observed)")
+        let refusal = try XCTUnwrap(state.qCalibration.refusal, "expected a refusal: \(state.statusText)")
+        XCTAssertTrue(refusal.contains("Two assignments fit equally well"), refusal)
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "a refusal writes no scale")
+        XCTAssertNil(state.calibrationSession.provenance.qScale)
+        XCTAssertNil(state.qCalibration.estimate)
     }
 
     // MARK: - The nil-origin branch (v2 S13)

@@ -91,12 +91,19 @@ unit_tests() (
   # (the app and DSTEMCore already are). Testability stays on (Debug).
   # `-testLanguage en -testRegion US`: the unit tests spell numbers with a decimal point; display strings follow the Mac's
   # locale now (a de_DE Mac printed commas and failed them), and locale-specific cases pass their own Locale.
+  # MAC4DSTEM_UNIT_ONLY="ClassA,ClassB": run only those test classes and print the failures in full (a diagnosis run, not the gate).
+  local -a only=(-only-testing:mac4DSTEMTests) loud=(-quiet)
+  if [[ -n "${MAC4DSTEM_UNIT_ONLY:-}" ]]; then
+    only=(); loud=(); par=(-parallel-testing-enabled NO)   # a class filter finds no test under the parallel runner
+    local -a classes; classes=("${(@s:,:)MAC4DSTEM_UNIT_ONLY}")
+    local c; for c in "${classes[@]}"; do only+=(-only-testing:mac4DSTEMTests/$c); done
+  fi
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$dd" "${par[@]}" \
-      -only-testing:mac4DSTEMTests -testLanguage en -testRegion US \
-      SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO -quiet
+      "${only[@]}" -testLanguage en -testRegion US \
+      SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO "${loud[@]}"
 )
 
 run_harnesses() {

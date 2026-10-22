@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-22 Known-crystal Q calibration no longer assumes the first ring is the crystal's first shell. On Al [001] the first visible ring is {200} ({111} is not in the zone), and the scale used to come out 13 % low; the first three rings now decide which of the first four shells the first ring is, the Q row and the status line say "assigned to {200}", and a ring sequence that fits no shell, or two shells equally, is refused with the sentence naming why (nothing is written). The demo cube read against gold used to produce a scale 22 % off and is now refused as ambiguous: calibrate it against a crystal whose rings it shows. Planted truth only (no Python reference), badged as before.
+
 - 2026-10-22 One decimal mark per screen: colorbar ranges, histogram readouts and the inspector's and status line's numbers follow the Mac's locale like the scale bars and the Prepare rows already did (a de_DE Mac showed "0,2 Å⁻¹" beside "0.88 / 1.16e+04"). Recorded values (provenance, sidecar, exports) keep their locale-free spelling. The unit-test run is pinned to en_US.
 
 - 2026-10-22 The status bar keeps its message ("Strain ✓ 89%…") longer than the "Last run" and machine columns when the window is narrow; Imaging's Region shape picker has word labels (Point, Rectangle, Circle), the rectangle's size reads "Half-width", and the section is titled "Region to diffraction"; a Q or R pixel scale that is in force from the file or a session shows its editor behind "Override", open when the scale is missing or your own.

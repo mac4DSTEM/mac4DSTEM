@@ -61,6 +61,8 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     /// of the order-statistic bias the cluster estimator removes. 1 means the
     /// estimate rests on single peaks and the cluster brought nothing.
     package let sameShellPeaksPerPosition: Double
+    /// Which crystal shell the first observed ring was taken to be (nil for an estimate made against a caller-chosen reference shell).
+    package let assignment: ShellAssignment.Assigned?
 
     /// `medianAbsoluteDeviationPixels / observedRadiusPixels`. Computed and
     /// exposed because it is free and a later design pass will need it; **no
@@ -70,7 +72,7 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck, sameShellPeaksPerPosition: Double) {
+    package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck, sameShellPeaksPerPosition: Double, assignment: ShellAssignment.Assigned? = nil) {
         self.invAngstromPerPixel = invAngstromPerPixel
         self.observedRadiusPixels = observedRadiusPixels
         self.referenceRadiusInvAngstrom = referenceRadiusInvAngstrom
@@ -79,6 +81,7 @@ package nonisolated struct QCalibrationEstimate: Sendable {
         self.secondShellRadiusPixels = secondShellRadiusPixels
         self.shellCheck = shellCheck
         self.sameShellPeaksPerPosition = sameShellPeaksPerPosition
+        self.assignment = assignment
     }
 }
 
@@ -176,5 +179,212 @@ package nonisolated enum KnownCrystalQCalibration {
             secondShellRadiusPixels: scale.secondShellRadiusPixels,
             shellCheck: scale.shellCheck,
             sameShellPeaksPerPosition: scale.sameShellPeaksPerPosition)
+    }
+
+    /// What `estimateAssigned` answers: the estimate against the assigned shell, or the refusal sentence.
+    package nonisolated enum AssignedOutcome: Sendable {
+        case estimate(QCalibrationEstimate)
+        case refused(String)
+    }
+
+    /// The estimate with the first ring's shell found, not assumed (`ShellAssignment`): the shells are the crystal's distinct |g|
+    /// ascending, `labels` their family names. The radii are measured once; the assigned shell is the reference and the shell the
+    /// second ring matched is the check. Nil when no radius is usable (the caller's "no shell" sentence).
+    package static func estimateAssigned(
+        bragg: BraggVectors, origin: (x: Float, y: Float), shells: [Double], labels: [String], crystalName: String,
+        priorScale: Double?, minimumRadiusPixels: Float = 2
+    ) -> AssignedOutcome? {
+        let radii = bragg.peaks.map { peaks in
+            peaks.map { peak -> Double in
+                let dx = peak.x - origin.x, dy = peak.y - origin.y
+                return Double((dx * dx + dy * dy).squareRoot())
+            }
+        }
+        guard let outcome = ShellAssignment.assign(radiiPerPosition: radii, shellLengths: shells, labels: labels,
+                                                   crystalName: crystalName, priorScale: priorScale,
+                                                   minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+        switch outcome {
+        case .refused(let sentence):
+            return .refused(sentence)
+        case .assigned(let assigned):
+            guard let scale = LinearScale.estimate(
+                radiiPerPosition: radii, referenceRadiusInvAngstrom: assigned.referenceRadiusInvAngstrom,
+                secondShellRadiusInvAngstrom: assigned.nextShellInvAngstrom,
+                minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+            return .estimate(QCalibrationEstimate(
+                invAngstromPerPixel: scale.invAngstromPerPixel, observedRadiusPixels: scale.observedRadiusPixels,
+                referenceRadiusInvAngstrom: scale.referenceRadiusInvAngstrom,
+                medianAbsoluteDeviationPixels: scale.medianAbsoluteDeviationPixels, sampleCount: scale.sampleCount,
+                secondShellRadiusPixels: scale.secondShellRadiusPixels, shellCheck: scale.shellCheck,
+                sameShellPeaksPerPosition: scale.sameShellPeaksPerPosition, assignment: assigned))
+        }
+    }
+}
+
+// MARK: - Which crystal shell is the first ring? (calibration design 2026-10-22, section 6)
+
+/// The ring-sequence assignment of the known-crystal Q calibration. The estimator used to take the innermost observed ring for the
+/// crystal's first shell: on Al [001] the {111} reflections are not in the zone, the first visible ring is {200}, and Δq read
+/// 13.4 % low. This tests which of the crystal's first shells the first observed ring is, from the sequence of the observed rings,
+/// and refuses when the sequence cannot tell. A pure function on radii and shell lengths: no Bragg or app types.
+///
+/// INTERIM, `delete at DiffractoKit 0.10.x` (kit ask: `LinearScale.assign`, docs/open-items.md). No Python reference exists
+/// (py4DSTEM does not do this): checked against planted truth only, `validation: "none"`.
+package nonisolated enum ShellAssignment {
+
+    package nonisolated struct Assigned: Sendable, Equatable {
+        /// Index into the crystal's distinct shells (0 = the shortest |g|).
+        package let shellIndex: Int
+        package let label: String
+        /// The assigned shell's |g|, Å⁻¹: the reference radius of the Q estimate.
+        package let referenceRadiusInvAngstrom: Double
+        /// The shell matched to the second observed ring, or the next listed shell when there is no second ring.
+        package let nextShellInvAngstrom: Double?
+        /// Median radii (pixels) of the observed rings, innermost first.
+        package let observedRadiiPixels: [Double]
+        /// Observed rings matched by the assignment, the first included; of `observedRings`.
+        package let matchedRings: Int
+        package let observedRings: Int
+        /// RMS relative misfit over the matched rings after the first (0 when there are none).
+        package let rmsMisfit: Double
+        /// False with one observed ring: nothing could be tested and the first ring is assumed to be the first shell.
+        package var isChecked: Bool { observedRings >= 2 }
+    }
+
+    package nonisolated enum Outcome: Sendable, Equatable {
+        case assigned(Assigned)
+        /// A refusal in the app's voice; the Q scale is not written.
+        case refused(String)
+    }
+
+    /// Cluster width (relative) of the equivalents of one ring at one position.
+    package static let clusterBand = 0.03
+    /// The first K observed rings are read; a ring needs this share of the positions that hold any peak.
+    package static let maximumRings = 3
+    package static let minimumPositionShare = 0.2
+    /// How many starting shells are tried.
+    package static let hypotheses = 4
+    /// How many of the crystal's shells a hypothesis may match rings to: the starting shells plus the rings read, plus one. Without
+    /// the bound a cubic crystal explains any ring set 1 : √2 : 2 twice ({200}, {220}, {400} and {220}, {400}, {440}); the bound
+    /// keeps the matches to the low-order shells a real pattern shows (a pick, pinned by the planted Al [001] case).
+    package static let shellWindow = hypotheses + maximumRings + 1
+
+    /// - Parameters:
+    ///   - radiiPerPosition: peak radii in pixels from the origin, one array per scan position.
+    ///   - shellLengths: the crystal's distinct |g| (Å⁻¹), ascending.
+    ///   - labels: one family name per shell for the sentences ("{200}"); `shell k` when absent.
+    ///   - crystalName: for the "no fit" sentence.
+    ///   - priorScale: a Δq from the file or typed (Å⁻¹ per pixel); only breaks the one-ring tie, never overrides the sequence.
+    /// - Returns: nil when no position holds a radius above `minimumRadiusPixels`.
+    package static func assign(
+        radiiPerPosition: [[Double]], shellLengths: [Double], labels: [String]? = nil, crystalName: String = "the crystal",
+        priorScale: Double? = nil, minimumRadiusPixels: Double = 2
+    ) -> Outcome? {
+        guard shellLengths.count > 0, shellLengths.allSatisfy({ $0.isFinite && $0 > 0 }) else { return nil }
+        func name(_ k: Int) -> String { labels.flatMap { k < $0.count ? $0[k] : nil } ?? "shell \(k + 1)" }
+
+        // Observed rings: per position the first clusters, then per ring the median over the positions that have it.
+        var perRing = [[Double]](repeating: [], count: maximumRings)
+        var positionsWithPeaks = 0
+        for peaks in radiiPerPosition {
+            let radii = peaks.filter { $0.isFinite && $0 > minimumRadiusPixels }.sorted()
+            guard !radii.isEmpty else { continue }
+            positionsWithPeaks += 1
+            var i = 0, ring = 0
+            while i < radii.count, ring < maximumRings {
+                let limit = radii[i] * (1 + clusterBand)
+                var j = i, sum = 0.0
+                while j < radii.count, radii[j] <= limit { sum += radii[j]; j += 1 }
+                perRing[ring].append(sum / Double(j - i))
+                i = j; ring += 1
+            }
+        }
+        guard positionsWithPeaks > 0 else { return nil }
+        let needed = max(1, Int((minimumPositionShare * Double(positionsWithPeaks)).rounded(.up)))
+        var observed: [Double] = []
+        for ring in 0..<maximumRings {
+            guard perRing[ring].count >= needed else { break }
+            observed.append(median(perRing[ring]))
+        }
+        guard let r1 = observed.first, r1 > 0 else { return nil }
+
+        let shellLengths = Array(shellLengths.prefix(shellWindow))
+        let tried = min(hypotheses, shellLengths.count)
+        func assigned(_ j: Int, matched: Int, rms: Double, secondShell: Int?) -> Assigned {
+            Assigned(shellIndex: j, label: name(j), referenceRadiusInvAngstrom: shellLengths[j],
+                     nextShellInvAngstrom: secondShell.map { shellLengths[$0] } ?? (j + 1 < shellLengths.count ? shellLengths[j + 1] : nil),
+                     observedRadiiPixels: observed, matchedRings: matched, observedRings: observed.count, rmsMisfit: rms)
+        }
+
+        // One ring (or one shell): nothing to test. Today's behaviour, H0, unless a prior scale singles out one shell.
+        if observed.count == 1 || shellLengths.count == 1 {
+            var j = 0
+            if let prior = priorScale, prior.isFinite, prior > 0 {
+                let agreeing = (0..<tried).filter { abs(shellLengths[$0] / r1 / prior - 1) <= 0.10 }
+                if agreeing.count == 1 { j = agreeing[0] }
+            }
+            return .assigned(assigned(j, matched: 1, rms: 0, secondShell: nil))
+        }
+
+        struct Score { let j: Int; let matched: Int; let rms: Double; let secondShell: Int? }
+        var scores: [Score] = []
+        for j in 0..<tried {
+            let scale = shellLengths[j] / r1          // Å⁻¹ per pixel under this hypothesis
+            var last = j, matched = 1, squares = 0.0, second: Int?
+            for ring in 1..<observed.count {
+                let r = observed[ring]
+                var best: (k: Int, error: Double)?
+                for k in (last + 1)..<max(shellLengths.count, last + 1) {
+                    let error = abs(shellLengths[k] / scale - r) / r
+                    if best == nil || error < best!.error { best = (k, error) }
+                }
+                guard let hit = best, abs(shellLengths[hit.k] / scale - r) <= max(0.03 * r, 1) else { continue }
+                matched += 1; squares += hit.error * hit.error; last = hit.k
+                if ring == 1 { second = hit.k }
+            }
+            scores.append(Score(j: j, matched: matched, rms: matched > 1 ? (squares / Double(matched - 1)).squareRoot() : 0, secondShell: second))
+        }
+        // A misfit below 0.2 % is rounding, not a difference between assignments.
+        func effective(_ s: Score) -> Double { max(s.rms, 0.002) }
+        let ranked = scores.sorted { $0.matched != $1.matched ? $0.matched > $1.matched : effective($0) < effective($1) }
+        let best = ranked[0], runnerUp = ranked[1]
+        func ratios(_ j: Int) -> String {
+            (1...2).compactMap { k in j + k < shellLengths.count ? String(format: "%.2f", shellLengths[j + k] / shellLengths[j]) : nil }
+                .joined(separator: ", ")
+        }
+        if best.matched == 1 {
+            let seen = (1..<observed.count).prefix(2).map { String(format: "%.2f", observed[$0] / r1) }.joined(separator: ", ")
+            let first = scores.sorted { $0.j < $1.j }.prefix(2)
+            let predicted = first.map { "\(ratios($0.j)) (\(name($0.j)) first)" }.joined(separator: " or ")
+            return .refused("The rings do not match any starting shell of \(crystalName): the first ring gives ratios \(seen) "
+                + "but the crystal predicts \(predicted).")
+        }
+        // Equal match counts are told apart only by a misfit that is both half and 0.5 % lower: ellipticity or an origin offset
+        // moves every ring by about that much, so a smaller difference is noise.
+        let decisive = best.matched > runnerUp.matched
+            || (best.matched == runnerUp.matched && effective(best) < 0.5 * effective(runnerUp)
+                && effective(runnerUp) - effective(best) > 0.005)
+        guard decisive else {
+            let (a, b) = best.j < runnerUp.j ? (best.j, runnerUp.j) : (runnerUp.j, best.j)
+            return .refused("Two assignments fit equally well (\(name(a)) and \(name(b)) first). Pick the first ring in the crystal's "
+                + "list, or measure the pixel size from a distance.")
+        }
+        return .assigned(assigned(best.j, matched: best.matched, rms: best.rms, secondShell: best.secondShell))
+    }
+
+    /// "{2 0 0}" is written "{200}" when every index is a single digit; anything else is kept.
+    package static func compactLabel(_ name: String) -> String {
+        let inner = name.dropFirst().dropLast()
+        let indices = inner.split(separator: " ")
+        guard name.hasPrefix("{"), name.hasSuffix("}"), !name.contains("+"), indices.allSatisfy({ $0.count == 1 && $0.first!.isNumber }) else {
+            return name
+        }
+        return "{" + indices.joined() + "}"
+    }
+
+    private static func median(_ values: [Double]) -> Double {
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        return sorted.count.isMultiple(of: 2) ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 }

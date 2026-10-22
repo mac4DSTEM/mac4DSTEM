@@ -164,23 +164,29 @@ final class QCalibrationShellBadgeTests: XCTestCase {
         XCTAssertTrue(state.statusText.contains("shell ratio unchecked"), state.statusText)
     }
 
-    /// The other half, through the app: the demo cube's pattern read against gold
-    /// disagrees by ~24 % (the existing pin in `QCalibrationOriginGateTests`).
-    /// The numbers reach the Prepare line; NO caveat reaches the Q row. Break it
-    /// by making `calibrateQFromCrystal` set a caveat when `mismatch > 0.1`.
-    func testAMeasuredRatioThatDisagreesByFarCarriesNoCaveat() async throws {
-        let state = try await stateReadyToCalibrateQ()
-        state.acomSession.modelSelection = .library("au_fcc")
-        XCTAssertNotNil(state.resolvedACOMModel)
-
-        await state.calibrateQFromCrystal()
-
-        let mismatch = try XCTUnwrap(state.qCalibration.shellCheck?.mismatch,
-                                     "two shells must give a measured ratio: \(state.statusText)")
-        XCTAssertGreaterThan(mismatch, 0.15, "the fixture must disagree for this test to mean anything")
-        XCTAssertNil(state.calibrationSession.provenance.qShellCaveat)
-        let item = try XCTUnwrap(state.calibrationSession.readiness.items.first { $0.kind == .qScale })
+    /// The Q row says which shell the first ring was assigned to when it is not the crystal's first, and says nothing extra when it
+    /// is: Al [001] (rings {200}, {220}, {400}) reads "Assigned to {200}: 3 of 3 rings match"; rings from the first shell ({111},
+    /// {200}, {220}) carry no caveat. A MEASURED ratio is still never worded "unchecked". Break it by always or never writing the
+    /// assignment into `qShellCaveat`.
+    func testTheQRowNamesALaterAssignedShellAndStaysQuietForTheFirst() async throws {
+        let later = try await stateReadyToCalibrateQ()
+        later.acomSession.modelSelection = .library("al_fcc")
+        PlantedQCalibration.setRings(radiiPixels: [4.0, 8.0, 16.0].map { PlantedQCalibration.g($0) / 0.0320 }, on: later)
+        await later.calibrateQFromCrystal()
+        let caveat = try XCTUnwrap(later.calibrationSession.provenance.qShellCaveat, "a later shell must be named: \(later.statusText)")
+        XCTAssertTrue(caveat.text.contains("Assigned to {200}: 3 of 3 rings match"), caveat.text)
+        let item = try XCTUnwrap(later.calibrationSession.readiness.items.first { $0.kind == .qScale })
+        XCTAssertTrue(item.detail.contains("Assigned to {200}"), item.detail)
         XCTAssertFalse(item.detail.contains("unchecked"), item.detail)
-        XCTAssertTrue((state.qCalibration.selfCheckSummary ?? "").contains("predicted"))
+        XCTAssertTrue(later.statusText.contains("assigned to {200}"), later.statusText)
+
+        let first = try await stateReadyToCalibrateQ()
+        first.acomSession.modelSelection = .library("al_fcc")
+        PlantedQCalibration.setRings(radiiPixels: [3.0, 4.0, 8.0].map { PlantedQCalibration.g($0) / 0.0200 }, on: first, onDiagonals: true)
+        await first.calibrateQFromCrystal()
+        XCTAssertEqual(first.qCalibration.estimate?.assignment?.shellIndex, 0, first.statusText)
+        XCTAssertNil(first.calibrationSession.provenance.qShellCaveat, "the first shell needs no assignment note")
+        XCTAssertTrue(first.statusText.contains("assigned to {111}"), first.statusText)
+        XCTAssertTrue((first.qCalibration.selfCheckSummary ?? "").contains("predicted"))
     }
 }

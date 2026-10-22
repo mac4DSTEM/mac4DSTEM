@@ -7,6 +7,11 @@ carry a `// delete at <Kit> <version>` marker in the code (`git grep "delete at"
 
 ## Kit asks
 
+### DiffractoKit (next: 0.10.x)
+- **`LinearScale.assign`**: the ring-sequence assignment the app carries as `ShellAssignment` (`Core/Analysis/QCalibration.swift`, marked `delete at DiffractoKit 0.10.x`):
+  from per-position peak radii and the crystal's distinct shell lengths it finds which shell the first ring is, with named refusals; no Python reference
+  (checked against planted truth, `validation: "none"`). `LinearScale.estimate` then takes the assigned shell as its reference.
+
 ### CuboKit (next: 0.7)
 - **The resident cube** (the last app/kit separation item; the selected-area half landed 2026-10-21): the kit's `VirtualDiffraction.pattern(..., path: .metal)`
   now serves the CBED pane (`VirtualDetector.tiledDiffraction`; `MetalEngine.virtualDiffraction` and `VirtualDiffraction.metal` are gone).
@@ -74,8 +79,11 @@ Ordered as the ROADMAP takes them.
    landed (ADR 050). Needs a new registration; thickness comes typed +- sigma until SpectroKit EELS t/lambda lands.
 3. **Phase mapping object bar (ADR 040):** FAIL on theta-prime edge-on raw spurious 7 > 5; T1 edges called Al (204) mostly where the truth
    draws the edge; no global or narrow guard shipped. Ships badged unvalidated; the matrix verdict is by exclusion (see DiffractoKit).
-4. **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** (Q 12.5-13.5 % low, shell ratio 1.37-1.43 vs 1.155); only
-   "Shell ratio unchecked" ships. The fix (ring-sequence assignment) needs a design pass; 2H-WS2 selects (0002), no l-filter; the caveat is not persisted.
+4. **Known-crystal Q, ring assignment (fixed 2026-10-22 with `ShellAssignment`; what is left):** the first ring is no longer assumed to be the crystal's first
+   shell: the sequence of the first three rings picks it from the first four shells, refuses when two fit equally or none does, and the Q row says
+   "assigned to {200}". Left: 2H-WS2 selects (0002) with no l-filter (a reflection-list problem); the "Shell ratio unchecked" caveat is not persisted; a
+   "first ring is" picker in the Q row only if a real dataset needs it (taste); K = 3 rings, J = 4 shells, the 3 % band and the 8-shell window are picks
+   pinned by planted tests, not measured on data. Known limits from the review: rings are numbered per position, so a ring present at only some positions or a spurious peak between rings shifts the numbering (a radial histogram over all positions would not); crystals with shells closer than 3 % merge them into one ring (hexagonal, low symmetry); the match tolerance is max(3 %, 1 px). (rings in the ratio 1 : 1.414 : 2 fit {200} {220} {400} and, past the window, {220} {400} {440}).
 5. **Origin fit holes:** which statistic gates `originFitIsSane`; the trimmed fit is blind to clustered contamination >= 50 %; the coarse block
    seed lands 0.5-2.8 px off on noisy cubes (`windowSensitivityPixels` is not surfaced); the ellipse fit leaves a ring outside its annulus
    (Au_ref) and `fit1D` ends `didNotConverge` in 54 of 150 contiguous arcs (a refusal, never a wrong fit).

@@ -16,6 +16,7 @@
 import Foundation
 import DiffractoOrientation
 import DiffractoGeometry
+import DiffractoCore
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DiffractoScattering
 import DSTEMCore
@@ -79,7 +80,12 @@ extension AppState {
         let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
         let epoch = datasetSession.epoch
         let probeRadiusPixels = calibrationSession.calibration.probeRadius.map(Double.init)
-        let estimate = await Task.detached(priority: .userInitiated) {
+        // A scale this app measured itself is not an independent prior (a wrong one would confirm itself): only a file's or a typed one counts.
+        let priorScale = calibrationSession.provenance.qScale == .measuredInApp ? nil : calibrationSession.calibration.qPixelSize.flatMap {
+            CalibrationUnitConversion.reciprocalInvAngstromPerPixel(value: $0, units: calibrationSession.calibration.qPixelUnits)
+        }
+        let crystalName = model.displayName
+        let outcome = await Task.detached(priority: .userInitiated) { () -> KnownCrystalQCalibration.AssignedOutcome? in
             // DISTINCT shell lengths. The reflection list returns every
             // symmetry equivalent separately, all at the same |g|, so the
             // "second shell" is the first length that DIFFERS — not
@@ -87,26 +93,39 @@ extension AppState {
             // Getting this wrong makes the self-check read 1.020 on healthy
             // sim_Au against an expected 1.155 and fire on good data
             // (measured, S13 E1).
-            let lengths = (try? model.structure.kinematicReflections(kMax: 2.5))?.kept.map(\.gLength) ?? []
+            let list = try? model.structure.kinematicReflections(kMax: 2.5)
             var shells: [Double] = []
-            for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
+            for length in (list?.kept.map(\.gLength) ?? []) where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
                 shells.append(length)
             }
-            guard let firstShell = shells.first else { return nil as QCalibrationEstimate? }
-            return KnownCrystalQCalibration.estimate(
-                bragg: calibrated.vectors, origin: calibrated.origin.point,
-                referenceRadiusInvAngstrom: firstShell,
-                secondShellRadiusInvAngstrom: shells.count > 1 ? shells[1] : nil,
-                probeRadiusPixels: probeRadiusPixels
-            )
+            guard !shells.isEmpty else { return nil }
+            // One family name per shell, for "assigned to {200}".
+            let families = list?.families ?? []
+            let labels = shells.map { g in
+                families.first { abs($0.family.g / g - 1) < 1e-6 }.map { ShellAssignment.compactLabel($0.family.name) } ?? "shell \(shells.firstIndex(of: g).map { $0 + 1 } ?? 0)"
+            }
+            return KnownCrystalQCalibration.estimateAssigned(
+                bragg: calibrated.vectors, origin: calibrated.origin.point, shells: shells, labels: labels,
+                crystalName: crystalName, priorScale: priorScale)
         }.value
         guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
-        guard let estimate else {
+        guard let outcome else {
             let reason = "Could not identify a non-central first Bragg shell."
             qCalibration.record(refusal: reason)
             presentComputeFailure(SimpleError(reason))
             return
+        }
+        // The ring sequence decides which crystal shell the first ring is; a sequence that fits nothing or two shells equally
+        // refuses, names why, and writes nothing (an existing scale stays).
+        let estimate: QCalibrationEstimate
+        switch outcome {
+        case .refused(let sentence):
+            qCalibration.record(refusal: sentence)
+            presentComputeFailure(SimpleError(sentence))
+            return
+        case .estimate(let made):
+            estimate = made
         }
         // The estimator MEASURES a shell ratio and refuses nothing — plausibility
         // thresholds here were tried and their derivation refuted by Gate B
@@ -118,7 +137,7 @@ extension AppState {
         calibrationSession.provenance.qScale = .measuredInApp
         // The Q row says what was not checked (lane Q, 2026-09-30): nil for a
         // measured ratio, whose numbers are shown instead and never judged.
-        calibrationSession.provenance.qShellCaveat = estimate.shellCheck.uncheckedNote.map {
+        calibrationSession.provenance.qShellCaveat = Self.qShellCaveatText(estimate).map {
             CalibrationProvenance.QShellCaveat(pixelSize: estimate.invAngstromPerPixel, text: $0)
         }
         acomSession.invalidateResult()
@@ -129,6 +148,7 @@ extension AppState {
             estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
             Self.positionCountText(estimate.sampleCount)
         )
+        if let assigned = estimate.assignment { status += " · assigned to \(assigned.label)" }
         switch estimate.shellCheck {
         case .notSelfChecked:
             status += " · shell ratio unchecked"
@@ -138,6 +158,21 @@ extension AppState {
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)
         rederiveDisplayedDPCForScaleChange()
+    }
+
+    /// What the Q row says beside the scale, or nil: the unchecked note (with the shell the first ring was assumed to be) and, when
+    /// the ring sequence put the first ring on a later shell, which one ("assigned to {200}").
+    static func qShellCaveatText(_ estimate: QCalibrationEstimate) -> String? {
+        var parts: [String] = []
+        if let note = estimate.shellCheck.uncheckedNote {
+            if let assigned = estimate.assignment, !assigned.isChecked {
+                parts.append(note + "; first ring assumed to be \(assigned.label)")
+            } else { parts.append(note) }
+        }
+        if let assigned = estimate.assignment, assigned.isChecked, assigned.shellIndex > 0 {
+            parts.append("Assigned to \(assigned.label): \(assigned.matchedRings) of \(assigned.observedRings) rings match")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// "1 position" / "N positions" for status text.
