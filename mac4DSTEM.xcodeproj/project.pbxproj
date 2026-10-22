@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		000000000000000000000151 /* QuickLookThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 500000000000000000000120 /* QuickLookThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		000000000000000000000152 /* QuickLookPreview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 600000000000000000000120 /* QuickLookPreview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
 		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		300000000000000000000008 /* DSTEMTraining in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000007 /* DSTEMTraining */; };
@@ -26,23 +28,21 @@
 		300000000000000000000033 /* ImagoFFT in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000032 /* ImagoFFT */; };
 		300000000000000000000101 /* DiffractoOrientation in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000100 /* DiffractoOrientation */; };
 		300000000000000000000103 /* CuboParallax in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000102 /* CuboParallax */; };
+		300000000000000000000211 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000210 /* DSTEMQuickLook */; };
+		300000000000000000000402 /* ShellMetal in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000401 /* ShellMetal */; };
+		300000000000000000000404 /* ShellControls in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000403 /* ShellControls */; };
+		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
+		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
+		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
+		500000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000301 /* DSTEMQuickLook */; };
+		500000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000303 /* FormatoPeek */; };
+		600000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000301 /* DSTEMQuickLook */; };
+		600000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000303 /* FormatoPeek */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
 		F6A1D0DE0001000000000006 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000005 /* LICENSE */; };
 		F6A1D0DE0001000000000008 /* NOTICE in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000007 /* NOTICE */; };
-		500000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000301 /* DSTEMQuickLook */; };
-		500000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000303 /* FormatoPeek */; };
-		600000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000301 /* DSTEMQuickLook */; };
-		600000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000303 /* FormatoPeek */; };
-		000000000000000000000151 /* QuickLookThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 500000000000000000000120 /* QuickLookThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		000000000000000000000152 /* QuickLookPreview.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 600000000000000000000120 /* QuickLookPreview.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		300000000000000000000211 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000210 /* DSTEMQuickLook */; };
-		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
-		300000000000000000000402 /* ShellMetal in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000401 /* ShellMetal */; };
-		300000000000000000000404 /* ShellControls in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000403 /* ShellControls */; };
-		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
-		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,15 +79,13 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		000000000000000001500000 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolder = PlugIns;
 			files = (
 				000000000000000000000151 /* QuickLookThumbnail.appex in Embed Foundation Extensions */,
 				000000000000000000000152 /* QuickLookPreview.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -95,13 +93,13 @@
 		000000000000000000000120 /* mac4DSTEM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = mac4DSTEM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000120 /* mac4DSTEMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		400000000000000000000120 /* mac4DSTEMUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		500000000000000000000120 /* QuickLookThumbnail.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookThumbnail.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		600000000000000000000120 /* QuickLookPreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookPreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = mac4DSTEM/Resources/DiskDetector; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000005 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000007 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = "<group>"; };
-		500000000000000000000120 /* QuickLookThumbnail.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookThumbnail.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		600000000000000000000120 /* QuickLookPreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookPreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -122,7 +120,6 @@
 				Core/Analysis/ParallaxDepthSectioning.swift,
 				Core/Analysis/ParallaxPreprocessing.swift,
 				Core/Analysis/ParallaxSubpixelReconstruction.swift,
-				Core/Analysis/RegionMapTable.swift,
 				Core/Analysis/Precipitates/PrecipitateReflections.swift,
 				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
 				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
@@ -130,6 +127,7 @@
 				Core/Analysis/ProbeRingHint.swift,
 				Core/Analysis/PtychographyPreparation.swift,
 				Core/Analysis/QCalibration.swift,
+				Core/Analysis/RegionMapTable.swift,
 				Core/Analysis/RotationCalibration.swift,
 				Core/Analysis/SingleslicePtychography.swift,
 				Core/Analysis/StrainFrame.swift,
@@ -199,11 +197,11 @@
 				Session/LoadedView.swift,
 				Session/MaterialsProjectKeyStore.swift,
 				Session/MaterialsProjectSettings.swift,
+				Session/ObjectJoins.swift,
+				Session/ObjectVariants.swift,
 				Session/OpenDatasetRegistry.swift,
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
-				Session/ObjectJoins.swift,
-				Session/ObjectVariants.swift,
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
 				Session/PoolCatalogue.swift,
@@ -275,12 +273,12 @@
 			path = mac4DSTEMUITests;
 			sourceTree = "<group>";
 		};
-		500000000000000000000010 /* QuickLookThumbnail */ = {
+		500000000000000000000010 /* QuickLook/Thumbnail */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = QuickLook/Thumbnail;
 			sourceTree = "<group>";
 		};
-		600000000000000000000010 /* QuickLookPreview */ = {
+		600000000000000000000010 /* QuickLook/Preview */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = QuickLook/Preview;
 			sourceTree = "<group>";
@@ -351,8 +349,8 @@
 				000000000000000000000010 /* mac4DSTEM */,
 				100000000000000000000010 /* mac4DSTEMTests */,
 				400000000000000000000010 /* mac4DSTEMUITests */,
-				500000000000000000000010 /* QuickLookThumbnail */,
-				600000000000000000000010 /* QuickLookPreview */,
+				500000000000000000000010 /* QuickLook/Thumbnail */,
+				600000000000000000000010 /* QuickLook/Preview */,
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
 				F6A1D0DE0001000000000001 /* DiskDetector */,
@@ -479,10 +477,8 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
-				500000000000000000000010 /* QuickLookThumbnail */,
+				500000000000000000000010 /* QuickLook/Thumbnail */,
 			);
 			name = QuickLookThumbnail;
 			packageProductDependencies = (
@@ -503,10 +499,8 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
-				600000000000000000000010 /* QuickLookPreview */,
+				600000000000000000000010 /* QuickLook/Preview */,
 			);
 			name = QuickLookPreview;
 			packageProductDependencies = (
@@ -1379,6 +1373,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/SpectroKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.10.0;
+			};
+		};
 		30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
@@ -1395,14 +1397,6 @@
 				version = 0.9.0;
 			};
 		};
-		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
-			requirement = {
-				kind = exactVersion;
-				version = 0.8.0;
-			};
-		};
 		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mac4DSTEM/FormatoKit";
@@ -1411,20 +1405,20 @@
 				version = 0.11.0;
 			};
 		};
+		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.8.0;
+			};
+		};
 		300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = exactVersion;
 				version = 0.2.0;
-			};
-		};
-		300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mac4DSTEM/SpectroKit";
-			requirement = {
-				kind = exactVersion;
-				version = 0.10.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1522,26 +1516,6 @@
 			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
 			productName = CuboParallax;
 		};
-		500000000000000000000301 /* DSTEMQuickLook */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
-			productName = DSTEMQuickLook;
-		};
-		500000000000000000000303 /* FormatoPeek */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
-			productName = FormatoPeek;
-		};
-		600000000000000000000301 /* DSTEMQuickLook */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
-			productName = DSTEMQuickLook;
-		};
-		600000000000000000000303 /* FormatoPeek */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
-			productName = FormatoPeek;
-		};
 		300000000000000000000210 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
@@ -1562,15 +1536,35 @@
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellInspector;
 		};
+		300000000000000000000407 /* ShellLayout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
+			productName = ShellLayout;
+		};
 		30000000000000000000040F /* ShellSpectroscopy */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellSpectroscopy;
 		};
-		300000000000000000000407 /* ShellLayout */ = {
+		500000000000000000000301 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
-			productName = ShellLayout;
+			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
+			productName = DSTEMQuickLook;
+		};
+		500000000000000000000303 /* FormatoPeek */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
+			productName = FormatoPeek;
+		};
+		600000000000000000000301 /* DSTEMQuickLook */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
+			productName = DSTEMQuickLook;
+		};
+		600000000000000000000303 /* FormatoPeek */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
+			productName = FormatoPeek;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
