@@ -33,17 +33,22 @@ extension SpectroscopyRoomModel {
 struct MapsGridView: View {
     @Bindable var model: SpectroscopyRoomModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppState.self) private var appState: AppState?   // absent in a bare render (previews, tests)
+    @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
     let plan: MapGridLayout.Plan
     @State private var mixCache = ColorMixRasterCache()
     @State private var tileCache = MapTileRasterCache()
 
     var body: some View {
+        // The glyphs resolve once for the whole grid; the tiles take the value, not the app state.
+        let glyphs = PrecipitateGlyphTileInput.resolve(appState: appState, tableSelection: tableSelection,
+                                                       gridWidth: model.gridSize.w, gridHeight: model.gridSize.h)
         ZStack(alignment: .topLeading) {
-            MapTileView(model: model, map: .colorMix, title: "ColorMix", image: colorMixImage(), tile: nil)
+            MapTileView(model: model, map: .colorMix, title: "ColorMix", image: colorMixImage(), tile: nil, glyphs: glyphs)
                 .frame(width: plan.colorMix.width, height: plan.colorMix.height)
                 .offset(x: plan.colorMix.minX, y: plan.colorMix.minY)
             if !plan.tiles.isEmpty {
-                tileGrid.frame(width: plan.tileArea.width, height: plan.tileArea.height, alignment: .topLeading)
+                tileGrid(glyphs).frame(width: plan.tileArea.width, height: plan.tileArea.height, alignment: .topLeading)
                     .offset(x: plan.tileArea.minX, y: plan.tileArea.minY)
             }
         }
@@ -59,12 +64,12 @@ struct MapsGridView: View {
     }
 
     /// The tiles in their own container: it scrolls along `plan.scroll` when they do not fit, the ColorMix never does.
-    @ViewBuilder private var tileGrid: some View {
+    @ViewBuilder private func tileGrid(_ glyphs: PrecipitateGlyphTileInput?) -> some View {
         let content = ZStack(alignment: .topLeading) {
             ForEach(Array(model.gridItems.enumerated()), id: \.element.id) { i, item in
                 if i < plan.tiles.count {
                     let r = plan.tiles[i]
-                    tileView(item).frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
+                    tileView(item, glyphs: glyphs).frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
                 }
             }
         }
@@ -77,12 +82,12 @@ struct MapsGridView: View {
         }
     }
 
-    @ViewBuilder private func tileView(_ item: MapGridItem) -> some View {
+    @ViewBuilder private func tileView(_ item: MapGridItem, glyphs: PrecipitateGlyphTileInput?) -> some View {
         switch item {
         case .haadf:
-            MapTileView(model: model, map: .haadf, title: "HAADF", image: haadfImage(), tile: nil)
+            MapTileView(model: model, map: .haadf, title: "HAADF", image: haadfImage(), tile: nil, glyphs: glyphs)
         case .element(let t):
-            MapTileView(model: model, map: .element(t.z), title: t.lineLabel ?? PeriodicLayout.symbol(t.z), image: elementImage(t), tile: t)
+            MapTileView(model: model, map: .element(t.z), title: t.lineLabel ?? PeriodicLayout.symbol(t.z), image: elementImage(t), tile: t, glyphs: glyphs)
         }
     }
 
@@ -146,6 +151,8 @@ struct MapTileView: View {
     let title: String
     let image: CGImage?
     let tile: MapTile?
+    /// The precipitate glyphs for the element and ColorMix tiles, resolved once by the grid; nil draws none.
+    var glyphs: PrecipitateGlyphTileInput? = nil
     @State private var edit: Edit?
     @State private var draft: [PixelPoint] = []
     @State private var closedAt = Date.distantPast
@@ -184,8 +191,8 @@ struct MapTileView: View {
             let size = geo.size
             ZStack(alignment: .topLeading) {
                 canvas(size)
-                if map == .colorMix || { if case .element = map { true } else { false } }() {
-                    PrecipitateGlyphTileLayer(gridWidth: model.gridSize.w, gridHeight: model.gridSize.h)
+                if map.carriesGlyphs, let glyphs {
+                    PrecipitateGlyphTileLayer(input: glyphs)
                 }
                 if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) }) {
                     // A small label on a glass capsule (spec 2 D-8: glass only over a map).

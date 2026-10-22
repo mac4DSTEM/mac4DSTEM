@@ -282,6 +282,14 @@ struct MapTile: Identifiable {
 enum ActiveMap: Hashable, Sendable {
     case haadf, colorMix
     case element(Int)
+
+    /// The ColorMix and the element maps carry the precipitate glyphs; the HAADF does not.
+    var carriesGlyphs: Bool {
+        switch self {
+        case .colorMix, .element: true
+        case .haadf: false
+        }
+    }
 }
 
 /// Contrast window (fractions of the map's own range) and gamma of one map: presentation only, never written to a product.

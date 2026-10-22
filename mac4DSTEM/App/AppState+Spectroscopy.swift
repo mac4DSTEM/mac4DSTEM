@@ -144,19 +144,25 @@ extension AppState {
 
     func openAsSpectrumImageIfApplicable(_ url: URL, access: SpectrumOpenAccess = SpectrumOpenAccess()) async -> Bool {
         let ext = url.pathExtension.lowercased()
-        // A single spectrum (.msa, EMSA/MAS): a one-pixel spectrum image in the Spectroscopy room.
-        if FileRouting.route(path: url.path) == .singleSpectrum {
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            do { openSpectrumImage(try FileRouting.spectrumImage(msaPath: url.path)) } catch { present(error) }
-            return true
-        }
-        guard ext == "emd" || ext == "dm4" else { return false }
+        // The extension picks the candidates (FormatoKit's rule); any other file is a 4D open and is never sniffed here.
+        guard ext == "msa" || ext == "emd" || ext == "dm4" else { return false }
         let path = url.path
         let accessed = access.start(url)
         defer { if accessed { access.stop(url) } }
         let sniff = access.kind
-        let kind = await Task.detached(priority: .userInitiated) { sniff(path) }.value
+        // One detached pass sniffs the file (FormatoKit's route, then the spectrum kind): both open an HDF5 file under the HDF5
+        // lock, so neither runs on the main actor, and the file is not routed twice (design review 2026-10-22).
+        let (route, kind) = await Task.detached(priority: .userInitiated) { () -> (OpenRoute, SpectrumFileKind) in
+            let route = FileRouting.route(path: path)
+            guard route != .singleSpectrum, ext == "emd" || ext == "dm4" else { return (route, .other) }
+            return (route, sniff(path))
+        }.value
+        // A single spectrum (.msa, EMSA/MAS): a one-pixel spectrum image in the Spectroscopy room.
+        if route == .singleSpectrum {
+            do { openSpectrumImage(try FileRouting.spectrumImage(msaPath: path)) } catch { present(error) }
+            return true
+        }
+        guard ext == "emd" || ext == "dm4" else { return false }   // an .msa whose content is not one: a 4D open decides
         // A Velox file with only single spectra is not a spectrum image to the kit (`kind` is .other): its first spectrum opens as a
         // one-pixel image, the detector's live and real time said in the status line and the session log.
         if kind == .other, ext == "emd", let single = await Task.detached(priority: .userInitiated, operation: { FileRouting.veloxSpectrum(path: path) }).value {

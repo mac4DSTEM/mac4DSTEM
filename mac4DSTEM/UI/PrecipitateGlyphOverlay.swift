@@ -59,22 +59,39 @@ extension PrecipitateGlyphOverlay {
     }
 }
 
-/// The glyphs on a Spectroscopy map tile: only where the spectrum image is registered by identity to the 4D scan the objects come
-/// from (the app states no other registration) and the two grids agree. Same transform as every pane: fractions of the picture.
+/// What a Spectroscopy map tile needs to draw the glyphs, as plain values: the grid resolves it once (one read of `AppState` for
+/// all tiles) and hands the same value to each, so a tile never tracks the app state itself (design review 2026-10-22: every
+/// element tile re-rendered on any precipitate change). nil where the spectrum image is not registered by identity to the 4D
+/// scan the objects come from (the app states no other registration), where there are no objects, or where the two grids differ.
+struct PrecipitateGlyphTileInput {
+    let set: PrecipitateGlyphSet
+    let settings: PrecipitateOverlaySettings
+    let selected: Set<Int>
+    /// The class colour of every phase label in the set, as the object table's swatch has it.
+    let colours: [Int32: Color]
+
+    /// Resolved by the grid. `gridWidth`/`gridHeight` are the tiles' own grid.
+    @MainActor static func resolve(appState: AppState?, tableSelection: PrecipitateTableSelection?,
+                                   gridWidth: Int, gridHeight: Int) -> PrecipitateGlyphTileInput? {
+        guard let appState, appState.spectroscopy.registration != nil, let set = appState.cachedPrecipitateGlyphSet(),
+              set.width == gridWidth, set.height == gridHeight else { return nil }
+        let report = appState.precipitateObjectReport
+        var colours: [Int32: Color] = [:]
+        for label in Set(set.glyphs.map(\.phaseLabel)) {
+            colours[label] = PrecipitateGlyphOverlay.phaseColour(report: report, label: label)
+        }
+        let selected = tableSelection.flatMap { $0.sourceID == set.sourceID ? $0.objectIDs : nil } ?? []
+        return PrecipitateGlyphTileInput(set: set, settings: appState.precipitateOverlay, selected: selected, colours: colours)
+    }
+}
+
+/// The glyphs on a Spectroscopy map tile, drawn from the grid's value. Same transform as every pane: fractions of the picture.
 struct PrecipitateGlyphTileLayer: View {
-    @Environment(AppState.self) private var appState: AppState?   // absent in a bare render (previews, tests)
-    @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
-    let gridWidth: Int
-    let gridHeight: Int
+    let input: PrecipitateGlyphTileInput
 
     var body: some View {
-        if let appState, appState.spectroscopy.registration != nil, let set = appState.cachedPrecipitateGlyphSet(),
-           set.width == gridWidth, set.height == gridHeight {
-            let report = appState.precipitateObjectReport
-            PrecipitateGlyphOverlay(
-                set: set, settings: appState.precipitateOverlay,
-                selected: tableSelection.flatMap { $0.sourceID == set.sourceID ? $0.objectIDs : nil } ?? [],
-                colour: { PrecipitateGlyphOverlay.phaseColour(report: report, label: $0) }, zoom: 1)
-        }
+        PrecipitateGlyphOverlay(
+            set: input.set, settings: input.settings, selected: input.selected,
+            colour: { [colours = input.colours] in colours[$0] ?? .gray }, zoom: 1)
     }
 }

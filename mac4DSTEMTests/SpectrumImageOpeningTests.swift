@@ -234,6 +234,26 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertEqual(log.events, ["start", "sniff in scope: true", "stop"])
     }
 
+    /// One sniff per open, and none for a file the extension rules out: a 4D `.h5` is never sniffed here (it used to be routed
+    /// on the main actor first), and an `.emd` is sniffed exactly once, off the main thread (design review 2026-10-22).
+    /// Mutation: the route moved back before the guard, or the sniff run twice — red.
+    func testASpectrumCandidateIsSniffedOnceOffTheMainThreadAndOthersNotAtAll() async {
+        let log = ScopeLog()
+        let offMain = LockedFlag()
+        let access = AppState.SpectrumOpenAccess(start: { _ in log.start() }, stop: { _ in log.stop() },
+                                                 kind: { _ in offMain.set(!Thread.isMainThread); return log.sniff() })
+        let state = AppState()
+        _ = await state.openAsSpectrumImageIfApplicable(URL(fileURLWithPath: Self.velox), access: access)
+        XCTAssertEqual(log.events.filter { $0.hasPrefix("sniff") }.count, 1)
+        XCTAssertTrue(offMain.value, "the sniff ran on the main thread")
+
+        let other = ScopeLog()
+        let untouched = AppState.SpectrumOpenAccess(start: { _ in other.start() }, stop: { _ in other.stop() }, kind: { _ in other.sniff() })
+        let opened = await state.openAsSpectrumImageIfApplicable(URL(fileURLWithPath: "/tmp/not-a-spectrum-candidate.h5"), access: untouched)
+        XCTAssertFalse(opened)
+        XCTAssertEqual(other.events, [], "a file the extension rules out is neither scoped nor sniffed")
+    }
+
     /// A region chosen from the sidebar (through the controller) drives the room: model, outline, spectrum.
     /// Mutation: `selectRegion` not calling `refresh()` — red.
     func testSelectingARegionFromAnywhereDrivesTheRoom() async throws {
@@ -316,4 +336,13 @@ final class SpectrumImageOpeningTests: XCTestCase {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
     }
+}
+
+
+/// A flag set from a detached task and read after it: the sniff seam is `@Sendable`.
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+    func set(_ v: Bool) { lock.lock(); flag = v; lock.unlock() }
 }
