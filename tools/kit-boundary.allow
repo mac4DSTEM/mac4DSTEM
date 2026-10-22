@@ -57,3 +57,5 @@ tools/harnesses/virtual-detector-memory-test/main.swift	Metal	harness: GPU or si
 tools/harnesses/virtual-detector-residency/main.swift	Metal	harness: GPU or simd types for the check it runs
 tools/harnesses/virtual-detector-test/main.swift	Metal	harness: GPU or simd types for the check it runs
 mac4DSTEM/Training/TrainedModelStore.swift	+symbols	learned detector (ADR 071): records the runtime name "MPSGraph" in the model file, no MPS call
+mac4DSTEM/Session/ObjectVariants.swift	simd	orientation matrices in the types shared with DiffractoKit; the variant set, the nearest variant and every rotation are the kit's, this file votes
+mac4DSTEMTests/ObjectVariantsTests.swift	simd	test of the variant assignment against the kit's planted variants (simd-typed kit calls)

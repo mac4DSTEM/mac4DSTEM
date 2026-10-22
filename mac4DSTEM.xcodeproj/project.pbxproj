@@ -113,6 +113,7 @@
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
 				Core/Analysis/FitOverlays.swift,
+				Core/Analysis/MapProfile.swift,
 				Core/Analysis/OrientationResult.swift,
 				Core/Analysis/OriginCalibration.swift,
 				Core/Analysis/ParallaxAberrationCorrection.swift,
@@ -121,6 +122,7 @@
 				Core/Analysis/ParallaxDepthSectioning.swift,
 				Core/Analysis/ParallaxPreprocessing.swift,
 				Core/Analysis/ParallaxSubpixelReconstruction.swift,
+				Core/Analysis/RegionMapTable.swift,
 				Core/Analysis/Precipitates/PrecipitateReflections.swift,
 				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
 				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
@@ -201,6 +203,7 @@
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
 				Session/ObjectJoins.swift,
+				Session/ObjectVariants.swift,
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
 				Session/PoolCatalogue.swift,
@@ -553,7 +556,7 @@
 				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
 				30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */,
 				30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */,
-				300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */,
+				300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -1373,10 +1376,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
-		300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../MacEMUI;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1410,6 +1409,14 @@
 			requirement = {
 				kind = exactVersion;
 				version = 0.11.0;
+			};
+		};
+		300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
+			requirement = {
+				kind = exactVersion;
+				version = 0.2.0;
 			};
 		};
 		300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */ = {
@@ -1542,27 +1549,27 @@
 		};
 		300000000000000000000401 /* ShellMetal */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellMetal;
 		};
 		300000000000000000000403 /* ShellControls */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellControls;
 		};
 		300000000000000000000405 /* ShellInspector */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellInspector;
 		};
 		30000000000000000000040F /* ShellSpectroscopy */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellSpectroscopy;
 		};
 		300000000000000000000407 /* ShellLayout */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 300000000000000000000040 /* XCLocalSwiftPackageReference "../MacEMUI" */;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellLayout;
 		};
 /* End XCSwiftPackageProductDependency section */

@@ -1,5 +1,5 @@
 {
-  "originHash" : "c4453f1887506ce17a30700f0c2b0d9864d0c0992238976af643dcbbf8c2f480",
+  "originHash" : "3352ae977d2b5be4162697a4eb927969e2adbfc0c68aac180fb23cba8c87619f",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/MacEMUI",
       "state" : {
-        "revision" : "c4adfc2d8a67cb04d34fcaac9ec26fed999c0ba2",
-        "version" : "0.1.0"
+        "revision" : "09849f3dda9de2343a8a17af0b138646f2048c10",
+        "version" : "0.2.0"
       }
     },
     {
