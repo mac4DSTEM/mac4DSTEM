@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.0.1 — 2026-10-23
+
+v5.0.0 as described below, notarized: the two Quick Look extensions now run with the hardened runtime, which Apple's notary service
+requires (v5.0.0 was tagged but never released; its build was refused). Nothing else changes.
+
 ## v5.0.0 — 2026-10-23
 
 **Requires macOS 27 on Apple Silicon**, as v4.5.0. A major release: mac4DSTEM now runs on the six macEM kits at exact released tags
