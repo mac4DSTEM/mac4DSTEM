@@ -1,5 +1,5 @@
 {
- "cube": "/Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/References/training_dataset/calibrationData_bullseyeProbe.h5",
+ "cube": "References/training_dataset/calibrationData_bullseyeProbe.h5",
  "dataset": "4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data",
  "ingredient": "bullseye",
  "frame": "native",
