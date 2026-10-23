@@ -41,7 +41,7 @@ package enum SpectroscopyTool: String, CaseIterable, Identifiable, Sendable {
 
     package var title: String {
         switch self {
-        case .edx: "EDX"
+        case .edx: "EDS"
         }
     }
 

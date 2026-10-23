@@ -482,7 +482,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 + "), assuming the objects span the foil; validation: \(numberDensityValidation ?? "none")")
         }
         if !compositionElements.isEmpty {
-            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDX pixels (no sigma; not the pooled fit); objects under the minimum EDX pixels have none; validation: none")
+            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDS pixels (no sigma; not the pooled fit); objects under the minimum EDS pixels have none; validation: none")
         } else if let why = compositionUnavailable { lines.append("# composition: not available: \(why)") }
         if strainAvailable {
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")

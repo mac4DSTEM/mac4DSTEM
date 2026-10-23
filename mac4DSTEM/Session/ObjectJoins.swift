@@ -44,7 +44,7 @@ package nonisolated struct ObjectStrain: Codable, Hashable, Sendable {
 /// could not run at all.
 package nonisolated struct ObjectJoinResult<Value: Sendable & Equatable>: Sendable, Equatable {
     package var perObject: [Int: Value]
-    /// Objects without a value, with the reason ("under 4 EDX px").
+    /// Objects without a value, with the reason ("under 4 EDS px").
     package var reasons: [Int: String]
     /// Set when the join could not run: the report then shows no columns and the section says this.
     package var unavailable: String?
@@ -62,7 +62,7 @@ package nonisolated struct ObjectCompositionValue: Sendable, Equatable {
 
 package nonisolated enum ObjectCompositionJoin {
     /// The sentence the section shows when no quantified spectrum image is there.
-    package static let noMapsSentence = "Open the EDX spectrum image of this scan and Quantify it for composition per object."
+    package static let noMapsSentence = "Open the EDS spectrum image of this scan and Quantify it for composition per object."
 
     /// - Parameters:
     ///   - objects: the class map's objects on the 4D scan grid.
@@ -119,7 +119,7 @@ package nonisolated enum ObjectCompositionJoin {
                 let label = Int32(index + 1)
                 let pixels = atomic.first?.first { $0.label == label }?.count ?? 0
                 if pixels < minimumPixels {
-                    out.reasons[object.id] = covered[Int(label)] == 0 ? "no EDX pixel under the object" : "under \(minimumPixels) EDX px"
+                    out.reasons[object.id] = covered[Int(label)] == 0 ? "no EDS pixel under the object" : "under \(minimumPixels) EDS px"
                     continue
                 }
                 let elements = maps.elements.indices.map { e in

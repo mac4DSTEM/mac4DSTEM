@@ -29,7 +29,7 @@ struct FigureExportSection: View {
     static let exportTitle = "Export Figure\u{2026}"
     static let emptyNote = "Make an image, or open a spectrum image, to put it in a figure."
     static let formatHelp = "PNG and TIFF are pixels at the image size; PDF is vector, so the labels, outlines and scale bars stay sharp at any zoom (only the maps are pixels)."
-    static let sizeHelp = "Pixels per point of every exported PNG (the result image, the diffraction pattern, the EDX maps and the figure): 2\u{00D7} and 3\u{00D7} are the same picture, sharper, and the file says so (144 or 216 ppi) so a slide is placed at the 1\u{00D7} size."
+    static let sizeHelp = "Pixels per point of every exported PNG (the result image, the diffraction pattern, the EDS maps and the figure): 2\u{00D7} and 3\u{00D7} are the same picture, sharper, and the file says so (144 or 216 ppi) so a slide is placed at the 1\u{00D7} size."
 
     var body: some View {
         @Bindable var preferences = preferences

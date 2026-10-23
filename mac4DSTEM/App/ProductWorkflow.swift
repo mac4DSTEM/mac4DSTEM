@@ -47,7 +47,7 @@ nonisolated enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable, Wo
         case .braggDisks: "Detect Bragg disks and label them"
         case .map: "Strain, orientation, and phases from Bragg disks"
         case .reconstruct: "DPC, parallax, and ptychography"
-        case .spectroscopy: "EDX spectrum images, alone or with the 4D scan"
+        case .spectroscopy: "EDS spectrum images, alone or with the 4D scan"
         case .results: "Review, save, and export products"
         }
     }

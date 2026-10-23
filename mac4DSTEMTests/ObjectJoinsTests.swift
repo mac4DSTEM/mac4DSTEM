@@ -2,7 +2,7 @@
 // three objects that touch neither each other nor the edge: A (rows 1-3, cols 1-2, 6 px), B (rows 5-6, cols 5-6, 4 px), C (rows 1-2,
 // cols 5-6, 4 px). Mg/Al net counts are constant per object (A 100/100, B 300/100, C 50/100) so each object's mean equals the kit's
 // single-pixel call on its own counts and the three differ. Plants: one failed pixel in A (negative Mg: the fit refuses it), two in C.
-// Expected: A is counted over 5 EDX px with 1 excluded; B over 4 px; C has no composition ("under 4 EDX px"); A's value is not B's.
+// Expected: A is counted over 5 EDS px with 1 excluded; B over 4 px; C has no composition ("under 4 EDS px"); A's value is not B's.
 // Strain: exx 0.01 over A, 0.02 / 0.04 over B's pixels (mean 0.03, spread > 0), one B pixel outside the fit mask holding 9.9 that must
 // not enter the mean; C has no fitted pixel ("no strain fit under the object"); eyy is the ROW direction (rr), exx the column (cc).
 
@@ -65,7 +65,7 @@ final class ObjectJoinsTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(b.elements.first { $0.symbol == "Mg" }?.atomicPercent), kitB.atomicPercent[0], accuracy: 1e-9)
         XCTAssertNotEqual(a.elements[0].weightPercent, b.elements[0].weightPercent, "objects must not mix")
         XCTAssertNil(result.perObject[id.c])
-        XCTAssertEqual(result.reasons[id.c], "under 4 EDX px")
+        XCTAssertEqual(result.reasons[id.c], "under 4 EDS px")
     }
 
     func testNoMapsNoRegistrationAndWrongGridsSayWhy() throws {
@@ -154,7 +154,7 @@ extension ObjectJoinsTests {
         let a = try XCTUnwrap(report.rows.first { $0.id == id.a }), c = try XCTUnwrap(report.rows.first { $0.id == id.c })
         XCTAssertEqual(a.compositionSummary, "Mg 55.0 · Al 45.0 at% (5 px, 1 failed or masked)")
         XCTAssertEqual(a.strainSummary, "rr -0.50 · cc 1.00 · rc 0.20 %, 1.00°")
-        XCTAssertEqual(c.compositionSummary, "under 4 EDX px")
+        XCTAssertEqual(c.compositionSummary, "under 4 EDS px")
         XCTAssertEqual(c.strainSummary, "no strain fit under the object")
         let none = PrecipitateObjectReport.make(
             objects: objects(), phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1,
