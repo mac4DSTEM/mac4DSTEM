@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-23 Auto ID refines the energy axis before it proposes, as macTEM 1.0 does: two strong K lines at least 3 keV apart anchor one fit that refines the offset, gain and detector width, and the proposal runs again on that axis (a note says so). On the three Velox files it now picks Mg, Al and Si (and O, Cu, Mn, Zr) on 1339 and 1840 and Si, Ni, Ge and Pt (and O, Cu, Zr) on 1456. A find by an L or M line whose confirmation line lies outside the range is listed as uncorroborated, never added.
+
 - 2026-10-23 The bullseye label fixture names its cube relative to the repository (`References/training_dataset/...`) instead of a home-directory path; the test reads the value back and is unchanged.
 
 - 2026-10-23 Pinned to SpectroKit 0.12.0 and MacEMUI 0.3.0 (MacEMUI off its local path; every kit now on an exact released tag). Auto ID is SpectroKit's identification loop (0.11.0): a peak on an empty background, an L or M line whose K or L line cannot be checked, and a line that gains the fit less than 100 are now possible finds, not picks. No quantification number changes; the golden and E1 fixtures are re-recorded for the new labels and proposals (own commit).

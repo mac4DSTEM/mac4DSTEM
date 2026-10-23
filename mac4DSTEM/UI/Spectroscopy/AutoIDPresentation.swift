@@ -47,8 +47,11 @@ nonisolated struct AutoIDOutcome: Equatable, Sendable {
     var notTested: [AutoIDRefusal]
     /// The look-elsewhere line, the misfit line, the lowest-tested-line floor: the proposer's own words.
     var notes: [String]
+    /// Finds by one L or M line whose K or L line the fitted range cannot hold (SpectroKit's `unconfirmable`): shown, never
+    /// added (macTEM's `uncorroborated`, the confirm-elements step made explicit).
+    var uncorroborated: [String] = []
 
-    var hasDetails: Bool { !suspects.isEmpty || !excesses.isEmpty || !notTested.isEmpty || !notes.isEmpty }
+    var hasDetails: Bool { !suspects.isEmpty || !excesses.isEmpty || !notTested.isEmpty || !notes.isEmpty || !uncorroborated.isEmpty }
 }
 
 nonisolated enum AutoIDPresentation {
@@ -98,8 +101,9 @@ nonisolated enum AutoIDPresentation {
     /// `rules`: the registered post-selection (`ProposalRules.apply`); nil keeps the proposer's own picks. With it the picks, the
     /// sum-peak questions and the notes are the ruled ones, each pick a rule acted on says which in its reason, and every pick a rule
     /// withheld is named in the notes (never silently gone).
+    /// `refinementNote`: the axis refinement the proposal ran on (`propose`), first in the notes.
     static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil },
-                        computedK: Bool = false, rules: RuledProposal? = nil) -> AutoIDOutcome {
+                        computedK: Bool = false, rules: RuledProposal? = nil, refinementNote: String? = nil) -> AutoIDOutcome {
         var suggestions: [ElementSuggestion] = []
         var excesses: [AutoIDExcess] = []
         for c in bySignificance(rules?.picks ?? r.proposed) {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
@@ -129,8 +133,58 @@ nonisolated enum AutoIDPresentation {
         }
         let notTested = r.refused.filter { !LineConflicts.refusedElements.contains($0.element) }
             .map { AutoIDRefusal(element: $0.element, reason: $0.reason) }
+        // The kit's confirmation rule (SpectroKit 0.11.0): a find by an L or M line whose K or L line the fitted range cannot hold
+        // is possible only, shown and never added (macTEM's `uncorroborated`).
+        let uncorroborated = bySignificance(r.candidates.filter(\.unconfirmable)).map { c in
+            "\(c.element) by \(UnlistedLineChecker.displayName(c.group)): \(c.possibleReason ?? "") \(stats(c, chiSquared: r.reducedChiSquared))"
+        }
         return AutoIDOutcome(region: region, suggestions: suggestions, suspects: suspects, excesses: excesses, notTested: notTested,
-                             notes: r.notes + (rules.map(ruleNotes) ?? []))
+                             notes: (refinementNote.map { [$0] } ?? []) + r.notes + (rules.map(ruleNotes) ?? []),
+                             uncorroborated: uncorroborated)
+    }
+
+    /// Which proposed K lines anchor an axis refinement: at least two at or above 3 L_D, spanning 3 keV or more (one line cannot
+    /// tell an offset from a gain; a refinement on Cu alone drifted by 46 eV on the owner's file 1339, 2026-10-22). nil: none.
+    /// As macTEM 1.0's `EDXCompute.refinementAnchors` (app-local in both apps; a kit API candidate).
+    static func refinementAnchors(_ result: ProposalResult) -> [String]? {
+        let k = result.proposed.filter { XRayLines.line($0.group)?.family == .K && $0.significance >= 3 }
+        guard k.count >= 2, let lo = k.map(\.energyKeV).min(), let hi = k.map(\.energyKeV).max(), hi - lo >= 3 else { return nil }
+        return k.map(\.element)
+    }
+
+    /// Auto ID's compute, as macTEM 1.0's `EDXCompute.autoID`: the proposer on the spectrum with the listed elements as the
+    /// current set, then, when the first proposal has K anchors (`refinementAnchors`), one pooled fit on them refines the offset,
+    /// gain and detector width as Quantify does and the proposal is made again on that axis (two rounds at most). Measured
+    /// 2026-10-22 on the owner's files: the file's 130 eV width against the refined 133 to 135 eV was most of the misfit beside
+    /// the strong K lines, which inflated every neighbour's limit and hid Mg and Si on 1339 and 1840. The shipped rules re-select.
+    /// DEVIATION: the default continuum, not the Quantify inspector's choices: Auto ID screens, it does not quantify.
+    /// Throws `ProposerError.cancelled` when the calling task is cancelled (the proposer polls it).
+    static func propose(spectrum: [UInt64], axis fileAxis: EnergyAxis, beam: Double, listed: [String], computedK: Bool,
+                        region: String, metadata: SpectrumImageMetadata, tables: QuantificationTables?) throws -> AutoIDOutcome {
+        let counts = spectrum.map { Double($0) }
+        var axis = fileAxis
+        var settings = FitSettings.standard(elements: listed, axis: axis, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
+        var result = try ElementProposer().propose(counts: counts, axis: axis, settings: settings)
+        var refinementNote: String?
+        var anchorsUsed: [String] = []
+        for _ in 0..<2 {
+            guard let anchors = refinementAnchors(result), anchors != anchorsUsed else { break }
+            var m = QuantificationMethod()
+            m.elements = (listed + anchors.filter { !listed.contains($0) }).map { QuantificationMethod.ElementState(symbol: $0, role: .quantify, isManual: false) }
+            m.beamEnergyKeV = beam
+            let input = PooledQuantificationInput(counts: spectrum, axis: fileAxis, method: m, metadata: metadata, regionName: region, pixelCount: 1)
+            guard let fit = try? PooledQuantifier.run(input, tables: tables), let r = fit.refinement, fit.usedAxis == r.refinedAxis else { break }
+            anchorsUsed = anchors
+            axis = r.refinedAxis
+            settings = FitSettings.standard(elements: listed, axis: axis, resolutionMnKaEV: r.resolutionMnKaEV, beamEnergy: beam)
+            result = try ElementProposer().propose(counts: counts, axis: axis, settings: settings)
+            refinementNote = String(format: "Energy axis refined on %@ before the proposal: offset %+.1f eV, gain %+.3f %%, FWHM(Mn K\u{03B1}) %.0f eV (file %.0f eV).",
+                                    locale: .autoupdatingCurrent, anchors.joined(separator: ", "), r.offsetShiftEV, r.gainShift * 100,
+                                    r.resolutionMnKaEV, ElementWindows.defaultResolutionMnKaEV)
+        }
+        let ruled = ProposalRules.shipped.apply(result, resolutionMnKaEV: settings.resolutionMnKaEV)
+        return outcome(result, region: region, beside: besideCheck(settings: settings, axis: axis), computedK: computedK, rules: ruled,
+                       refinementNote: refinementNote)
     }
 
     /// The rules' own lines for the notes: which picks each withheld (with the number), which were released, and where the cuts

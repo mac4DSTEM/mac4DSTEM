@@ -48,6 +48,38 @@ final class SpectroscopyAutoIDTests: XCTestCase {
 
     // MARK: Mapping
 
+    // MARK: SpectroKit 0.11.0's confirmation rule and the refined axis (macTEM 1.0 parity)
+
+    /// A find by an L line whose K line the range cannot hold is uncorroborated: listed with its reason, never a suggestion.
+    /// Mutation: `uncorroborated` built from `possible` or left empty - red; the find made a suggestion - red.
+    func testAnUnconfirmableFindIsUncorroboratedNeverASuggestion() {
+        let se = ElementCandidate(element: "Se", group: "Se_La", energyKeV: 1.379, net: 900, sigma: 30, sigmaZero: 90, criticalLevel: 150,
+                                  detectionLimit: 300, conflicts: [], suggestedRole: .fitOnly, holeRegionNote: nil, misfit: 1,
+                                  possibleReason: "its K\u{03B1} lies outside the fitted range", unconfirmable: true)
+        let o = AutoIDPresentation.outcome(proposal([se, candidate("Cu", "Cu_Ka", energy: 8.048)]), region: "r")
+        XCTAssertEqual(o.suggestions.map(\.z), [Cu])
+        XCTAssertEqual(o.uncorroborated.count, 1)
+        XCTAssertTrue(o.uncorroborated[0].hasPrefix("Se by Se L\u{03B1}: its K\u{03B1} lies outside the fitted range net 900 counts"), o.uncorroborated[0])
+        XCTAssertTrue(o.hasDetails)
+    }
+
+    /// The refinement's anchors: two proposed K lines at 3 L_D or more, 3 keV apart; one line, two close ones, an L line or a weak
+    /// one is none. Mutations: the span test dropped - Al with Si anchors - red; the family test dropped - red; the 3 L_D floor - red.
+    func testRefinementAnchorsAreTwoStrongKLinesThreeKeVApart() {
+        let al = candidate("Al", "Al_Ka", energy: 1.4865, net: 3000), cu = candidate("Cu", "Cu_Ka", energy: 8.048, net: 3000)
+        XCTAssertEqual(AutoIDPresentation.refinementAnchors(proposal([al, cu])), ["Al", "Cu"])
+        XCTAssertNil(AutoIDPresentation.refinementAnchors(proposal([al])))
+        XCTAssertNil(AutoIDPresentation.refinementAnchors(proposal([al, candidate("Si", "Si_Ka", energy: 1.740, net: 3000)])))
+        XCTAssertNil(AutoIDPresentation.refinementAnchors(proposal([al, candidate("Eu", "Eu_La", energy: 5.846, net: 3000)])))
+        XCTAssertNil(AutoIDPresentation.refinementAnchors(proposal([al, candidate("Cu", "Cu_Ka", energy: 8.048, net: 800)])))
+    }
+
+    /// The refinement's note leads the notes, before the proposer's own. Mutation: appended last or dropped - red.
+    func testTheRefinementNoteLeadsTheNotes() {
+        let o = AutoIDPresentation.outcome(proposal([], notes: ["proposer"]), region: "r", refinementNote: "Energy axis refined")
+        XCTAssertEqual(o.notes, ["Energy axis refined", "proposer"])
+    }
+
     /// Mutation: map `result.candidates.filter(\.isProposed)` (the sum-peak ones included) instead of `result.proposed`.
     func testSumPeakQuestionsAreMarkersNeverElementSuggestions() {
         let r = proposal([candidate("Mg", "Mg_Ka", energy: 1.254), argonOnSum])

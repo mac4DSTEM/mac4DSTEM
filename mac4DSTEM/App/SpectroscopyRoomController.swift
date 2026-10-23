@@ -337,6 +337,7 @@ final class SpectroscopyRoomController {
         let regionID = region.id, name = region.name
         let cache = cache
         let epoch = cache.epoch(regionID)
+        let metadata = source.metadata, tables = Self.tables
         autoIDTask = Task.detached(priority: .userInitiated) {
             let spectrum: [UInt64]
             if let s = cache.spectrum(regionID) { spectrum = s } else {
@@ -346,16 +347,10 @@ final class SpectroscopyRoomController {
             var outcome: AutoIDOutcome?
             var failure: String?
             do {
-                // DEVIATION: the file's axis and the default continuum (empirical, Al K step), not the Quantify inspector's
-                // choices: Auto ID screens, it does not quantify.
-                let settings = FitSettings.standard(elements: current, axis: source.energyAxis,
-                                                    resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
-                let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
-                // WP4 (2026-10-07): the shipped rule set (R1 hygiene only; R2 and R3 refuted as registered) re-selects the proposer's
-                // candidates; the raw result stays beside the picks and every withheld pick is named in the notes.
-                let ruled = ProposalRules.shipped.apply(result, resolutionMnKaEV: settings.resolutionMnKaEV)
-                outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis),
-                                                     computedK: computedK, rules: ruled)
+                // Auto ID on a refined axis, as macTEM 1.0 (`AutoIDPresentation.propose`): the proposer, one refinement on its K
+                // anchors and the proposal again, then the shipped rules (WP4: R1 hygiene only; every withheld pick named in the notes).
+                outcome = try AutoIDPresentation.propose(spectrum: spectrum, axis: source.energyAxis, beam: beam, listed: current,
+                                                         computedK: computedK, region: name, metadata: metadata, tables: tables)
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }

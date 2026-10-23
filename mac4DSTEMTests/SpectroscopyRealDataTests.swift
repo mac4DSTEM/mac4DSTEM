@@ -61,6 +61,10 @@ final class SpectroscopyRealDataTests: XCTestCase {
                 for s in o.suggestions { print("EDX-REAL   suggestion \(PeriodicLayout.symbol(s.z))") }
                 for n in o.notes { print("EDX-REAL   note \(n)") }
             }
+            // Auto ID on the refined axis (macTEM 1.0's picks on the same three files, its EDXRealDataTests): Mg, Al and Si on 1339
+            // and 1840, Si, Ni, Ge and Pt on 1456. At least those; more may join.
+            let expected: [String] = name.contains("1456") ? ["Si", "Ni", "Ge", "Pt"] : ["Mg", "Al", "Si"]
+            XCTAssertTrue(Set(expected).isSubset(of: Set(picks)), "\(name): Auto ID picks \(picks), expected at least \(expected)")
             // A region: the central quarter of the scan.
             t = Date()
             let nx = meta.scanWidth, ny = meta.scanHeight
