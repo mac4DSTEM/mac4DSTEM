@@ -91,11 +91,13 @@ final class PerformanceJourney: Journey {
     }
 
     func testAutoIDAndQuantify() {
-        measureAction(["--demo-spectrum-fixture"], signposts: ["edx.autoID", "edx.quantify"], prepare: {
-            wait(for: "spectroscopy.room", timeout: 30)
+        // The EDS room (macTEM's): its refresh is the session's one signposted pass (Auto ID and Quantify both run through it).
+        measureAction(["--demo-spectrum-fixture"], signposts: ["edx.refresh"], prepare: {
+            wait(for: "edx.room", timeout: 30)
+            XCTAssertTrue(element("toolbar.display.idle").waitForExistence(timeout: 90), "Auto ID on open did not finish")
         }, action: {
-            app.buttons["Auto ID"].firstMatch.click()   // the one label read: InspectorAdaptiveButton does not expose its identifier
-            waitGone("spectroscopy.autoID.cancel", timeout: 90)
+            wait(for: "edx.autoID").click()
+            XCTAssertTrue(element("toolbar.display.idle").waitForExistence(timeout: 90), "Auto ID did not finish")
             primaryAndWait()
         })
     }

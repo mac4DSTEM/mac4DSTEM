@@ -56,6 +56,10 @@ private struct DatasetWindow: View {
     @State private var holder: LazyAppState
     private var appState: AppState { holder.state }
     @State private var loadedLaunchFixture = false
+    #if DEBUG
+    /// `--open`'s once-guard, process-wide (a second window must not open the file again).
+    static var openedLaunchFile = false
+    #endif
     /// A file is being dragged over the window (File > drop-to-open).
     @State private var dropTargeted = false
     @Environment(\.openWindow) private var openWindow
@@ -145,6 +149,16 @@ private struct DatasetWindow: View {
                 await appState.openDemoFixture(calibrated: !uncalibrated)
             }
         #if DEBUG
+        // `--open <absolute path>` (a UI journey on a real file, macTEM's launch option): the file opens through the window's own
+        // open path; a file that brings a spectrum image shows the EDS room. Once per process. DEBUG only.
+        .task {
+            let arguments = ProcessInfo.processInfo.arguments
+            guard !Self.openedLaunchFile, let i = arguments.firstIndex(of: "--open"), arguments.indices.contains(i + 1),
+                  arguments[i + 1].hasPrefix("/") else { return }
+            Self.openedLaunchFile = true
+            await appState.openFileAsync(url: URL(fileURLWithPath: arguments[i + 1]))
+            if appState.hasSpectrumImage { appState.selectWorkspace(.spectroscopy) }
+        }
         // The spectrum-only window, before the readers land (v5.0 WP2): metadata only.
         // Once per PROCESS, not per window: a second window (a 4D file opened from the
         // spectrum-only one goes to a new window) must not become spectrum-only too and

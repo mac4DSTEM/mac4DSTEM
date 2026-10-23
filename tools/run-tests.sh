@@ -209,7 +209,7 @@ inventory() {
     [[ -d "$d" ]] && { macemui_sources=("$d"); break; }
   done
   for id in $(grep -rhoE '"[a-z][A-Za-z]*\.[A-Za-z][A-Za-z0-9.]*"' "$ROOT/mac4DSTEMUITests" 2>/dev/null | tr -d '"' | sort -u); do
-    [[ "$id" == workspace.* || "$id" == task.* || "$id" == detector.preset.* || "$id" == *.xcresult ]] && continue   # built from an enum raw value in the source
+    [[ "$id" == workspace.* || "$id" == task.* || "$id" == detector.preset.* || "$id" == edx.export.* || "$id" == *.xcresult ]] && continue   # built from an enum raw value in the source
     # the window shell's identifiers (toolbar, sidebar, inspector frames) are MacEMUI's since 2026-10-22
     # MacEMUI: the sibling checkout on the developer's Mac, else the copy `swift package resolve` puts in .build/checkouts (CI).
     grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" "${macemui_sources[@]}" 2>/dev/null || { echo "  MISSING identifier $id"; rc=1; }

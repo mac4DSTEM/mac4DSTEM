@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
+## v5.0.0 — 2026-10-23
+
+**Requires macOS 27 on Apple Silicon**, as v4.5.0. A major release: mac4DSTEM now runs on the six macEM kits at exact released tags
+(CuboKit 0.9.0, DiffractoKit 0.10.0, SpectroKit 0.12.0, FormatoKit 0.11.0, ImagoKit 0.8.0, MacEMUI 0.3.0) and gains an **EDS room**,
+the same room macTEM 1.0 ships, joined to the 4D scan.
+
+- **The EDS room** (Spectroscopy › EDS) replaces the Spectroscopy room built during v5 development. It is macTEM 1.0's room: maps over
+  the spectrum, Auto ID with its reasons in the results footer, the results table with net counts and at% and wt% each ± σ, pins
+  (kept regions) with their own CSV, line profiles, composition maps (Cliff-Lorimer, zeta, cross section), and Export (Results CSV,
+  Method JSON, Spectrum CSV and MSA, Regions CSV, Maps). mac4DSTEM adds what the 4D scan brings: with a cube and a stated
+  registration (a GMS joint 4D + EDS file) the scan's phases, diffraction groups and not-indexed pixels are regions in a Source row;
+  Composition by Class fits every phase pool; the precipitate objects take their composition from the room's maps; each Quantify is
+  a step in the session's lineage and a row in Results. Auto ID refines the energy axis before it proposes, as macTEM does.
+- **What changes for you.** The room's controls sit where macTEM's do (the control placement standard). The at%/wt% unit menu is
+  gone (both columns show); the Profile and Table tabs are now the profile inset and the pins table; pins are not limited to three.
+  Steps recorded by earlier v5 development builds still read in Results and restore their method.
 
 - 2026-10-23 Auto ID refines the energy axis before it proposes, as macTEM 1.0 does: two strong K lines at least 3 keV apart anchor one fit that refines the offset, gain and detector width, and the proposal runs again on that axis (a note says so). On the three Velox files it now picks Mg, Al and Si (and O, Cu, Mn, Zr) on 1339 and 1840 and Si, Ni, Ge and Pt (and O, Cu, Zr) on 1456. A find by an L or M line whose confirmation line lies outside the range is listed as uncorroborated, never added.
 
