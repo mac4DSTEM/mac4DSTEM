@@ -48,3 +48,19 @@ scratchpad/
 
 # Coverage output from instrumented runs
 *.profraw
+
+# Private working files: kept on the developer's Mac, never published
+/CLAUDE.md
+/AGENTS.md
+/.claude/
+/.xcodebuildmcp/
+/ROADMAP.md
+/docs/status.md
+/docs/open-items.md
+/docs/decisions.md
+/docs/decisions/
+/docs/design/
+/docs/archive/
+/tools/hooks/
+/tools/drive/
+/tools/gate.sh

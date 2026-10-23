@@ -22,54 +22,54 @@ Open an issue. A scientific bug report is much more useful with:
 Please do not attach datasets to issues. Describe them, or link to a published
 one.
 
-## Building
+## Building and testing
 
-Xcode with the macOS 27 SDK (development is on Xcode-beta 27.0; the project's
-`MACOSX_DEPLOYMENT_TARGET` is 27.0, `tools/release/README.md` § Release contract) on
-Apple Silicon, and a **full Xcode** — the Command Line Tools alone cannot
-build this project. GitHub CI's `macos-26` runner cannot build the app at all
-since the macOS 27 floor landed (`docs/open-items.md`); a macOS 27 runner
-image is awaited. Build and test
-commands: `CLAUDE.md` § Build and test.
+You need a full Xcode 27 (the Command Line Tools alone cannot build this project) on an Apple silicon Mac; the app's
+minimum system is macOS 27. Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme, or from the shell:
 
-Everything under `tools/` resolves its own toolchain via
-`tools/lib/developer-dir.sh`: an explicit `DEVELOPER_DIR` wins, then whatever
-`xcode-select` points at, then any Xcode in `/Applications`. The scientific
-harnesses also need a Python with NumPy and py4DSTEM installed; set
-`PYTHON=/path/to/python` if it is not discovered.
+```sh
+xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
+tools/run-tests.sh unit         # the unit tests: run these before you open a pull request
+tools/run-tests.sh core         # checks that Core/ never reaches up into the app
+tools/run-tests.sh inventory    # repository checks (notices, large files, harness list)
+tools/run-tests.sh scientific   # the parity harnesses against py4DSTEM (slow; needs Python)
+```
 
-## Pushing
+Run the app in the `Develop` configuration, not `Debug`: Xcode builds the kits at `-O` for it, and a Debug build runs
+them unoptimised and many times slower.
 
-All work lands directly on `main`; there are no feature branches. CI builds the app host and runs the `unit`, `core` and
-`inventory` jobs on every push.
+Everything under `tools/` resolves its own toolchain via `tools/lib/developer-dir.sh`: an explicit `DEVELOPER_DIR`
+wins, then whatever `xcode-select` points at, then any Xcode in `/Applications`. The scientific harnesses also need a
+Python with NumPy and py4DSTEM; `tools/lib/fetch-py4dstem.sh` fetches py4DSTEM at the pinned commit, and
+`PYTHON=/path/to/python` overrides the interpreter if it is not found.
 
 ## Where code goes
 
-The Xcode project uses synchronized folder groups, so **placement is
-wiring** — a file added under `mac4DSTEM/` joins the app target
-automatically. Layering, ownership and where a new file goes: `docs/architecture.md`.
+The Xcode project uses synchronized folder groups, so **placement is wiring**: a file added under `mac4DSTEM/` joins
+the app target automatically. Views describe the interface only; loading, parsing and computing live in `Core/` (the
+`DSTEMCore` package), which never imports anything above it. Layering and ownership in more detail:
+[`docs/architecture.md`](docs/architecture.md).
+
+Science that has a kit equivalent (EDX, file readers, crystallography, the 4D-STEM core, FFTs and image maths) is fixed
+in the kit's own repository and reaches the app when `Package.swift` moves to the kit's new tag.
 
 ## The rules that matter
 
 - **Tests move with the code.** A change comes with tests that fail before it and pass after it.
 - **Numbers are checked against the Python reference.** A number a scientist reads is compared with the pinned py4DSTEM
-  result within a tolerance written per function (about 1e-7 relative for float64, 1e-5 for float32), never widened to
-  hide a bug. Readers, I/O, indices and metadata are tested exact. A change that moves a pinned number updates the
-  fixture on purpose, in its own commit, with the reason.
-- **One focused change per commit**, with a clear message.
-- **CI must be green.** Run `tools/run-tests.sh unit` before you push.
-- Science that has a kit equivalent (EDX, file readers, crystallography, the 4D core, FFTs) is fixed in the kit and arrives by a tag bump (`CLAUDE.md`, The kits).
-- Mark every deviation from py4DSTEM with an inline `DEVIATION` note, keep Metal parameter structs byte-identical to
-  their `.metal` counterparts, and never loosen a check that fails silently.
-
-The full list is in `CLAUDE.md` § Hard rules. Read it before touching `Core/`.
+  result within the tolerance py4DSTEM's own tests use for that function, never widened to hide a bug. Readers, I/O,
+  indices and metadata are tested exact. A change that moves a pinned number updates the fixture on purpose, in its own
+  commit, with the reason. [`docs/parity.md`](docs/parity.md) lists each function and its tolerance.
+- **One focused change per commit**, with a clear message, and CI green.
+- Mark every deviation from py4DSTEM with an inline `DEVIATION` note giving the reason and the py4DSTEM source it
+  departs from, keep Metal parameter structs byte-identical to their `.metal` counterparts, and never loosen a check
+  that fails silently.
+- A result that has not been compared with a dataset of known truth is shown with `validation: none` until it has.
 
 ## Scope
 
-`ROADMAP.md` carries the standing priorities and `docs/open-items.md` is the
-live list of what is known-broken or unverified. A feature that closes neither
-a documented gap nor a stated priority is likely out of scope — worth opening
-an issue to discuss before building it.
+A feature that fixes a known problem or follows from an open issue is welcome. For anything larger, please open an
+issue to talk it through before building it.
 
 ## Licence
 

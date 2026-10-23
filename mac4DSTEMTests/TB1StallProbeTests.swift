@@ -15,9 +15,8 @@ import DSTEMSession
 @MainActor
 final class TB1StallProbeTests: XCTestCase {
 
-    private let datasetDirectory = URL(
-        fileURLWithPath: "/Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/References/training_dataset"
-    )
+    private let datasetDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent("References/training_dataset")
 
     private func requireFile(_ name: String) throws -> URL {
         let url = datasetDirectory.appendingPathComponent(name)

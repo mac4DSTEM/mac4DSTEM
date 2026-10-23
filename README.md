@@ -1,131 +1,80 @@
-<h1 align="center">mac4DSTEM</h1>
+# mac4DSTEM
+
+4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDX spectrum images, worked
+on interactively instead of in scripts.
+
+mac4DSTEM is the companion to [macTEM](https://github.com/mac4DSTEM/macTEM). Both are free, open source and built for
+Apple silicon.
 
 <p align="center">
-  <strong>Interactive 4D-STEM analysis, native to Apple Silicon.</strong>
+  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM showing a diffraction pattern with detected Bragg disks and a lattice fit, beside the resulting strain map" width="100%">
 </p>
 
-<p align="center">
-  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: scientific, inventory and core jobs on every push (unit paused; the learned-detector check runs locally)"></a>
-</p>
+## Download
 
-<p align="center">
-  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM: a convergent-beam diffraction pattern with detected Bragg disks and lattice fit overlay, beside the resulting epsilon-yy strain map, with fit diagnostics in the inspector" width="100%">
-</p>
-
-<p align="center"><sub>Strain map (screenshot from v2.5.0, 2026-09-04).</sub></p>
-
----
-
-4D-STEM records a full diffraction pattern at every probe position. Analysing
-those datasets — virtual imaging, strain, orientation, phase — usually happens
-offline, in scripts, away from the data. mac4DSTEM does it interactively:
-detector geometry, calibration and reconstruction parameters change against a
-live view, so you see what a choice does while you make it.
-
-Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
-tested against it, so results trace back to the reference implementation.
-
-## New in v4.5.0 (2026-10-05)
-
-- **Workspaces that follow the data:** Prepare · Imaging · Bragg Disks · Crystal
-  Maps · Reconstruction · Results. Results › **Export Data…** writes the product
-  on screen as an EMD RealSlice `.h5`.
-- **Preprocess Raw Data…** crops, strides and hot-pixel-filters a raw file (a
-  port of py4DSTEM's filter) without touching the source; **Keep in memory**
-  for cubes that fit.
-- **Train a Bragg-disk detector in the app** (the Train Model… flow is not yet
-  verified on screen) and run the learned detector on the Neural Engine.
-- **ACOM** gains py4DSTEM's mirror pass; a calibration change marks dependent
-  results stale, with **Rewind to Here** in the lineage.
-- **Numbers that moved:** the default disk-detection floor is 0.15 % (a
-  documented deviation from py4DSTEM), the R–Q rotation follows py4DSTEM's sign,
-  and binned views' mean patterns can differ in their last float32 bits.
-- **Polish before release:** number fields keep what you type, exports carry the
-  accelerating voltage, and a DM4 on a disconnected disk refuses instead of crashing.
-- **A whole-app pre-release review** fixed data-safety, memory and wording
-  defects, each with a test. Phase mapping and its precipitate products stay
-  labelled unvalidated; known limitations are at the end of the v4.5.0 notes.
-
-Full notes: [`CHANGELOG.md`](CHANGELOG.md).
+Get the signed and notarised DMG:
+[mac4DSTEM.dmg](https://github.com/mac4DSTEM/mac4DSTEM/releases/latest/download/mac4DSTEM.dmg) (all versions are on the
+[releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases)). It needs macOS 27 or later on an Apple silicon Mac.
+Everything it needs is inside the app.
 
 ## What it does
 
-- **Explore** real and reciprocal space together, calibrated and GPU-rendered.
-- **Virtual imaging** — BF, ADF, HAADF, plus annular, rectangular and point
-  detectors placed by hand.
-- **Calibration** — probe and origin fitting, elliptical distortion,
-  real–reciprocal rotation, reciprocal sampling from a known crystal.
-- **Bragg disks** — cross-correlation on the CPU over an exact Bluestein FFT
-  (no GPU correlation kernel exists), parabolic and DFT-upsampled subpixel,
-  live acceptance diagnostics.
-- **Strain** — robust local lattice fitting, with basis consensus, residual and
-  indexed fraction on every map.
-- **Orientation** — polar-correlation template matching against a structure from
-  the Materials Project (by mp-id) or your own CIF, with reliability and IPF output.
-- **Phase** — DPC, iDPC, parallax, single-slice ptychography.
-- **Export** — EMD Bragg vectors, datacubes and products, readable in py4DSTEM.
+Open a 4D-STEM dataset (py4DSTEM and other EMD/HDF5 files, Gatan DM3/DM4, and, less tested, Merlin MIB and EMPAD RAW)
+and work through the workspaces in the sidebar. Detector, calibration and fit settings change against a live view, so
+you see what a choice does while you make it.
 
-Every quantity carries its calibration and provenance through display, export
-and reopening. Where a measurement is not quantitatively supported, it says so.
+- **Prepare**: inspect the dataset, crop, bin or filter hot pixels without touching the source file, and calibrate:
+  probe and origin, elliptical distortion, the rotation between real and reciprocal space, and the reciprocal pixel
+  size from a known crystal.
+- **Imaging**: bright field, ADF and HAADF, and annular, rectangular or point detectors you place by hand.
+- **Bragg Disks**: find the disks by cross-correlation with subpixel refinement, with diagnostics to judge the result.
+  A learned disk detector runs on the Neural Engine.
+- **Crystal Maps**: strain from a local lattice fit, orientation by template matching (ACOM) against your own CIF or a
+  Materials Project structure, phase maps, and precipitate objects with their sizes, variants and number density.
+- **Reconstruction**: DPC, iDPC, parallax and single-slice ptychography.
+- **Spectroscopy**: EDX spectrum images, on their own or with the 4D scan. Auto ID suggests the elements, element maps
+  and regions show where they are, and quantification gives wt% and at% with an uncertainty on every number.
+- **Results**: review, save and export. Bragg vectors, datacubes and maps are written as EMD files that py4DSTEM reads.
 
-## Verification
+Every quantity keeps its calibration and where it came from through display, export and reopening.
 
-Every number behind a release — test results and counts, DMG hash,
-notarization and staple details — is quoted from the run that produced it in
-[`tools/release/README.md`](tools/release/README.md) § Releases, with the full history in
+## Where the numbers come from
+
+The 4D-STEM methods are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and checked against it, pinned at
+commit `f050d207` (version 0.14.19). Where the app departs from py4DSTEM the source says so in a `DEVIATION` note with
+the reason. The rest is computed by the suite's Swift packages, each checked against the Python package it ports:
+[CuboKit](https://github.com/mac4DSTEM/CuboKit) (the 4D-STEM core),
+[DiffractoKit](https://github.com/mac4DSTEM/DiffractoKit) (crystallography and orientation),
+[SpectroKit](https://github.com/mac4DSTEM/SpectroKit) (EDX),
+[FormatoKit](https://github.com/mac4DSTEM/FormatoKit) (file readers),
+[ImagoKit](https://github.com/mac4DSTEM/ImagoKit) (FFT and image maths) and
+[MacEMUI](https://github.com/mac4DSTEM/MacEMUI) (the window and controls both apps share). A result that has not yet
+been compared with a dataset of known truth says `validation: none` next to it.
+
+Which function is checked against what, and to which tolerance, is in [`docs/parity.md`](docs/parity.md); speed
+measurements are in [`docs/performance.md`](docs/performance.md).
+
+## Building it yourself
+
+You need Xcode 27 on an Apple silicon Mac. Open `mac4DSTEM.xcodeproj`, pick the `mac4DSTEM` scheme and press ⌘R. The
+first build fetches the kits and MacEMUI from GitHub at the exact tags in `Package.swift`. The tests run with
+`tools/run-tests.sh unit`. How the code is organised is in [`docs/architecture.md`](docs/architecture.md), and how a
+release is built and notarised is in [`tools/release/README.md`](tools/release/README.md).
+
+## Problems and ideas
+
+Please open an issue. Reports with the file format, the dataset shape and what you expected help most, and a
+difference from py4DSTEM with numbers attached is the most useful of all. [`CONTRIBUTING.md`](CONTRIBUTING.md) has
+more, and [`SECURITY.md`](SECURITY.md) says how to report a security problem. What changed in each version is in
 [`CHANGELOG.md`](CHANGELOG.md).
-
-The badge covers three jobs on every push: `scientific` (the science harnesses;
-the learned detector's half of one memory test is skipped there, as the CI runner
-has no Neural Engine), the repository's own `inventory` review, and `core`, which
-fails the moment `Core/` reaches up into the app. The `unit` job is paused
-([ADR 040](docs/decisions/040-four-owner-decisions-2026-09-28.md): the macos-26
-image cannot build a macOS 27 app). Every suite, `unit` included, runs locally
-before each release.
-
-All of that is numerical — the app is tested against known-correct values, not
-against what it draws. What it draws is checked by a person driving it, because
-the numerical tests have stayed green through real on-screen defects.
-
-Merlin MIB and EMPAD RAW readers are preview-grade. Current limitations:
-[`docs/open-items.md`](docs/open-items.md).
-
-## Requirements
-
-macOS 27 or later on Apple Silicon. Nothing else to install — every dependency
-ships inside the application. Older systems: the v3.0.0 download (macOS 14+)
-stays available.
-
-Development and testing happen on macOS 27. The build supports 27 and later —
-that is the enforced minimum, not a claim every version has been exercised — so
-if something misbehaves on an older system, a report with the version in it is
-especially useful.
-
-## Building
-
-Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme.
-SwiftPM resolves the science kits (SpectroKit, FormatoKit, DiffractoKit, CuboKit, ImagoKit) at the exact tags in `Package.swift`.
-
-Architecture and supported formats: [`docs/architecture.md`](docs/architecture.md).
-What is live now: [`docs/status.md`](docs/status.md).
-
-## Contributing
-
-Issue reports — especially parity discrepancies with numbers attached — are
-welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers what makes a scientific bug
-report actionable.
 
 ## Citing
 
-Please cite mac4DSTEM and py4DSTEM, the origin of the underlying methods.
-Metadata for both: [`CITATION.cff`](CITATION.cff).
+If you use mac4DSTEM in published work, please cite it and py4DSTEM, where the methods come from. Both are in
+[`CITATION.cff`](CITATION.cff).
 
 ## Licence
 
-Algorithms ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
-validated against it. Released under the **GNU General Public License v3.0 or
-later** — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+GPL-3.0-or-later ([`LICENSE`](LICENSE)). Third-party notices are in [`NOTICE`](NOTICE).
 
-## Contact
-
-**mail@mac4dstem.com**
+Contact: mail@mac4dstem.com

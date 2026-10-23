@@ -15,6 +15,68 @@ this program. If not, see <https://www.gnu.org/licenses/>.
 
 
 ================================================================================
+CuboKit (a Swift package the app is built with)
+================================================================================
+
+The app links CuboKit (https://github.com/mac4DSTEM/CuboKit, tag 0.9.0, commit
+9c5365eede096a5f562fb402ee869b8f35eb2c57), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for the 4D-STEM core: virtual imaging and detectors, centre of mass, probe and origin fitting, the strain fit, DPC and
+iDPC, parallax and ptychography. Its methods are ported from py4DSTEM (see the py4DSTEM section below), which is its
+reference. Its own notices are in its NOTICE.
+
+================================================================================
+DiffractoKit (a Swift package the app is built with)
+================================================================================
+
+The app links DiffractoKit (https://github.com/mac4DSTEM/DiffractoKit, tag 0.10.0, commit
+317b280dbe35ce1c2e057e2416d3a1be6eaf1d1f), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for crystal structures, the CIF import, kinematic reflection lists, ring and ellipse calibration, the known-crystal Q
+calibration, the ACOM orientation matcher, phase mapping and orientation-relationship variants. Its scattering table and
+lattice conventions are py4DSTEM's (GPL-3.0); pymatgen (MIT) was its oracle and none of its code is copied. Its own
+third-party notices are in its NOTICE.
+
+================================================================================
+SpectroKit (a Swift package the app is built with)
+================================================================================
+
+The app links SpectroKit (https://github.com/mac4DSTEM/SpectroKit, tag 0.12.0, commit
+7e8aa8264adb536d1be230eb81cf11fa02021da0), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for the Spectroscopy room: the EDX spectrum image, line windows and maps, Auto ID and the quantification with its
+uncertainties. The app embeds its resource bundle of NIST EPQ tables (see the NIST EPQ section below). Its
+eXSpy/HyperSpy and other third-party notices are in its NOTICE.
+
+================================================================================
+FormatoKit (a Swift package the app is built with)
+================================================================================
+
+The app links FormatoKit (https://github.com/mac4DSTEM/FormatoKit, tag 0.11.0, commit
+7e68615ff8812f3d412429c5edc9022fab0639d3), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for its file readers (HDF5 and EMD, DM3/DM4, Velox EMD, Merlin MIB, EMPAD RAW), its HDF5 layer and lock (`HDF5Serial`),
+and the HDF5, libaec and libsz frameworks listed under Bundled third-party libraries below. Its own third-party notices
+(eXSpy and RosettaSciIO, whose rules its readers port, among them) are in its NOTICE.
+
+================================================================================
+ImagoKit (a Swift package the app is built with)
+================================================================================
+
+The app links ImagoKit (https://github.com/mac4DSTEM/ImagoKit, tag 0.8.0, commit
+27a6eaef6658d175d2b386819773e0f236b5f115), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for the exact-length 2D FFT (radix-2, 3, 5 and general lengths on vDSP, with an exact Bluestein path for every other
+length), the 1D FFT of the ACOM azimuthal transform, line profiles, labelling, object measurements and labelled
+statistics. The kit's FFT2D is this application's former Core/Compute FFT2D source, the same arithmetic, written by the
+same copyright holder. Its references are NumPy, SciPy and scikit-image; none of their code is copied. Its own notices
+are in its NOTICE.
+
+================================================================================
+MacEMUI (a Swift package the app is built with)
+================================================================================
+
+The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.3.0, commit
+b800cab772102f50f04f6281955d1214fe719e61), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+for the window shell, the inspector, the controls and the Metal image view mac4DSTEM shares with macTEM. Its own notices
+are in its NOTICE.
+
+================================================================================
 py4DSTEM
 ================================================================================
 
@@ -22,6 +84,7 @@ mac4DSTEM implements 4D-STEM analysis algorithms ported from py4DSTEM, which is
 used as the reference implementation and validated against.
 
     py4DSTEM — https://github.com/py4dstem/py4DSTEM
+    Reference pinned at commit f050d207851f8accd3aa550365baaf1f38230428 (version 0.14.19)
     Copyright (C) the py4DSTEM developers
     Licensed under the GNU General Public License v3.0
 
@@ -42,12 +105,10 @@ the underlying methods:
 eXSpy and HyperSpy (EDX spectroscopy)
 ================================================================================
 
-Since v5.0 this EDX code is SpectroKit's (https://github.com/mac4DSTEM/SpectroKit, tag
-0.4.0, GPL-3.0; the app links it and bundles its tables), whose own NOTICE carries the same
-credits; the paths below are in that repository. The DM4 and Velox EMD readers and the HDF5
-lock that SpectroKit 0.1.0 to 0.3.0 carried are FormatoKit's since SpectroKit 0.4.0
-(https://github.com/mac4DSTEM/FormatoKit, tag 0.3.0, GPL-3.0; the app links it), whose NOTICE
-carries their credits (eXSpy and RosettaSciIO) and the libhdf5 files' hashes.
+This EDX code is SpectroKit's (see the SpectroKit section above), whose own NOTICE carries
+the same credits; the paths below are in that repository. The DM4 and Velox EMD readers and
+the HDF5 lock are FormatoKit's, whose NOTICE carries their credits (eXSpy and RosettaSciIO)
+and the libhdf5 files' hashes.
 
 The X-ray line table (`Sources/SpectroEDX/Spectroscopy/XRayLineData.swift`: line
 energies from Chantler 2005, relative line weights from the EPQ library, both as
@@ -68,8 +129,7 @@ NIST EPQ data (EDX quantification)
 
 `Sources/SpectroEDX/Resources/Spectroscopy/FFastMAC.csv` (mass absorption coefficients) and
 `LineWeights.csv` (X-ray line weights) are copied verbatim from the NIST EPQ library,
-https://github.com/usnistgov/EPQ, commit 249dd3f8 (`../_archive/mac4DSTEM/tools/lib/fetch-epq.sh` re-fetches
-and verifies them). The EPQ licence (LicenseFile.txt, sha256 2e749d6d…c16) reads:
+https://github.com/usnistgov/EPQ, commit 249dd3f8. The EPQ licence (LicenseFile.txt, sha256 2e749d6d…c16) reads:
 
     This software was developed by employees of the National Institute of Standards
     and Technology (NIST), an agency of the Federal Government. Pursuant to title 17
@@ -103,23 +163,11 @@ its own terms unverified — a recorded risk like FFAST below).
 
 The mass absorption coefficients inside EPQ are the FFAST tabulation (NIST Standard
 Reference Database 66, Chantler et al.); their own terms were flagged as unclear by the
-v5.0 research (../_archive/mac4DSTEM/docs/archive/v5/edx-research-2026-10-05/reports/validation.md §2) and are
-carried here as a recorded risk. The element table in
+v5.0 research and are carried here as a recorded risk. The element table in
 `Sources/SpectroEDX/Spectroscopy/Quant/QuantElementData.swift` (atomic weights and densities)
 comes from eXSpy's elements data (GPL-3.0-or-later; see the eXSpy section above).
 
 ================================================================================
-ImagoKit (the FFTs)
-================================================================================
-
-Since 2026-10-15 the 2D FFT of the 4D-STEM analysis (`FFT2D`: radix-2, 3, 5 and general lengths on vDSP, with an exact
-Bluestein path for every other length) is ImagoKit's `ImagoCore.FFT2D`
-(https://github.com/mac4DSTEM/ImagoKit, tag 0.1.1; the app links ImagoCore and ImagoFFT, whose `FFT1D` is the ACOM azimuthal transform since 2026-10-16). ImagoKit is GPL-3.0 from 0.1.1 (BSD-3-Clause before). The kit's copy is this
-application's former Core/Compute FFT2D source, the same arithmetic, written by the same copyright holder; the kit
-carries its own LICENSE and NOTICE. The same copyright holder and the same licence as this application; the combined work stays GPL-3.0.
-
-================================================================================
-
 Bundled third-party libraries
 ================================================================================
 
@@ -183,8 +231,8 @@ ships is trained on its own data with its own weights.
 Third-party method
 ================================================================================
 
-The phase-mapping matcher (DiffractoKit's DiffractoOrientation/PhaseVectorMatching.swift, tag 0.3.1, which the app
-links) implements the vector-matching method and, as `.knownVariants`, the per-position decision rule with its two constants
+The phase-mapping matcher (DiffractoKit's DiffractoOrientation/PhaseVectorMatching.swift, which the app links; see
+the DiffractoKit section above) implements the vector-matching method and, as `.knownVariants`, the per-position decision rule with its two constants
 (at most one surviving vector → the matrix; a residual cutoff of 0.07 Å⁻¹) described in
 Thronsen et al., "Scanning precession electron diffraction data analysis approaches for phase
 mapping of precipitates in aluminium alloys", Ultramicroscopy 255 (2024) 113861, licensed
@@ -195,12 +243,12 @@ CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). No code from the autho
 Third-party ground truth
 ================================================================================
 
-../_archive/mac4DSTEM/tools/thronsen-dataset/truth/truth_stride3.json is derived from the ground-truth
+A ground-truth file used in development, truth_stride3.json (not in this repository), is derived from the ground-truth
 phase map of Thronsen et al., "Scanning precession electron diffraction data
 analysis approaches for phase mapping of precipitates in aluminium alloys",
 Ultramicroscopy 255 (2024) 113861, data at Zenodo 10.5281/zenodo.6645396
 (ground_truth.hspy), licensed CC BY 4.0
 (https://creativecommons.org/licenses/by/4.0/). Changed: every third row and
-column kept (../_archive/mac4DSTEM/tools/thronsen-dataset/make_truth.py), written as JSON. SHA-256
+column kept, written as JSON. SHA-256
 45600cce0e59cf8dd3325ba71da091986b0b98635988e3623702753b75ca4af4. It is not
 distributed in the application bundle.

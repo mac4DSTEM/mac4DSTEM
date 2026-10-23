@@ -2,8 +2,7 @@
 
 What the app is made of, how the layers depend on each other, where a new
 file goes, and where the consolidation is taking the ownership model. Product
-scope is `README.md` and `CHANGELOG.md`; live status is `status.md`; the
-sequence of the consolidation is `../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md`; the feature plan is `ROADMAP.md`.
+scope is `README.md` and `CHANGELOG.md`.
 
 ## Layers and the dependency rule
 
@@ -50,7 +49,7 @@ this class of defect — a narrowed, not closed, blind spot per
 
 ## What it does, by subsystem
 
-**Workflow.** Seven workspaces that follow the data (ADR 046, 055) — **Prepare /
+**Workflow.** Seven workspaces that follow the data — **Prepare /
 Imaging / Bragg Disks / Crystal Maps / Reconstruction / Spectroscopy / Results** (`⌘1…⌘7`;
 `App/ProductWorkflow.swift`'s `WorkspaceArea`; `UI/WorkspaceSettings.swift`
 picks each task's inspector controls). A window holds a 4D cube, an EDX spectrum
@@ -61,8 +60,7 @@ only from an explicit primary action, runs detached with live progress and
 Cancel, and reports in the infobar.
 
 **Data and display.** HDF5 (`.h5`/`.hdf5`/`.emd` — py4DSTEM, Gatan, HyperSpy
-and arbitrary EMD layouts via link traversal), Gatan DM3/DM4
-(`../_archive/mac4DSTEM/docs/dm4-format.md`), Preview-tier EMPAD RAW/XML and Merlin MIB. The
+and arbitrary EMD layouts via link traversal), Gatan DM3/DM4, Preview-tier EMPAD RAW/XML and Merlin MIB. The
 format parsing is FormatoKit's; `Core/Data/` keeps the app's adapters (HDF5 notes, below). Open with options: scan crop,
 detector crop, detector bin; streaming residency bounds peak memory
 independent of scan size. GPU-rendered viewers with colormap LUTs, log
@@ -74,7 +72,7 @@ real-space ROIs drive selected-area diffraction.
 **Calibration.** Origin (py4DSTEM `get_probe_size` → `get_origin` →
 `fit_origin`), R–Q rotation via CoM-curl minimisation with explicit 180°
 flip, elliptical distortion (conic and 11-parameter amorphous-ring), Q
-calibration against a known crystal (`../_archive/mac4DSTEM/docs/q-calibration-design.md`). Every value
+calibration against a known crystal. Every value
 carries provenance; a fit that fails its gate reports "not quantitative"
 rather than a number. Calibration from a different frame is re-referenced or
 refused (`SessionCalibrationFramePolicy`).
@@ -134,8 +132,8 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
 6. **Publish.** A result becomes a `DisplayedProduct` — pixel payload, a
    `ProductDomain`, a `ProductQuantitativeStatus`, sampling, a flat
    `provenance: [String:String]` and overlays, so UI never infers semantics
-   from a display title. `Session/ResultPresentation.swift` (AppState seam 5,
-   `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md`) owns the live one;
+   from a display title. `Session/ResultPresentation.swift` (AppState seam 5)
+   owns the live one;
    `AppState.publishProduct(...)` (`App/AppState.swift`) is the one choke
    point that writes it, and `appState.displayedProduct` is the one read
    site every viewer, comparison and export path uses.
@@ -175,7 +173,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/harnesses/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
-| Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `../_archive/mac4DSTEM/docs/archive/` |
+| Docs | `docs/` |
 | CI | `.github/workflows/` |
 | Machine-local data and the fetched py4DSTEM lock | `References/` (gitignored; `tools/lib/fetch-py4dstem.sh` pins the lock commit) |
 
@@ -194,11 +192,11 @@ a form," per its header.
 
 Science with a kit equivalent is the kit's, imported at exact tags (`Package.swift` is the truth for versions): standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
 (`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
-SpectroKit and arrives by a tag bump; the same holds for each kit (`CLAUDE.md`, The kits).
+SpectroKit and arrives by a tag bump; the same holds for each kit.
 
 ## Ownership today and where it is going
 
-The `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
+The AppState seams extraction (all seven seams,
 complete 2026-09-18) moved every feature's state into one `@Observable`
 owner in `Session/` plus one orchestration extension in `App/`; `AppState`
 (`App/AppState.swift`, 1642 lines at HEAD) now composes those owners plus
@@ -219,7 +217,7 @@ orchestration file where cross-owner logic needs one (`+ACOM`,
 `+Calibration`, `+DatasetSession`, `+DiffractionGroups`, `+DiskDetection`,
 `+DPC`, `+MaterialsProject`, `+Open`, `+PhaseContrast`, `+PhaseMapping`,
 `+Promote`, `+Replay`, `+ResultPresentation`).
-The target the seams plan cited (`../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md` §4) goes further
+The target the seams plan cited goes further
 than what shipped: one immutable `ScientificProduct` value type (pixels,
 axes, units, frame, calibration snapshot, validity, provenance) with
 `ProductPresentation` separate, and a typed task registry shared by live
@@ -246,7 +244,7 @@ again and no flag selects it. Six rules, the first three enforced by
    with a shared body and a two-line per-OS conformance.
 2. **No AppKit shell.** `HSplitView`, `VSplitView`, `NSSplitView` and
    `NSSplitViewController` are banned outright — `HSplitView` was half of a
-   launch crash (`open-items.md`) and is macOS-only besides. `inventory`
+   launch crash and is macOS-only besides. `inventory`
    greps for all four and for `import AppKit`.
 3. **`LayoutPolicy` is the whole number budget.** Every column range, science
    floor, field width, thumbnail ceiling and sheet size is there and nowhere
@@ -260,8 +258,7 @@ again and no flag selects it. Six rules, the first three enforced by
    `AppState.activePane` survives only as the ROI direction's storage.
 5. **No new state on `AppState`.** UI's selection is derived from
    `WorkspaceNavigation`, never stored beside it (`WorkspaceRoute`).
-6. **The window is three full-height columns, one job each** (ADR 035/036;
-   `../_archive/mac4DSTEM/docs/archive/v4/window-design.md`; shipped and driven-accepted in
+6. **The window is three full-height columns, one job each** (shipped and driven-accepted in
    v4.0.0, 2026-09-23). Left is `WorkspaceSidebar`; right is
    `WorkspaceInspector`'s Settings · Info tabs, in one glass capsule row,
    presented as `.inspector` on the `NavigationSplitView` itself (not on the
@@ -281,7 +278,7 @@ again and no flag selects it. Six rules, the first three enforced by
    (`UI/CalibrationReadinessRow.swift`). The inspector's row vocabulary is
    `UI/InspectorRows.swift` — flat HIG sections per Apple's own guidance
    (title is the leading disclosure, hairline, one bordered push button per
-   row), not cards (ADR 037, superseded the same night it shipped). Each
+   row), not cards. Each
    science pane's own header popover (`UI/PaneOverlays.swift`) carries that
    pane's contrast, histogram and gamma controls.
 - **Navigation is a source list, settings are forms, and the two containers
@@ -302,9 +299,9 @@ again and no flag selects it. Six rules, the first three enforced by
 
 - macOS 27+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 27.0` in every
   build configuration and `.macOS("27.0")` in `Package.swift`, raised from
-  14 on 2026-09-22 (`decisions.md` 008); v3.0.0's artefact (floor 14) stays
+  14 on 2026-09-22; v3.0.0's artefact (floor 14) stays
   downloadable for older systems. Xcode 27 or later — development is on
-  27.0; CI's unit job is paused until GitHub offers a macOS 27 runner (ADR 040), so
+  27.0; CI's unit job is paused until GitHub offers a macOS 27 runner, so
   every green gate is a local run. No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
@@ -336,7 +333,7 @@ once stayed green an hour before an archive build failed.
 `run-tests.sh` refuses to start `unit`/`scientific` below 4 GB free and
 `all`/`campaign` below 8 GB (exit 69); the remedy is clearing regenerable build debris (DerivedData, `.build`), never `References/`. Not
 every harness is Swift: `tools/harnesses/disk-detector/` is a Python
-fixture check (the training pipeline left, to `../_archive/mac4DSTEM/tools/disk-detector/`; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/harnesses/comparator-test/` mutation-tests
+fixture check (the training pipeline is not in this repository; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/harnesses/comparator-test/` mutation-tests
 `tools/harnesses/real-data-acceptance/compare.py` itself, since a comparator that
 quietly stopped checking something looks like a passing gate.
 
@@ -366,8 +363,7 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
   a streaming pass waits out at most one tile.
 - Session rehydration is pixel and metadata level; transient arrays are not reconstructed.
 - Origin coarse search deviates from py4DSTEM (binned block-sum argmax); the
-  probe-size fallback can look usable where py4DSTEM would return NaN
-  (`open-items.md`).
+  probe-size fallback can look usable where py4DSTEM would return NaN.
 - No non-Metal fallback; `MetalEngine` fails fatally without a device.
 - R–Q rotation has an inherent 180° ambiguity (Flip 180° in Calibration).
 - MIB/EMPAD readers are Preview until real vendor acquisitions are supplied.

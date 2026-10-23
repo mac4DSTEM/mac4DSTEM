@@ -105,10 +105,11 @@ final class SessionSidecarLocatorTests: XCTestCase {
 
     /// The string is the one the app actually printed on 2026-08-19 at 09:34:27,
     /// copied verbatim rather than paraphrased — a classifier tested against a
-    /// tidied-up version of its input is testing the tidying.
+    /// tidied-up version of its input is testing the tidying. Only the home-directory
+    /// path is anonymised; the classifier reads `errno = 1`, not the path.
     private static let observedDenial = """
         HDF5 failed while opening the session sidecar — HDF5 reported: unable to open file: \
-        name = '/Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/References/\
+        name = '/Users/someone/data/\
         training_dataset/sim_Au_data_all_binned.mac4dstem.h5', errno = 1, \
         error message = 'Operation not permitted', flags = 0, o_flags = 0
         """

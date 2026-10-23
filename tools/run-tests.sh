@@ -203,10 +203,16 @@ inventory() {
   # renamed identifier fails here before it fails on screen. `workspace.<area>` is built from the area's raw value in the source.
   echo "== UI test identifiers exist in the app sources"
   local id
+  local -a macemui_sources=()
+  local d
+  for d in "$ROOT/../MacEMUI/Sources" "$ROOT/.build/checkouts/MacEMUI/Sources"; do
+    [[ -d "$d" ]] && { macemui_sources=("$d"); break; }
+  done
   for id in $(grep -rhoE '"[a-z][A-Za-z]*\.[A-Za-z][A-Za-z0-9.]*"' "$ROOT/mac4DSTEMUITests" 2>/dev/null | tr -d '"' | sort -u); do
     [[ "$id" == workspace.* || "$id" == task.* || "$id" == detector.preset.* || "$id" == *.xcresult ]] && continue   # built from an enum raw value in the source
     # the window shell's identifiers (toolbar, sidebar, inspector frames) are MacEMUI's since 2026-10-22
-    grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" "$ROOT/../MacEMUI/Sources" 2>/dev/null || { echo "  MISSING identifier $id"; rc=1; }
+    # MacEMUI: the sibling checkout on the developer's Mac, else the copy `swift package resolve` puts in .build/checkouts (CI).
+    grep -rqF "\"$id\"" "$ROOT/mac4DSTEM" "${macemui_sources[@]}" 2>/dev/null || { echo "  MISSING identifier $id"; rc=1; }
   done
 
   # Large tracked files (added 2026-09-18): history already carries a removed 6 MB model and two copies of a 4 MB dylib, and a
@@ -355,7 +361,7 @@ inventory() {
     # word in general — the process doc uses it generically.
     # ...and only positive ones: "Nothing is uncommitted" is the opposite claim
     # and is true on a clean tree. It red-lined this gate on 2026-09-09.
-    if grep -nEi '(held|still|stays?|remains?|is|are) uncommitted' "$ROOT"/CLAUDE.md "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md | grep -viE 'was (still )?uncommitted|at the time|(nothing|none|no [a-z]+) (is|are|remains?) uncommitted'; then
+    if grep -nEi '(held|still|stays?|remains?|is|are) uncommitted' "$ROOT"/docs/*.md | grep -viE 'was (still )?uncommitted|at the time|(nothing|none|no [a-z]+) (is|are|remains?) uncommitted'; then
       echo "  ^ live docs claim uncommitted work on a clean tree"; rc=1
     fi
   fi
