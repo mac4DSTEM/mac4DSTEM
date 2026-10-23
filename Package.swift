@@ -66,6 +66,7 @@ let package = Package(
                            .product(name: "CuboEmbedding", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit"),
                            .product(name: "ImagoFFT", package: "ImagoKit"),
+                           .product(name: "ImagoFilters", package: "ImagoKit"),   // the EDS room's map filter (macTEM's EDXMapFilter)
                            .product(name: "ShellMetal", package: "MacEMUI")],
             path: "mac4DSTEM/Core",
             swiftSettings: [

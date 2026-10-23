@@ -1001,6 +1001,11 @@ final class AppState {
     /// model carries SwiftUI types (so it cannot live in DSTEMSession) and must outlive the room view; no other home
     /// would do. Everything else is in `AppState+Spectroscopy.swift`.
     let spectroscopyRoom = SpectroscopyRoomController()
+    /// Owner: `EDXSession` (DSTEMSession) — the EDS room's spectrum image, picks, regions and fit: macTEM 1.0's room, copied
+    /// (2026-10-23); its 4D links are `EDXSession+FourD.swift` and `AppState+EDS.swift`.
+    let edx = EDXSession()
+    /// Owner: `EDXRoomState` — the EDS room's spectrum window, export in flight and display choices (macTEM's, App/).
+    let edxRoom = EDXRoomState()
     /// Set by the window (`DatasetWindow`): opens a file in a NEW window — see `routesOpenToNewWindow`.
     @ObservationIgnored var openInNewWindow: ((_ url: URL, _ configure: Bool) -> Void)?
 

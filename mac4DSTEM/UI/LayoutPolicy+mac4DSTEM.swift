@@ -12,6 +12,8 @@ import DSTEMCore
 import DSTEMSession
 
 extension LayoutPolicy {
+    /// The colour dot before a region's name in the EDS room's regions table (macTEM's value).
+    static let regionSwatchSize: CGFloat = 9
     /// Science: the Results pane shows one product at reading size.
     static let resultPaneMinimum = CGSize(width: 360, height: 300)
 
