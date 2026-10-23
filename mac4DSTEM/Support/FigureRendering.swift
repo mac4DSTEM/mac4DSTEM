@@ -33,8 +33,6 @@ enum FigureOverlay {
     /// The active virtual detector, outlined as the pane draws it (no drag handles: they are controls, not part of a figure), in the
     /// colours of the given appearance (`FigureColors.scheme`).
     case detector(Aperture, VirtualShapeMode, ColorScheme)
-    /// A region on an EDX map's grid.
-    case region(SpectrumRegionShape, RegionStroke)
 }
 
 /// How a region's outline is stroked: the live region is the dashed accent line, a pin a thinner solid line in its tint.
@@ -158,8 +156,6 @@ enum FigureRendering {
                 switch overlay {
                 case .detector(let aperture, let shape, let scheme):
                     drawDetector(aperture, shape, scheme: scheme, patternWidth: panel.image.width, patternHeight: panel.image.height, box: box, in: ctx)
-                case .region(let shape, let stroke):
-                    drawRegion(shape, stroke, gridWidth: panel.image.width, gridHeight: panel.image.height, box: box, in: ctx)
                 }
             }
             ctx.restoreGState()
@@ -241,18 +237,6 @@ enum FigureRendering {
         }
     }
 
-    // MARK: Region
-
-    /// A region's outline over a map's grid, stroked in `box` (view points, y down) along `RegionOutline`'s path.
-    static func drawRegion(_ shape: SpectrumRegionShape, _ stroke: RegionStroke, gridWidth: Int, gridHeight: Int,
-                           box: CGSize, in ctx: CGContext) {
-        guard gridWidth > 0, gridHeight > 0 else { return }
-        ctx.saveGState()
-        ctx.setStrokeColor(stroke.color); ctx.setLineWidth(stroke.width); ctx.setLineDash(phase: 0, lengths: stroke.dash)
-        ctx.addPath(RegionOutline.path(shape, cellWidth: box.width / CGFloat(gridWidth), cellHeight: box.height / CGFloat(gridHeight)))
-        ctx.strokePath()
-        ctx.restoreGState()
-    }
 
     // MARK: Figure
 

@@ -15,10 +15,10 @@ package nonisolated enum EDXExports {
         for c in counts { withUnsafeBytes(of: Double(c).bitPattern.littleEndian) { bytes.append(contentsOf: $0) } }
         let array = try FormatoArray(dataType: .float64, shape: [counts.count], bytes: bytes)
         var entries = [FormatoMetadataEntry(key: "General.title", value: .text(title), units: nil,
-                                            provenance: FormatoProvenance(file: "", source: "macTEM EDX room", rule: "the region's name"))]
+                                            provenance: FormatoProvenance(file: "", source: "mac4DSTEM EDS room", rule: "the region's name"))]
         if let kv = beamEnergyKeV {
             entries.append(FormatoMetadataEntry(key: "Acquisition_instrument.TEM.beam_energy", value: .number(kv), units: "kV",
-                                                provenance: FormatoProvenance(file: "", source: "macTEM EDX room", rule: "the beam energy the room uses")))
+                                                provenance: FormatoProvenance(file: "", source: "mac4DSTEM EDS room", rule: "the beam energy the room uses")))
         }
         let signal = FormatoSignal(title: title, signalType: "EDS_TEM",
                                    axes: [FormatoAxis(name: "Energy", size: counts.count, scale: axis.scale, offset: axis.offset, units: "keV", navigate: false)],

@@ -216,47 +216,4 @@ final class InspectorWidthBudgetTests: XCTestCase {
         XCTAssertEqual(measured, AnalysisMode.allCases.count + 3, "every task, plus Prepare, Spectroscopy and Results")
     }
 
-    /// The Spectroscopy room's inspector (ADR 056), every section open, measured as the fixture shows it and as the room shows
-    /// it for an opened spectrum image with the longest strings the readers and the fit can produce (typed k, a typed beam
-    /// energy, the polynomial background, the longest absorption note, a proposal run, a registration warning).
-    /// The periodic table fills whatever width it is given (spec 2 D-9), so it fits by construction.
-    /// Mutation: MacEMUI's `PeriodicTableGrid.minimumWidth` raised from 214 to 300 pt — red.
-    func testTheSpectroscopyInspectorFitsTheNarrowestColumn() throws {
-        let fixture = SpectroscopyRoomModel.fixture
-        fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", spectrumOf: SpectrumLabel(imageName: "a", regionName: "b"))
-        fixture.quantify.expertOpen = true
-        assertFits("Spectroscopy inspector (fixture, every row)",
-                   minimumWidth(SpectroscopyInspectorSections(model: fixture, startOpen: true), state: AppState()))
-        // Which section, when one is too wide (the whole stack's minimum is its widest row's).
-        var widths: [String] = []
-        func probe<V: View>(_ name: String, _ view: V) {
-            let w = minimumWidth(InspectorGroup { view }, state: AppState())
-            widths.append("\(name) \(w)")
-            assertFits("Spectroscopy / \(name) (fixture)", w)
-        }
-        probe("Elements", ElementsSection(model: fixture)); probe("Region", RegionSection(model: fixture))
-        probe("Results", ResultsSection(model: fixture)); probe("Quantification", QuantificationSection(model: fixture))
-        probe("Fitting", FittingSection(model: fixture))   // Export: its flexible buttons have no width of their own (below)
-        try? widths.joined(separator: "\n").write(toFile: NSTemporaryDirectory() + "spectroscopy-section-widths.txt", atomically: true, encoding: .utf8)
-        // Export's button row stacks at 248 pt, so the real view's minimum is the probe floor (a flexible button has no width of
-        // its own). Its honest width is the stacked buttons at their intrinsic size.
-        assertFits("Export buttons, stacked",
-                   minimumWidth(VStack { Button(ExportSection.csvTitle) {}; Button(ExportSection.jsonTitle) {}; Button(ExportSection.spectrumTitle) {} }.fixedSize(), state: AppState()))
-
-        let state = AppState()
-        state.openSpectrumImage(DemoSpectrumImageSource.make())
-        let model = state.spectroscopyRoom.model
-        model.image.sourceWarning = true; model.image.sourceNote = "Not registered: the EDS scan is 256 × 255 px, the 4D scan 171 × 171 px."
-        model.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)")
-        var widest = QuantifySettings()
-        widest.kSource = .typed; widest.fileBeamKnown = false; widest.beamEnergy = 200; widest.expertOpen = true
-        widest.background = .wholeRangePolynomial6; widest.thickness = 80; widest.thicknessSigma = 15
-        widest.absorptionNote = "four-detector weighted transmission, 4 segments (take-off 21.6\u{2013}68.3\u{00B0}), thickness 80 \u{00B1} 15 nm, badged"
-        widest.quality = "reduced deviance 1.04"
-        model.quantify = widest
-        model.image.energyAxisRefined = "+10.0 eV, gain -0.200 %, FWHM 131 eV (not used)"
-        assertFits("Spectroscopy inspector (opened image)",
-                   minimumWidth(SpectroscopyInspectorSections(model: model, startOpen: true), state: state))
-        assertFits("Spectroscopy inspector host (opened image)", minimumWidth(SpectroscopyInspectorHost(), state: state))
-    }
 }

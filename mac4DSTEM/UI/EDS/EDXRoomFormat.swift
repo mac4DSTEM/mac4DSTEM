@@ -74,6 +74,7 @@ nonisolated enum EDXRoomFormat {
         case .rectangle(let p): "Region · x \(p.x0)–\(p.x1 - 1), y \(p.y0)–\(p.y1 - 1) · \(counts(Double(pixels))) px"
         case .ellipse(let p): "Ellipse · x \(p.x0)–\(p.x1 - 1), y \(p.y0)–\(p.y1 - 1) · \(counts(Double(pixels))) px"
         case .polygon(let v): "Polygon · \(v.count) vertices · \(counts(Double(pixels))) px"
+        case .pool(let p): "\(p.name) · \(p.kind == "group" ? "group" : p.kind == "notIndexed" ? "not indexed" : "phase") pool · \(counts(Double(pixels))) px"
         }
     }
 

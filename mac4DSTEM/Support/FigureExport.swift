@@ -28,13 +28,8 @@ struct FigureChoice: Identifiable, Equatable {
 
     static let resultID = "result"
     static let patternID = "pattern"
-    static func mapID(_ map: ActiveMap) -> String {
-        switch map {
-        case .haadf: "map.haadf"
-        case .colorMix: "map.colormix"
-        case .element(let z): "map.el.\(z)"
-        }
-    }
+    /// The EDS room's maps as one panel: the maps figure the room's "Maps…" export draws (macTEM's `EDXMapsFigure`).
+    static let edsMapsID = "map.eds"
 }
 
 /// The result image as the screen shows it, before the scale bar and the caption: oriented as displayed, with the sampling along
@@ -191,7 +186,7 @@ extension AppState {
         if displayedPattern != nil {
             out.append(FigureChoice(id: FigureChoice.patternID, label: patternFigureLabel, isDefault: true))
         }
-        if hasSpectrumImage { out += MapsExport.choices(spectroscopyRoom.model) }
+        if hasSpectrumImage, !edx.shownTiles.isEmpty { out.append(FigureChoice(id: FigureChoice.edsMapsID, label: "EDS maps", isDefault: true)) }
         return out
     }
 
@@ -220,13 +215,10 @@ extension AppState {
             panels.append(FigurePanel(label: patternFigureLabel, image: raster.image, overlays: detector.map { $0 ? detectorOverlay : [] } ?? patternExportOverlays,
                                       bar: .ladder(unitsPerDataPixel: raster.sampling, unit: raster.unit)))
         }
-        if hasSpectrumImage {
-            let model = spectroscopyRoom.model
-            let outlines = model.export.regions ? MapsExport.regionOverlays(model, scheme: exportColorScheme) : []
-            let bar = model.scanPixel.map { FigureScaleBar.map(pixelSize: $0.size, unit: $0.unit) }
-            for entry in MapsExport.figureOrder(MapsExport.maps(model)) where ids.contains(FigureChoice.mapID(entry.map)) {
-                panels.append(FigurePanel(label: entry.label, image: entry.image, overlays: outlines, bar: bar))
-            }
+        if hasSpectrumImage, ids.contains(FigureChoice.edsMapsID),
+           let content = edx.figureContent(scaleBar: edxRoom.exportScaleBar, regions: edxRoom.exportRegions),
+           let image = EDXMapsFigure.cgImage(content) {
+            panels.append(FigurePanel(label: "EDS maps", image: image))
         }
         return panels
     }

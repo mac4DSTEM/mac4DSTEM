@@ -1,7 +1,0 @@
-E1 H7 recording (pre-change build = commit 0a1a8106, re-recorded at 5b696589 (the true pre-E1 base: macTEM items and A1 landed between), plus only mac4DSTEMTests/E1PoolRecording.swift, in a git-archive copy):
-  TEST_RUNNER_E1_RECORD_DIR=<dir> xcodebuild test -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -configuration Debug \
-    -destination 'platform=macOS' -only-testing:mac4DSTEMTests/E1PoolRecordingTests CODE_SIGNING_ALLOWED=NO
-Run twice on 2026-10-12 (logs SP/e1/rec/record.log, record2.log, both exit 0): the four files are identical (diff -r).
-The E1 build compares against these files byte for byte: E1PoolRecordingTests.testOutputsAreByteIdenticalToTheRecording and
-SpectroscopyPoolsTests.testH7... (a 4D product and pools present, a drawn or whole-map region selected).
-Re-recorded 2026-10-13 at 5b696589 (copy of HEAD + only the recorder file; log SP/e1/rec3/record.log, exit 0): all four files byte-identical (cmp) to the 0a1a8106 recording.

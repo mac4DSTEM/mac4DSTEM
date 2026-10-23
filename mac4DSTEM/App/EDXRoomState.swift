@@ -16,6 +16,8 @@ import DSTEMSession
 /// What the Export section writes: text (the results, the method, the spectrum as CSV or `.msa`, the pins) or the maps as a PNG.
 nonisolated enum EDXExportKind: String, Identifiable, CaseIterable {
     case results, method, spectrum, spectrumMSA, pins, mapsPNG
+    /// mac4DSTEM: every phase pool of the 4D scan fitted with the room's method (`AppState.exportCompositionByClass`).
+    case compositionByClass
 
     var id: String { rawValue }
 
@@ -27,6 +29,7 @@ nonisolated enum EDXExportKind: String, Identifiable, CaseIterable {
         case .spectrumMSA: "Spectrum as MSA…"
         case .pins: "Pinned regions as CSV…"
         case .mapsPNG: "Maps as PNG…"
+        case .compositionByClass: "Composition by class as CSV…"
         }
     }
 
@@ -47,6 +50,7 @@ nonisolated enum EDXExportKind: String, Identifiable, CaseIterable {
         case .spectrum, .spectrumMSA: " spectrum"
         case .pins: " pins"
         case .mapsPNG: " maps"
+        case .compositionByClass: " composition by class"
         }
     }
 }
@@ -101,10 +105,16 @@ final class EDXRoomState {
             let mixIDs = Set(EDXMapsComposition.selection(appearance.mix, scan: session.source?.scanImage, tiles: session.shownTiles))
             let mix = session.shownTiles.filter { mixIDs.contains($0.symbol) }
             data = session.figureContent(scaleBar: exportScaleBar, regions: exportRegions, mix: mix).flatMap { EDXMapsFigure.png($0) }
+        case .compositionByClass: data = nil   // made by the window, which holds the pools (`save`)
         }
+        save(data, kind: kind, stem: session.exportStem, directory: directory, report: report)
+    }
+
+    /// Writes `data` as `kind` through the save panel, or into `directory` (a UI journey's export folder); says why when there is nothing.
+    @MainActor func save(_ data: Data?, kind: EDXExportKind, stem: String, directory: URL? = nil, report: (String) -> Void) {
         guard let data else { report("Nothing to export yet for \(kind.title.dropLast())."); return }
         if let directory {
-            let url = directory.appendingPathComponent(session.exportStem + kind.suffix).appendingPathExtension(kind.contentType.preferredFilenameExtension ?? "txt")
+            let url = directory.appendingPathComponent(stem + kind.suffix).appendingPathExtension(kind.contentType.preferredFilenameExtension ?? "txt")
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try data.write(to: url)

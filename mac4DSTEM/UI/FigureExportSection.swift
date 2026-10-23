@@ -72,11 +72,11 @@ struct FigureExportSection: View {
                     .accessibilityIdentifier("results.figure.size")
                 }
                 if appState.hasSpectrumImage {
-                    @Bindable var model = appState.spectroscopyRoom.model
+                    @Bindable var room = appState.edxRoom
                     InspectorRow("Regions") {
-                        Toggle("Regions", isOn: $model.export.regions)
-                            .labelsHidden().toggleStyle(.checkbox)
-                            .help("Outlines the drawn region and the pins on the EDX maps, as the ColorMix shows them")
+                        Toggle("Regions", isOn: $room.exportRegions)
+                            .labelsHidden().toggleStyle(.switch)
+                            .help("Outlines the selected region on the EDS maps")
                             .accessibilityIdentifier("results.figure.regions")
                     }
                 }

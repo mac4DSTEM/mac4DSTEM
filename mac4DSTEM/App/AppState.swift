@@ -997,10 +997,6 @@ final class AppState {
     /// Owner: `SpectroscopySession` (v5.0 WP2) — the spectrum image and the room's state; a window's second
     /// document, beside the 4D owners. The rest is in `AppState+Spectroscopy.swift`.
     let spectroscopy = SpectroscopySession()
-    /// Owner: `SpectroscopyRoomController` — the room's presentation state, bound to `spectroscopy`. Held here because its
-    /// model carries SwiftUI types (so it cannot live in DSTEMSession) and must outlive the room view; no other home
-    /// would do. Everything else is in `AppState+Spectroscopy.swift`.
-    let spectroscopyRoom = SpectroscopyRoomController()
     /// Owner: `EDXSession` (DSTEMSession) — the EDS room's spectrum image, picks, regions and fit: macTEM 1.0's room, copied
     /// (2026-10-23); its 4D links are `EDXSession+FourD.swift` and `AppState+EDS.swift`.
     let edx = EDXSession()
@@ -1331,7 +1327,7 @@ final class AppState {
     /// Results, as in the toolbar) `ProductWorkflow.readiness` says ready.
     var canRunPrimaryWorkspaceTask: Bool {
         // The Spectroscopy room's Quantify runs on a spectrum image alone, with no 4D cube and no readiness check.
-        if navigation.workspaceArea == .spectroscopy { return hasSpectrumImage && !isBusy && spectroscopyRoom.canQuantify }
+        if navigation.workspaceArea == .spectroscopy { return hasSpectrumImage && !isBusy && !edx.isBusy && edx.canQuantify }
         guard hasDataset, !isBusy, hasPrimaryWorkspaceTask else { return false }
         if navigation.workspaceArea != .prepare && navigation.workspaceArea != .results {
             guard case .ready = ProductWorkflow.readiness(
@@ -1390,13 +1386,7 @@ final class AppState {
             }
         case .spectroscopy:
             // Quantify: fit the selected region and record the step (ADR 054 item 8); the fit is live after this.
-            if await spectroscopyRoom.quantify() {
-                let region = spectroscopy.regions.first { $0.id == spectroscopy.selectedRegionID }
-                spectroscopy.recordQuantification(in: replay, registration: region.flatMap { spectroscopy.registration(of: $0) },
-                                                  regionKind: region?.kind.rawValue ?? "wholeMap",
-                                                  regionName: region?.name ?? "Whole map",
-                                                  extra: spectroscopyRoom.mapLinesParameters.merging(spectroscopyRoom.resultParameters) { a, _ in a })   // the chosen map lines, a readable key
-            }
+            await quantifyEDS()
         case .results:
             break
         }

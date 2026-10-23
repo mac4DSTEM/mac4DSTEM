@@ -47,8 +47,8 @@ final class ObjectJoinsTests: XCTestCase {
         mg[1 * 8 + 1] = -5                                   // A: one failed pixel
         mg[1 * 8 + 5] = -5; mg[1 * 8 + 6] = -5               // C: two failed pixels
         for p in 0..<64 where mg[p] == 0 && al[p] == 0 { mg[p] = 10; al[p] = 10 }   // matrix, not under any object
-        let request = QuantMapsRequest(setup: setup, rows: 8, columns: 8, minimumCounts: 0, methodHash: "h")
-        return try QuantMapsPass.run(request, netMaps: [mg, al])
+        // The kit's map pass, as the EDS session calls it (no count mask).
+        return try EDXQuantification.quantifyMaps(intensityMaps: [mg, al], rows: 8, columns: 8, setup: setup, navigationMask: nil)
     }
 
     func testEachObjectGetsItsOwnPlantedCompositionAndTheFailedPixelIsCounted() throws {

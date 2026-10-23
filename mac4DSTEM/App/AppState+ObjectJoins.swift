@@ -30,7 +30,7 @@ extension AppState {
             assignPrecipitateJoins(PrecipitateJoins())
             return
         }
-        let maps = spectroscopyRoom.lastQuantMaps
+        let maps = edx.quantMaps
         let registration = spectroscopy.registration
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
         let variantSettings = precipitateVariantSettings

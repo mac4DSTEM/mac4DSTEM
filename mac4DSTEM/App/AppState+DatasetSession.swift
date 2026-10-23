@@ -112,6 +112,6 @@ extension AppState {
     func windowClosed() {
         operationCenter.reset()
         cancelDatasetLoad()
-        if spectroscopyRoom.model.isLive { spectroscopyRoom.unbind() }
+        if edx.hasImage || edx.isOpening { edx.close() }   // the EDS room lets go of its source and stops its runs
     }
 }

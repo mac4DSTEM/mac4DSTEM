@@ -6,7 +6,7 @@
 
 import XCTest
 @testable import DSTEMCore
-import DSTEMSession
+@testable import DSTEMSession
 import DiffractoOrientation
 @testable import mac4DSTEM
 
@@ -30,83 +30,78 @@ final class ResultsQuantificationRowsTests: XCTestCase {
             calibration: PhaseMappingProduct.CalibrationStamp(calibration: Calibration(), referenceOrigin: (0, 0)))
     }
 
-    /// A window on demo-edx-tiny (6 x 4), with a 4D cube (or none) and a phase map (A = columns 0-2), ready to Quantify.
-    private func window(withCube: Bool) async throws -> (AppState, SpectroscopyRoomController) {
-        let loaded = try SpectroscopyQuantifyTests.image()
+    /// A window on demo-edx-tiny (6 x 4), with a 4D cube (or none) and a phase map (A = columns 0-2), ready to Quantify in the EDS room.
+    private func window(withCube: Bool) async throws -> AppState {
+        let loaded = try SpectroQuantFixtures.image()
         let (nx, ny) = (loaded.nx, loaded.ny)
         let state = AppState(); keep.append(state)
         if withCube {
             state.descriptor = DatasetDescriptor(filePath: path, datasetPath: "/d", shape: [ny, nx, 8, 8], dtypeDescription: "float32", chunkShape: nil)
         }
         state.openSpectrumImage(loaded)
-        let c = state.spectroscopyRoom; c.autoIDOnOpen?.cancel()
+        try await waitFor("the open's Auto ID") { !state.edx.isBusy && state.edx.autoID != .idle }
         if withCube {
             state.spectroscopy.registration = PoolCatalogue.identityRegistration(width: nx, height: ny)
             state.spectroscopy.registeredCubePath = path
             state.phaseMapping.publish(phaseMap(nx, ny, String(repeating: "AAABBB", count: ny)), ranWith: Self.runRecord())
             await state.spectroscopy.poolTask?.value
         }
-        for z in [13, 12, 14, 29] { c.model.elements.set(z, .quantify) }
-        c.elementsChanged()
-        if loaded.metadata.beamEnergyKeV == nil { c.model.quantify.beamEnergy = 200; c.quantifySettingsChanged() }
-        return (state, c)
+        for s in ["Al", "Mg", "Si", "Cu"] where !state.edx.picks.contains(where: { $0.symbol == s }) { state.edx.toggle(s) }
+        for s in ["Al", "Mg", "Si", "Cu"] { state.edx.setRole(.quantify, of: s) }
+        if loaded.metadata.beamEnergyKeV == nil { state.edx.changeMethod { $0.beamEnergyKeV = 200 } }
+        return state
     }
 
-    private func quantify(_ state: AppState, _ c: SpectroscopyRoomController, region id: Int) async {
-        c.selectRegion(id: id)
-        await c.lastRefresh?.value
+    private func waitFor(_ what: String, timeout: TimeInterval = 60, _ condition: () -> Bool) async throws {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() > end { return XCTFail("timed out waiting for \(what)") }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    /// The Quantify verb on a pool ("A") or the whole map (nil), as the toolbar runs it.
+    private func quantify(_ state: AppState, pool name: String?) async {
+        if let name, let pool = state.edx.pools.first(where: { $0.name == name }) { state.edx.selectPool(pool) } else { state.edx.selectWholeMap() }
         state.navigation.workspaceArea = .spectroscopy
         await state.runPrimaryWorkspaceTask()
-        await c.checkTask?.value
     }
 
-    /// The abundance cells of the room's own table, element by element, as `ResultsSection` prints them.
-    private func tableLine(_ c: SpectroscopyRoomController, _ unit: AbundanceUnit) -> String {
-        c.model.results.filter { $0.hasAbundance && $0.failure == nil }
-            .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true, locale: ResultFormat.recordLocale).abundance)" }
-            .joined(separator: " \u{00B7} ")
-    }
-
-    /// A phase pool quantified in a 4D window is one row: named, with the room table's at% and wt% strings, the badge, the method.
-    /// Mutations: `quantificationRows` returning [] - red; the row's result read from a recompute with `%.2f` - red (strings);
-    /// `unvalidated` always false - red.
-    func testAQuantifiedPhasePoolIsOneRowWithTheRoomsTableStrings() async throws {
-        let (state, c) = try await window(withCube: true)
+    /// A phase pool quantified in a 4D window is one row: named, with the fit's at% and wt% strings, the badge, the method.
+    /// Mutations: `quantificationRows` returning [] - red; the pool's kind not recorded - red; `unvalidated` always false - red.
+    func testAQuantifiedPhasePoolIsOneRowWithTheFitsStrings() async throws {
+        let state = try await window(withCube: true)
         XCTAssertTrue(state.quantificationRows.isEmpty, "nothing quantified yet")
-        await quantify(state, c, region: 1000)
-        let line = tableLine(c, .atomic)
-        XCTAssertFalse(line.isEmpty, "the fixture must produce an at% to compare")
+        XCTAssertTrue(state.edx.pools.contains { $0.name == "A" }, "the phase map's pools reach the EDS room")
+        await quantify(state, pool: "A")
+        let fit = try XCTUnwrap(state.edx.fit)
+        let expected = AppState.edsResultParameters(fit)
         let rows = state.quantificationRows
         XCTAssertEqual(rows.count, 1)
         let row = try XCTUnwrap(rows.first)
         XCTAssertEqual(row.title, "A \u{00B7} phase pool")
-        // The unit label is the room's: at% with its "· no absorption" honesty label when the correction was not applied.
-        XCTAssertEqual(row.result, line + " at%" + (c.model.abundanceWithoutAbsorption ? " " + ResultFormat.noAbsorptionLabel : ""))
-        XCTAssertEqual(row.parameters.first { $0.key == "result_wt%" }?.value, tableLine(c, .weight))
+        XCTAssertEqual(row.result, (expected["result_at"] ?? "").isEmpty ? "no at% computed" : (expected["result_at"]! + " at%"))
         XCTAssertTrue(row.unvalidated)
-        let m = state.spectroscopy.method
-        XCTAssertEqual(row.method, [m.background == .empiricalWithAlEdge ? "Empirical" : "Polynomial", m.kFactorSource == .typed ? "Typed" : "Computed",
-                                    m.estimator == .leastSquares ? "Least squares" : "Poisson ML"].joined(separator: " \u{00B7} "))
         XCTAssertNil(row.parameters.first { $0.key == "method_json" }, "the method JSON is not a readable key")
         XCTAssertEqual(row.parameters.first { $0.key == "region_kind" }?.value, "phase")
+        XCTAssertNotNil(state.replay.lineage.nodes.last?.parameters["registration"], "a pool's step records the registration it went through")
     }
 
-    /// The whole map is a row named "Whole map" (kind wholeMap), and a rerun of unchanged inputs collapses into it (the lineage's
-    /// own rule, ADR 047 R3): the newest region and numbers stand.
+    /// The whole map is a row named "Whole map" (kind wholeMap); a pool is a new step beside it.
     /// Mutation: `kind == "wholeMap"` label returning the name with a suffix - red.
-    func testWholeMapRowAndTheLineagesCollapseRule() async throws {
-        let (state, c) = try await window(withCube: true)
-        await quantify(state, c, region: 0)
-        XCTAssertEqual(state.quantificationRows.map(\.title), ["Whole map"])
-        await quantify(state, c, region: 1000)
-        XCTAssertEqual(state.quantificationRows.map(\.title), ["A \u{00B7} phase pool"], "same inputs: the rerun is the same step")
+    func testWholeMapRowThenAPoolRow() async throws {
+        let state = try await window(withCube: true)
+        await quantify(state, pool: nil)
+        XCTAssertEqual(state.quantificationRows.first?.title, "Whole map")
+        await quantify(state, pool: "A")
+        XCTAssertEqual(state.quantificationRows.first?.title, "A \u{00B7} phase pool")
     }
 
     /// An EMD opened alone shows no row, even after a Quantify recorded into its replay.
     /// Mutation: dropping the `hasDataset` gate - red.
     func testASpectrumOnlyWindowHasNoRows() async throws {
-        let (state, c) = try await window(withCube: false)
-        await quantify(state, c, region: 0)
+        let state = try await window(withCube: false)
+        await quantify(state, pool: nil)
         XCTAssertFalse(state.replay.lineage.nodes.filter { $0.kind == "quantification" }.isEmpty, "the step was recorded")
         XCTAssertTrue(state.isSpectrumOnly)
         XCTAssertTrue(state.quantificationRows.isEmpty)

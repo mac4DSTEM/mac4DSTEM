@@ -351,7 +351,7 @@ nonisolated enum EDXMapOutline {
         let sx = size.width / CGFloat(nx), sy = size.height / CGFloat(ny)
         func box(_ r: PixelRect) -> CGRect { CGRect(x: CGFloat(r.x0) * sx, y: CGFloat(r.y0) * sy, width: CGFloat(r.width) * sx, height: CGFloat(r.height) * sy) }
         switch region {
-        case .wholeMap: return nil
+        case .wholeMap, .pool: return nil
         case .rectangle(let r): return Path(box(r))
         case .ellipse(let r): return Path(ellipseIn: box(r))
         case .polygon(let v):

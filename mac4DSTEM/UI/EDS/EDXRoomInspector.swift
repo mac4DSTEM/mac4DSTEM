@@ -121,8 +121,31 @@ private struct EDXToolsSection: View {
                                 selection: $state.tool)
                     .controlSize(.large)
                     .accessibilityIdentifier("edx.tool")
+                // mac4DSTEM: with a 4D cube and a stated registration, the scan's pools (phases, groups, not indexed) are regions too.
+                if !session.pools.isEmpty {
+                    InspectorRow("Source") {
+                        Picker("Source", selection: Binding(get: { Self.selectedKey(session.region) },
+                                                            set: { key in
+                                                                if let pool = session.pools.first(where: { $0.key == key }) { session.selectPool(pool) }
+                                                                else if case .pool = session.region { session.selectWholeMap() }
+                                                            })) {
+                            Text("Drawn regions").tag("drawn")
+                            let phases = session.pools.filter { $0.kind != "group" }, groups = session.pools.filter { $0.kind == "group" }
+                            if !phases.isEmpty { Section("Phases") { ForEach(phases, id: \.key) { Text($0.name).tag($0.key) } } }
+                            if !groups.isEmpty { Section("Groups") { ForEach(groups, id: \.key) { Text($0.name).tag($0.key) } } }
+                        }
+                        .labelsHidden()
+                        .help("Pool the spectrum over a phase or a diffraction group of the 4D scan (the registration the window states); a phase map is unvalidated.")
+                        .accessibilityIdentifier("edx.source")
+                    }
+                }
             }
         }
+    }
+
+    static func selectedKey(_ region: EDXRegion) -> String {
+        if case .pool(let p) = region { return p.key }
+        return "drawn"
     }
 }
 
@@ -285,6 +308,14 @@ private struct EDXExportSection: View {
             InspectorActionRow {
                 exportButton(.pins, "Regions CSV…", "square.dashed", enabled: !session.pins.isEmpty, help: "Each kept region's pixels, counts, net counts and composition")
                 exportButton(.mapsPNG, "Maps…", "photo", enabled: !session.shownTiles.isEmpty, help: "The maps as one PNG")
+            }
+            if session.pools.contains(where: { $0.kind == "phase" }) {
+                // mac4DSTEM: the 4D scan's phase pools, each fitted with this method, in one CSV.
+                InspectorActionRow {
+                    Button("Composition by Class…", systemImage: "square.grid.3x3") { Task { await appState.exportCompositionByClass() } }
+                        .help("Every phase pool of the 4D scan fitted with this method, one row per class, as CSV")
+                        .accessibilityIdentifier("edx.export.compositionByClass")
+                }
             }
             InspectorRow("Scale bar") {
                 Toggle("Scale bar", isOn: Binding(get: { state.exportScaleBar && hasPixelSize }, set: { state.exportScaleBar = $0 })).labelsHidden().toggleStyle(.switch)

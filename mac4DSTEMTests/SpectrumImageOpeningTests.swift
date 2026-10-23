@@ -103,76 +103,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
 
     // MARK: The room, bound
 
-    /// The results table has net counts and σ per element and NOTHING else until WP3: no at%, no k-free ratio.
-    /// Mutation: `fitCells` ignoring `hasFit` — red.
-    func testTheTableShowsNetCountsAndNoAtPercentBeforeWP3() async throws {
-        let row = ResultRow(z: 13, netCounts: 100, netSigma: 10, kFreeRatio: 1, kFreeSigma: 0.1, atPercent: 88, atSigma: 1,
-                            wtPercent: 80, wtSigma: 1, sigmaTerms: "")
-        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: false).abundance, "—")
-        XCTAssertEqual(ResultFormat.fitCells(row, unit: .weight, hasFit: false).kFree, "—")
-        XCTAssertNotEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true).abundance, "—")
-
-        let state = AppState()
-        let image = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil))
-        state.openSpectrumImage(image)
-        let model = state.spectroscopyRoom.model
-        XCTAssertFalse(model.hasFit)
-        XCTAssertTrue(model.isLive)
-        for symbol in ["Al", "Mg", "Si", "Cu", "O"] { model.elements.click(try XCTUnwrap(PeriodicLayout.z(of: symbol))) }
-        state.spectroscopyRoom.elementsChanged()
-        try await waitFor { model.results.count == 5 }
-        XCTAssertEqual(model.resultsFooter, "window net counts")
-        XCTAssertEqual(model.tiles.count, 5)
-        XCTAssertEqual(model.mixed, Set(model.results.map(\.z)),
-                       "R10: a picked element is ticked into the mix, whether or not its line is a measurement (the note stays on tile and row)")
-        for r in model.results { XCTAssertNil(r.kFreeSigma); XCTAssertEqual(r.atPercent, 0) }
-        // The whole-map Al row is the exact window net count of the whole-map spectrum.
-        let spectrum = image.sum(mask: nil)
-        // Windows are built for the whole set (neighbouring lines merge their background windows), by Z as the room does.
-        let windows = ElementWindows.build(elements: ["O", "Mg", "Al", "Si", "Cu"].map { ($0, nil) }, axis: image.energyAxis, beamEnergyKeV: image.metadata.beamEnergyKeV)
-        let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
-        let expected = try XCTUnwrap(counts[2])
-        let al = try XCTUnwrap(model.results.first { $0.z == 13 })
-        XCTAssertEqual(al.netCounts, expected.net, accuracy: 1e-9)
-        XCTAssertEqual(al.netSigma, expected.sigma, accuracy: 1e-9)
-        XCTAssertEqual(state.spectroscopy.elements.map(\.symbol), ["O", "Mg", "Al", "Si", "Cu"], "the session mirrors the roles, by Z")
-    }
-
-    /// A drawn region changes the spectrum and the rows to that region's, and the Whole map comes back.
-    /// Mutation: `refresh` reading the whole map's mask instead of the selected region's — red.
-    func testTheSelectedRegionDrivesTheSpectrumAndTheRows() async throws {
-        let state = AppState()
-        let image = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil))
-        state.openSpectrumImage(image)
-        let controller = state.spectroscopyRoom, model = controller.model
-        model.elements.click(13)
-        controller.elementsChanged()
-        try await waitFor("the whole map's row and spectrum", state: { "results \(model.results.count), spectrum sum \(model.series.data.reduce(0, +)), expected \(image.sum(mask: nil).reduce(0, +))" }) { model.results.count == 1 && model.series.data.reduce(0, +) == Double(image.sum(mask: nil).reduce(0, +)) }
-        let rect = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 2))
-        model.onRegionEdit?(rect, true)
-        let regionTotal = Double(image.sum(mask: rect.mask(nx: 6, ny: 4)).reduce(0, +))
-        try await waitFor("the region's spectrum", state: { "sum \(model.series.data.reduce(0, +)), expected \(regionTotal), regions \(model.regions.count)" }) { model.series.data.reduce(0, +) == regionTotal }
-        XCTAssertEqual(model.regions.count, 2)
-        XCTAssertEqual(model.spectrumTitle, "Spectrum · Region 1")
-        XCTAssertEqual(model.spectrumPixels, 6)
-        XCTAssertEqual(model.regionOutline, rect)
-        model.selectedRegion = 0
-        controller.regionPicked()
-        try await waitFor("the whole map back", state: { model.spectrumTitle }) { model.spectrumTitle == "Spectrum · Whole map" }
-        XCTAssertNil(model.regionOutline)
-    }
-
-    /// The registration warning shows only for an image beside a cube it is not the same scan as.
-    func testTheSourceRowSaysSameScanOrNotRegistered() throws {
-        let image = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil))
-        var meta = image.metadata
-        XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: false).sourceWarning)
-        let beside = SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true)
-        XCTAssertTrue(beside.sourceWarning)
-        meta.sameScanAsCube = true
-        XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true).sourceWarning)
-    }
-
     /// The hover's cut-off is the marker's own FWHM: a cursor 70 eV from a line 40 eV wide names no line, and one 30 eV away does.
     /// Mutation: the `?? lineTolerance` made unconditional — red.
     func testTheHoverCutOffIsTheLinesOwnFWHM() {
@@ -186,28 +116,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertEqual(line(at: 1.53, narrow), "Mg Kα")
         var wide = narrow; wide.fwhm = nil
         XCTAssertEqual(line(at: 1.57, wide), "Mg Kα", "no FWHM: the old 0.1 keV cut-off")
-    }
-
-    /// The ColorMix is one bitmap: a ticked tile in its colour, the rest black; no tick falls back to the scan image.
-    /// Mutation: red and green swapped when the pixel bytes are written — red.
-    func testTheColorMixRasterHasTheTilesColours() throws {
-        let tile = MapTile(z: 13, width: 2, height: 1, values: [1, 0])
-        let img = try XCTUnwrap(ColorMixRaster.image(tiles: [tile], mixed: [13], colors: [13: (1, 0, 0)], backdrop: [], width: 2, height: 1))
-        XCTAssertEqual([img.width, img.height], [2, 1])
-        let data = try XCTUnwrap(img.dataProvider?.data as Data?)
-        XCTAssertEqual(Array(data.prefix(8)), [255, 0, 0, 255, 0, 0, 0, 255])
-        let grey = try XCTUnwrap(ColorMixRaster.image(tiles: [tile], mixed: [], colors: [:], backdrop: [0, 1], width: 2, height: 1))
-        let gdata = try XCTUnwrap(grey.dataProvider?.data as Data?)
-        XCTAssertEqual(Array(gdata.prefix(8)), [0, 0, 0, 255, 255, 255, 255, 255])
-        XCTAssertNil(ColorMixRaster.image(tiles: [], mixed: [], colors: [:], backdrop: [], width: 2, height: 1))
-    }
-
-    /// A drag on the map spans whole pixels, ends included, clamped to the grid.
-    func testADragSpansTheStartAndEndPixels() {
-        let r = RegionEditing.drawnRect(from: PixelPoint(x: 1.5, y: 0.5), to: PixelPoint(x: 4.4, y: 2.9), grid: (6, 4))
-        XCTAssertEqual(r, PixelRect(x0: 1, y0: 0, x1: 5, y1: 3))
-        XCTAssertEqual(RegionEditing.drawnRect(from: PixelPoint(x: -2, y: -2), to: PixelPoint(x: 9.9, y: 9.9), grid: (6, 4)),
-                       PixelRect(x0: 0, y0: 0, x1: 6, y1: 4))
     }
 
     // MARK: Round 2 (Gate B)
@@ -254,50 +162,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertEqual(other.events, [], "a file the extension rules out is neither scoped nor sniffed")
     }
 
-    /// A region chosen from the sidebar (through the controller) drives the room: model, outline, spectrum.
-    /// Mutation: `selectRegion` not calling `refresh()` — red.
-    func testSelectingARegionFromAnywhereDrivesTheRoom() async throws {
-        let state = AppState()
-        state.openSpectrumImage(try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil)))
-        let controller = state.spectroscopyRoom, model = controller.model
-        model.onRegionEdit?(.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 2)), true)
-        try await waitFor("Region 1", state: { model.spectrumTitle }) { model.spectrumTitle == "Spectrum · Region 1" }
-        controller.selectRegion(id: 0)
-        XCTAssertEqual(model.selectedRegion, 0)
-        XCTAssertEqual(state.spectroscopy.selectedRegionID, 0)
-        try await waitFor("Whole map", state: { model.spectrumTitle }) { model.spectrumTitle == "Spectrum · Whole map" }
-        controller.selectRegion(id: 99)
-        XCTAssertEqual(model.selectedRegion, 0, "an unknown region changes nothing")
-    }
-
-    /// In the room: such a row shows no number (failure text), keeps G/B/s in the σ terms, is not auto-ticked, with Al ALONE selected.
-    /// Mutation: `failure: c.notAMeasurementText` removed from the row — red.
-    func testTheRoomShowsNoNumberForALineWhoseBackgroundExceedsItsSignal() async throws {
-        let axis = EnergyAxis(offset: 0, scale: 0.01, size: 1000)
-        let windows = ElementWindows.build(elements: [("Al", nil)], axis: axis, beamEnergyKeV: nil)
-        let w = try XCTUnwrap(windows.first?.window), bg = try XCTUnwrap(w.background)
-        var counts = [UInt32](repeating: 0, count: 1000)
-        for c in w.signal { counts[c] = 1 }
-        for c in bg.left { counts[c] = 50 }
-        for c in bg.right { counts[c] = 50 }
-        let meta = SpectrumImageMetadata(fileName: "synthetic", filePath: "", scanWidth: 1, scanHeight: 1, channelCount: 1000,
-                                         energyOffsetEV: 0, energyDispersionEV: 10)
-        let state = AppState()
-        state.openSpectrumImage(LoadedSpectrumImage(image: DenseSpectrumImage(ny: 1, nx: 1, channels: 1000, counts: counts),
-                                                    metadata: meta, energyAxis: axis))
-        let model = state.spectroscopyRoom.model
-        model.elements.click(13)
-        state.spectroscopyRoom.elementsChanged()
-        try await waitFor("the Al row", state: { "\(model.results.count)" }) { model.results.count == 1 }
-        let row = try XCTUnwrap(model.results.first)
-        XCTAssertTrue(try XCTUnwrap(row.failure).hasPrefix("not a measurement: the background windows"))
-        XCTAssertTrue(row.sigmaTerms.contains("G = ") && row.sigmaTerms.contains("B = ") && row.sigmaTerms.contains("s = "))
-        XCTAssertEqual(model.tiles.map(\.z), [13])
-        // R10 (changed from "not auto-ticked"): the mix is a picture, the note is the honesty label; a picked element is in the mix.
-        XCTAssertTrue(model.mixed.contains(13), "R10: a picked element is ticked into the mix even when its line is not a measurement")
-        XCTAssertNotNil(model.tiles.first?.notMeasuredWhy, "the tile keeps its not-a-measurement note")
-    }
-
     /// One window rule: a window that holds a 4D cube sends a spectrum-image file to a NEW window and attaches nothing.
     /// Mutation: the `hasDataset` rule removed — red.
     func testACubeWindowSendsASpectrumFileToANewWindow() async throws {
@@ -311,21 +175,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertTrue(handled)
         XCTAssertEqual(routed, [url])
         XCTAssertFalse(state.hasSpectrumImage)
-    }
-
-    /// The map's bitmap is built once per state, again when the tiles (revision) or the ticks change.
-    /// Mutation: `mixed` dropped from the cache key — red.
-    func testTheRasterIsCachedByTilesAndTicks() {
-        let cache = ColorMixRasterCache()
-        var key = ColorMixRasterCache.Key(revision: 1, mixed: [13], width: 2, height: 1, backdropCount: 0)
-        var made = 0
-        func build() -> CGImage? { made += 1; return nil }
-        _ = cache.image(for: key, build: build); _ = cache.image(for: key, build: build)
-        XCTAssertEqual(made, 1)
-        key.mixed = [13, 12]; _ = cache.image(for: key, build: build)
-        XCTAssertEqual(made, 2)
-        key.revision = 2; _ = cache.image(for: key, build: build)
-        XCTAssertEqual(made, 3)
     }
 
     private func waitFor(_ what: String = "the room to update", timeout: TimeInterval = 20, state: () -> String = { "" },

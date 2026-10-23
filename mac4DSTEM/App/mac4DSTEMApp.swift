@@ -157,15 +157,11 @@ private struct DatasetWindow: View {
             // `--demo-spectrum-regions`: two drawn regions of known size (8 x 8 = 64 px, 4 x 4 = 16 px) for the UI journey, whose synthetic
             // drag does not reach the drawing tool. DEBUG only.
             if ProcessInfo.processInfo.arguments.contains("--demo-spectrum-regions") {
-                let room = appState.spectroscopyRoom
-                room.beginRegionEdit(nil)
-                room.editRegion(.rectangle(PixelRect(x0: 2, y0: 2, x1: 10, y1: 10)), final: true)
-                room.beginRegionEdit(nil)
-                room.editRegion(.rectangle(PixelRect(x0: 20, y0: 20, x1: 24, y1: 24)), final: true)
-                // and a line across the blob (28 px = 28 nm), on the Spectrum tab so the journey's other steps see the spectrum
-                room.model.addLine(from: PixelPoint(x: 2, y: 16), to: PixelPoint(x: 30, y: 16))
-                room.model.pane = .spectrum
-                room.model.selectedLine = nil   // the newest region stays the selected row
+                let session = appState.edx
+                session.drawRectangle(PixelRect(x0: 2, y0: 2, x1: 10, y1: 10))
+                session.drawRectangle(PixelRect(x0: 20, y0: 20, x1: 24, y1: 24))
+                // and a line across the blob (28 px = 28 nm)
+                session.drawLine(from: PixelPoint(x: 2, y: 16), to: PixelPoint(x: 30, y: 16))
             }
         }
         #endif
@@ -256,16 +252,14 @@ private struct DatasetCommands: Commands {
                     || appState.map { !DatasetMenuRule.showsPreprocessRawData(in: $0) } == true)
             // The Spectroscopy room's exports, in the menu bar while that room is on screen (UI audit 2026-10-14, The menu bar);
             // enabled by the inspector buttons' own rules (`SpectroscopyMenuRule`).
-            if let room = spectroscopyRoomModel {
+            if let appState, let session = edsSession {
                 Divider()
-                Button("Export Spectrum CSV\u{2026}") { SpectroscopyMenuRule.exportSpectrum(room) }
-                    .disabled(!SpectroscopyMenuRule.canExportSpectrum(room))
-                Button("Export Maps\u{2026}") { SpectroscopyMenuRule.exportMaps(room) }
-                    .disabled(!SpectroscopyMenuRule.canExportMaps(room))
-                Button("Export Results CSV\u{2026}") { SpectroscopyMenuRule.exportResults(room) }
-                    .disabled(!SpectroscopyMenuRule.canExportResults(room))
-                Button("Export Method JSON\u{2026}") { SpectroscopyMenuRule.exportMethod(room) }
-                    .disabled(!SpectroscopyMenuRule.canExportMethod(room))
+                let hasFit = session.fit != nil && !session.isFitting && !session.isChecking
+                Button("Export Spectrum CSV\u{2026}") { exportEDS(.spectrum, appState) }.disabled(session.spectrumCounts.isEmpty)
+                Button("Export Maps\u{2026}") { exportEDS(.mapsPNG, appState) }.disabled(session.shownTiles.isEmpty)
+                Button("Export Results CSV\u{2026}") { exportEDS(.results, appState) }.disabled(!hasFit)
+                Button("Export Method JSON\u{2026}") { exportEDS(.method, appState) }.disabled(!hasFit)
+                Button("Export Regions CSV\u{2026}") { exportEDS(.pins, appState) }.disabled(session.pins.isEmpty)
             }
         }
         CommandGroup(replacing: .sidebar) {
@@ -300,16 +294,16 @@ private struct DatasetCommands: Commands {
             Button("Cancel Analysis") { appState?.cancelActiveOperation() }
                 .keyboardShortcut(".", modifiers: .command)
                 .disabled(appState?.canCancelActiveOperation != true)
-            if let room = spectroscopyRoomModel {
+            if let appState, let session = edsSession {
                 Divider()
                 // The region tool, from the keyboard (the inspector's Tools control is the pointer's way): Ctrl-Cmd-0 to 4.
-                Button("Select Tool") { room.regionTool = SpectroscopyMenuRule.tool(forShortcut: 0)! }.keyboardShortcut("0", modifiers: [.command, .control])
-                Button("Rectangle Region Tool") { room.regionTool = SpectroscopyMenuRule.tool(forShortcut: 1)! }.keyboardShortcut("1", modifiers: [.command, .control])
-                Button("Ellipse Region Tool") { room.regionTool = SpectroscopyMenuRule.tool(forShortcut: 2)! }.keyboardShortcut("2", modifiers: [.command, .control])
-                Button("Polygon Region Tool") { room.regionTool = SpectroscopyMenuRule.tool(forShortcut: 3)! }.keyboardShortcut("3", modifiers: [.command, .control])
-                Button("Line Tool") { room.regionTool = SpectroscopyMenuRule.tool(forShortcut: 4)! }.keyboardShortcut("4", modifiers: [.command, .control])
-                Button("Pin Region") { SpectroscopyMenuRule.pin(room) }
-                    .disabled(!SpectroscopyMenuRule.canPin(room))
+                Button("Select Tool") { appState.edxRoom.tool = .pointer }.keyboardShortcut("0", modifiers: [.command, .control])
+                Button("Rectangle Region Tool") { appState.edxRoom.tool = .rectangle }.keyboardShortcut("1", modifiers: [.command, .control])
+                Button("Ellipse Region Tool") { appState.edxRoom.tool = .ellipse }.keyboardShortcut("2", modifiers: [.command, .control])
+                Button("Polygon Region Tool") { appState.edxRoom.tool = .polygon }.keyboardShortcut("3", modifiers: [.command, .control])
+                Button("Line Tool") { appState.edxRoom.tool = .line }.keyboardShortcut("4", modifiers: [.command, .control])
+                Button("Pin Region") { session.pinRegion() }
+                    .disabled(!session.hasImage || session.selectedPin != nil)
             }
         }
         CommandMenu("Dataset") {
@@ -360,11 +354,15 @@ private struct DatasetCommands: Commands {
         }
     }
 
-    /// The Spectroscopy room's model while that room is on screen in the focused window; its commands exist only then.
-    private var spectroscopyRoomModel: SpectroscopyRoomModel? {
-        guard let appState,
-              SpectroscopyMenuRule.showsItems(area: appState.navigation.workspaceArea, hasSpectrumImage: appState.hasSpectrumImage) else { return nil }
-        return appState.spectroscopyRoom.model
+    /// The EDS room's session while that room is on screen with a spectrum image in the focused window; its commands exist only then.
+    private var edsSession: EDXSession? {
+        guard let appState, appState.navigation.workspaceArea == .spectroscopy, appState.hasSpectrumImage else { return nil }
+        return appState.edx
+    }
+
+    /// A menu export goes through the room's own export (the save panel, or `--export-dir` in a journey).
+    private func exportEDS(_ kind: EDXExportKind, _ appState: AppState) {
+        Task { await appState.edxRoom.export(kind, from: appState.edx, directory: appState.exportDirectory) { appState.statusText = $0 } }
     }
 
     /// Runs `action` in the focused window, or — with none — asks for it and opens a window that takes it.

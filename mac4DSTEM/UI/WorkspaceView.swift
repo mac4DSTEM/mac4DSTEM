@@ -77,8 +77,8 @@ struct WorkspaceView: View {
         } else if !appState.hasDocument {
             WelcomeWorkspace()
         } else if appState.navigation.workspaceArea == .spectroscopy {
-            // v5.0 WP2: the room, wired by R2.
-            SpectroscopyRoomHost()
+            // The EDS room: macTEM 1.0's room (2026-10-23), with mac4DSTEM's 4D links (`AppState+EDS`).
+            EDXRoom()
         } else if appState.isSpectrumOnly {
             // A spectrum image and no cube: Results has nothing of the 4D
             // kind to review, and a 4D room is withheld (`isWorkspaceWithheld`).
@@ -243,7 +243,7 @@ struct WorkspacePrimaryAction {
     /// The hint, unless a requirement is what is holding the action back —
     /// then the requirement, because that is the question the user has.
     private var helpText: String {
-        if appState.navigation.workspaceArea == .spectroscopy, !primaryActionEnabled, let why = appState.spectroscopyRoom.quantifyBlocker { return why }
+        if appState.navigation.workspaceArea == .spectroscopy, !primaryActionEnabled, let why = appState.edx.quantifyBlocker { return why }
         if !primaryActionEnabled, let first = appState.unmetRequirements.first {
             return first.title
         }

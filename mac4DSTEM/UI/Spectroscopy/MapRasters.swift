@@ -1,6 +1,5 @@
 import ShellControls
 import ImagoCore
-import ImagoCore
 import SwiftUI
 import ImageIO
 import CoreText
@@ -10,48 +9,6 @@ import ShellMetal
 import DSTEMCore
 import DSTEMSession
 #endif
-
-/// Pure composite for the ColorMix map: each ticked element's map is tinted with its colour
-/// and added; the sum is clamped to 1 per channel. Presentation arithmetic, not a result.
-/// `displays` is each ticked map's own contrast window and gamma (the active map's popover): changing one map's changes
-/// only that map's contribution.
-enum ColorMixComposite {
-    typealias RGB = (r: Double, g: Double, b: Double)
-    /// `colors` is resolved once per draw by the caller (one entry per ticked tile).
-    static func rgb(at index: Int, tiles: [MapTile], mixed: Set<Int>, colors: [Int: RGB], displays: [Int: MapDisplay] = [:]) -> RGB {
-        var r = 0.0, g = 0.0, b = 0.0
-        for t in tiles where mixed.contains(t.z) && index < t.values.count {
-            guard let c = colors[t.z] else { continue }
-            let raw = t.values[index]
-            let v = Double(displays[t.z].map { $0.apply(raw) } ?? raw)
-            r += c.r * v; g += c.g * v; b += c.b * v
-        }
-        return (min(r, 1), min(g, 1), min(b, 1))
-    }
-}
-
-/// The default display window of a map (R8, Velox-like): a robust percentile stretch, not min to max, so one hot pixel or a
-/// handful of bright ones cannot push every other pixel to black. Presentation only; the values are untouched.
-enum MapContrast {
-    /// The 0.5 to 99.5 percent window of the finite values (NaN and infinities ignored), as a `MapDisplay` of gamma 1. Sorted
-    /// from at most 65 536 evenly strided samples (exact for any map up to that size). When the stretch collapses (a sparse map
-    /// whose 99.5 % is its floor) the window runs to the maximum; a flat or empty map is the identity.
-    static func defaultWindow(of values: [Float], low: Double = 0.005, high: Double = 0.995) -> MapDisplay {
-        let stride = max(1, values.count / 65_536)
-        var s: [Float] = []
-        s.reserveCapacity(values.count / stride + 1)
-        var i = 0
-        while i < values.count { if values[i].isFinite { s.append(values[i]) }; i += stride }
-        guard s.count > 1 else { return MapDisplay() }
-        s.sort()
-        func q(_ p: Double) -> Float { s[min(s.count - 1, max(0, Int((p * Double(s.count - 1)).rounded())))] }
-        let lo = q(low)
-        var hi = q(high)
-        if hi <= lo { hi = s[s.count - 1] }
-        guard hi > lo else { return MapDisplay() }
-        return MapDisplay(lo: lo, hi: hi, gamma: 1)
-    }
-}
 
 /// The scale bar of a map (R8, Velox-style): a round length (1, 2 or 5 times a power of ten) near a target on-screen size, in the
 /// unit the reader gave (nm, \u{00B5}m, \u{00C5}...). Pure: the pixel size comes from the file (Velox metres, GMS axis calibration);
@@ -180,89 +137,3 @@ enum MapBitmap {
     }
 }
 
-/// The mixed map as one bitmap (a pixel per scan pixel). `backdrop` is the HAADF under the mix (spec 2 D-2): empty means none, the
-/// mix then sits on black (a pixel with no element is black). With one, it shows grey where the elements leave room, so a
-/// full-strength element hides it. With no element ticked the backdrop alone stands in, so regions can be drawn before any element
-/// is chosen; with neither there is no image.
-enum ColorMixRaster {
-    static func image(tiles: [MapTile], mixed: Set<Int>, colors: [Int: ColorMixComposite.RGB],
-                      backdrop: [Float], width: Int, height: Int, displays: [Int: MapDisplay] = [:]) -> CGImage? {
-        guard width > 0, height > 0 else { return nil }
-        let ticked = tiles.contains { mixed.contains($0.z) }
-        let hasBackdrop = backdrop.count == width * height
-        guard ticked || hasBackdrop else { return nil }
-        return MapBitmap.image(width: width, height: height) { i in
-            var c: ColorMixComposite.RGB = (0, 0, 0)
-            if ticked { c = ColorMixComposite.rgb(at: i, tiles: tiles, mixed: mixed, colors: colors, displays: displays) }
-            if hasBackdrop {
-                let g = Double(backdrop[i]), room = 1 - max(c.r, c.g, c.b)
-                c = (c.r + g * room, c.g + g * room, c.b + g * room)
-            }
-            return (MapBitmap.q(c.r), MapBitmap.q(c.g), MapBitmap.q(c.b))
-        }
-    }
-}
-
-/// One element's tile: black to the element's colour by the map's value, after its contrast window and gamma.
-enum ElementTileRaster {
-    static func image(tile: MapTile, color: ColorMixComposite.RGB, display: MapDisplay) -> CGImage? {
-        guard tile.width > 0, tile.height > 0, tile.values.count == tile.width * tile.height else { return nil }
-        return MapBitmap.image(width: tile.width, height: tile.height) { i in
-            let v = Double(display.apply(tile.values[i]))
-            return (MapBitmap.q(color.r * v), MapBitmap.q(color.g * v), MapBitmap.q(color.b * v))
-        }
-    }
-
-    /// The HAADF tile: the scan image through the chosen colormap (`Colormaps.lutRGBA`), after its contrast window and gamma.
-    static func haadf(values: [Float], width: Int, height: Int, colormap: ColormapKind, display: MapDisplay) -> CGImage? {
-        guard width > 0, height > 0, values.count == width * height else { return nil }
-        let lut = Colormaps.lutRGBA(colormap)
-        return MapBitmap.image(width: width, height: height) { i in
-            Colormaps.sampleRGB(lut, Double(display.apply(values[i])))   // the shader's linear-filter lookup
-        }
-    }
-}
-
-/// The ColorMix bitmap, kept until the tiles (by revision), the ticks, the colours, the contrast, the grid or the backdrop
-/// change. A reference type held in `@State`: the view's body asks it for the image and a draw of the same state costs nothing.
-final class ColorMixRasterCache {
-    struct Key: Equatable {
-        var revision: Int, mixed: Set<Int>, width: Int, height: Int, backdropCount: Int
-        /// The colours and contrast windows of the ticked maps (`MapStyle.stamp`); 0 when the caller sets none.
-        var style: Int = 0
-        /// The HAADF tile's outline: the backdrop under the mix is on or off.
-        var mixHAADF: Bool = true
-    }
-    private var key: Key?
-    private var image: CGImage?
-    private(set) var builds = 0
-    func image(for k: Key, build: () -> CGImage?) -> CGImage? {
-        if key != k { image = build(); key = k; builds += 1 }
-        return image
-    }
-}
-
-/// The per-tile bitmaps (HAADF and each element), each rebuilt only when its own map, colour or display changed.
-final class MapTileRasterCache {
-    struct Key: Equatable { var revision: Int, style: Int, count: Int }
-    private var entries: [ActiveMap: (Key, CGImage?)] = [:]
-    private(set) var builds = 0
-    func image(_ map: ActiveMap, key: Key, build: () -> CGImage?) -> CGImage? {
-        if let e = entries[map], e.0 == key { return e.1 }
-        let img = build()
-        entries[map] = (key, img)
-        builds += 1
-        return img
-    }
-}
-
-/// What a map's look depends on, folded to one Int for the caches' keys.
-enum MapStyle {
-    static func stamp(color: ColorMixComposite.RGB?, display: MapDisplay, colormap: ColormapKind? = nil) -> Int {
-        var h = Hasher()
-        if let c = color { h.combine(c.r); h.combine(c.g); h.combine(c.b) }
-        h.combine(display.lo); h.combine(display.hi); h.combine(display.gamma)
-        h.combine(colormap?.rawValue ?? "")
-        return h.finalize()
-    }
-}

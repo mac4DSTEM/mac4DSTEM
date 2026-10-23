@@ -69,12 +69,13 @@ package nonisolated enum EDXPins {
         case .wholeMap: ""
         case .rectangle(let p), .ellipse(let p): "\(p.x0) \(p.y0) \(p.x1) \(p.y1)"
         case .polygon(let v): v.map { "\(g($0.x)) \(g($0.y))" }.joined(separator: ";")
+        case .pool(let p): p.kind
         }
     }
 
     private static func g(_ v: Double) -> String { String(format: "%.10g", v) }
 
-    package static func csv(rows: [Row], fileName: String, title: String = "macTEM EDX pins") -> String {
+    package static func csv(rows: [Row], fileName: String, title: String = "mac4DSTEM EDS regions") -> String {
         let elements = rows.first?.elements ?? []
         var out = ["# \(title), file: \(fileName)",
                    "# net_<El>: net counts of the element's line window in the pin's summed spectrum; wt_ and at_: Cliff-Lorimer / zeta / cross-section composition of those nets with the maps' factors, validation: \(EDXQuantification.validation); empty when the factors are not complete",

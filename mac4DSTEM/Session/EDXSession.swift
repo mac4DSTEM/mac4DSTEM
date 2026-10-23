@@ -179,12 +179,16 @@ package final class EDXSession {
     /// The composition tiles of the last landed pass, by mode.
     package private(set) var quantTiles: [EDXMapMode: [EDXMapTile]] = [:]
     /// The kit's maps behind `quantTiles` (a test compares them with the kit's per-pixel call).
-    package private(set) var quantMaps: EDXQuantificationMaps?
+    package private(set) var quantMaps: EDXQuantificationMaps? { didSet { if quantMaps != oldValue { onQuantMapsChange?() } } }
 
     /// The infobar's events (an open, an error); set by the window, which owns the status line.
     @ObservationIgnored package var onEvent: ((String) -> Void)?
     /// Errors the person must see (a file that is not a spectrum image).
     @ObservationIgnored package var onFailure: ((any Error) -> Void)?
+    /// mac4DSTEM: the window's precipitate joins read `quantMaps`; told when they land or clear.
+    @ObservationIgnored package var onQuantMapsChange: (() -> Void)?
+    /// mac4DSTEM: the 4D scan's pools the Source row offers (`applyPools`); empty without a 4D cube and a registration.
+    package private(set) var pools: [EDXPoolRegion] = []
 
     @ObservationIgnored private var cache = EDXComputeCache()
     @ObservationIgnored private var generation = 0
@@ -195,6 +199,9 @@ package final class EDXSession {
     @ObservationIgnored private var previewDone = true
     @ObservationIgnored private var isPreviewing = false
     @ObservationIgnored private var checkTask: Task<Void, Never>?
+    /// mac4DSTEM: the unlisted-line check in flight after a fit (the at% is held until it lands); the window records the Quantify
+    /// step once it has (`AppState.quantifyEDS`).
+    package var pendingCheck: Task<Void, Never>? { checkTask }
     @ObservationIgnored private var autoIDTask: Task<Void, Never>?
     @ObservationIgnored private var openTask: Task<Void, Never>?
     @ObservationIgnored private var mapsTask: Task<Void, Never>?
@@ -545,6 +552,7 @@ package final class EDXSession {
         case .rectangle(let r): guard let c = clipped(r) else { return }; clippedNew = .rectangle(c)
         case .ellipse(let r): guard let c = clipped(r) else { return }; clippedNew = .ellipse(c)
         case .polygon(let v): guard v.count >= 3, new.pixelCount(nx: source.nx, ny: source.ny) > 0 else { return }; clippedNew = new
+        case .pool: return   // a pool is not edited on the map
         }
         guard clippedNew != pins[i].region, !pins.contains(where: { $0.id != id && $0.region == clippedNew }) else { return }
         let wasSelected = pins[i].region == region
@@ -1048,6 +1056,27 @@ package final class EDXSession {
     package var spectrumCSV: String? {
         guard let source, !spectrumCounts.isEmpty else { return nil }
         return EDXCompute.spectrumCSV(counts: spectrumCounts, axis: source.energyAxis, fileName: fileName, regionName: region.name)
+    }
+}
+
+// MARK: - mac4DSTEM: the 4D scan's pools
+
+extension EDXSession {
+    /// The window's pool catalogue changed (a phase map or diffraction groups published or cleared): the Source row lists the new
+    /// pools; a selected pool that changed or vanished falls back to the whole map, so no fit stands on a stale mask (H8).
+    package func applyPools(_ new: [EDXPoolRegion]) {
+        pools = new
+        if case .pool(let p) = region, !new.contains(p) {
+            select(.wholeMap)
+            onEvent?("\(p.name) changed or is gone: the whole map is selected.")
+        }
+        pins.removeAll { pin in if case .pool(let p) = pin.region { return !new.contains(p) } else { return false } }
+    }
+
+    /// The Source row: a pool becomes the selected region (its spectrum, and the fit when Quantify has run, follow).
+    package func selectPool(_ pool: EDXPoolRegion) {
+        guard hasImage, pools.contains(pool) else { return }
+        select(.pool(pool))
     }
 }
 

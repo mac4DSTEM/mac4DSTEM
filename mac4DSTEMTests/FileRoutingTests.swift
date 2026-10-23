@@ -68,35 +68,6 @@ final class FileRoutingTests: XCTestCase {
         return out
     }
 
-    /// The round trip the task asks for: a planted spectrum written as .msa, opened as a spectrum image, shown by the room,
-    /// written by the room's export, and read back with the same counts and axis.
-    func testAPlantedMSARoundTripsThroughTheRoomsExport() async throws {
-        let counts = plantedCounts()
-        let first = try FileRouting.msaData(counts: counts, offsetKeV: -0.04, scaleKeV: 0.01, title: "planted", beamEnergyKeV: 200)
-        let path = dir.appendingPathComponent("planted.msa").path
-        try first.write(to: URL(fileURLWithPath: path))
-
-        let image = try FileRouting.spectrumImage(msaPath: path)
-        XCTAssertEqual(image.sum(mask: nil), counts.map { UInt64($0) })
-        XCTAssertEqual(image.energyAxis.offset, -0.04, accuracy: 1e-9)
-        XCTAssertEqual(image.energyAxis.scale, 0.01, accuracy: 1e-12)
-        XCTAssertEqual(image.metadata.beamEnergyKeV, 200)
-        XCTAssertEqual([image.nx, image.ny], [1, 1])
-
-        let state = AppState()
-        state.openSpectrumImage(image)
-        state.spectroscopyRoom.autoIDOnOpen?.cancel()
-        await state.spectroscopyRoom.refresh()?.value
-        let export = try XCTUnwrap(ExportSection.spectrumMSAExport(state.spectroscopyRoom.model), "the room offers the shown spectrum as .msa")
-        XCTAssertTrue(export.isMSA)
-        let second = dir.appendingPathComponent("again.msa")
-        try Data(export.text.utf8).write(to: second)
-        let back = try FileRouting.spectrumImage(msaPath: second.path)
-        XCTAssertEqual(back.sum(mask: nil), counts.map { UInt64($0) }, "counts survive the room's export")
-        XCTAssertEqual(back.energyAxis.offset, -0.04, accuracy: 1e-9)
-        XCTAssertEqual(back.energyAxis.scale, 0.01, accuracy: 1e-12)
-    }
-
     func testAMSAWithNegativeCountsIsRefused() throws {
         let data = try FileRouting.msaData(counts: [1, -2, 3], offsetKeV: 0, scaleKeV: 0.01, title: "bad", beamEnergyKeV: nil)
         let path = dir.appendingPathComponent("bad.msa").path

@@ -140,11 +140,16 @@ struct EDXMapsFigure: View {
         .frame(width: size.width, height: size.height, alignment: .bottomLeading)
     }
 
-    /// The PNG of the figure at 2×, or nil if the renderer made no image.
-    @MainActor static func png(_ content: EDXFigureContent) -> Data? {
+    /// The figure as an image at 2× (mac4DSTEM: the window's figure export takes it as one panel), or nil if the renderer made none.
+    @MainActor static func cgImage(_ content: EDXFigureContent) -> CGImage? {
         let renderer = ImageRenderer(content: EDXMapsFigure(content: content))
         renderer.scale = 2
-        guard let image = renderer.cgImage else { return nil }
+        return renderer.cgImage
+    }
+
+    /// The PNG of the figure at 2×, or nil if the renderer made no image.
+    @MainActor static func png(_ content: EDXFigureContent) -> Data? {
+        guard let image = cgImage(content) else { return nil }
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(dest, image, nil)

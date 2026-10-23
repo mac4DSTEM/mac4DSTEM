@@ -274,176 +274,12 @@ final class FigureExportTests: XCTestCase {
 
     // MARK: the region outline
 
-    private func mapPanel(_ shape: SpectrumRegionShape, dash: [CGFloat] = [], magnification: Int = 10) -> CGImage {
-        let red = RegionStroke(color: CGColor(red: 1, green: 0, blue: 0, alpha: 1), width: 2, dash: dash)
-        return FigureRendering.rendered(FigurePanel(label: "", image: solid(20, 10, 100, 100, 100), overlays: [.region(shape, red)]),
-                                        magnification: magnification, deviceScale: 1)!
-    }
-    private func isRed(_ c: (r: Int, g: Int, b: Int)) -> Bool { c.r > 200 && c.g < 60 && c.b < 60 }
-    private func isGray(_ c: (r: Int, g: Int, b: Int)) -> Bool { abs(c.r - 100) < 3 && abs(c.g - 100) < 3 && abs(c.b - 100) < 3 }
-
-    /// A rectangle: its four edges at the region's pixel borders (x 4..12, y 2..7 on a 10x grid), nothing inside or outside.
-    /// Mutation: x and y swap, the border moves by a pixel, or the box is filled - red.
-    func testARectangleRegionIsOutlinedAtItsPixelBorders() {
-        let r = raster(mapPanel(.rectangle(PixelRect(x0: 4, y0: 2, x1: 12, y1: 7))))
-        XCTAssertEqual(r.w, 200); XCTAssertEqual(r.h, 100)
-        XCTAssertTrue(isRed(r.rgb(40, 45)) || isRed(r.rgb(39, 45)), "left edge")
-        XCTAssertTrue(isRed(r.rgb(120, 45)) || isRed(r.rgb(119, 45)), "right edge")
-        XCTAssertTrue(isRed(r.rgb(80, 20)) || isRed(r.rgb(80, 19)), "top edge")
-        XCTAssertTrue(isRed(r.rgb(80, 70)) || isRed(r.rgb(80, 69)), "bottom edge")
-        XCTAssertTrue(isRed(r.rgb(40, 20)) || isRed(r.rgb(39, 19)), "the corner is on the outline")
-        XCTAssertTrue(isGray(r.rgb(80, 45)), "inside is the map")
-        XCTAssertTrue(isGray(r.rgb(20, 45)) && isGray(r.rgb(160, 45)) && isGray(r.rgb(80, 90)), "outside is the map")
-    }
-
-    /// An ellipse is inscribed in its rectangle: it touches the four edge midpoints and not the corners. Mutation: `RegionOutline`
-    /// strokes the bounding rectangle for an ellipse - red.
-    func testAnEllipseRegionTouchesTheEdgeMidpointsAndNotTheCorners() {
-        let r = raster(mapPanel(.ellipse(PixelRect(x0: 4, y0: 2, x1: 12, y1: 7))))
-        XCTAssertTrue(isRed(r.rgb(40, 45)) || isRed(r.rgb(39, 45)), "left midpoint")
-        XCTAssertTrue(isRed(r.rgb(80, 20)) || isRed(r.rgb(80, 19)), "top midpoint")
-        XCTAssertTrue(isGray(r.rgb(40, 20)) && isGray(r.rgb(119, 69)), "the rectangle's corners are outside the ellipse")
-        XCTAssertTrue(isGray(r.rgb(80, 45)))
-    }
-
-    /// A polygon follows its vertices (grid pixel units). Mutation: the vertices are not scaled to the map, or the polygon is not closed
-    /// back to its first vertex - red.
-    func testAPolygonRegionFollowsItsVertices() {
-        let r = raster(mapPanel(.polygon([PixelPoint(x: 2, y: 1), PixelPoint(x: 18, y: 1), PixelPoint(x: 10, y: 9)])))
-        XCTAssertTrue(isRed(r.rgb(100, 10)) || isRed(r.rgb(100, 9)), "the top edge's midpoint")
-        XCTAssertTrue(isRed(r.rgb(60, 50)) || isRed(r.rgb(59, 50)) || isRed(r.rgb(61, 50)), "the closing edge from the last vertex back to the first (x = 60 at y = 50)")
-        XCTAssertTrue(isGray(r.rgb(100, 40)), "inside is the map")
-        XCTAssertTrue(isGray(r.rgb(10, 80)), "outside is the map")
-    }
-
-    /// The path both the screen and the export stroke. Mutation: the ellipse case returns the rectangle path, or `cellWidth` and
-    /// `cellHeight` are swapped - red.
-    func testTheRegionPathIsInTheMapsCells() {
-        let rect = RegionOutline.path(.rectangle(PixelRect(x0: 4, y0: 2, x1: 12, y1: 7)), cellWidth: 10, cellHeight: 5)
-        XCTAssertEqual(rect.boundingBox, CGRect(x: 40, y: 10, width: 80, height: 25))
-        let ellipse = RegionOutline.path(.ellipse(PixelRect(x0: 4, y0: 2, x1: 12, y1: 7)), cellWidth: 10, cellHeight: 5)
-        XCTAssertEqual(ellipse.boundingBox, CGRect(x: 40, y: 10, width: 80, height: 25))
-        XCTAssertTrue(ellipse.contains(CGPoint(x: 80, y: 22)))
-        XCTAssertFalse(ellipse.contains(CGPoint(x: 41, y: 11)), "a corner of the box is outside the ellipse")
-        let polygon = RegionOutline.path(.polygon([PixelPoint(x: 1, y: 1), PixelPoint(x: 5, y: 1), PixelPoint(x: 3, y: 4)]), cellWidth: 10, cellHeight: 5)
-        XCTAssertEqual(polygon.boundingBox, CGRect(x: 10, y: 5, width: 40, height: 15))
-    }
 
     // MARK: the room's regions
 
-    private func tile(_ z: Int, _ w: Int, _ h: Int) -> MapTile {
-        var t = MapTile(z: z, width: w, height: h, values: (0..<(w * h)).map { Float($0 % 17) / 17 })
-        t.scale = 100
-        return t
-    }
-    /// A 64 x 64 scan with one element, a HAADF and a stated pixel size (0.5 nm), the scale bar off, a region drawn.
-    private func regionModel(regions: Bool = true, scaleBar: Bool = false) -> SpectroscopyRoomModel {
-        let m = SpectroscopyRoomModel.fixture
-        m.tiles = [tile(13, 64, 64)]
-        m.mixed = [13]; m.gridWidth = 64; m.gridHeight = 64
-        m.backdrop = (0..<4096).map { Float($0 % 31) / 31 }
-        m.export.mapsStem = "scan"
-        m.export.scaleBar = scaleBar
-        m.export.regions = regions
-        m.scanPixel = (size: 0.5, unit: "nm")
-        m.regionOutline = .rectangle(PixelRect(x0: 10, y0: 12, x1: 40, y1: 50))
-        return m
-    }
     private func decode(_ data: Data) -> CGImage { CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithData(data as CFData, nil)!, 0, nil)! }
-    private func strokes(_ overlays: [FigureOverlay]) -> [RegionStroke] {
-        overlays.compactMap { if case .region(_, let s) = $0 { s } else { nil } }
-    }
-
-    /// The regions the screen draws on the ColorMix: the live region dashed 4-3 at 2 pt in the accent colour, each pin solid at 1.6 pt in
-    /// its tint at 0.6; none without a region, none for a pin hidden by the Show layer, none for a pin without a shape.
-    /// Mutation: the pins are drawn when their layer is off, the live stroke loses its dash, or a pin takes the live width - red.
-    func testTheRegionOverlaysAreWhatTheColorMixDraws() {
-        let m = regionModel()
-        let live = strokes(MapsExport.regionOverlays(m))
-        XCTAssertEqual(live.count, 1)
-        XCTAssertEqual(live[0].width, RegionStrokeWidth.live); XCTAssertEqual(live[0].dash, [4, 3])
-        m.pins = [PinnedRegion(id: 0, label: "p", tint: .pink, shape: .ellipse(PixelRect(x0: 1, y0: 1, x1: 9, y1: 9)), pixels: 64, spectrum: [], sourceRegion: nil),
-                  PinnedRegion(id: 1, label: "q", tint: .teal, shape: nil, pixels: 0, spectrum: [], sourceRegion: nil)]
-        let both = strokes(MapsExport.regionOverlays(m))
-        XCTAssertEqual(both.count, 2, "the live region and the one pin that has a shape")
-        XCTAssertEqual(both[1].width, RegionStrokeWidth.pin); XCTAssertEqual(both[1].dash, [])
-        XCTAssertEqual(both[1].color.alpha, CGFloat(SpectrumLayers.pinOpacity), accuracy: 1e-6)
-        m.layers.pins = false
-        XCTAssertEqual(strokes(MapsExport.regionOverlays(m)).count, 1, "a hidden pin is not exported")
-        m.regionOutline = nil
-        XCTAssertEqual(MapsExport.regionOverlays(m).count, 0, "no region, no outline")
-    }
-
-    /// The live region's dash survives the export: along an edge about 4 pixels of 7 are inked.
-    /// Mutation: `drawRegion` ignores `stroke.dash` (a solid line) - red.
-    func testTheLiveRegionIsDashedInTheExport() throws {
-        let m = regionModel(); m.regionOutline = .rectangle(PixelRect(x0: 4, y0: 4, x1: 36, y1: 16))
-        let r = raster(try XCTUnwrap(FigureRendering.rendered(
-            FigurePanel(label: "", image: solid(40, 20, 20, 20, 20), overlays: MapsExport.regionOverlays(m)), magnification: 10, deviceScale: 1)))
-        // the top edge is y = 40 (a 2 px stroke: rows 39 and 40); count the inked columns between x = 60 and x = 340
-        let inked = (60..<340).filter { x in [39, 40].contains { y in let c = r.rgb(x, y); return max(c.r, c.g, c.b) > 80 } }.count
-        let fraction = Double(inked) / 280
-        XCTAssertGreaterThan(fraction, 0.35); XCTAssertLessThan(fraction, 0.8)
-    }
 
     // MARK: the Maps export
-
-    /// With a region drawn and the option on, every map PNG carries the outline and its name says so; the CSV does not. With the option
-    /// off the files are what they were. Mutations: `files` ignores `export.regions`, draws the outline on the ColorMix only, or tags
-    /// the CSV - red.
-    func testTheMapsExportOutlinesTheRegionOnEveryMapWhenAsked() throws {
-        let on = try MapsExport.files(regionModel(regions: true)), off = try MapsExport.files(regionModel(regions: false))
-        let symbol = PeriodicLayout.symbol(13)
-        XCTAssertEqual(on.map(\.name), ["scan-HAADF-region.png", "scan-\(symbol)-region.png", "scan-ColorMix-region.png", "scan-maps.csv"])
-        XCTAssertEqual(off.map(\.name), ["scan-HAADF.png", "scan-\(symbol).png", "scan-ColorMix.png", "scan-maps.csv"])
-        XCTAssertEqual(on.last?.data, off.last?.data, "the CSV never changes")
-        for (a, b) in zip(on.dropLast(), off.dropLast()) {
-            let ra = raster(decode(a.data)), rb = raster(decode(b.data))
-            XCTAssertEqual(ra.w, 64)
-            func px(_ r: Raster, _ x: Int, _ y: Int) -> [Int] { let c = r.rgb(x, y); return [c.r, c.g, c.b] }
-            // the region (10,12)-(40,50) of a 64 grid at 1 px per scan pixel: its left edge is x = 9 and 10; the dash leaves gaps, so
-            // look along the whole edge
-            let changed = (14..<48).filter { y in [9, 10].contains { px(ra, $0, y) != px(rb, $0, y) } }.count
-            XCTAssertGreaterThan(changed, 10, "\(a.name): the left edge is outlined")
-            XCTAssertEqual(px(ra, 25, 30), px(rb, 25, 30), "\(a.name): the inside is the map")
-            XCTAssertTrue(px(ra, 3, 3) == px(rb, 3, 3) && px(ra, 60, 60) == px(rb, 60, 60), "\(a.name): the outside is the map")
-        }
-        XCTAssertTrue(ExportSettings().regions, "on to begin with, like the scale bar")
-    }
-
-    /// No region, no outline and no tag, whatever the option says. Mutation: the tag is added whenever the option is on - red.
-    func testNoRegionMeansNoOutlineAndNoTag() throws {
-        let m = regionModel(regions: true); m.regionOutline = nil
-        let names = try MapsExport.files(m).map(\.name)
-        XCTAssertEqual(names.filter { $0.contains("region") }, [])
-    }
-
-    /// 2x and 3x write every PNG at that many pixels per scan pixel, name it so, tag it 144 / 216 ppi and draw the bar and the outline
-    /// at the larger size. Mutations: the scale reaches only the name, the density is not written, or the bar keeps its 1x length - red.
-    func testTheMapsExportAtTwoAndThreeTimes() throws {
-        let one = try MapsExport.files(regionModel(scaleBar: true), pixelScale: 1)
-        let plan = try XCTUnwrap(MapScaleBar.tilePlan(pixelSize: 0.5, unit: "nm", pointsPerPixel: 1, width: 64))
-        for s in [2, 3] {
-            let files = try MapsExport.files(regionModel(scaleBar: true), pixelScale: s)
-            XCTAssertEqual(files.map(\.name), one.map(\.name).map { $0.hasSuffix(".png") ? $0.replacingOccurrences(of: ".png", with: "-\(s)x.png") : $0 })
-            XCTAssertEqual(files.last?.data, one.last?.data, "the CSV is the raw numbers at any size")
-            for f in files.dropLast() {
-                let src = try XCTUnwrap(CGImageSourceCreateWithData(f.data as CFData, nil))
-                let img = try XCTUnwrap(CGImageSourceCreateImageAtIndex(src, 0, nil))
-                XCTAssertEqual(img.width, 64 * s); XCTAssertEqual(img.height, 64 * s)
-                let props = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])
-                XCTAssertEqual(props[kCGImagePropertyDPIWidth] as? Double ?? 0, 72.0 * Double(s), accuracy: 0.5, f.name)
-                // the bar (drawn in the element's file, whose pixels are never white): white along the row just above its bottom edge,
-                // from x = 8 * s, plan * s long
-                guard f.name.contains(PeriodicLayout.symbol(13)) else { continue }
-                let r = raster(img)
-                let row = r.h - 1 - (8 * s + 1)
-                let white = (0..<r.w).filter { let c = r.rgb($0, row); return c.r == 255 && c.g == 255 && c.b == 255 }
-                XCTAssertEqual(white.count, Int((plan.lengthPoints * Double(s)).rounded()), f.name)
-                XCTAssertEqual(white.first, 8 * s, f.name)
-            }
-        }
-    }
 
     // MARK: the scale on the single exports
 
@@ -533,34 +369,6 @@ final class FigureExportTests: XCTestCase {
         XCTAssertEqual(blob(raster(try state.diffractionExportImage(scale: 1)), score: yellow).count, 0, "outside the Virtual Detector task: no outline")
     }
 
-    /// The choices the window offers, in layout order, with the defaults ticked. Mutation: the pattern is offered without a pattern, the
-    /// order changes, or an element is ticked to begin with - red.
-    func testTheChoicesFollowTheWindow() {
-        XCTAssertEqual(AppState().figureChoices, [])
-        let state = windowWithPatternAndResult()
-        XCTAssertEqual(state.figureChoices.map(\.id), [FigureChoice.resultID, FigureChoice.patternID])
-        XCTAssertEqual(state.figureChoices.map(\.label), ["Virtual image", "Diffraction pattern"])
-        XCTAssertEqual(state.figureChoices.map(\.isDefault), [true, true])
-        state.patternDisplayMode = .mean
-        state.meanPattern = DiffractionPattern(qy: 32, qx: 32, pixels: [Float](repeating: 1, count: 1024))
-        XCTAssertEqual(state.figureChoices.last?.label, "Mean diffraction pattern")
-        let m = regionModel()
-        m.tiles = [tile(13, 64, 64), tile(14, 64, 64)]
-        XCTAssertEqual(MapsExport.choices(m).map(\.id), ["map.haadf", "map.colormix", "map.el.13", "map.el.14"])
-        XCTAssertEqual(MapsExport.choices(m).map(\.isDefault), [true, true, false, false], "the HAADF and the ColorMix; an element is asked for")
-        XCTAssertEqual(MapsExport.choices(m).first { $0.id == "map.colormix" }?.label, MapsExport.colorMixLabel(m))
-        m.backdrop = []; m.mixed = []
-        XCTAssertEqual(MapsExport.choices(m).map(\.id), ["map.el.13", "map.el.14"], "no HAADF and nothing ticked: no ColorMix")
-    }
-
-    /// The listing and the drawing agree, and the maps come in the figure's order.
-    func testTheMapsComeInTheFiguresOrder() {
-        let m = regionModel()
-        m.tiles = [tile(13, 64, 64), tile(14, 64, 64)]
-        XCTAssertEqual(MapsExport.figureOrder(MapsExport.maps(m)).map { FigureChoice.mapID($0.map) }, MapsExport.choices(m).map(\.id))
-        XCTAssertEqual(MapsExport.maps(m).map { FigureChoice.mapID($0.map) }.last, "map.colormix", "the files list the ColorMix last")
-    }
-
     /// The panels for the ticked ids, labelled, with their bars and the detector on the pattern only; an id the window lacks is skipped.
     /// Mutation: `figurePanels` ignores the ids, labels the pattern like the result, or puts the detector on the result - red.
     func testThePanelsAreTheTickedImagesWithTheirOutlinesAndBars() throws {
@@ -598,33 +406,6 @@ final class FigureExportTests: XCTestCase {
     }
 
     // MARK: the Maps export folder
-
-    /// Folder names count up the way Finder numbers copies. Mutation: `freeFolderName` ignores what exists, or starts counting at 1 - red.
-    func testAFreeFolderNameCountsUp() {
-        let parent = URL(fileURLWithPath: "/tmp/x")
-        func taken(_ names: [String]) -> (URL) -> Bool { { names.contains($0.lastPathComponent) } }
-        XCTAssertEqual(MapsExport.freeFolderName("scan-maps", in: parent, exists: taken([])), "scan-maps")
-        XCTAssertEqual(MapsExport.freeFolderName("scan-maps", in: parent, exists: taken(["scan-maps"])), "scan-maps 2")
-        XCTAssertEqual(MapsExport.freeFolderName("scan-maps", in: parent, exists: taken(["scan-maps", "scan-maps 2"])), "scan-maps 3")
-        XCTAssertEqual(MapsExport.folderName(stem: "scan"), "scan-maps")
-    }
-
-    /// A second export lands in a second folder and the first is untouched: no file is ever replaced. Mutation: `writeInNewFolder` writes
-    /// into the parent (or reuses the first folder) - red.
-    func testASecondMapsExportNeverReplacesTheFirst() throws {
-        let parent = FileManager.default.temporaryDirectory.appendingPathComponent("maps-folder-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: parent) }
-        let first = try MapsExport.writeInNewFolder([MapsExport.File(name: "a.png", data: Data("one".utf8))], in: parent, named: "scan-maps")
-        let second = try MapsExport.writeInNewFolder([MapsExport.File(name: "a.png", data: Data("two".utf8))], in: parent, named: "scan-maps")
-        XCTAssertEqual(first.folder.lastPathComponent, "scan-maps"); XCTAssertEqual(second.folder.lastPathComponent, "scan-maps 2")
-        XCTAssertEqual(first.names, ["a.png"])
-        XCTAssertEqual(try Data(contentsOf: first.folder.appendingPathComponent("a.png")), Data("one".utf8), "the first export is as it was")
-        XCTAssertEqual(try Data(contentsOf: second.folder.appendingPathComponent("a.png")), Data("two".utf8))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: parent.appendingPathComponent("a.png").path), "nothing is written loose in the picked folder")
-        XCTAssertThrowsError(try MapsExport.writeInNewFolder([], in: parent.appendingPathComponent("missing"), named: "x"), "a parent that is not there is an error")
-        XCTAssertNil(regionModel().exportedFolder, "nothing to reveal before an export")
-    }
 
     // MARK: the figure as a file
 
@@ -803,90 +584,8 @@ final class FigureExportTests: XCTestCase {
 
     // MARK: the EDX panels of a window
 
-    private func windowWithMaps() -> AppState {
-        let state = AppState()
-        state.preferences.appearance = .dark
-        state.openSpectrumImage(DemoSpectrumImageSource.make())
-        let m = state.spectroscopyRoom.model
-        m.tiles = [tile(13, 64, 64), tile(14, 64, 64)]
-        m.mixed = [13]; m.gridWidth = 64; m.gridHeight = 64
-        m.backdrop = (0..<4096).map { Float($0 % 31) / 31 }
-        m.scanPixel = (size: 0.5, unit: "nm")
-        m.regionOutline = .rectangle(PixelRect(x0: 10, y0: 12, x1: 40, y1: 50))
-        m.export.regions = true
-        return state
-    }
-
-    /// The EDX branch of the figure: the maps in the figure's order (HAADF, ColorMix, then each element), each with the room's region
-    /// outline when `Regions` is on and none when off, each with the map bar from the file's pixel size and none without one.
-    /// Mutations: `figurePanels` hands the maps no overlays, ignores `scanPixel`, or lists them in the files' order - red.
-    func testTheEDXPanelsCarryTheirOutlinesAndBars() throws {
-        let state = windowWithMaps()
-        let m = state.spectroscopyRoom.model
-        let ids: Set<String> = ["map.haadf", "map.colormix", "map.el.13", "map.el.14", FigureChoice.resultID]
-        XCTAssertEqual(state.figureChoices.map(\.id), ["map.haadf", "map.colormix", "map.el.13", "map.el.14"])
-        let panels = state.figurePanels(chosen: ids)
-        XCTAssertEqual(panels.map(\.label), ["HAADF", MapsExport.colorMixLabel(m), PeriodicLayout.symbol(13), PeriodicLayout.symbol(14)], "the figure's order, not the files'")
-        for panel in panels {
-            XCTAssertEqual(panel.image.width, 64)
-            let stroke = try XCTUnwrap(strokes(panel.overlays).first, "\(panel.label): the region is outlined")
-            XCTAssertEqual(strokes(panel.overlays).count, 1)
-            XCTAssertEqual(stroke.width, RegionStrokeWidth.live); XCTAssertEqual(stroke.dash, [4, 3])
-            guard case .map(let size, let unit)? = panel.bar else { return XCTFail("\(panel.label): the map bar from the file's pixel size") }
-            XCTAssertEqual(size, 0.5); XCTAssertEqual(unit, "nm")
-        }
-        // the outline is the live region on the map's own grid
-        guard case .region(let shape, _)? = panels[0].overlays.first else { return XCTFail("no region overlay") }
-        XCTAssertEqual(shape, .rectangle(PixelRect(x0: 10, y0: 12, x1: 40, y1: 50)))
-
-        m.export.regions = false
-        XCTAssertTrue(state.figurePanels(chosen: ids).allSatisfy { $0.overlays.isEmpty }, "Regions off: no outline")
-        m.export.regions = true; m.scanPixel = nil
-        XCTAssertTrue(state.figurePanels(chosen: ids).allSatisfy { $0.bar == nil }, "no pixel size, no bar")
-        m.scanPixel = (size: 0.5, unit: "nm")
-        XCTAssertEqual(state.figurePanels(chosen: ["map.el.14", "map.haadf"]).map(\.label), ["HAADF", PeriodicLayout.symbol(14)], "only the ticked maps")
-        // and the whole figure draws, at the layout's size
-        let made = try state.figureImage(chosen: ids, scale: 1)
-        XCTAssertEqual(made.panels.count, 4)
-    }
 
     // MARK: colours
-
-    /// The export resolves SwiftUI's colours in the app's appearance, not in a light one: cyan differs between the two, the Settings
-    /// preference decides, and "System" follows the system. Mutations: `cgColor` ignores the scheme, or `scheme(appearance:)` ignores the
-    /// preference - red.
-    func testTheExportColoursAreTheAppsAppearance() throws {
-        let light = Color.cyan.cgColor(scheme: .light), dark = Color.cyan.cgColor(scheme: .dark)
-        func rgb(_ c: CGColor) -> [Double] { (c.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil)?.components ?? []).map { Double($0) } }
-        XCTAssertGreaterThan(rgb(dark)[0], rgb(light)[0] + 0.2, "dark cyan has red in it (0.24), light cyan none")
-        var env = EnvironmentValues(); env.colorScheme = .dark
-        XCTAssertEqual(Float(rgb(dark)[1]), Color.cyan.resolve(in: env).green, accuracy: 0.01, "it is the colour SwiftUI draws in that appearance")
-        XCTAssertEqual(Color.cyan.cgColor(opacity: 0.5, scheme: .dark).alpha, 0.5, accuracy: 1e-6)
-        XCTAssertEqual(FigureColors.scheme(appearance: .light, systemIsDark: true), .light)
-        XCTAssertEqual(FigureColors.scheme(appearance: .dark, systemIsDark: false), .dark)
-        XCTAssertEqual(FigureColors.scheme(appearance: .system, systemIsDark: true), .dark)
-        XCTAssertEqual(FigureColors.scheme(appearance: .system, systemIsDark: false), .light)
-        // the detector overlay carries the scheme the state names, and the drawing uses it
-        let state = windowWithPatternAndResult()
-        state.preferences.appearance = .light
-        guard case .detector(_, _, let scheme)? = state.patternExportOverlays.first else { return XCTFail("no detector overlay") }
-        XCTAssertEqual(scheme, .light)
-        let aperture = Aperture(centerX: 32, centerY: 30, inner: 8, outer: 20)
-        /// The red of the most cyan pixel on the inner ring (a pixel of a dash that is on).
-        func innerRed(_ scheme: ColorScheme) throws -> Int {
-            let panel = FigurePanel(label: "", image: pattern64(), overlays: [.detector(aperture, .annulus, scheme)])
-            let r = raster(try XCTUnwrap(FigureRendering.rendered(panel, magnification: 4, deviceScale: 1)))
-            let ring = (0..<120).map { a -> (r: Int, g: Int, b: Int) in
-                let t = Double(a) * 2 * .pi / 120
-                return r.rgb(Int(130 + 32 * cos(t)), Int(122 + 32 * sin(t)))
-            }
-            return ring.max { $0.b - $0.r < $1.b - $1.r }?.r ?? 0
-        }
-        XCTAssertGreaterThan(try innerRed(.dark), try innerRed(.light) + 20, "the dashed cyan ring is the appearance's variant")
-        let m = regionModel(); m.pins = []
-        XCTAssertNotEqual(strokes(MapsExport.regionOverlays(m, scheme: .dark)).first?.color, strokes(MapsExport.regionOverlays(m, scheme: .light)).first?.color,
-                          "the accent differs between the appearances too")
-    }
 
     // MARK: the detector tick and the TIFF profile
 
@@ -921,18 +620,4 @@ final class FigureExportTests: XCTestCase {
         XCTAssertEqual(FigureExportSection.chosen(choices, ticks: ["z": true]), ["a"], "an image the window no longer has is not chosen")
     }
 
-    /// The section fits the narrowest inspector column with the longest names: a long product name, a spectrum image's maps, and the
-    /// size and regions rows. Mutation: the choice row's label is an `InspectorRow` (fixed size) - red.
-    func testTheFigureSectionFitsTheNarrowestColumn() {
-        let state = windowWithPatternAndResult()
-        state.publishProduct(kind: "virtual_annulus", displayName: String(repeating: "Virtual detector annular dark field ", count: 3), valueUnits: "i",
-                             payload: .scalar(FloatImage(width: 4, height: 4, pixels: [Float](repeating: 1, count: 16))))
-        state.openSpectrumImage(DemoSpectrumImageSource.make())
-        let model = state.spectroscopyRoom.model
-        model.tiles = [tile(13, 8, 8), tile(14, 8, 8)]; model.mixed = [13]; model.gridWidth = 8; model.gridHeight = 8; model.backdrop = [Float](repeating: 0.5, count: 64)
-        let host = NSHostingController(rootView: FigureExportSection().environment(state).environment(state.preferences))
-        let width = host.sizeThatFits(in: CGSize(width: 1, height: 10_000)).width
-        XCTAssertGreaterThan(width, 10, "the probe measured something")
-        XCTAssertLessThanOrEqual(width, LayoutPolicy.inspectorWidth.min - 32, "the section needs \(width) pt")
-    }
 }

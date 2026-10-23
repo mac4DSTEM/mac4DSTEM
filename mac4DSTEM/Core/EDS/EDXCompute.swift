@@ -35,10 +35,14 @@ package nonisolated enum EDXRegion: Equatable, Sendable {
     case ellipse(PixelRect)
     /// A closed polygon, vertices in pixel coordinates (the last joins the first).
     case polygon([PixelPoint])
+    /// mac4DSTEM: a pool of the 4D scan (a phase, a diffraction group, what was not indexed) on the spectrum image's grid, through
+    /// the registration the window states (`PoolCatalogue`). Not drawn; chosen in the inspector's Source row.
+    case pool(EDXPoolRegion)
 
     package var name: String {
         switch self {
         case .wholeMap: "Whole map"
+        case .pool(let p): p.name
         default: "Region"
         }
     }
@@ -50,6 +54,7 @@ package nonisolated enum EDXRegion: Equatable, Sendable {
         case .rectangle: "rectangle"
         case .ellipse: "ellipse"
         case .polygon: "polygon"
+        case .pool(let p): p.kind
         }
     }
 
@@ -59,11 +64,15 @@ package nonisolated enum EDXRegion: Equatable, Sendable {
         case .rectangle(let r): .rectangle(r)
         case .ellipse(let r): .ellipse(r)
         case .polygon(let v): .polygon(v)
+        case .pool: nil
         }
     }
 
-    /// nil = every pixel (the kit's convention).
-    package func mask(nx: Int, ny: Int) -> PixelMask? { shape?.mask(nx: nx, ny: ny) }
+    /// nil = every pixel (the kit's convention). A pool is its own mask.
+    package func mask(nx: Int, ny: Int) -> PixelMask? {
+        if case .pool(let p) = self { return p.mask.count == nx * ny ? p.mask : Array(repeating: false, count: nx * ny) }
+        return shape?.mask(nx: nx, ny: ny)
+    }
 
     package func pixelCount(nx: Int, ny: Int) -> Int {
         mask(nx: nx, ny: ny).map { $0.reduce(0) { $0 + ($1 ? 1 : 0) } } ?? nx * ny
@@ -76,7 +85,23 @@ package nonisolated enum EDXRegion: Equatable, Sendable {
         case .rectangle(let r): "rect:\(r.x0),\(r.y0),\(r.x1),\(r.y1)"
         case .ellipse(let r): "ellipse:\(r.x0),\(r.y0),\(r.x1),\(r.y1)"
         case .polygon(let v): "poly:" + v.map { "\($0.x),\($0.y)" }.joined(separator: ";")
+        case .pool(let p): "pool:" + p.key
         }
+    }
+}
+
+/// mac4DSTEM: a pool of the 4D scan as an EDS region. `key` names its content (the pool's id and the product generation it was built
+/// from), so a rebuilt pool is a new cache entry and never a stale spectrum.
+package nonisolated struct EDXPoolRegion: Equatable, Sendable {
+    /// "phase", "group" or "notIndexed": the replay step's `region_kind`.
+    package var kind: String
+    package var name: String
+    package var mask: PixelMask
+    package var key: String
+    /// "none" for a phase map's pools (the phase map is unvalidated); nil for a group.
+    package var validation: String?
+    package init(kind: String, name: String, mask: PixelMask, key: String, validation: String? = nil) {
+        self.kind = kind; self.name = name; self.mask = mask; self.key = key; self.validation = validation
     }
 }
 
@@ -334,7 +359,7 @@ package nonisolated enum EDXCompute {
     // MARK: Export
 
     /// The first `#` line of the results CSV names this app; the kit's own default is the neutral "Spectroscopy quantification".
-    package static let csvTitle = "macTEM Spectroscopy quantification"
+    package static let csvTitle = "mac4DSTEM Spectroscopy quantification"
 
     package static func resultsCSV(_ q: PooledQuantification, regionName: String) -> String {
         SpectroscopyExport.csv(q, regionName: regionName, title: csvTitle)

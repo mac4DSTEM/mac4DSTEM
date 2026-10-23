@@ -65,8 +65,8 @@ extension AppState {
     /// lands on the 4D cube's room as before and the Spectroscopy room is then one ⌘6 away.
     func attachSpectrumImage(_ source: any SpectrumImageSource) {
         spectroscopy.open(source)
-        wireSpectroscopyOperations()
-        spectroscopyRoom.bind(source, session: spectroscopy, hasFourDCube: hasDataset)
+        wireEDS()
+        edx.bind(source)
         // E1: the only registration the app states is the identity of a GMS joint attach (same Experiment ID and scan grid).
         if hasDataset, source.metadata.sameScanAsCube {
             spectroscopy.registration = PoolCatalogue.identityRegistration(width: source.nx, height: source.ny)
@@ -82,7 +82,7 @@ extension AppState {
     /// Set once; the products hold nothing of the room.
     func wirePoolHooks() {
         phaseMapping.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
-        spectroscopyRoom.onQuantMapsChange = { [weak self] in self?.refreshPrecipitateJoins() }
+        edx.onQuantMapsChange = { [weak self] in self?.refreshPrecipitateJoins() }
         diffractionGroups.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
     }
 
@@ -106,25 +106,8 @@ extension AppState {
             guard let self, !Task.isCancelled, self.spectroscopy.poolRequest == request else { return }
             self.refreshPrecipitateJoins()   // the registration may have changed with the pools
             let change = self.spectroscopy.applyPools(catalogue)
-            self.spectroscopyRoom.poolsChanged(change)
+            self.edx.applyPools(Self.edsPools(catalogue))
             if let sentence = change.selectionSentence { self.statusText = sentence }
-        }
-    }
-
-    /// Quantify and Auto ID run as operations (spec 2 D-12): the room's controller holds no `AppState`, so it is handed the two
-    /// calls. The status line says what runs and is put back when it ends, if nothing else has replaced it meanwhile.
-    func wireSpectroscopyOperations() {
-        final class Status { var before = ""; var shown = "" }
-        let status = Status()
-        spectroscopyRoom.operation = { [weak self] name, line in
-            guard let self else { return AnalysisCancellationToken() }
-            status.before = self.statusText; status.shown = line
-            return self.beginCancellableOperation(name, status: line)
-        }
-        spectroscopyRoom.finishOperation = { [weak self] token in
-            guard let self else { return }
-            self.finishCancellableOperation(token)
-            if self.statusText == status.shown { self.statusText = status.before }
         }
     }
 
@@ -299,24 +282,6 @@ enum QuantificationRows {
 extension AppState {
     /// The Results room's Quantify rows. Only a window with a 4D cube has them; an EMD opened alone stays Export-only (P4 b).
     var quantificationRows: [QuantificationRow] { hasDataset ? QuantificationRows.rows(in: replay.lineage) : [] }
-}
-
-extension SpectroscopyRoomController {
-    /// The shown fit's numbers as step keys, from the same cells the Results table prints: `result_at` / `result_wt` ("Al 97.6 ± 0.5
-    /// · Si 1.5 ± 0.3", elements with a number only), `result_unit` (at% and, when the correction was off, its honesty label) and
-    /// `validation` ("none" while the fit is unvalidated). Empty before a fit.
-    var resultParameters: [String: String] {
-        guard model.hasFit else { return [:] }
-        func line(_ unit: AbundanceUnit) -> String {
-            model.results.filter { $0.hasAbundance && $0.failure == nil }
-                .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true, locale: ResultFormat.recordLocale).abundance)" }
-                .joined(separator: " \u{00B7} ")
-        }
-        var p = ["result_at": line(.atomic), "result_wt": line(.weight),
-                 "result_unit": "at%" + (model.abundanceWithoutAbsorption ? " " + ResultFormat.noAbsorptionLabel : "")]
-        if model.unvalidated { p["validation"] = "none" }
-        return p
-    }
 }
 
 #if DEBUG

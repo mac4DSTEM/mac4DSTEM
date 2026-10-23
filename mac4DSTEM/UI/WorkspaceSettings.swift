@@ -37,7 +37,7 @@ struct WorkspaceSettings: View {
             }
         case .reconstruct: ReconstructionSettings().environment(\.inspectorScope, "settings.phase")
         // v5.0 WP2: lane V's step inspectors replace the placeholder (R2).
-        case .spectroscopy: SpectroscopyInspectorHost().environment(\.inspectorScope, "settings.spectroscopy")
+        case .spectroscopy: EDXRoomSettings().environment(\.inspectorScope, "settings.spectroscopy")
         case .results: ResultsSettings().environment(\.inspectorScope, "settings.results")
         }
     }

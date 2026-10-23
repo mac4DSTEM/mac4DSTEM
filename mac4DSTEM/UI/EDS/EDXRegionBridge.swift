@@ -13,7 +13,7 @@ import SpectroEDX
 enum EDXRegionBridge {
     static func geometry(_ region: EDXRegion) -> RegionGeometry? {
         switch region {
-        case .wholeMap: nil
+        case .wholeMap, .pool: nil
         case .rectangle(let r): .rectangle(x0: Double(r.x0), y0: Double(r.y0), x1: Double(r.x1), y1: Double(r.y1))
         case .ellipse(let r): .ellipse(x0: Double(r.x0), y0: Double(r.y0), x1: Double(r.x1), y1: Double(r.y1))
         case .polygon(let v): .polygon(v.map { RegionPoint(x: $0.x, y: $0.y) })

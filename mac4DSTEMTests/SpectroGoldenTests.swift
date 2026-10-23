@@ -133,7 +133,7 @@ enum GoldenDump {
 
 @MainActor
 enum SpectroGolden {
-    typealias Q = SpectroscopyQuantifyTests
+    typealias Q = SpectroQuantFixtures
 
     static let fixtures = Q.fixtures
 
@@ -194,7 +194,7 @@ enum SpectroGolden {
                          unlisted: Bool = true) throws {
         let q = try PooledQuantifier.run(input, tables: tables)
         GoldenDump.dump("\(tag).quantification", q, into: &out)
-        out.append("\(tag).csv-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(q, regionName: input.regionName, title: SpectroscopyRoomController.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
+        out.append("\(tag).csv-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(q, regionName: input.regionName, title: EDXCompute.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
         GoldenDump.dump("\(tag).rangeSensitivity", FitRangeSensitivityCheck.run(input: input, quantification: q) as Any, into: &out)
         guard unlisted else { return }
         let proposal = try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: q)
@@ -204,7 +204,7 @@ enum SpectroGolden {
         let shown = UnlistedLineChecker.withholding(q, check)
         GoldenDump.dump("\(tag).withholding", [shown.rows.map(\.atomicPercent), shown.rows.map(\.net)] as [Any], into: &out)
         GoldenDump.dump("\(tag).withholding.caveat", shown.abundanceCaveat as Any, into: &out)
-        out.append("\(tag).csv-withholding-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(shown, regionName: input.regionName, title: SpectroscopyRoomController.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
+        out.append("\(tag).csv-withholding-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(shown, regionName: input.regionName, title: EDXCompute.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
     }
 
     static func windows(_ tag: String, _ image: LoadedSpectrumImage, _ symbols: [String], into out: inout [String]) {
