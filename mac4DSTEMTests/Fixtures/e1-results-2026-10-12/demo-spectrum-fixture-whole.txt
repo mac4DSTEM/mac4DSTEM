@@ -10,26 +10,26 @@ z14 32x32: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 # mac4DSTEM Spectroscopy quantification, region: Whole map
 # validation: net counts and k-free ratios only; no at% was computed
 # unlisted-line check: no unlisted line at or above Currie L_D (proposer on this pooled spectrum, sum-peak questions counted)
-# method hash (sha256 of the method JSON): 8e195793b75ea86d4a303c663cbb35e325afe83007b666954f89c3966442e464
+# method hash (sha256 of the method JSON): 77e134fc794c525199cf65379eafdc23203a56333401123fb726cc6bee09aac4
 # least squares, unweighted · continuum: Kramers×Bernstein(9,5), split at 1.5596 keV; orders chosen on synthetic data · escape peaks: none (no line above the Si K edge, 1.839 keV)
 # energy axis: file 0.000 keV + 0.0100 keV/ch → refined -484.2 eV, gain +32.711 %, FWHM(Mn Kα) 157 eV
 # beam 200 kV · typed
 # fit range 0.2–13.0922 keV (default; the axis end) · 1024 px pooled (Whole map)
 # σ: counting only; model choice can move a weak line by more
 # σ is counting statistics at χ²ᵣ = 1; this fit is at 0.47 (Pearson)
-# k: computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs; relative to Al; beam 200.0 keV; UNVALIDATED (EPQ 249dd3f8 + Krause 1979 + FFAST); σ_k 20 % flat, 0 on the reference (Al)
+# k: computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not a measured calibration of this detector; FFAST MACs; relative to Al; beam 200.0 keV; UNVALIDATED (EPQ 249dd3f8 + Krause 1979 + FFAST); σ_k 20 % flat, 0 on the reference (Al)
 # k-free ratio: net / net(Al)
 # absorption: not applied — The stage tilt is not known, so the absorption geometry cannot be computed.
 # axis refinement residual (RSS): file 39110, refined 25406
 # χ²ᵣ (Pearson) 0.466294
-# warning: a weak line next to Al Kα reads low by ≈ 300 counts per pooled spectrum on synthetic data (cause: the Al Kα incomplete-charge tail, unmodelled until the owner's pure-Al reference spectrum is supplied); unmeasured on real data. Weak-line bias measured on synthetic data: Δ = −295 ± 31 counts at 900 planted Mg Kα (generator A, no tail: continuum–line projection) and −310 ± 23 at 882 (generator S); −402 ± 33 at 3000 (A) and −310 ± 23 at 2899 (S)
+# warning: a weak line next to Al Kα reads low by ≈ 300 counts per pooled spectrum on synthetic data (cause: the Al Kα incomplete-charge tail, unmodelled until a tail is measured on an Al matrix, `TailEstimate`); unmeasured on real data. Weak-line bias measured on synthetic data: Δ = −295 ± 31 counts at 900 planted Mg Kα (generator A, no tail: continuum–line projection) and −310 ± 23 at 882 (generator S); −402 ± 33 at 3000 (A) and −310 ± 23 at 2899 (S)
 element,line,net_counts,sigma_net,kfree_ratio,sigma_kfree,at_percent,sigma_at_percent,validation,flags,estimator
 Mg,Mg_Ka,0,65.3222,0,0.0162361,,,,"held at 0 by the non-negativity bound: not detected, sigma is an upper-limit scale","least squares, unweighted"
 Al,Al_Ka,4023.27,117.993,1,,,,,reference element,"least squares, unweighted"
 Si,Si_Ka,0,16.3987,0,0.00407597,,,,"held at 0 by the non-negativity bound: not detected, sigma is an upper-limit scale","least squares, unweighted"
 
 == method json
-{"method":{"absorptionCorrection":true,"background":"empiricalWithAlEdge","beamEnergyKeV":200,"elements":[{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1},"sha256":"8e195793b75ea86d4a303c663cbb35e325afe83007b666954f89c3966442e464"}
+{"method":{"absorptionCorrection":true,"background":"empiricalWithAlEdge","beamEnergyKeV":200,"elements":[{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not a measured calibration of this detector; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1},"sha256":"77e134fc794c525199cf65379eafdc23203a56333401123fb726cc6bee09aac4"}
 
 == results footer
 least squares, unweighted · continuum: Kramers×Bernstein(9,5), split at 1.5596 keV; orders chosen on synthetic data · escape peaks: none (no line above the Si K edge, 1.839 keV)
@@ -38,13 +38,13 @@ beam 200 kV · typed
 fit range 0.2–13.0922 keV (default; the axis end) · 1024 px pooled (Whole map)
 σ: counting only; model choice can move a weak line by more
 σ is counting statistics at χ²ᵣ = 1; this fit is at 0.47 (Pearson)
-k: computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs; relative to Al; beam 200.0 keV; UNVALIDATED (EPQ 249dd3f8 + Krause 1979 + FFAST); σ_k 20 % flat, 0 on the reference (Al)
+k: computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not a measured calibration of this detector; FFAST MACs; relative to Al; beam 200.0 keV; UNVALIDATED (EPQ 249dd3f8 + Krause 1979 + FFAST); σ_k 20 % flat, 0 on the reference (Al)
 k-free ratio: net / net(Al)
 absorption: not applied — The stage tilt is not known, so the absorption geometry cannot be computed.
 == fit footer
 least squares, unweighted · continuum: Kramers×Bernstein(9,5) · χ²ᵣ 0.47 (Pearson)
 == warnings
-Optional("a weak line next to Al Kα reads low by ≈ 300 counts per pooled spectrum on synthetic data (cause: the Al Kα incomplete-charge tail, unmodelled until the owner\'s pure-Al reference spectrum is supplied); unmeasured on real data. Weak-line bias measured on synthetic data: Δ = −295 ± 31 counts at 900 planted Mg Kα (generator A, no tail: continuum–line projection) and −310 ± 23 at 882 (generator S); −402 ± 33 at 3000 (A) and −310 ± 23 at 2899 (S)")
+Optional("a weak line next to Al Kα reads low by ≈ 300 counts per pooled spectrum on synthetic data (cause: the Al Kα incomplete-charge tail, unmodelled until a tail is measured on an Al matrix, `TailEstimate`); unmeasured on real data. Weak-line bias measured on synthetic data: Δ = −295 ± 31 counts at 900 planted Mg Kα (generator A, no tail: continuum–line projection) and −310 ± 23 at 882 (generator S); −402 ± 33 at 3000 (A) and −310 ± 23 at 2899 (S)")
 == lineage parameters (last quantification step)
 absorption=on
 background=Empirical
@@ -53,9 +53,9 @@ elements=Mg, Al, Si
 estimator=Least squares
 k_factors=Computed
 map_lines=Mg Kα, Al Kα, Si Kα
-method=8e195793
-method_hash=8e195793b75ea86d4a303c663cbb35e325afe83007b666954f89c3966442e464
-method_json={"absorptionCorrection":true,"background":"empiricalWithAlEdge","beamEnergyKeV":200,"elements":[{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1}
+method=77e134fc
+method_hash=77e134fc794c525199cf65379eafdc23203a56333401123fb726cc6bee09aac4
+method_json={"absorptionCorrection":true,"background":"empiricalWithAlEdge","beamEnergyKeV":200,"elements":[{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not a measured calibration of this detector; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1}
 region_kind=wholeMap
 region_name=Whole map
 result_at=
