@@ -2,7 +2,7 @@
 //  SpectroscopyEDSAdoptionTests.swift
 //  The Spectroscopy room on MacEMUI 0.3.0 (EDS adoption, 2026-10-22): the region bridge (what the drawing layer reports becomes the
 //  room's calls), selection and delete, the colour mix and the grid items, the tile caption, the Maps caption, the periodic table's
-//  actions, the local MacEMUI package, and rule 11 (the display filter on by default, display only). Pure: no view is drawn here.
+//  actions, the pinned MacEMUI package, and rule 11 (the display filter on by default, display only). Pure: no view is drawn here.
 //  Every test names the mutation that turns it red.
 //
 
@@ -306,15 +306,15 @@ final class SpectroscopyEDSAdoptionTests: XCTestCase {
 
     private var appRoot: URL { URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent() }
 
-    /// The app builds on the sibling MacEMUI checkout until 0.3.0 is tagged, in the package and in the Xcode project.
-    /// Mutation: the pin back to `exact: "0.2.0"` (or any exact pin) in Package.swift, or the project's reference back to the remote - red.
-    func testMacEMUIIsALocalPackage() throws {
+    /// The app builds on the released MacEMUI 0.3.0, in the package and in the Xcode project (the local-path interim ended at the tag).
+    /// Mutation: the pin back to a local path in Package.swift, or the project's reference back to `../MacEMUI` - red.
+    func testMacEMUIIsPinnedToTheReleasedTag() throws {
         let package = try String(contentsOf: appRoot.appendingPathComponent("Package.swift"), encoding: .utf8)
-        XCTAssertTrue(package.contains(".package(path: \"../MacEMUI\")"))
-        XCTAssertFalse(package.contains("MacEMUI\", exact:"))
+        XCTAssertTrue(package.contains(".package(url: \"https://github.com/mac4DSTEM/MacEMUI\", exact: \"0.3.0\")"))
+        XCTAssertFalse(package.contains(".package(path: \"../MacEMUI\")"))
         let project = try String(contentsOf: appRoot.appendingPathComponent("mac4DSTEM.xcodeproj/project.pbxproj"), encoding: .utf8)
-        XCTAssertTrue(project.contains("XCLocalSwiftPackageReference \"../MacEMUI\""))
-        XCTAssertFalse(project.contains("XCRemoteSwiftPackageReference \"MacEMUI\""))
+        XCTAssertTrue(project.contains("XCRemoteSwiftPackageReference \"MacEMUI\""))
+        XCTAssertFalse(project.contains("XCLocalSwiftPackageReference \"../MacEMUI\""))
     }
 
     // MARK: 9. Rule 11

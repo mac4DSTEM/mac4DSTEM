@@ -185,7 +185,7 @@ final class SpectroscopyRoomMapsTests: XCTestCase {
 
 @MainActor
 final class SpectroscopyRoomLiveRegionTests: XCTestCase {
-    /// A dense image with a Cu line (8.04 keV) in the top-left pixels and Al (1.487) everywhere; 200 kV in the metadata.
+    /// A dense image with a Cu line (8.04 keV) in the top-left pixels and Al (1.487) everywhere, on a continuum; 200 kV in the metadata.
     static func image(nx: Int = 8, ny: Int = 6) -> LoadedSpectrumImage {
         let channels = 1024
         var counts = [UInt32](repeating: 0, count: nx * ny * channels)
@@ -193,7 +193,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
             let cu = x < nx / 2 && y < ny / 2
             for c in 0..<channels {
                 let e = Double(c) * 0.01
-                var v = 6 * exp(-e / 2) + 40 * exp(-pow(e - 1.487, 2) / (2 * 0.0035))
+                var v = 6 * exp(-e / 2) + 2 + 40 * exp(-pow(e - 1.487, 2) / (2 * 0.0035))   // + 2: a continuum under the Cu line (SpectroKit 0.11.0 refuses a peak on an empty background)
                 if cu { v += 25 * exp(-pow(e - 8.04, 2) / (2 * 0.0100)) }
                 counts[(y * nx + x) * channels + c] = UInt32(v.rounded())
             }

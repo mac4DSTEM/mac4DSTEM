@@ -190,34 +190,36 @@ final class SpectroscopyVeloxL4Tests: XCTestCase {
 
     // MARK: Auto ID on a real spectrum reads the k-factor source
 
-    /// A strong line at 6.72 keV (Ho L-alpha) on every pixel: with Computed k-factors Auto ID lands Ho as Fit only, with a Typed
-    /// k as Quantify (the person's own factor may cover an L line). The controller reads the inspector's choice.
-    /// Mutations: the run passing `computedK: false` - Ho quantifies with Computed k - red; `computedK: true` - Fit only with a
+    /// A strong Ge L-alpha line (1.188 keV) with its weaker K-alpha (9.886 keV, the confirmation line SpectroKit 0.11.0 asks an
+    /// L pick for) on every pixel: Auto ID nominates Ge by its L line, so with Computed k-factors it lands as Fit only, with a
+    /// Typed k as Quantify (the person's own factor may cover an L line). The controller reads the inspector's choice.
+    /// Mutations: the run passing `computedK: false` - Ge quantifies with Computed k - red; `computedK: true` - Fit only with a
     /// Typed k - red.
     func testTheRunReadsTheKFactorSource() async throws {
-        let Ho = 67
+        let Ge = 32
         for kind in [QuantificationMethod.KFactorSource.computed, .typed] {
-            let (_, c) = open(image: Self.holmiumImage())
+            let (_, c) = open(image: Self.germaniumImage())
             c.model.quantify.kSource = kind
             c.runAutoID()
             try await waitFor("the outcome") { c.model.autoID.outcome != nil || c.model.autoID.failure != nil }
             XCTAssertNil(c.model.autoID.failure)
-            let ho = c.model.autoID.outcome?.suggestions.first { $0.z == Ho }
-            XCTAssertNotNil(ho, "precondition: the planted line is proposed as Ho")
-            XCTAssertEqual(ho?.proposedRole, kind == .computed ? .fitOnly : .quantify, "\(kind)")
-            XCTAssertEqual(c.model.elements.role(Ho), kind == .computed ? .fitOnly : .quantify, "the pick landed as proposed (\(kind))")
+            let ge = c.model.autoID.outcome?.suggestions.first { $0.z == Ge }
+            XCTAssertNotNil(ge, "precondition: the planted line is proposed as Ge")
+            XCTAssertEqual(ge?.proposedRole, kind == .computed ? .fitOnly : .quantify, "\(kind)")
+            XCTAssertEqual(c.model.elements.role(Ge), kind == .computed ? .fitOnly : .quantify, "the pick landed as proposed (\(kind))")
         }
     }
 
-    private static func holmiumImage() -> LoadedSpectrumImage {
+    private static func germaniumImage() -> LoadedSpectrumImage {
         let nx = 8, ny = 6, channels = 1024
         var counts = [UInt32](repeating: 0, count: nx * ny * channels)
         for p in 0..<(nx * ny) { for c in 0..<channels {
             let e = Double(c) * 0.01
-            let v = 6 * exp(-e / 2) + 40 * exp(-pow(e - 1.487, 2) / (2 * 0.0035)) + 60 * exp(-pow(e - 6.720, 2) / (2 * 0.0100))
+            let v = 6 * exp(-e / 2) + 2 + 40 * exp(-pow(e - 1.487, 2) / (2 * 0.0035)) + 200 * exp(-pow(e - 1.188, 2) / (2 * 0.0035))
+                + 15 * exp(-pow(e - 9.886, 2) / (2 * 0.0120))
             counts[p * channels + c] = UInt32(v.rounded())
         } }
-        var meta = SpectrumImageMetadata(fileName: "holmium", filePath: "", scanWidth: nx, scanHeight: ny, channelCount: channels,
+        var meta = SpectrumImageMetadata(fileName: "germanium", filePath: "", scanWidth: nx, scanHeight: ny, channelCount: channels,
                                          energyOffsetEV: 0, energyDispersionEV: 10)
         meta.beamEnergyKeV = 200
         return LoadedSpectrumImage(image: DenseSpectrumImage(ny: ny, nx: nx, channels: channels, counts: counts), metadata: meta,

@@ -1,5 +1,5 @@
 {
-  "originHash" : "933b03be413405d0cfa0a465351b293757e08d1e296d29d99bac6e46b2169733",
+  "originHash" : "15a6feedb866336fc4a06124349b5aa9f463c17f6577d42bdab9fc2347b10ada",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -38,12 +38,21 @@
       }
     },
     {
+      "identity" : "macemui",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mac4DSTEM/MacEMUI",
+      "state" : {
+        "revision" : "b800cab772102f50f04f6281955d1214fe719e61",
+        "version" : "0.3.0"
+      }
+    },
+    {
       "identity" : "spectrokit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",
       "state" : {
-        "revision" : "4338e64044a897b7182a7e537447ade6258bc569",
-        "version" : "0.10.0"
+        "revision" : "7e8aa8264adb536d1be230eb81cf11fa02021da0",
+        "version" : "0.12.0"
       }
     }
   ],
