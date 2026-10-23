@@ -265,6 +265,8 @@ mac4dstem_sources() {
         # in with the group, as SpectroKit rides in with `readers`.
         kit_module "$repo" CuboKit CuboVirtual CuboPhase
         want+=("${KIT_FLAGS[@]}")
+        kit_module "$repo" MacEMUI ShellMetal   # MetalEngine is MacEMUI's ShellMetal since 2026-10-22 (the app's copy went)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -272,7 +274,6 @@ mac4dstem_sources() {
           "$core/Data/CuboCubeSource.swift"
           "$core/Data/ResidentCube.swift"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/MetalEngine.swift"
         )
         ;;
       embedding)
@@ -325,11 +326,12 @@ mac4dstem_sources() {
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
+        kit_module "$repo" MacEMUI ShellMetal   # MetalEngine is MacEMUI's ShellMetal since 2026-10-22
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/MetalEngine.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
           "$core/Analysis/OrientationResult.swift"
