@@ -34,7 +34,7 @@ package nonisolated enum EDXExports {
         guard let plan = ScaleBarMath.plan(x: cal, y: cal, width: nx, height: ny, unitLabel: { unit in
             // macTEM's UnitDisplay.label: a pixel spelling is "px", a length its canonical spelling, anything else as written.
             if ["px", "pix", "[pix]", "[px]", "pixel", "pixels"].contains(LengthUnit.normalized(unit)) { return "px" }
-            return LengthUnit.canonicalReciprocalUnit(unit) ?? LengthUnit.canonicalRealUnit(unit) ?? unit ?? ""
+            return LengthUnit.canonicalReciprocalUnit(unit) ?? LengthUnit.canonicalRealUnit(unit) ?? unit
         }) else { return nil }
         return (plan.lengthPixels / Double(nx), plan.label)
     }

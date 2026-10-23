@@ -147,7 +147,7 @@ struct EDXSpectrumView: View {
         }
     }
 
-    static let left: CGFloat = 52, bottom: CGFloat = 36, top: CGFloat = 16, right: CGFloat = 8
+    nonisolated static let left: CGFloat = 52, bottom: CGFloat = 36, top: CGFloat = 16, right: CGFloat = 8   // read by the nonisolated gesture rule (macTEM's module is nonisolated by default)
 
     fileprivate func draw(_ context: inout GraphicsContext, size: CGSize, window w: ClosedRange<Double>, yZoom: Double) {
         let area = CGRect(x: Self.left, y: Self.top, width: max(size.width - Self.left - Self.right, 1),
