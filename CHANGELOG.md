@@ -2,7 +2,7 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
-- 2026-10-23 Pinned to SpectroKit 0.12.0 and MacEMUI 0.3.0 (MacEMUI off its local path; every kit now on an exact released tag). Auto ID is SpectroKit's identification loop (0.11.0): a peak on an empty background, an L or M line whose K or L line cannot be checked, and a line that gains the fit less than 100 are now possible finds, not picks. No quantification number changes.
+- 2026-10-23 Pinned to SpectroKit 0.12.0 and MacEMUI 0.3.0 (MacEMUI off its local path; every kit now on an exact released tag). Auto ID is SpectroKit's identification loop (0.11.0): a peak on an empty background, an L or M line whose K or L line cannot be checked, and a line that gains the fit less than 100 are now possible finds, not picks. No quantification number changes; the golden and E1 fixtures are re-recorded for the new labels and proposals (own commit).
 
 - 2026-10-22 Two more orientation-relationship presets for the variant map, from Thronsen 2024: θ′ in Al (plates on {001}, (001) ∥ (001) and [100] ∥ [100]; 3 variants) and T1 in Al (plates on {111}, (0001) ∥ (111) and [10-10] ∥ [1-10]; 4 variants). Plates are grouped by their plate normal: the legend, the object table, the CSV and the glyph colours use the preset's names ([100] [010] [001], or [111] [-111] [1-11] [11-1] with a fourth hue for T1), and the family along the beam says face-on instead of end-on. beta'' in Al stays the default and its output does not change. validation: none; unverified on screen (the engine, report and CSV are unit-tested on planted plates).
 
