@@ -136,4 +136,3 @@ enum MapBitmap {
         return ctx.makeImage()
     }
 }
-

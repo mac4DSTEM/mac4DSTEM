@@ -187,7 +187,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
     }
 }
 
-
 /// A flag set from a detached task and read after it: the sniff seam is `@Sendable`.
 private final class LockedFlag: @unchecked Sendable {
     private let lock = NSLock()

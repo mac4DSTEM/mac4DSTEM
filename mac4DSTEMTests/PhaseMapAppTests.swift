@@ -127,7 +127,6 @@ final class PhaseMapAppTests: XCTestCase {
     }
 }
 
-
 /// The presentation layer of the phase map, and the one piece of ACOM
 /// presentation that moved into Core to pay for this feature's AppState lines.
 final class PhaseMapPresentationTests: XCTestCase {

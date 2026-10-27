@@ -274,7 +274,6 @@ final class FigureExportTests: XCTestCase {
 
     // MARK: the region outline
 
-
     // MARK: the room's regions
 
     private func decode(_ data: Data) -> CGImage { CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithData(data as CFData, nil)!, 0, nil)! }
@@ -583,7 +582,6 @@ final class FigureExportTests: XCTestCase {
     }
 
     // MARK: the EDX panels of a window
-
 
     // MARK: colours
 

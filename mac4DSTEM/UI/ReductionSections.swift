@@ -325,7 +325,6 @@ struct ReductionPreviewPanes: View {
 struct ReductionBinSection: View {
     let pending: PendingLoad
 
-
     var body: some View {
         Section("Diffraction binning") {
             // Crop and bin trade against DIFFERENT things; both mirror
@@ -395,7 +394,6 @@ struct ReductionSizeRow: View {
         }
     }
 }
-
 
 /// The picked scan position of the real-space preview, in the PREVIEW's
 /// sampled grid (what `onTap` takes), with the grid's size — the state the

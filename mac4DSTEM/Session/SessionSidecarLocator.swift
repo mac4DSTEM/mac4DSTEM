@@ -339,7 +339,6 @@ package enum SessionSidecarReadFailure: Equatable {
     }
 }
 
-
 // MARK: - What a failed read MEANS
 
 /// The outcome of asking a sidecar what part of the file a session recorded.

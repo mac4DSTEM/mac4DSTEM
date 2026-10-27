@@ -21,7 +21,6 @@ import struct CuboParallax.ParallaxAberrationTerm
 import enum CuboParallax.ParallaxAberrationFitMethod
 #endif
 
-
 extension AppState {
     /// The working limit every phase-contrast stage refuses above: half of RAM less the cube the user chose to keep in
     /// memory (`DatasetResidency.byteCount`, 0 when streamed) and less what earlier stages still hold

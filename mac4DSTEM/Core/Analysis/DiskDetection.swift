@@ -904,7 +904,6 @@ package nonisolated final class DiskDetector {
         }
     }
 
-
     // MARK: Learned candidates (v3-plan §3a step 4, 2026-09-07)
 
     /// The edge-rule margin of each side of a frame, in pixels (`refine`).
@@ -945,7 +944,6 @@ package nonisolated final class DiskDetector {
             : raw
         return (raw.map { Float($0) }, smoothed.map { Float($0) })
     }
-
 
     /// Refine learned candidates the way the classical maxima are refined, on the
     /// [qy * qx] smoothed correlation from `correlation(pattern:params:)`: snap each

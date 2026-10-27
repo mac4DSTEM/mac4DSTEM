@@ -73,7 +73,6 @@ package nonisolated struct MappingLiveness: Sendable {
     }
 }
 
-
 package actor DM4Reader: FourDDataSource {
 
     /// Where the pixels come from.

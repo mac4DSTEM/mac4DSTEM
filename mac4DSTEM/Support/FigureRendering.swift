@@ -237,7 +237,6 @@ enum FigureRendering {
         }
     }
 
-
     // MARK: Figure
 
     /// The panels in one labelled image on black, laid out by `FigureLayout`, `scale` pixels per point. nil when there is nothing to

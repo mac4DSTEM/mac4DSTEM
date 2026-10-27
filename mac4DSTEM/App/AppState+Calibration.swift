@@ -11,7 +11,6 @@ import DiffractoGeometry   // EllipseCalibration: the ellipse fit is DiffractoKi
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
-import struct DSTEMCore.DiffractionPattern   // the app's display type, over DiffractoGeometry's of the same name
 #endif
 
 extension AppState {

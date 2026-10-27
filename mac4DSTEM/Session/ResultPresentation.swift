@@ -9,7 +9,6 @@
 //  region-reference canvas).
 //
 
-
 import Foundation
 #if canImport(DSTEMCore)
 import DSTEMCore

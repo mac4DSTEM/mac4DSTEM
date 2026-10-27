@@ -1,7 +1,6 @@
 import XCTest
 import DSTEMCore
 import DiffractoGeometry
-import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 @testable import mac4DSTEM
 
 /// `EllipseCalibration.fit1D`'s Levenberg-Marquardt loop (2026-10-12) once

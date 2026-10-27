@@ -8,7 +8,6 @@
 import XCTest
 import DSTEMCore
 import DiffractoGeometry
-import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 import DSTEMSession
 @testable import mac4DSTEM
 

@@ -376,7 +376,7 @@ final class SpectroGoldenTests: XCTestCase {
     /// RECORDER: with `TEST_RUNNER_SPECTRO_GOLDEN_DIR` set, writes one file per scenario there. Skipped otherwise.
     func testRecordBaseline() async throws {
         try XCTSkipIf(recordDir == nil, "set TEST_RUNNER_SPECTRO_GOLDEN_DIR to record")
-        let dir = try XCTUnwrap(recordDir) 
+        let dir = try XCTUnwrap(recordDir)
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for s in try await SpectroGolden.scenarios() { try s.text.write(toFile: dir + "/" + s.name + ".txt", atomically: true, encoding: .utf8) }
         try SpectroGolden.times.joined(separator: "\n").write(toFile: dir + "/times.log", atomically: true, encoding: .utf8)   // not part of the baseline

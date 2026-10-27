@@ -148,7 +148,6 @@ func arrayTag(_ label: String, elementType: UInt64, length: UInt64, payload: [UI
     return w.bytes
 }
 
-
 func unitsTag(_ units: String) -> [UInt8] {
     var payload = ByteWriter()
     for codeUnit in units.utf16 { payload.u16le(codeUnit) }

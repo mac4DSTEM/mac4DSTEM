@@ -80,7 +80,6 @@ package struct Aperture: Equatable {
     }
 }
 
-
 // MARK: - Detector geometry (py4DSTEM get_virtual_image modes)
 
 /// A detector geometry in detector-pixel coordinates
