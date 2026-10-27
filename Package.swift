@@ -37,7 +37,7 @@ let package = Package(
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.8.0"),
         // The window shell, controls and Metal image view both apps share (suite task 8). DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
-        .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.3.0"),
+        .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.3.1"),
     ],
     targets: [
         .target(
