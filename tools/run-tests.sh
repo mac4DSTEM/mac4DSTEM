@@ -402,14 +402,17 @@ ui_tests() (
     for j in "$@"; do [[ "$j" == Performance ]] && j=PerformanceJourney; only+=(-only-testing:mac4DSTEMUITests/$j); done
   fi
   cd "$ROOT"
-  # The UI runner lives in a predictable DerivedData (`$gate/dd-ui`, or MAC4DSTEM_UI_DERIVED_DATA), not Xcode's per-project folder: macOS
-  # grants Screen Recording to the runner by where it is, and a runner under ~/Library/Developer/Xcode/DerivedData got "Failed to create
-  # screenshot" on 2026-10-22 while the same journeys under another location captured (macTEM's gate does the same).
+  # The UI runner lives at ONE fixed DerivedData, ~/Library/Caches/macEM-ui-tests/mac4DSTEM (or MAC4DSTEM_UI_DERIVED_DATA), not Xcode's
+  # per-project folder nor $TMPDIR: macOS grants Screen Recording to the runner by where it is, so a runner that moves asks again; a runner under
+  # ~/Library/Developer/Xcode/DerivedData got "Failed to create screenshot" on 2026-10-22 while the same journeys under another location
+  # captured. macTEM's lane uses the same root (macEM-suite#21), so each app's grant is made once.
+  local dd="${MAC4DSTEM_UI_DERIVED_DATA:-$HOME/Library/Caches/macEM-ui-tests/mac4DSTEM}"
+  echo "ui: runner in $dd/Build/Products/Debug/mac4DSTEMUITests-Runner.app (grant Screen Recording to it once)"
   # One screen, one mouse, one UI-test session: macTEM's and mac4DSTEM's runs take the same machine-wide lock (lockf blocks until it
   # is free; a run that holds it for 20 minutes is given up on).
   lockf -k -t 1200 "${TMPDIR:-/tmp}/macem-ui-tests.lock" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEMUI -configuration Debug \
-    -destination 'platform=macOS' -derivedDataPath "${MAC4DSTEM_UI_DERIVED_DATA:-$gate/dd-ui}" -resultBundlePath "$gate/ui.xcresult" "${only[@]}" \
+    -destination 'platform=macOS' -derivedDataPath "$dd" -resultBundlePath "$gate/ui.xcresult" "${only[@]}" \
     SWIFT_OPTIMIZATION_LEVEL=-O -quiet && rc=0 || rc=$?
   "$ROOT/tools/lib/ui-screenshots.sh" "$gate/ui.xcresult" "$gate/ui-screenshots/$sha" || true
   echo "ui: screenshots in $gate/ui-screenshots/$sha"
