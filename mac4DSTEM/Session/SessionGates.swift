@@ -60,7 +60,7 @@ package final class SessionGates {
     }
 
     /// May a *reciprocal* measurement be derived in this frame? — the
-    /// stricter question (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §2). Q calibration
+    /// stricter question (archived `docs/q-calibration-design.md` §2). Q calibration
     /// asks this one; everything that needs only a centred frame keeps
     /// asking the looser one above.
     ///
@@ -346,7 +346,7 @@ package final class SessionGates {
     /// invalidates the session, so `AppState.presentComputeFailure` escalates
     /// it to the modal path regardless of which analysis stage surfaced it.
     /// Lives here rather than on `AppState` as a stateless predicate, paying
-    /// down the `AppState` + `ResultExport` budget (CLAUDE.md) — a placement
+    /// down the `AppState` + `ResultExport` budget — a placement
     /// choice only, not a policy change. No harness compiles this file, so
     /// it is not subject to the small-single-module-list constraint the
     /// sibling `Core/Analysis` relocation would have hit.

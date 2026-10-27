@@ -1,7 +1,7 @@
 //
 //  MaterialsProjectKeyStore.swift
 //  Where the Materials Project API key lives between launches. Keychain,
-//  not `UserDefaults` (../_archive/mac4DSTEM/docs/v3-features.md#materials-project). A protocol
+//  not `UserDefaults` (archived docs/v3-features.md#materials-project). A protocol
 //  in front of it so the search UI and its tests can swap in an in-memory
 //  store without touching the Keychain.
 //
@@ -64,7 +64,7 @@ package nonisolated final class InMemoryAPIKeyStore: APIKeyStore, @unchecked Sen
 package nonisolated final class KeychainAPIKeyStore: APIKeyStore, @unchecked Sendable {
 
     /// Every Keychain failure carries the raw `OSStatus` it came from —
-    /// named per `CLAUDE.md`'s "no claim a reader cannot reproduce": a
+    /// named per the rule "no claim a reader cannot reproduce": a
     /// caller (or a test) can look the number up itself rather than trust a
     /// paraphrase of it.
     package enum KeychainFailure: Error, Equatable {

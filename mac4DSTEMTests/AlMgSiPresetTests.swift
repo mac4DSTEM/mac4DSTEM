@@ -3,7 +3,7 @@
 //  The Al–Mg–Si phase-mapping preset (Add Phase ▸ Presets): exactly three
 //  slots, their zones, the classifier — and nothing else. The cube's
 //  calibration (ellipse, Q, R) is a property of that dataset and is never
-//  part of a preset (CLAUDE.md, the threshold rule).
+//  part of a preset (the threshold rule).
 //
 //  Mutations these were broken against (each must turn a test red):
 //   1. flip the two β″ zones ([0 1 0] / [0 0 1] swapped)       -> testSlotsAndZones
