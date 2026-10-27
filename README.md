@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner.png" width="100%" alt="mac4DSTEM: four-dimensional STEM analysis, native on Apple silicon"></p>
+
 # mac4DSTEM
 
 4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDX spectrum images, worked
