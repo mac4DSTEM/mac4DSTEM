@@ -9,9 +9,9 @@ notary-service credentials. Those secrets do not belong in the repository.
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
 - Version/build: `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in the Xcode project. Every released version, with its evidence, is in the Releases table below and in `CHANGELOG.md`. A driven bug cuts a patch release, a landed science number a minor, a raised system floor or a rebuilt interface a major
-- Minimum system: **macOS 27** (`MACOSX_DEPLOYMENT_TARGET = 27.0`,
-  `Package.swift: .macOS("27.0")`, raised from 14 on 2026-09-22). Published as the requirement it is; development and
-  testing are on 27. v3.0.0's artefact (floor 14) stays downloadable for
+- Minimum system: **macOS 26** (`MACOSX_DEPLOYMENT_TARGET = 26.0`,
+  `Package.swift: .macOS(.v26)`; raised from 14 to 27 on 2026-09-22, lowered to 26 on 2026-10-28). Published as the
+  requirement it is; development is on 27, CI builds and tests on 26. v3.0.0's artefact (floor 14) stays downloadable for
   older systems — the raise gates only releases after it
 - **Apple Silicon only, and the artefact must prove it.** The three embedded
   HDF5 libraries are arm64-only and `Core/ML/LearnedDiskDetector.swift` uses

@@ -16,7 +16,7 @@ Apple silicon.
 
 Get the signed and notarised DMG:
 [mac4DSTEM.dmg](https://github.com/mac4DSTEM/mac4DSTEM/releases/latest/download/mac4DSTEM.dmg) (all versions are on the
-[releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases)). It needs macOS 27 or later on an Apple silicon Mac.
+[releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases)). It needs macOS 26 or later on an Apple silicon Mac.
 Everything it needs is inside the app.
 
 ## What it does
