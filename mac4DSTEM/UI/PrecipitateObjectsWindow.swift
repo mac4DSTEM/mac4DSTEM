@@ -138,7 +138,10 @@ struct PrecipitateObjectsWindow: View {
             ) { result in
                 exportFailure = CSVExportOutcome.failureMessage(result)
             }
-            .alert("Could Not Export the Table", item: $exportFailure) { _ in
+            // `alert(_:isPresented:presenting:)`: the `item:` form is not in the macOS 26.6 SDK.
+            .alert("Could Not Export the Table",
+                   isPresented: Binding(get: { exportFailure != nil }, set: { if !$0 { exportFailure = nil } }),
+                   presenting: exportFailure) { _ in
                 Button("OK", role: .cancel) {}
             } message: { message in
                 Text(message)
