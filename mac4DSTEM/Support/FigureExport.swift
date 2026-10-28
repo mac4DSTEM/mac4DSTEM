@@ -17,6 +17,8 @@ import DSTEMCore
 import DSTEMSession
 import SpectroCore
 #endif
+import ShellEDXModel
+import ShellSpectroscopy
 
 /// One image the figure can hold, listed before anything is drawn. `id` is stable for as long as the image exists.
 struct FigureChoice: Identifiable, Equatable {

@@ -1,7 +1,7 @@
 //
 //  AppState+EDS.swift
-//  Role: the window's side of the EDS room (macTEM 1.0's room in mac4DSTEM, 2026-10-23): the session's status and failure hooks and
-//        the export folder a UI journey names. The 4D links (pools, precipitate joins, replay, Results rows) follow in this file.
+//  Role: the window's side of the EDS room (MacEMUI's shared room): the session's status and failure hooks, what the room's views
+//        ask of the window (`edxActions`) and the export folder a UI journey names. The 4D links (pools, precipitate joins, replay, Results rows) follow in this file.
 //
 
 import Foundation
@@ -9,12 +9,22 @@ import DSTEMCore
 import DSTEMSession
 import SpectroCore
 import SpectroEDX
+import ShellEDXModel
+import ShellSpectroscopy
 
 extension AppState {
     /// The session reports to the window's status line and error presentation; set once (`wireSpectroscopyOperations`).
     func wireEDS() {
         edx.onEvent = { [weak self] in self?.statusText = $0 }
         edx.onFailure = { [weak self] in self?.present($0) }
+    }
+
+    /// What the shared EDS room's views ask of this window: the status line, the error sheet, a UI journey's export folder, and the
+    /// 4D scan's composition by class.
+    var edxActions: EDXRoomActions {
+        EDXRoomActions(report: { [weak self] in self?.statusText = $0 }, present: { [weak self] in self?.present($0) },
+                       exportDirectory: { [weak self] in self?.exportDirectory },
+                       exportCompositionByClass: { [weak self] in await self?.exportCompositionByClass() })
     }
 
     /// Where an export journey writes without a save panel (`--export-dir <path>`): an absolute path as given, a relative one inside

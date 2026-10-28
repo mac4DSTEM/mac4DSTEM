@@ -321,3 +321,4 @@ enum DemoSpectrumImageSource {
     }
 }
 #endif
+import ShellEDXModel

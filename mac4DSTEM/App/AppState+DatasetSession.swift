@@ -3,6 +3,7 @@ import Foundation
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellEDXModel
 
 /// Lifecycle orchestration for the `DatasetSession` owner: window-level
 /// recovery, navigation and error presentation.

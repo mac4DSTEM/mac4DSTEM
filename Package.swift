@@ -37,7 +37,7 @@ let package = Package(
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.8.0"),
         // The window shell, controls and Metal image view both apps share (suite task 8). DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
-        .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.3.2"),
+        .package(path: "../MacEMUI"),   // issue 66: the shared EDS room; back to an exact tag once MacEMUI releases it
     ],
     targets: [
         .target(
@@ -67,7 +67,8 @@ let package = Package(
                            .product(name: "ImagoCore", package: "ImagoKit"),
                            .product(name: "ImagoFFT", package: "ImagoKit"),
                            .product(name: "ImagoFilters", package: "ImagoKit"),   // the EDS room's map filter (macTEM's EDXMapFilter)
-                           .product(name: "ShellMetal", package: "MacEMUI")],
+                           .product(name: "ShellMetal", package: "MacEMUI"),
+                           .product(name: "ShellEDXModel", package: "MacEMUI")],
             path: "mac4DSTEM/Core",
             swiftSettings: [
                 // Accelerate's CURRENT LAPACK interface, which is what
@@ -120,6 +121,7 @@ let package = Package(
                            .product(name: "CuboParallax", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit"),
                            .product(name: "ShellMetal", package: "MacEMUI"),
+                           .product(name: "ShellEDXModel", package: "MacEMUI"),
                            .product(name: "ShellLayout", package: "MacEMUI")],
             path: "mac4DSTEM/Session",
             swiftSettings: [

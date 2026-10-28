@@ -7,6 +7,8 @@ import CuboPhase
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellEDXModel
+import ShellSpectroscopy
 
 struct SimpleError: LocalizedError {
     let message: String
@@ -997,10 +999,10 @@ final class AppState {
     /// Owner: `SpectroscopySession` (v5.0 WP2) — the spectrum image and the room's state; a window's second
     /// document, beside the 4D owners. The rest is in `AppState+Spectroscopy.swift`.
     let spectroscopy = SpectroscopySession()
-    /// Owner: `EDXSession` (DSTEMSession) — the EDS room's spectrum image, picks, regions and fit: macTEM 1.0's room, copied
-    /// (2026-10-23); its 4D links are `EDXSession+FourD.swift` and `AppState+EDS.swift`.
-    let edx = EDXSession()
-    /// Owner: `EDXRoomState` — the EDS room's spectrum window, export in flight and display choices (macTEM's, App/).
+    /// Owner: `EDXSession` (MacEMUI's ShellEDXModel) — the EDS room's spectrum image, picks, regions and fit, the room both apps share;
+    /// its 4D links are `AppState+EDS.swift`.
+    let edx = EDXSession(host: .mac4DSTEM)
+    /// Owner: `EDXRoomState` (MacEMUI's ShellSpectroscopy) — the EDS room's spectrum window, export in flight and display choices.
     let edxRoom = EDXRoomState()
     /// Set by the window (`DatasetWindow`): opens a file in a NEW window — see `routesOpenToNewWindow`.
     @ObservationIgnored var openInNewWindow: ((_ url: URL, _ configure: Bool) -> Void)?
