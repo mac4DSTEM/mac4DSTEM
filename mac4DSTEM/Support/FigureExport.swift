@@ -5,7 +5,7 @@
 //        scale bar the screen draws; the same rasters feed the single-image exports (`ResultExport.swift`), the
 //        Maps export (`MapsExport.swift`) and the multi-panel figure here, so the pictures cannot disagree.
 //        Drawing is `FigureRendering`; this file only chooses what to draw. The figure leaves the app through SwiftUI's own
-//        export panel (`fileExporter` over a `WritableDocument`, with `fileDialogMessage`): no AppKit save panel.
+//        export panel (`fileExporter` over a `FileDocument`, with `fileDialogMessage`): no AppKit save panel.
 //
 
 import ImageIO
@@ -51,26 +51,35 @@ struct PatternExportRaster {
 }
 
 /// A figure's bytes for SwiftUI's export panel: the file as its format made it, the type it is, the name it suggests and the sentence
-/// the panel shows (what is being saved, at what size). A `WritableDocument` (SDK 27), so `fileExporter` takes it directly.
-final class FigureFile: WritableDocument {
+/// the panel shows (what is being saved, at what size). A `FileDocument`, as the app's other exports, so `fileExporter` takes it on
+/// macOS 26 (SDK 27's `WritableDocument` is macOS 27 only).
+struct FigureFile: FileDocument {
+    static var readableContentTypes: [UTType] { [.png, .pdf, .tiff] }
+
     let data: Data
     let format: ExportFigureFormat
     let suggestedName: String
     let message: String
 
-    nonisolated static let writableContentTypes: [UTType] = [.png, .pdf, .tiff]
-
     init(data: Data, format: ExportFigureFormat, suggestedName: String, message: String) {
         self.data = data; self.format = format; self.suggestedName = suggestedName; self.message = message
     }
 
-    var contentType: UTType { format.utType }
-
-    nonisolated func writer(configuration: sending DocumentWriteConfiguration) -> sending FileWrapperDocumentWriter<Data> {
-        FileWrapperDocumentWriter(configuration) { data, _ in FileWrapper(regularFileWithContents: data) }
+    /// Never read back (the app only exports figures); required by `FileDocument`.
+    init(configuration: ReadConfiguration) throws {
+        let type = configuration.contentType
+        format = type.conforms(to: .pdf) ? .pdf : type.conforms(to: .tiff) ? .tiff : .png
+        data = configuration.file.regularFileContents ?? Data()
+        suggestedName = configuration.file.filename ?? ""
+        message = ""
     }
 
-    @MainActor func snapshot(contentType: UTType) async throws -> Data { data }
+    var contentType: UTType { format.utType }
+
+    /// What the panel writes: the bytes as made.
+    var file: FileWrapper { FileWrapper(regularFileWithContents: data) }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { file }
 }
 
 extension ExportFigureFormat {

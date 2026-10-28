@@ -15,6 +15,7 @@ final class FCRow27LearnedThresholdCaptureTests: XCTestCase {
     /// Mutation it catches: the step recorded from the live `threshold` (0.9, typed
     /// during the run) instead of the one the run used (0.5).
     func testRecordedLearnedThresholdIsTheOneTheRunUsed() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let state = AppState()
         var spec = LoadSpecification()
         spec.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4)

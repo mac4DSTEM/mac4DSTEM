@@ -367,11 +367,11 @@ final class ThronsenParityTests: XCTestCase {
         let published = try loadPublished()
         let names = ["truth", "NMF", "vectors", "TMP", "ANN"]
         let paperStepNm = 4.6
-        let stride = { (m: [Int8]) -> [Int] in
-            var out: [Int] = []; for y in stride(from: 0, to: 512, by: 3) { for x in stride(from: 0, to: 512, by: 3) { out.append(Int(m[y * 512 + x])) } }; return out
+        let everyThird = { (m: [Int8]) -> [Int] in
+            var out: [Int] = []; for y in Swift.stride(from: 0, to: 512, by: 3) { for x in Swift.stride(from: 0, to: 512, by: 3) { out.append(Int(m[y * 512 + x])) } }; return out
         }
         let full = published.map { $0.map(Int.init) }
-        let third = published.map(stride)
+        let third = published.map(everyThird)
         let ours = try await ourMap(width: 171, height: 171)
         let oursLabels = ours.map.results.map { ThronsenReference.label(of: $0, phaseNames: ours.map.phaseNames) }
         // Our map for the side-by-side picture (labels as int8, 171 x 171; the path is printed).

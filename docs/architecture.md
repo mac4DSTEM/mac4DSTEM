@@ -297,12 +297,13 @@ again and no flag selects it. Six rules, the first three enforced by
 
 ## Requirements, build, test
 
-- macOS 27+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 27.0` in every
-  build configuration and `.macOS("27.0")` in `Package.swift`, raised from
-  14 on 2026-09-22; v3.0.0's artefact (floor 14) stays
-  downloadable for older systems. Xcode 27 or later — development is on
-  27.0; CI's unit job is paused until GitHub offers a macOS 27 runner, so
-  every green gate is a local run. No separately installed HDF5.
+- macOS 26+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 26.0` in every
+  build configuration and `.macOS(.v26)` in `Package.swift` (raised from 14
+  to 27 on 2026-09-22, lowered to 26 on 2026-10-28 so CI's macos-26 runner
+  builds and tests the app); v3.0.0's artefact (floor 14) stays
+  downloadable for older systems. Development is on Xcode 27; CI pins
+  Xcode 26.6. An API newer than macOS 26.0 sits behind `if #available`.
+  No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
