@@ -241,12 +241,12 @@ package nonisolated enum OriginCalibration {
     /// sentence said "three rounds" flatly; a Gate B mutation showed
     /// `rounds: 3 → 2` changes nothing on any case measured (2026-08-28).
     /// Those constants are **not chosen here** — they are the ones S12 measured the design's numbers with
-    /// (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §1.2), so the app and the diagnostics
+    /// (archived `docs/q-calibration-design.md` §1.2), so the app and the diagnostics
     /// that justified it trim identically. 1.4826 is the MAD→σ consistency
     /// factor for a normal distribution.
     ///
     /// **Where these numbers come from, stated because a reader cannot rerun
-    /// them here:** every figure above is from `../_archive/mac4DSTEM/tools/origin-fit-diagnostics`,
+    /// them here:** every figure above is from archived `tools/origin-fit-diagnostics`,
     /// which needs the gitignored training data and is deliberately not in the
     /// `scientific` array. They are the justification for deviating from
     /// py4DSTEM and they are not reproducible from a clean checkout — a real
@@ -416,7 +416,7 @@ package nonisolated enum OriginCalibration {
     /// bullseye) that window cuts the ring, the true centre is an unstable fixed
     /// point, and the answer walks — 3.87 px between k = 1.2 and 2 on
     /// bullseye_sim, against ≤ 0.03 px on six compact cubes
-    /// (`../_archive/mac4DSTEM/docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`, §10). Compact probes do not
+    /// (archived `docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`, §10). Compact probes do not
     /// care which window they get; ringed ones do, and this reads which kind the
     /// scan is without choosing a window for it. nil when it cannot be measured.
     package nonisolated static func windowSensitivityPixels(

@@ -7,7 +7,7 @@ import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
 import struct CuboParallax.ParallaxAberrationTerm
 @testable import mac4DSTEM
 
-/// Seam 1 (`Session/PhaseContrastProduct.swift`, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+/// Seam 1 (`Session/PhaseContrastProduct.swift`, archived docs/archive/v4/appstate-seams-plan.md):
 /// the one owner of the Parallax and single-slice ptychography products and
 /// their run controls. These pin the seam's contracts — the pre-seam default
 /// values, a direct run-control mutation (there are no `publish`/`clear`
@@ -160,7 +160,7 @@ final class PhaseContrastProductTests: XCTestCase {
                         "the subpixel reconstruction does not depend on the higher-order fit")
     }
 
-    /// Seam rule (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md, "What a seam is"): AppState
+    /// Seam rule (archived docs/archive/v4/appstate-seams-plan.md, "What a seam is"): AppState
     /// holds the owner with no forwarding properties. Mirrors
     /// `StrainProductTests.testAppStateHoldsTheSeamWithoutForwardingProperties`.
     func testAppStateHoldsTheSeamWithoutForwardingProperties() {

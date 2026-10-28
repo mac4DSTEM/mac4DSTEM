@@ -1,6 +1,6 @@
 //
 //  PhaseMapObjectsWiringTests.swift
-//  Session S3 (`../_archive/mac4DSTEM/docs/v3-features.md#precipitates-mp-plan`): the
+//  Session S3 (archived `docs/v3-features.md#precipitates-mp-plan`): the
 //  classifier-rule UI default, the additive provenance keys, the
 //  PhaseMap → ClassMapObjects bridge, the pixel-size refusal, and the
 //  clear-on-dataset-change coupling. `PhaseMapObjectsTests.swift` already

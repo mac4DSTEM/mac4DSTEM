@@ -356,7 +356,7 @@ package enum ReplayRecordFrameMap {
     /// The recipe-selection decision for a calibrated-cube export: the record
     /// to stamp (already re-expressed in the exported file's frame) or the
     /// omission reason. Lives here as a pure function, paying down the
-    /// `AppState` budget (CLAUDE.md), and it already calls straight into
+    /// `AppState` budget, and it already calls straight into
     /// this type's own `mapForExport`.
     package static func exportableRecipe(
         record: SessionReplayRecord?,

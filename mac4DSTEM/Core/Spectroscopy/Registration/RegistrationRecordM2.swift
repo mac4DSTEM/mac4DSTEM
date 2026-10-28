@@ -29,7 +29,7 @@ package nonisolated struct RegistrationRecordM2: Codable, Equatable, Sendable {
         case fileRect
         /// Typed by the user, or fitted from landmarks the user placed (`fit`).
         case typed
-        /// The simulator's planted transform (`../_archive/mac4DSTEM/tools/demo-edx`); a test, never a measurement.
+        /// The simulator's planted transform (archived `tools/demo-edx`); a test, never a measurement.
         case simulatorTruth
     }
 

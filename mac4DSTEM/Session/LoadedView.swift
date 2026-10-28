@@ -4,7 +4,7 @@
 //        the reader could push into its own I/O, and what the move into that
 //        frame cost the calibration.
 //
-//  This is the stage's `AppState` seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7).
+//  This is the stage's `AppState` seam (archived docs/archive/development-process-2026-08-31.md §7).
 //  It follows L2's precedent — `App/DatasetResidency.swift` — for the same
 //  reason: the cheapest true seam is state the stage is adding, so it starts
 //  owned rather than being prised out of a wide state facade later.

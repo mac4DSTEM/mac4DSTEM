@@ -1,7 +1,7 @@
 //
 //  BraggPeakRestoreTests.swift
 //  Restoring the detected Bragg disks from a session sidecar on open
-//  (../_archive/mac4DSTEM/docs/registrations/bragg-restore-registration-2026-09-28.md). Three layers,
+//  (archived docs/registrations/bragg-restore-registration-2026-09-28.md). Three layers,
 //  each broken on purpose before it was trusted:
 //    - the file round trip (the read half `writePeakGrid` never had),
 //    - the adoption checks, driven through a REAL `AppState.activate` — the

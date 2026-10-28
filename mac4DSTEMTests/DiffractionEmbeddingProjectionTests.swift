@@ -2,7 +2,7 @@ import CuboEmbedding
 import XCTest
 import DSTEMCore
 
-/// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-projection-gateD-2026-09-28.md`):
+/// Gate D, 2026-09-28 (archived `docs/archive/v4/embedding-projection-gateD-2026-09-28.md`):
 /// the projection moved to `vDSP_vsub` + `vDSP_dotpr`. The old loop is kept
 /// here VERBATIM (the cached path's body at fa30421) as the reference, with
 /// an exact double-precision projection as the truth both are judged against.

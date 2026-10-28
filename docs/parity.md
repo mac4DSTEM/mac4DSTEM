@@ -7,7 +7,7 @@ Numbers match the reference within its own spread, never stricter (suite rule D1
 
 Data: Zenodo 10.5281/zenodo.6645396 (CC BY 4.0, kept outside the repo in `References/mac4DSTEM/thronsen-datasetA`). Dataset A, 512 × 512
 (PDF page 3), stride 3 here (171 × 171; the full cube is not on this disk). Facts, page and table per number: `mac4DSTEMTests/Fixtures/thronsen-parity/truth.json`.
-Run (heavy, real data, skipped unless asked; 8 GB cap): `../tools/memcap.sh --gb 8 -- env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`
+Run (heavy, real data, skipped unless asked; 8 GB cap): `env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`
 (`mac4DSTEMTests/ThronsenParityTests.swift`, 8 s after the build).
 
 | Check | Reference | Ours | State |
