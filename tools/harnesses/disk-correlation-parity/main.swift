@@ -16,7 +16,7 @@ import Foundation
 // Deliberately self-contained: the input is generated from a fixed seed rather
 // than read from References/training_dataset, so the loop is seconds long and
 // runs anywhere. Real-data behaviour is covered separately by
-// ../_archive/mac4DSTEM/tools/training-dataset-campaign and the QC playthrough.
+// archived tools/training-dataset-campaign and the QC playthrough.
 
 // MARK: - Deterministic input
 
@@ -210,7 +210,7 @@ params.corrPower = 1
 params.sigmaCC = 2
 // The baselines were recorded at the 0.5 % floor, py4DSTEM's default. The app's
 // default became 0.15 % on 2026-09-28 (ADR 040 follow-up,
-// ../_archive/mac4DSTEM/docs/archive/v4/default-floor-gateD-2026-09-28.md); this harness pins backend
+// archived docs/archive/v4/default-floor-gateD-2026-09-28.md); this harness pins backend
 // identity, not the product default, so it keeps the recorded floor.
 params.minRelativeIntensity = 0.005
 let issues = params.validationIssues(

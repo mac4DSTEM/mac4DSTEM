@@ -39,7 +39,7 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
 }
 
 // `ParallaxResultProduct` moved to `Session/PhaseContrastProduct.swift` (seam
-// 1, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): a Session-layer owner cannot reference a
+// 1, archived docs/archive/v4/appstate-seams-plan.md): a Session-layer owner cannot reference a
 // type defined in App/, so it moved with the state that uses it.
 
 /// Which image pane the user is currently operating on. Determines which ROI
@@ -70,7 +70,7 @@ enum AnalysisRunOutcome: Equatable {
 
 @Observable
 final class AppState {
-    /// Seam 6 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the live reader/array pair,
+    /// Seam 6 (archived docs/archive/v4/appstate-seams-plan.md): the live reader/array pair,
     /// dataset list, preview, loading state and stale-publish epoch. Readers go
     /// directly to the owner; AppState has no forwarding properties.
     let datasetSession = DatasetSession()
@@ -86,7 +86,7 @@ final class AppState {
 
     var openURL: URL?
     @ObservationIgnored var pendingRecovery: DatasetRecoveryRecord?
-    /// S1's seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7): the one
+    /// S1's seam (archived docs/archive/development-process-2026-08-31.md §7): the one
     /// owner of where this dataset's session sidecar is and whether the app
     /// may read it. Replaces a bare `scopedSessionSidecarURL` that eight call
     /// sites derived around in two different ways — see
@@ -205,7 +205,7 @@ final class AppState {
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
         }
-        // Seam 3 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the live overlay needs
+        // Seam 3 (archived docs/archive/v4/appstate-seams-plan.md): the live overlay needs
         // `probeKernel`/`navigation`/`displayedPattern`, none of which
         // `diskDetection` holds — same hook shape as `strain
         // .onPresentationChange` above. Body unchanged from the pre-seam
@@ -213,7 +213,7 @@ final class AppState {
         diskDetection.onParamsChange = { [weak self] in
             Task { await self?.detectCurrentPattern() }
         }
-        // Seam 4 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the display derivation needs
+        // Seam 4 (archived docs/archive/v4/appstate-seams-plan.md): the display derivation needs
         // `comField`/`descriptor`/`navigation`/`calibrationSession`, none of
         // which `dpc` holds — same hook shape as `diskDetection
         // .onParamsChange` above. Body unchanged from the pre-seam
@@ -247,37 +247,37 @@ final class AppState {
     }
 
     /// The recents list and its location labels. S3's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
     let recents: RecentDatasets
     /// The session's recipe — which analyses ran, with which parameters. S5's
-    /// seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionReplay.swift`.
+    /// seam (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
     let replay = SessionReplay()
     /// The state of the unattended promote run — S6's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/ReplayRun.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
     /// The configured-open slot consumed by commit or discard. The payload's
     /// preview/configuration remain owned by `PendingLoad`; no forwarding.
     let promotionRun = PromotionRun<PendingLoad>()
     /// The session's "may I?" policy gates — S7's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionGates.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionGates.swift`.
     /// Views read `gates.…`; no forwarding properties. // v2 S7
     let gates = SessionGates()
     /// The strain product and its run controls — S8's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/StrainProduct.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
     /// Spatial precipitate objects. Session S3
-    /// (`../_archive/mac4DSTEM/docs/v3-features.md#precipitates-mp-plan`) wired its first
+    /// (archived `docs/v3-features.md#precipitates-mp-plan`) wired its first
     /// producer: `AppState+PhaseMapping.swift` publishes here from every
     /// finished vector-matched phase map, via the pure
     /// `PhaseMapObjectsBridge`. The pre-registered FULL-diffraction-pattern
     /// classification route this owner was originally scoped for
-    /// (`../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
+    /// (archived `docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
     /// would be a second producer, not a replacement. Neither producer nor
     /// this owner makes a validation claim of its own — the phase map's
     /// `validation: "none"` badge covers what is read off it. Views read
@@ -343,16 +343,16 @@ final class AppState {
     /// `scratchPreferencesDefaults()`), so a bare `AppState()` cannot read or
     /// write the owner's real Settings either way.
     let preferences: AppPreferences
-    /// Seam 5 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the retained product, result
+    /// Seam 5 (archived docs/archive/v4/appstate-seams-plan.md): the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
     let resultPresentation = ResultPresentation()
     /// The last reciprocal-pixel calibration attempt — S13's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
     /// What happened this session, for the output strip
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
+    /// (archived docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
     /// Views read `activityLog.messages`; no forwarding properties.
     let activityLog = ActivityLog()
 
@@ -373,7 +373,7 @@ final class AppState {
     /// from the published results (Gate A findings A4/B3, 2026-08-25). The
     /// recipe keeps its rehearsal values; what actually ran is the results'
     /// own provenance and the run summary. // v2 S6
-    /// Widened from `private` (seam 2, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, archived docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     ///
     /// Lineage (ADR 047 R2): the node this run became is remembered as the run
@@ -508,7 +508,7 @@ final class AppState {
     /// v2.5 step 4a: calibration state lives in `CalibrationSession`. Every
     /// reader goes there directly; the forwarders went in 7c slice 5b.
     let calibrationSession = CalibrationSession()
-    /// Seam 1 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the Parallax and single-slice
+    /// Seam 1 (archived docs/archive/v4/appstate-seams-plan.md): the Parallax and single-slice
     /// ptychography products and their run controls. Every reader goes
     /// there directly; there are no forwarding properties.
     let phaseContrast = PhaseContrastProduct()
@@ -519,13 +519,13 @@ final class AppState {
     var patternVersion = 0
 
     // DPC: cached CoM shift field so display-mode switches don't re-run the
-    // GPU. Widened from `private` (seam 4, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    // GPU. Widened from `private` (seam 4, archived docs/archive/v4/appstate-seams-plan.md):
     // `App/AppState+DPC.swift`'s `runDPC`/`applyDPCDisplay` read/write it
     // from a different file.
     @ObservationIgnored var comField: [Float]?
 
     // Disk detection state. `diskParams` and its pure size-aware defaulting
-    // moved to `diskDetection` (seam 3, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md); these
+    // moved to `diskDetection` (seam 3, archived docs/archive/v4/appstate-seams-plan.md); these
     // stay because they read AppState-only or another owner's state
     // (`descriptor`, `probeKernel`, `calibrationSession`, `resultPresentation.braggVectors`)
     // that cannot move with it. `currentDiskDiagnostics`/`resultPresentation.braggVectors`/
@@ -537,7 +537,7 @@ final class AppState {
     var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored var liveDetectionRequest: UInt64 = 0
-    /// Seam 3 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the disk-detection run controls'
+    /// Seam 3 (archived docs/archive/v4/appstate-seams-plan.md): the disk-detection run controls'
     /// one owner. Every reader goes there directly; there are no forwarding
     /// properties.
     let diskDetection = DiskDetectionProduct()
@@ -612,7 +612,7 @@ final class AppState {
 
     /// ACOM state, plan and map live in `ACOMSession` (v2.5 step 6a); the
     /// forwarders went in 7c 4b. The run functions moved to
-    /// `App/AppState+ACOM.swift` in seam 2 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md) and
+    /// `App/AppState+ACOM.swift` in seam 2 (archived docs/archive/v4/appstate-seams-plan.md) and
     /// still read the session directly; the session's hooks below carry the
     /// effects that need the window.
     let acomSession = ACOMSession()
@@ -630,7 +630,7 @@ final class AppState {
     /// `acomWorkPositionCount` and its dependents need `descriptor` (rx/ry),
     /// which only AppState holds, so they stay here as orchestration over
     /// `ACOMSession`'s moved `scanSelection`/`estimatedDuration` (seam 2,
-    /// ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md) rather than becoming forwarders — see the
+    /// archived docs/archive/v4/appstate-seams-plan.md) rather than becoming forwarders — see the
     /// "seam 2 additions" note atop `Session/ACOMSession.swift`.
     var acomWorkPositionCount: Int {
         guard let descriptor else { return 0 }
@@ -950,7 +950,7 @@ final class AppState {
     /// quality check, one click away. Promoted only when the crystal actually
     /// has a symmetry to color by — `.identity` has no fundamental zone, so an
     /// IPF key there would be a fabricated legend.
-    /// Widened from `private` (seam 2, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, archived docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     func promoteIPFZDisplayIfDefault(for map: OrientationMap) {
         guard !acomSession.displayIsUserChosen,
@@ -966,7 +966,7 @@ final class AppState {
     var activePane: ActivePane = .diffraction
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
-    /// Seam 4 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the DPC display choice's one
+    /// Seam 4 (archived docs/archive/v4/appstate-seams-plan.md): the DPC display choice's one
     /// owner, `dpc.dpcDisplay` (its `didSet` is now `dpc`'s own
     /// `onDisplayChange` hook, wired in `init()`). Every reader goes there
     /// directly; there are no forwarding properties.

@@ -369,7 +369,7 @@ do {
 // after an ACCEPTED step; at the optimum the cost change of a step is roundoff,
 // every step was refused, damping grew until the candidate equalled the point,
 // and the 100-pass cap threw didNotConverge on about one clean ring in seven
-// (../_archive/mac4DSTEM/docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md). None of the cases
+// (archived docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md). None of the cases
 // above is big enough to hit it. Four checks per ring, in the order tried:
 //   - it FITS (a throw is a FAIL naming the ring and the error; every ring is
 //     tried before the run stops, so the count is in the log),

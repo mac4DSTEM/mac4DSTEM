@@ -287,7 +287,7 @@ spot_cases = [
 
 # THE CLEAN SWEEP (2026-10-12). fit1D's stop rule once threw didNotConverge AT
 # the optimum on about one clean planted ring in seven (the cost change of a
-# step there is roundoff, so every step was refused; ../_archive/mac4DSTEM/docs/archive/v5/
+# step there is roundoff, so every step was refused; archived docs/archive/v5/
 # ellipse-stop-rule-gateD-2026-10-12.md). The cases above are small and never
 # hit it; these are big enough to, and the harness requires every one to fit.
 # A grid, not a selection: two detector sizes, three ring radii each, a circle

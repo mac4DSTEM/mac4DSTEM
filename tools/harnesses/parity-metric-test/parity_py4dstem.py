@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Recompute QC-visible products with py4DSTEM and emit parity records.
 
-This is the "missing wire" of ../_archive/mac4DSTEM/docs/py4dstem-pipelines.md §10: the campaign
+This is the "missing wire" of archived docs/py4dstem-pipelines.md §10: the campaign
 (main.swift) exports, for each training dataset, the exact arrays the app
 produced for the products a user looks at — the strain map and the full-scan
 ACOM orientation map — plus the Bragg vectors they were computed from (in the
@@ -70,7 +70,7 @@ from scipy.spatial.transform import Rotation
 from scipy.stats import spearmanr
 
 SCHEMA = 1
-GENERATOR = "../_archive/mac4DSTEM/tools/training-dataset-campaign/parity_py4dstem.py"
+GENERATOR = "tools/training-dataset-campaign/parity_py4dstem.py (archived)"
 
 # First-proposal tolerances. Basis strings are embedded in the records so a
 # reader never has to trust a bare number.

@@ -26,7 +26,7 @@ final class DiskDetectionContractTests: XCTestCase {
 
     /// The minimum-spacing default must scale with the *probe*, not the
     /// detector. Measured on the training set (see
-    /// `DiskDetectionParams.detectorAdapted` and `../_archive/mac4DSTEM/tools/bragg-spacing-probe/`):
+    /// `DiskDetectionParams.detectorAdapted` and archived `tools/bragg-spacing-probe/`):
     /// a 128 px detector yields a 16 px detector-scaled gate, which sits above
     /// the true Bragg spacing on Si_SiGe (14.9 px) and Particle_1 (12.7 px)
     /// and suppresses the g-vectors that define the strain basis.

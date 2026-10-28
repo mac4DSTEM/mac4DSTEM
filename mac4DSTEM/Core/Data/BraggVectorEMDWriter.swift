@@ -41,7 +41,7 @@ package nonisolated enum BraggVectorEMDWriter {
         }
     }
     /// The hand-clicked disk-centre labels (C7 session 4, 2026-09-08), as the
-    /// same JSON `../_archive/mac4DSTEM/tools/disk-detector/label_centres.py` writes — one
+    /// same JSON archived `tools/disk-detector/label_centres.py` writes — one
     /// attribute on the session root, beside calibration. Additive content,
     /// like the replay record: absent on a file that predates it, and a
     /// calibration save with nothing new to say about labels must carry the

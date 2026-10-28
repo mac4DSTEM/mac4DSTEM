@@ -5,7 +5,7 @@
 //        SwiftUI, no AppState — `LineageGraphView` draws what this decides,
 //        `LineageGraphLayoutTests` pins it.
 //
-//  THE LAYOUT (mock: ../_archive/mac4DSTEM/docs/archive/v4/lineage-graph-mock-2026-09-30.html)
+//  THE LAYOUT (mock: archived docs/archive/v4/lineage-graph-mock-2026-09-30.html)
 //   - COLUMN = the longest path from a root (a node that consumes nothing in
 //     the session). Every edge therefore points to a strictly higher column:
 //     the picture reads left to right and an edge never runs backward.

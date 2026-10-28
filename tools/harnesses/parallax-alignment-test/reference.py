@@ -355,7 +355,7 @@ diameter = int(max(np.ptp(indices[:, 0]), np.ptp(indices[:, 1])) + 1)
 # py4DSTEM parallax.py:1274-1281, line for line, with its defaults
 # (min_alignment_bin=1, num_iter_at_min_bin=2 at :1141). Before 2026-09-28 this
 # omitted the repeat of the finest bin and so agreed with the port by
-# construction (../_archive/mac4DSTEM/docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md).
+# construction (archived docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md).
 min_alignment_bin, num_iter_at_min_bin = 1, 2
 bin_min = np.ceil(np.log(min_alignment_bin) / np.log(2))
 bin_max = np.ceil(np.log(diameter) / np.log(2))

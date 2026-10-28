@@ -7,7 +7,7 @@
 //        edge-corrected areal density, reported as ratios "derived truth, not published". N_V, composition and strain are not
 //        checkable here (the dataset has no thickness and no EDS); the paper reports none of the four object quantities.
 //  Gate:  heavy, real data (References/mac4DSTEM/thronsen-datasetA, CC BY 4.0, outside the repo): skipped unless MAC4DSTEM_THRONSEN=1
-//        (run it with `../tools/memcap.sh --gb 8 -- env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`). The configuration is the T4 run's, as the probe
+//        (run it with `env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`). The configuration is the T4 run's, as the probe
 //        `--thronsen ... --reach 0.68 --rule known-variants --or --min-relative 0.0015 --min-intensity 0` ran it: probe radius 2 px,
 //        Q 0.01904 per px, detection floor 0.15 % (ADR 041), the known-variants rule with the paper's orientation relationships.
 //  Crystals and phase recipe: the archived probe's `thronsen.swift` (their Table 2), copied here with that provenance.
