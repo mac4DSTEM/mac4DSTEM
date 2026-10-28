@@ -5,7 +5,7 @@
 # Proves (1) simulate.py's kernel/correlation port equals py4DSTEM's pixel for pixel and (2) py4DSTEM's classical
 # detector at the 2026-09-05 settings recovers the drawn centres, then BREAKS the fixture four ways and requires
 # each break to fail. Exit 0 only if all of that holds.
-# The training, export, evaluation and labelling tools left the repo: ../_archive/mac4DSTEM/tools/disk-detector/.
+# The training, export, evaluation and labelling tools left the repo: archived tools/disk-detector/.
 # Nothing to take from tools/lib/sources.manifest: this harness is Python only, it compiles no Swift.
 # py4DSTEM is the LOCK (References/py4DSTEM-dev, fetch-py4dstem.sh), put on PYTHONPATH here;
 # the conda environment's own py4DSTEM (0.14.17) is not the reference (decisions.md, 2026-09-07).

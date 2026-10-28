@@ -1,6 +1,6 @@
 //
 //  DiffractionEmbeddingTests.swift
-//  Diffraction-groups classical v1 (`ml/disk-detector:../_archive/mac4DSTEM/docs/ai-ml/README.md`
+//  Diffraction-groups classical v1 (archived `docs/ai-ml/README.md` of `ml/disk-detector`
 //  §6): PCA on box-binned patterns, then k-means. Every assertion below states
 //  the mutation it catches.
 //
@@ -456,7 +456,7 @@ final class DiffractionEmbeddingTests: XCTestCase {
     // MARK: - C1 (Gate D): the eigensolver returns ACTUAL eigenpairs
 
     /// The discriminating experiment of
-    /// `../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md`.
+    /// archived `docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md`.
     ///
     /// Every earlier assertion in this file reads the eigensolver through a
     /// downstream aggregate (`explainedVariance.prefix(3).sum() > 0.8`, or a
@@ -563,7 +563,7 @@ final class DiffractionEmbeddingTests: XCTestCase {
     /// then diagonalises the uncentred second moment, whose dominant
     /// direction is the mean itself); M4 (rows not ordered by eigenvalue);
     /// and the one-iteration convergence defect, which leaves every component
-    /// past the first an unconverged direction (../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md).
+    /// past the first an unconverged direction (archived docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md).
     func testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance() async throws {
         let binnedSize = 16
         let dims = binnedSize * binnedSize
@@ -667,7 +667,7 @@ final class DiffractionEmbeddingTests: XCTestCase {
 
     /// The test's own copy of `DiffractionEmbedding.embed` — log1p, per-pattern
     /// max-normalise, box-bin — written from
-    /// `ml/disk-detector:../_archive/mac4DSTEM/docs/ai-ml/README.md` §6 and this fixture's 32-px detector rather than
+    /// archived `docs/ai-ml/README.md` §6 (`ml/disk-detector`) and this fixture's 32-px detector rather than
     /// called through the code under test, so
     /// `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` has an
     /// independent ground truth.

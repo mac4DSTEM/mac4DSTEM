@@ -2,7 +2,7 @@
 # No Swift is compiled here, so tools/lib/sources.manifest has nothing to supply.
 # Gate the ACOM parity metric itself.
 #
-# The campaign (../_archive/mac4DSTEM/tools/training-dataset-campaign/run.sh) is deliberately not in
+# The campaign (archived tools/training-dataset-campaign/run.sh) is deliberately not in
 # tools/run-tests.sh — it needs the real multi-GB datasets. But the metric its
 # records are computed with is pure algebra with no data dependency, and it is
 # exactly what silently broke before: a misplaced symmetry operator made the

@@ -5,7 +5,7 @@
 //        was. One owner, so the number the user sees and the caveat attached to
 //        it cannot come from two places.
 //
-//  `AppState`'s seam for this state (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7):
+//  `AppState`'s seam for this state (archived docs/archive/development-process-2026-08-31.md §7):
 //  AppState holds it with NO forwarding properties; view code asks this type
 //  directly. The shell-ratio self-check has a third state that is neither
 //  pass nor fail ("only one shell is detectable, so the single-shell
@@ -41,7 +41,7 @@ package final class QCalibrationRun {
     /// What the shell-ratio self-check said about the accepted estimate.
     /// `.notSelfChecked` is deliberately surfaced rather than folded into a
     /// pass: it is the state in which the single-shell assumption is least
-    /// safe (../_archive/mac4DSTEM/docs/q-calibration-design.md §3.2).
+    /// safe (archived docs/q-calibration-design.md §3.2).
     package var shellCheck: QCalibrationShellCheck? { estimate?.shellCheck }
 
     /// One line for the calibration panel, or nil when there is nothing to say.

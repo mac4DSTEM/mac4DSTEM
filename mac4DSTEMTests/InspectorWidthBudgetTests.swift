@@ -1,7 +1,7 @@
 //
 //  InspectorWidthBudgetTests.swift
 //  Every room's inspector settings must fit the inspector's narrowest column.
-//  Gate D, 2026-09-29 (`../_archive/mac4DSTEM/docs/archive/v4/ai-room-narrow-crash-gateD-2026-09-29.md`):
+//  Gate D, 2026-09-29 (archived `docs/archive/v4/ai-room-narrow-crash-gateD-2026-09-29.md`):
 //  one Phase-mapping row (label + 72-pt field + a fixed-size unit, 332 pt)
 //  forced the inspector's minimum to 364 pt, and at a 915-pt window the split
 //  view and the inspector invalidated each other until AppKit aborted. A row's

@@ -231,7 +231,7 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
 /// The steps run in py4DSTEM's order for the same calls: real-space crop,
 /// then `thin_data_real` (stride), detector `crop_Q`, `bin_Q`, and last
 /// `filter_hot_pixels` on the binned patterns (the order the owner's own
-/// preprocessed file was made in, ../_archive/mac4DSTEM/docs/archive/v4/parity-28gb-2026-09-30.md).
+/// preprocessed file was made in, archived docs/archive/v4/parity-28gb-2026-09-30.md).
 package nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
     package let scanY: Range<Int>
     package let scanX: Range<Int>
