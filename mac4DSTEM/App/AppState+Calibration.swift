@@ -11,8 +11,10 @@ import DiffractoGeometry   // EllipseCalibration: the ellipse fit is DiffractoKi
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+// swiftlint:disable duplicate_imports
 // swiftformat:disable:next duplicateImports
 import struct DSTEMCore.DiffractionPattern   // the app's display type, over DiffractoGeometry's of the same name
+// swiftlint:enable duplicate_imports
 #endif
 
 extension AppState {
