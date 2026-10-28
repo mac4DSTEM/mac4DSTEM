@@ -1,7 +1,10 @@
 # CI — the aggregate claim, made mechanical (v2 S21, archived docs/archive/v2/v2-release.md §8).
 #
-# WHAT RUNS on every push and pull request — three jobs, each a gate a public
-# checkout can reproduce:
+# WHAT RUNS on every push and pull request — the jobs below, each a gate a public
+# checkout can reproduce. `scientific` (up to three hours, not a required check)
+# runs on push and workflow_dispatch only, never on a pull request, so a PR waits
+# only for the required checks; dispatch CI on a branch to run it before merging.
+# `kit boundary` is a plain grep and runs on Linux, off the macOS runner queue.
 #   * `tools/run-tests.sh scientific`  — every harness in that script's
 #     `scientific` array (the array is the roster; no count is stated here so
 #     this comment cannot go stale), one half of one harness excepted (below).
@@ -105,6 +108,8 @@ jobs:
 
   scientific:
     name: scientific (py4DSTEM parity)
+    # Off pull requests: the macOS runners are the CI bottleneck and this is the slowest, non-required job.
+    if: github.event_name != 'pull_request'
     runs-on: macos-26
     timeout-minutes: 180
     steps:
@@ -175,7 +180,8 @@ jobs:
 
   kit-boundary:
     name: kit boundary (no numerics frameworks in the app)
-    runs-on: macos-26
+    # Plain bash, grep and awk: Linux runs it (checked with mawk), off the macOS queue.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
