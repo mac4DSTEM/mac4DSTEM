@@ -60,6 +60,26 @@ struct PrecipitateObjectsWindow: View {
     private var unit: String { report.pixelUnit ?? "px" }
 
     var body: some View {
+        // Split into pieces: Xcode 26.6's type checker gives up on the one long chain (CI unit job, 2026-10-28).
+        exporting(content
+            // Size: the scene's `.defaultSize` (App/mac4DSTEMApp.swift). The
+            // summary grid keeps its one-line width (`fixedSize` below), which the
+            // window takes as its minimum: a 300 pt frame wrapped "Median length"
+            // letter by letter (2026-09-29 drive).
+            .navigationTitle("Precipitate Objects")
+            .navigationSubtitle(subtitle)
+            .toolbar { toolbarItems }
+            // A selected row outlines its object on the map. Only rows the reader
+            // can see count, and closing the table takes its highlight with it.
+            .onChange(of: selection) { pushSelection() }
+            .onChange(of: phaseFilter) { refreshRows(); pushSelection() }
+            .onChange(of: countedOnly) { refreshRows(); pushSelection() }
+            .onChange(of: sortOrder) { refreshRows() }
+            .onDisappear { relay?.clear(ifOwnedBy: report.sourceID) }
+            .copyable(copyPayload))
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             summary
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -79,57 +99,50 @@ struct PrecipitateObjectsWindow: View {
                 .accessibilityIdentifier("precipitates.objects.joinNotes")
             }
         }
-        // Size: the scene's `.defaultSize` (App/mac4DSTEMApp.swift). The
-        // summary grid keeps its one-line width (`fixedSize` below), which the
-        // window takes as its minimum: a 300 pt frame wrapped "Median length"
-        // letter by letter (2026-09-29 drive).
-        .navigationTitle("Precipitate Objects")
-        .navigationSubtitle(subtitle)
-        .toolbar {
-            ToolbarItem {
-                Picker("Phase", selection: $phaseFilter) {
-                    Text("All Phases").tag(Int32(-1))
-                    ForEach(report.summaries) { summary in
-                        Text(summary.phaseName).tag(summary.label)
-                    }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        ToolbarItem {
+            Picker("Phase", selection: $phaseFilter) {
+                Text("All Phases").tag(Int32(-1))
+                ForEach(report.summaries) { summary in
+                    Text(summary.phaseName).tag(summary.label)
                 }
-                .help("Show one phase's objects")
             }
-            ToolbarItem {
-                Toggle(isOn: $countedOnly) {
-                    Label("Counted Only", systemImage: "checkmark.circle")
-                }
-                .help("Hide objects on the scan edge and under the minimum size")
+            .help("Show one phase's objects")
+        }
+        ToolbarItem {
+            Toggle(isOn: $countedOnly) {
+                Label("Counted Only", systemImage: "checkmark.circle")
             }
-            ToolbarItem {
-                Button("Export CSV…", systemImage: "square.and.arrow.up") {
-                    exportDocument = CSVTextDocument(text: report.csv())
-                }
-                .help("Every object and the per-phase summary as CSV, with provenance")
+            .help("Hide objects on the scan edge and under the minimum size")
+        }
+        ToolbarItem {
+            Button("Export CSV…", systemImage: "square.and.arrow.up") {
+                exportDocument = CSVTextDocument(text: report.csv())
             }
+            .help("Every object and the per-phase summary as CSV, with provenance")
         }
-        // A selected row outlines its object on the map. Only rows the reader
-        // can see count, and closing the table takes its highlight with it.
-        .onChange(of: selection) { pushSelection() }
-        .onChange(of: phaseFilter) { refreshRows(); pushSelection() }
-        .onChange(of: countedOnly) { refreshRows(); pushSelection() }
-        .onChange(of: sortOrder) { refreshRows() }
-        .onDisappear { relay?.clear(ifOwnedBy: report.sourceID) }
-        .copyable(copyPayload)
-        .fileExporter(
-            isPresented: Binding(get: { exportDocument != nil },
-                                 set: { if !$0 { exportDocument = nil } }),
-            document: exportDocument,
-            contentType: .commaSeparatedText,
-            defaultFilename: report.csvFileName
-        ) { result in
-            exportFailure = CSVExportOutcome.failureMessage(result)
-        }
-        .alert("Could Not Export the Table", item: $exportFailure) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { message in
-            Text(message)
-        }
+    }
+
+    /// The CSV export panel and its failure alert.
+    private func exporting(_ view: some View) -> some View {
+        view
+            .fileExporter(
+                isPresented: Binding(get: { exportDocument != nil },
+                                     set: { if !$0 { exportDocument = nil } }),
+                document: exportDocument,
+                contentType: .commaSeparatedText,
+                defaultFilename: report.csvFileName
+            ) { result in
+                exportFailure = CSVExportOutcome.failureMessage(result)
+            }
+            .alert("Could Not Export the Table", item: $exportFailure) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
     }
 
     private func pushSelection() {
