@@ -264,7 +264,7 @@ final class FFT2DArbitraryLengthTests: XCTestCase {
     func testSmallPowerOfTwoShapesRoundTripLikeTheLargeOnes() throws {
         for (nx, ny) in [(8, 8), (8, 16), (4, 8), (8, 64), (16, 8), (4, 4), (2, 8), (16, 16), (32, 32)] {
             let fft = try XCTUnwrap(FFT2D(nx: nx, ny: ny), "no plan for \(nx)×\(ny)")
-            var re = (0..<(nx * ny)).map { Float(sin(Double($0) * 0.37) + 0.5) }
+            var re = (0..<(nx * ny)).map { i -> Float in Float(sin(Double(i) * 0.37) + 0.5) }
             let original = re
             var im = [Float](repeating: 0, count: nx * ny)
             fft.transform(re: &re, im: &im, forward: true)

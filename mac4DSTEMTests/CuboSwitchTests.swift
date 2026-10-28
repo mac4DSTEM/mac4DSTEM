@@ -203,7 +203,11 @@ final class CuboSwitchTests: XCTestCase {
         XCTAssertTrue(truth[zero].x.isNaN, "scan (0, 0) is the zero-sum position")
 
         let centre: (x: Float, y: Float) = (3.25, 1.5)
-        let origins: [Float] = (0..<(Self.ry * Self.rx)).flatMap { [Float(2) + Float($0 % 3) * 0.25, Float(1) + Float($0 % 4) * 0.5] }
+        let origins: [Float] = (0..<(Self.ry * Self.rx)).flatMap { i -> [Float] in
+            let ox: Float = 2 + Float(i % 3) * 0.25
+            let oy: Float = 1 + Float(i % 4) * 0.5
+            return [ox, oy]
+        }
         for rows in [1, 2, 5] {
             let shift = try await VirtualDetector.tiledCenterOfMass(data: data, descriptor: d, center: centre, maximumTileRows: rows)
             let shiftO = try await VirtualDetector.tiledCenterOfMass(data: data, descriptor: d, center: centre,
@@ -227,7 +231,12 @@ final class CuboSwitchTests: XCTestCase {
     /// convention is the negative); swap the two output slots; ignore the transpose.
     func testApplyRotationIsTheAppsFormulaOnANonSquareScan() {
         let width = 4, height = 5, n = width * height
-        let com: [Float] = (0..<n).flatMap { [Float(sin(Double($0) * 0.9)) * 2 + 0.5, Float(cos(Double($0) * 0.4)) - 1.5] }
+        let com: [Float] = (0..<n).flatMap { i -> [Float] in
+            let x = Double(i)
+            let gx: Float = Float(sin(x * 0.9)) * 2 + 0.5
+            let gy: Float = Float(cos(x * 0.4)) - 1.5
+            return [gx, gy]
+        }
         for transpose in [false, true] {
             for theta: Float in [0.7, -1.2, 0] {
                 let out = DPC.applyRotation(com: com, width: width, height: height, rotationRad: theta, transpose: transpose)

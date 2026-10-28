@@ -91,7 +91,7 @@ struct FigureExportSection: View {
             }
         }
         // SwiftUI's own export panel; its message says what is being saved and at what size.
-        .fileExporter(isPresented: $isExporting, document: file, contentType: file?.contentType, defaultFilename: file?.suggestedName) { result in
+        .fileExporter(isPresented: $isExporting, document: file, contentTypes: file.map { [$0.contentType] } ?? [], defaultFilename: file?.suggestedName) { result in
             if let file { appState.figureExported(result, file: file) }
             file = nil   // the bytes are not kept once written
         } onCancellation: {

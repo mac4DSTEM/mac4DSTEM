@@ -502,8 +502,7 @@ final class FigureExportTests: XCTestCase {
         let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithData(png.data as CFData, nil)!, 0, nil))
         XCTAssertEqual(image.width, Int(plan.size.width) * 2)
         XCTAssertEqual(png.message, "Figure: Virtual image, Diffraction pattern \u{00B7} 2\u{00D7} \u{00B7} \(image.width) \u{00D7} \(image.height) pixels")
-        let snapshot = try await png.snapshot(contentType: .png)
-        XCTAssertEqual(snapshot, png.data)
+        XCTAssertEqual(png.file.regularFileContents, png.data)
 
         state.preferences.figureFormat = .tiff; state.preferences.exportScale = .three
         let tiff = try state.figureFile(chosen: ids)

@@ -24,8 +24,8 @@ one.
 
 ## Building and testing
 
-You need a full Xcode 27 (the Command Line Tools alone cannot build this project) on an Apple silicon Mac; the app's
-minimum system is macOS 27. Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme, or from the shell:
+You need a full Xcode 27 or Xcode 26.6 (the Command Line Tools alone cannot build this project) on an Apple silicon Mac;
+the app's minimum system is macOS 26. Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme, or from the shell:
 
 ```sh
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
