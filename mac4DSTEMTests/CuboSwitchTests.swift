@@ -203,7 +203,11 @@ final class CuboSwitchTests: XCTestCase {
         XCTAssertTrue(truth[zero].x.isNaN, "scan (0, 0) is the zero-sum position")
 
         let centre: (x: Float, y: Float) = (3.25, 1.5)
-        let origins: [Float] = (0..<(Self.ry * Self.rx)).flatMap { [Float(2) + Float($0 % 3) * 0.25, Float(1) + Float($0 % 4) * 0.5] }
+        let origins: [Float] = (0..<(Self.ry * Self.rx)).flatMap { i -> [Float] in
+            let ox: Float = 2 + Float(i % 3) * 0.25
+            let oy: Float = 1 + Float(i % 4) * 0.5
+            return [ox, oy]
+        }
         for rows in [1, 2, 5] {
             let shift = try await VirtualDetector.tiledCenterOfMass(data: data, descriptor: d, center: centre, maximumTileRows: rows)
             let shiftO = try await VirtualDetector.tiledCenterOfMass(data: data, descriptor: d, center: centre,

@@ -18,7 +18,8 @@ final class ParallaxAlignedMeanTests: XCTestCase {
         var texture = [Float](repeating: 1, count: plane)
         let top = pad / 2
         for y in 0..<scan { for x in 0..<scan {
-            texture[(top + y) * side + top + x] = 1 + 0.2 * Float(sin(0.9 * Double(y) + 0.3 * Double(x)) * cos(0.4 * Double(y)))
+            let wave: Double = sin(0.9 * Double(y) + 0.3 * Double(x)) * cos(0.4 * Double(y))
+            texture[(top + y) * side + top + x] = 1 + 0.2 * Float(wave)
         } }
         var stack = [Float](); stack.reserveCapacity(count * plane)
         for _ in 0..<count { stack.append(contentsOf: texture) }
