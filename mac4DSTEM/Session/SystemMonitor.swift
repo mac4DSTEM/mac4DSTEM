@@ -17,11 +17,6 @@ extension SystemMonitor {
 
     package static var gpuName: String { MetalEngine.shared.device.name }
 
-    /// Recommended max GPU working set, in MB.
-    package static var gpuWorkingSetMB: Double {
-        Double(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 1_048_576
-    }
-
     /// The GPU working-set limit as text, in the app's one byte style.
     package static var gpuWorkingSetText: String {
         byteString(Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize))

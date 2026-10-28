@@ -39,24 +39,6 @@ nonisolated struct ElementSuggestion: Equatable, Sendable {
     var significance: Double = 0
 }
 
-/// An energy band of a window a net map uses: the signal window of a line, or one of its two background windows.
-nonisolated struct WindowBand: Equatable, Sendable, Identifiable {
-    enum Kind: Sendable { case signal, background }
-    var id: String                   // "Al_Ka.signal", "Al_Ka.left"
-    var elementZ: Int?
-    var label: String                // "Al Kα"
-    var range: ClosedRange<Double>   // keV
-    var kind: Kind
-}
-
-/// How one periodic-table cell is drawn (mock screen 4).
-nonisolated enum PeriodicCellState: Equatable, Sendable {
-    case quantify, fitOnly, off
-    case suggested(String)
-    /// H, He, Li, Be: no usable line at this detector window (greyed, with the reason).
-    case unavailable(String)
-}
-
 /// The element choices of one spectrum image. Roles the owner set (`manual`) are
 /// never touched by the proposer — Velox's Auto ID weakness, designed out here.
 nonisolated struct ElementSelection: Equatable, Sendable {
@@ -99,19 +81,7 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     /// True when the person chose a family or lines for this element (so its tile and its provenance say which).
     func hasChosenLines(_ z: Int) -> Bool { families[z] != nil || !(lines[z] ?? []).isEmpty }
 
-    func cellState(_ z: Int) -> PeriodicCellState {
-        if let why = Self.unavailableReason(z: z) { return .unavailable(why) }
-        if let s = suggestions.first(where: { $0.z == z }) { return .suggested(s.reason) }
-        switch role(z) {
-        case .quantify: return .quantify
-        case .fitOnly: return .fitOnly
-        case .off: return .off
-        }
-    }
-
     var quantified: [Int] { roles.filter { $0.value == .quantify }.keys.sorted() }
-    /// Quantified and fit-only elements, by Z: the ones whose lines are windowed, marked and (for the first) tabulated.
-    var activeZ: [Int] { roles.filter { $0.value != .off }.keys.sorted() }
 
     /// Left click: Quantify <-> Off. On a pending suggestion the click applies that
     /// suggestion's proposed role (ADR 054 §6: one click accepts one suggestion).
@@ -156,14 +126,6 @@ nonisolated struct ElementSelection: Equatable, Sendable {
         if !manual.contains(z) { set(z, role) } else { suggestions.removeAll { $0.z == z } }
     }
 
-    /// The proposer ran again (new region, new frame range). Roles it set earlier and a
-    /// person never touched fall back to Off unless proposed again; manual choices stay;
-    /// an element a person already decided is never suggested.
-    mutating func rerunAutoID(accepted: [Int: ElementRole], suggestions new: [ElementSuggestion]) {
-        for z in roles.keys where !manual.contains(z) { roles[z] = nil }
-        for (z, r) in accepted where !manual.contains(z) { roles[z] = r }
-        suggestions = new.filter { !manual.contains($0.z) }
-    }
 }
 
 /// The periodic table's symbols and the folded places (the grid itself is `PeriodicTableGrid`): period 7 and the f-block
@@ -182,19 +144,6 @@ nonisolated enum PeriodicLayout {
 }
 
 // MARK: - Spectrum axes
-
-nonisolated struct SpectrumLayers: Equatable, Sendable {
-    var spectrum = true, background = true, model = true, residual = true
-    /// The pinned regions' comparison curves (drawn faint, `pinOpacity`).
-    var pins = true
-    static let pinOpacity = 0.6
-    /// Spec 2 D-6: linear by default (the owner); the Show menu's toggle switches to log.
-    var log = false
-    /// Counts per pooled pixel instead of counts (the region's size falls out of a comparison).
-    var perPixel = false
-    /// The line and background windows the net maps use, as faint bands.
-    var windows = false
-}
 
 /// The visible energy window, always inside the spectrum's own range. Zoom is about a
 /// point (wheel/pinch), pan is a drag; both clamp so the window never leaves the data.
@@ -223,8 +172,6 @@ nonisolated struct SpectrumViewport: Equatable, Sendable {
         guard v.isFinite else { return start }
         return min(max(v, yScaleRange.lowerBound), yScaleRange.upperBound)
     }
-    /// The drawn top of the y axis for an automatic top (counts in linear, the top decade's value in log), never below `floor`.
-    func scaledTop(_ auto: Double, floor: Double = 0) -> Double { max(auto / yScale, floor) }
 
     var span: Double { hi - lo }
     mutating func reset() { lo = domain.lowerBound; hi = domain.upperBound }
@@ -255,67 +202,6 @@ nonisolated struct SpectrumViewport: Equatable, Sendable {
     }
 }
 
-nonisolated enum AxisTicks {
-    /// One tick per decade inside [lo, hi] (counts), as exponents: 10^e.
-    static func logDecades(lo: Double, hi: Double) -> [Int] {
-        guard lo > 0, hi > lo else { return [] }
-        let a = Int(ceil(log10(lo) - 1e-9)), b = Int(floor(log10(hi) + 1e-9))
-        return a <= b ? Array(a...b) : []
-    }
-
-    /// "Nice" linear ticks (1, 2, 5 × 10^k) with about `target` marks.
-    static func niceStep(lo: Double, hi: Double, target: Int) -> Double {
-        let raw = (hi - lo) / Double(target)
-        let mag = pow(10, floor(log10(raw)))
-        return [1.0, 2, 5, 10].map { $0 * mag }.first { $0 >= raw } ?? 10 * mag
-    }
-
-    /// Decimals a tick label needs so that neighbouring ticks never print alike
-    /// (a 0.02 keV step must read 0.50, 0.52, 0.54, not 0.5, 0.5, 0.5).
-    static func decimals(forStep step: Double) -> Int {
-        guard step > 0, step.isFinite else { return 0 }
-        return min(6, max(0, Int((-log10(step) - 1e-9).rounded(.up))))
-    }
-
-    /// A tick's text. A value that rounds to zero is "0", never "-0" (the energy offset leaves a tick at -1e-16).
-    static func label(_ v: Double, step: Double) -> String {
-        let s = String(format: "%.\(decimals(forStep: step))f", v)
-        return s.hasPrefix("-") && !s.contains(where: { $0 != "-" && $0 != "0" && $0 != "." }) ? String(s.dropFirst()) : s
-    }
-
-    /// Estimated text width of a 10 pt axis label, points (digits and the point are about 5.6 pt).
-    static func labelWidth(_ text: String) -> CGFloat { CGFloat(text.count) * 5.6 + 2 }
-
-    /// The x-axis labels to draw. The unit is the axis title in the left gutter, right-aligned to `unitTrailing` (so it never
-    /// meets the last label); a tick label whose box would reach it is left out.
-    static func xLabels(ticks: [Double], x: (Double) -> CGFloat, step: Double, unit: String, unitTrailing: CGFloat) -> (labels: [(text: String, x: CGFloat)], unit: (text: String, trailing: CGFloat)) {
-        let unitLeft = unitTrailing - labelWidth(unit)
-        let kept = ticks.compactMap { e -> (text: String, x: CGFloat)? in
-            let t = label(e, step: step), cx = x(e)
-            return cx - labelWidth(t) / 2 > unitTrailing + 2 || cx + labelWidth(t) / 2 < unitLeft - 2 ? (t, cx) : nil
-        }
-        return (kept, (unit, unitTrailing))
-    }
-
-    static func linear(lo: Double, hi: Double, target: Int = 6) -> [Double] {
-        guard hi > lo, target > 0 else { return [] }
-        let step = niceStep(lo: lo, hi: hi, target: target)
-        let first = ceil(lo / step - 1e-9) * step
-        return Array(stride(from: first, through: hi + step * 1e-9, by: step))
-    }
-}
-
-/// Counts-axis range for the log plot. `minPositive` is +∞ when no visible channel has a
-/// positive count (an empty window); the floor then falls back to 1 so no coordinate is NaN.
-nonisolated enum SpectrumYRange {
-    /// `unit` is what one raw count is in the plotted unit (1 for counts, 1/pixels per pixel): the floor of the axis.
-    static func log(minPositive: Double, maximum: Double, unit: Double = 1) -> (lo: Double, hi: Double) {
-        let lo = minPositive.isFinite && minPositive > 0 ? max(unit, pow(10, floor(log10(minPositive)))) : unit
-        let top = maximum.isFinite && maximum > 0 ? maximum * 1.05 : 10 * unit
-        return (lo, max(pow(10, ceil(log10(top))), lo * 10))
-    }
-}
-
 /// The residual strip: (data − model)/√model, the Poisson-normalised residual; ±3 is the
 /// strip's frame. A channel with no modelled counts carries no information and shows 0.
 nonisolated enum ResidualNormalisation {
@@ -323,10 +209,6 @@ nonisolated enum ResidualNormalisation {
         zip(data, model).map { d, m in m > 0 ? (d - m) / m.squareRoot() : 0 }
     }
     static let frame = 3.0
-    /// A residual beyond ±3 is drawn at the frame edge and marked as clipped.
-    static func isClipped(_ v: Double) -> Bool { abs(v) > frame }
-    /// Which frame edge a clipped residual sits on: +1 top, -1 bottom, 0 not clipped. The strip draws a small tick there.
-    static func clipSide(_ v: Double) -> Int { isClipped(v) ? (v > 0 ? 1 : -1) : 0 }
 }
 
 /// Validation state as the session reports it (`validation:"none"` for every at% product,
@@ -425,21 +307,6 @@ nonisolated enum SpectrumHover {
     }
 }
 
-/// Counts per pooled pixel (Show › Per pixel): a region's size falls out of a comparison. Pure; the drawing divides curves and
-/// readouts by `divisor`. Fits, the residual and every export stay in counts.
-nonisolated enum SpectrumScale {
-    /// 1 (no scaling) unless the toggle is on and the pooled pixel count is known.
-    static func divisor(perPixel: Bool, pixels: Int) -> Double { perPixel && pixels > 0 ? Double(pixels) : 1 }
-    /// `v` per pixel; unchanged when the pixel count is unknown (0), never a division by zero.
-    static func perPixel(_ v: [Double], pixels: Int) -> [Double] { pixels > 0 ? v.map { $0 / Double(pixels) } : v }
-}
-
-/// How a window band of the net maps is drawn (Show \u{203A} Windows): faint, so the spectrum stays the picture. The signal window
-/// takes 8 % of its element's colour, a background window 5 % grey; no labels.
-nonisolated enum WindowBandStyle {
-    static func opacity(_ kind: WindowBand.Kind) -> Double { kind == .signal ? 0.08 : 0.05 }
-}
-
 /// The plot's readout text: the cursor's, and the range marker's. Numbers in the person's locale (a decimal comma in German),
 /// pixel counts grouped like the spectrum header's (a thin space).
 nonisolated enum SpectrumReadout {
@@ -476,18 +343,6 @@ nonisolated enum SpectrumReadout {
         return out
     }
 
-    /// "1,40–1,60 keV · 61 230 counts · 15,4 % of the region".
-    static func rangeText(from: Double, to: Double, counts c: Double, fraction: Double, divisor: Double = 1, locale: Locale = .current) -> String {
-        let lo = min(from, to), hi = max(from, to)
-        let share = (fraction * 100).formatted(.number.precision(.fractionLength(1)).grouping(.never).locale(locale))
-        return [energy(lo, decimals: 2, locale: locale) + "\u{2013}" + energy(hi, decimals: 2, locale: locale) + " keV",
-                divisor == 1 ? counts(c) + " counts" : perPixel(c / divisor, locale: locale) + " counts/px",
-                share + " % of the region"].joined(separator: " \u{00B7} ")
-    }
-
-    /// The counts axis title: "counts / 20 eV", or "counts / px / 20 eV" per pixel.
-    static func yAxisTitle(channelEV: Int, perPixel: Bool) -> String { "counts / \(perPixel ? "px / " : "")\(channelEV) eV" }
-
     static let separator = " \u{00B7} "
     /// The readout box's widest text, points.
     static let widthCap: CGFloat = 320
@@ -518,8 +373,6 @@ nonisolated struct SpectrumSeries: Equatable, Sendable {
     /// WP2 has no fit yet: a series may carry data only. Curves whose length differs from the
     /// data are treated as absent (never indexed), so a data-only series cannot trap.
     var hasModel: Bool { !data.isEmpty && model.count == data.count }
-    var hasBackground: Bool { !data.isEmpty && background.count == data.count }
-    var hasOverlay: Bool { overlay.map { $0.count == data.count } ?? false }
     func energy(_ channel: Int) -> Double { energyStart + Double(channel) * energyStep }
     var domain: ClosedRange<Double> { energyStart...(energy(max(count - 1, 0))) }
     var residual: [Double] { hasModel ? ResidualNormalisation.normalised(data: data, model: model) : [] }
@@ -538,60 +391,9 @@ nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
     var id: String { label }
 }
 
-/// Where the line-marker names go. Names are staggered into a few rows; one that still collides in every row is left out
-/// (its marker line stays) and reported, so the plot can say which. Pure: the plot only draws what this returns.
-nonisolated enum MarkerLabelLayout {
-    struct Placement: Equatable {
-        var label: String
-        var row: Int
-        var x: CGFloat              // the marker line's x
-        var leading: Bool           // text starts right of the line (false: it ends left of it, at the frame's edge)
-    }
-    struct Result: Equatable { var placed: [Placement]; var left: [String] }
-
-    static let rows = 3
-    static let gap: CGFloat = 3
-
-    /// Estimated text width of an 11 pt semibold label.
-    static func width(_ label: String) -> CGFloat { CGFloat(label.count) * 6.6 + 4 }
-
-    /// The markers whose energy lies inside the viewport: only these get a line and a name.
-    static func inView(_ markers: [LineMarker], lo: Double, hi: Double) -> [LineMarker] {
-        markers.filter { $0.energy >= lo && $0.energy <= hi }
-    }
-
-    static func place(_ markers: [(label: String, x: CGFloat, priority: Int)], minX: CGFloat, maxX: CGFloat) -> Result {
-        var occupied = [[ClosedRange<CGFloat>]](repeating: [], count: rows)
-        var placed: [Placement] = [], left: [String] = []
-        let order = markers.sorted { $0.priority != $1.priority ? $0.priority > $1.priority : $0.x < $1.x }
-        for m in order {
-            let w = width(m.label)
-            let leading = m.x + 2 + w <= maxX
-            let span = leading ? (m.x + 2)...(m.x + 2 + w) : max(minX, m.x - 2 - w)...(m.x - 2)
-            if let r = (0..<rows).first(where: { row in !occupied[row].contains { $0.lowerBound < span.upperBound + gap && span.lowerBound < $0.upperBound + gap } }) {
-                occupied[r].append(span)
-                placed.append(Placement(label: m.label, row: r, x: m.x, leading: leading))
-            } else { left.append(m.label) }
-        }
-        return Result(placed: placed, left: left)
-    }
-}
-
 // MARK: - Results
 
 nonisolated enum AbundanceUnit: String, CaseIterable, Sendable { case atomic = "at%", weight = "wt%" }
-/// What the maps show (the grid header's switch). `integrated` is the signal window's sum, `netCounts` the same less its
-/// background windows. at% and wt% are computed on pooled regions only (ADR 054 item 3, a pooled fit has a σ and a pixel's
-/// counts have none worth a composition), so the pooled fit keeps the number with a σ; the per-pixel maps (task 4) are offered once
-/// Quantify has run, computed by `EDXQuantification.quantifyMaps`, and say "per-pixel, no σ".
-nonisolated enum MapMode: String, CaseIterable, Sendable {
-    case integrated = "int", netCounts = "net", weight = "wt%", atomic = "at%"
-    var isAvailable: Bool { self == .integrated || self == .netCounts }
-    /// wt% and at%: a composition computed from the net maps, not a count.
-    var isComposition: Bool { self == .weight || self == .atomic }
-    func isOffered(quantified: Bool) -> Bool { isAvailable || (isComposition && quantified) }
-    var units: String { self == .integrated ? "integrated counts" : (self == .netCounts ? "net counts" : rawValue) }
-}
 nonisolated struct ResultRow: Equatable, Identifiable, Sendable {
     var z: Int
     var netCounts: Double, netSigma: Double
@@ -604,8 +406,6 @@ nonisolated struct ResultRow: Equatable, Identifiable, Sendable {
     var conflictNote: String? = nil
     /// Why there is no number (no line on the axis, a window outside it).
     var failure: String? = nil
-    /// The weight-percent form of `sigmaTerms` (R3); nil takes `sigmaTerms`.
-    var sigmaTermsWeight: String? = nil
     /// False when no at% / wt% was computed for this row (no k source, absorption-independent): the cells show "—".
     var hasAbundance = true
     /// False when the row has no k-free ratio (a failed line).

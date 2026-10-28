@@ -78,24 +78,6 @@ nonisolated enum EDXRoomFormat {
         }
     }
 
-    /// The infobar-sized line under the room's title: the counts in the region.
-    static func spectrumSubtitle(counts total: UInt64, region r: EDXRegion, pixels: Int) -> String {
-        "\(counts(Double(total))) counts · " + region(r, pixels: pixels)
-    }
-
-    /// The toolbar's display after the file and the room: the grid, what the spectrum sums and what the fit is doing, e.g. "215 × 926 px · 16 090 312 counts · Region 1 · 5 092 px · Quantified".
-    @MainActor static func capsuleDetail(_ session: EDXSession) -> String {
-        guard let meta = session.source?.metadata else { return "spectrum image" }
-        var parts = [session.isSingleSpectrum ? "single spectrum" : "\(meta.scanWidth) × \(meta.scanHeight) px"]
-        parts.append(counts(Double(session.totalCounts)) + " counts")
-        if !session.isSingleSpectrum {
-            let name = session.selectedPin?.name ?? "Whole map"
-            parts.append("\(name) · \(session.regionPixels) px")
-        }
-        if let status = statusText(quantified: session.quantifyActive, hasPicks: session.canQuantify) { parts.append(status) }
-        return parts.joined(separator: " · ")
-    }
-
     /// "Al Kα, Si Kα" for a hover; the picked elements' lines the spectrum marks.
     static func lines(_ markers: [EDXMarker]) -> String { markers.map(\.label).joined(separator: ", ") }
 

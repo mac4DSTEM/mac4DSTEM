@@ -215,18 +215,6 @@ package final class SpectroscopySession {
         return region
     }
 
-    /// Moves a drawn region to a new shape in place (the live region follows the pointer): same id, same name, the pixel
-    /// count of the new mask. A shape that holds no pixel changes nothing. False for the whole map and for an unknown id.
-    @discardableResult
-    package func replaceShape(ofRegion id: Int, with shape: SpectrumRegionShape) -> Bool {
-        guard let source, let i = regions.firstIndex(where: { $0.id == id }), regions[i].kind == .drawn else { return false }
-        let count = shape.mask(nx: source.nx, ny: source.ny).reduce(0) { $0 + ($1 ? 1 : 0) }
-        guard count > 0 else { return false }
-        regions[i].shape = shape
-        regions[i].pixelCount = count
-        return true
-    }
-
     /// Removes a drawn region (never the whole map); the whole map becomes the selection if it was the removed one.
     package func removeRegion(id: Int) {
         guard let r = regions.first(where: { $0.id == id }), r.kind != .wholeMap else { return }

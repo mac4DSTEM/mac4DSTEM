@@ -58,16 +58,6 @@ class Journey: XCTestCase {
         return e
     }
 
-    /// Waits until the element's accessibility value satisfies `predicate` (a compute step: 60 s on the demo).
-    func waitValue(of identifier: String, timeout: TimeInterval = 60, file: StaticString = #filePath, line: UInt = #line,
-                   where predicate: @escaping (String) -> Bool) {
-        let e = element(identifier)
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in predicate((e.value as? String) ?? "") }, object: nil)
-        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed,
-                       "\(identifier) never reached the expected value (last: \(String(describing: e.value)))", file: file, line: line)
-    }
-
     /// Waits until the identifier no longer exists (a busy indicator ends).
     func waitGone(_ identifier: String, timeout: TimeInterval = 60, file: StaticString = #filePath, line: UInt = #line) {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element(identifier))
