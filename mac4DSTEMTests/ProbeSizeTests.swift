@@ -10,7 +10,7 @@ import Metal
 /// pattern, which the app fed from 2026-09-01 (SPED_MgO read 14.1 px from the
 /// max against 5.4 from the mean), stays as `.meanPattern`, a named DEVIATION.
 /// Record: the probeSize entry in docs/open-items.md;
-/// `../_archive/mac4DSTEM/tools/origin-fit-diagnostics/run.sh probe-size` re-runs it on real data.
+/// archived `tools/origin-fit-diagnostics/run.sh probe-size` re-runs it on real data.
 final class ProbeSizeTests: XCTestCase {
 
     private static let q = 64
@@ -90,7 +90,7 @@ final class ProbeSizeTests: XCTestCase {
     /// Nothing pinned this rule below the `all` gate until 2026-09-09, and
     /// `all` reaches `tools/harnesses/real-data-acceptance/` alone: the corrected radius
     /// sat unnoticed against a stale golden for three days
-    /// (`../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`). This is that pin.
+    /// (archived `docs/archive/closed-items-2026-09.md`). This is that pin.
     ///
     /// The pattern is a flat core of radius 6 with a Gaussian shoulder
     /// (sigma 2) — a step-edged disk gives an all-zero `dr` on which BOTH

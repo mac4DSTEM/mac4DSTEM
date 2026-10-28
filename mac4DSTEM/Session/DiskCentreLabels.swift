@@ -12,7 +12,7 @@
 //  detector's NATIVE pixel frame — not a model-size crop, so one labels file
 //  scores any model size (the same convention `label_centres.py`
 //  of the archived training tools uses). The JSON this store reads and writes is exactly
-//  that tool's schema, so `../_archive/mac4DSTEM/tools/disk-detector/evaluate.py` scores app
+//  that tool's schema, so archived `tools/disk-detector/evaluate.py` scores app
 //  labels and tool labels alike.
 //
 //  What deliberately does NOT live here: the click gesture and its hit-testing
@@ -194,7 +194,7 @@ package final class DiskCentreLabelStore {
         }
     }
 
-    /// The wire schema — exactly what `../_archive/mac4DSTEM/tools/disk-detector/label_centres.py`
+    /// The wire schema — exactly what archived `tools/disk-detector/label_centres.py`
     /// writes and `evaluate.py`'s `load_labels` reads. `sha256` is optional on
     /// DECODE (a labels file with no positions yet, or one hand-edited, may
     /// lack it); `encodedJSON()` always populates it.

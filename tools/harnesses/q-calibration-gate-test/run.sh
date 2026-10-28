@@ -9,7 +9,7 @@
 #   4. the estimator's own plausibility checks and their measured thresholds.
 #
 # Every case is synthetic and hand-checkable — the real-data numbers behind the
-# thresholds live in ../_archive/mac4DSTEM/tools/origin-fit-diagnostics, which does not gate because
+# thresholds live in archived tools/origin-fit-diagnostics, which does not gate because
 # it needs the gitignored training data. This one gates.
 #
 # Sources come from tools/lib/sources.manifest and compile with the app's
