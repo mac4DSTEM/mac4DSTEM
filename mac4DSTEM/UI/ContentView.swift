@@ -103,7 +103,7 @@ struct ContentView: View {
                 ToolbarItem(placement: .primaryAction) {
                     SaveResultButton()
                 }
-                .visibilityPriority(.low)
+                .lowVisibilityPriority()
             },
             documentMenu: { DatasetMenu() })
     }
@@ -161,6 +161,24 @@ struct ContentView: View {
         NSPasteboard.general.setString(text, forType: .string)
         #else
         UIPasteboard.general.string = text
+        #endif
+    }
+}
+
+extension ToolbarItem {
+    /// `visibilityPriority(.low)` where the SDK and the OS have it: Xcode 27's SwiftUI (Swift 6.4) only, for macOS 26.1 and newer.
+    /// Xcode 26.6 (the macos-26 CI runner) has no such member and the app deploys to macOS 26.0. MacEMUI's `highVisibilityPriority()`
+    /// is the same guard.
+    @ToolbarContentBuilder
+    func lowVisibilityPriority() -> some ToolbarContent {
+        #if compiler(>=6.4)
+        if #available(macOS 26.1, *) {
+            visibilityPriority(.low)
+        } else {
+            self
+        }
+        #else
+        self
         #endif
     }
 }

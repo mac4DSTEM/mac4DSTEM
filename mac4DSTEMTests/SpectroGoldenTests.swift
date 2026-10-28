@@ -386,6 +386,9 @@ final class SpectroGoldenTests: XCTestCase {
     /// first differing line. Mutation: one bit of any fitted net flipped (net * (1 + 1e-15)) - red on that scenario's file.
     func testOutputsAreByteIdenticalToTheBaseline() async throws {
         try XCTSkipIf(recordDir != nil, "recording run")
+        // Byte-identical holds on the macOS the baseline was recorded on (27): Accelerate's last bits differ on macOS 26 (the CI runner),
+        // as SpectroKit's recorded fit values do (its EdgeWindowsTests). The Mac and the nightly keep the exact comparison.
+        try XCTSkipIf(ProcessInfo.processInfo.operatingSystemVersion.majorVersion < 27, "baseline recorded on macOS 27; bit-exact only there")
         let scenarios = try await SpectroGolden.scenarios()
         XCTAssertEqual(scenarios.count, 7)
         for s in scenarios {

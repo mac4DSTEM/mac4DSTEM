@@ -315,7 +315,7 @@ enum CalibrationReadinessRow {
         .help(help)
         .accessibilityHint(help)
         InspectorRow("Unit per pixel") {
-            Picker("\(name) unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
+            Picker("\(name) unit per pixel", selection: Binding(get: { units }, set: { onUnitChange($0) })) {
                 ForEach(unitOptions, id: \.self) { unit in
                     Text(unit).tag(unit)
                 }

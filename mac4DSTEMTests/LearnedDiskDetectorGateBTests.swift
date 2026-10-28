@@ -148,7 +148,10 @@ final class LearnedDiskDetectorGateBTests: XCTestCase {
         for r in 0..<4 { for c in 0..<4 { XCTAssertEqual(out[(r + 2) * S + c + 1], img[r * 4 + c]) } }
         XCTAssertEqual(out[0], 0); XCTAssertEqual(out[(S - 1) * S + S - 1], 0)
         // a 300×300 ramp cropped at (30, 40): out[y][x] = ramp[30+y][40+x]
-        let big: [Float] = (0..<(300 * 300)).map { Float($0 % 300) + 1000 * Float($0 / 300) }
+        let big: [Float] = (0..<(300 * 300)).map { i -> Float in
+            let column = Float(i % 300), row = Float(i / 300)
+            return column + 1000 * row
+        }
         big.withUnsafeBufferPointer { LearnedDiskDetector.window(of: $0.baseAddress!, qy: 300, qx: 300, row0: 30, col0: 40, into: &out) }
         XCTAssertEqual(out[0], 40 + 1000 * 30); XCTAssertEqual(out[(S - 1) * S + (S - 1)], Float(40 + S - 1) + 1000 * Float(30 + S - 1))
         // a crop whose frame hangs over the far edge: (100, 100) on a 300 image → columns/rows ≥ 200 are zero
