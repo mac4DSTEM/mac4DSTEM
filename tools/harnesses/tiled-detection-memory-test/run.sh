@@ -17,13 +17,6 @@ trap 'rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-# MetalEngine.makeDefaultLibrary() loads default.metallib from Bundle.main.
-for source in "$REPO"/mac4DSTEM/Shaders/*.metal; do
-  name="${source:t:r}"
-  xcrun -sdk macosx metal -c "$source" -o "$WORK/$name.air"
-done
-xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
-
 . "$REPO/tools/lib/sources.manifest"
 mac4dstem_sources "$REPO" analysis calibration
 xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" main.swift \
@@ -32,6 +25,7 @@ xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" main.swift \
   "$REPO/mac4DSTEM/Core/ML/LearnedDiskDetection.swift" \
   -framework Accelerate -framework Metal -framework MetalKit -framework CoreML
 
+mac4dstem_copy_bundles "$WORK"   # MacEMUI_ShellMetal.bundle: MetalEngine's Metal library
 cd "$WORK"
 ./harness classical
 # The CI runner is a VM with no Neural Engine, and the app refuses the learned detector

@@ -166,14 +166,26 @@ kit_module() {
     echo "sources.manifest: $ck is not at the pinned $kit $pin" >&2; exit 65
   fi
   local prod="$scratch/out/Products/Release" t
-  if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $*" ]]; then
+  # The kit's own Package.resolved may pin its dependencies lower than the app (DiffractoKit pins ImagoKit 0.2.0, the app
+  # 0.8.0): built so, DiffractoOrientation calls into ImagoFFT 0.2.0's layout while the harness links 0.8.0's objects, and
+  # fit-overlay-test crashed in the ACOM overlay (2026-10-28). The kit builds at the app's pins, as it does in the app.
+  local app_pins; app_pins=$(shasum "$repo/Package.resolved" | cut -c1-12)
+  if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $app_pins $*" ]]; then
+    # SwiftPM's checkouts are read-only: build a writable copy of the pinned source with the app's Package.resolved.
+    local src="$scratch/src"
+    rm -rf "$src"; mkdir -p "$src"; rsync -a --exclude .git "$ck/" "$src/"; chmod -R u+w "$src"
+    cp "$repo/Package.resolved" "$src/Package.resolved"
     for t in "$@"; do
-      swift build -c release --build-system swiftbuild --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+      swift build -c release --build-system swiftbuild --package-path "$src" --scratch-path "$scratch" --target "$t" \
+        --force-resolved-versions >&2 \
         || { echo "sources.manifest: building $kit $pin ($t) failed" >&2; exit 65; }
     done
-    echo "$pin $*" > "$scratch/.pin"
+    echo "$pin $app_pins $*" > "$scratch/.pin"
   fi
   KIT_FLAGS=("-I$prod" "$prod"/*.o(N))   # -I joined: mac4dstem_sources dedups its tokens
+  # Resource bundles (MacEMUI's ShellMetal carries its Metal library in MacEMUI_ShellMetal.bundle and loads it from
+  # Bundle.module, which traps when the bundle is not beside the binary): collected here, copied by mac4dstem_copy_bundles.
+  local b; for b in "$prod"/*.bundle(N); do (( ${MAC4DSTEM_BUNDLES[(Ie)$b]} )) || MAC4DSTEM_BUNDLES+=("$b"); done
   # C targets (2026-10-20: CuboKit's CStrainLAPACK, CEmbeddingLAPACK): a Swift module that imports one needs its generated
   # C module map, as spectrokit_module passes for CSpectroLAPACK. Only the C targets the REQUESTED targets depend on
   # (transitively, read from the checkout's Package.swift) are added, and only a map that names a C header (not a Swift
@@ -195,6 +207,13 @@ kit_module() {
       KIT_FLAGS+=(-Xcc "-fmodule-map-file=$maps")
     fi
   done
+}
+
+typeset -ga MAC4DSTEM_BUNDLES=()
+
+# mac4dstem_copy_bundles <dir>: put the resource bundles of every kit target linked so far beside a harness binary.
+mac4dstem_copy_bundles() {
+  local b; for b in "${MAC4DSTEM_BUNDLES[@]}"; do cp -R "$b" "$1/"; done
 }
 
 # mac4dstem_sources <repo-root> <group>...
