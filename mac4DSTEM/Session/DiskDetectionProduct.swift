@@ -4,7 +4,7 @@
 //        Held by AppState as `let diskDetection = DiskDetectionProduct()`,
 //        no forwarding properties; views read `diskDetection.…` (via
 //        `appState.diskDetection`). Seam 3 of
-//        `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md`.
+//        archived `docs/archive/v4/appstate-seams-plan.md`.
 //
 //  A function that reads AppState-only or another owner's state stays on
 //  AppState rather than moving here — a combiner across owners is not a

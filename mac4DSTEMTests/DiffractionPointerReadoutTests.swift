@@ -1,6 +1,6 @@
 //
 //  DiffractionPointerReadoutTests.swift
-//  Tier 1 (a new number on screen). Registration: ../_archive/mac4DSTEM/docs/archive/v5/diffraction-readout-2026-10-14.md, predictions P1-P7.
+//  Tier 1 (a new number on screen). Registration: archived docs/archive/v5/diffraction-readout-2026-10-14.md, predictions P1-P7.
 //  The oracles are independent of the code under test: the ellipse that maps onto a circle of radius b (P3), the app's own
 //  `BraggVectors.calibrated(with:referenceOrigin:)` (P4), `PeakOverlayGeometry.center` and `RealSpacePointerPolicy` (P1).
 //

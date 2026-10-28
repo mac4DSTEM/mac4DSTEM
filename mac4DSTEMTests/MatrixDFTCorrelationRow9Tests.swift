@@ -1,6 +1,6 @@
 //
 //  MatrixDFTCorrelationRow9Tests.swift
-//  Lane F-B row 9 (../_archive/mac4DSTEM/docs/archive/v4/review-2026-09-30-findings.md): the matrix-DFT
+//  Lane F-B row 9 (archived docs/archive/v4/review-2026-09-30-findings.md): the matrix-DFT
 //  upsampler's frequency wrap on an ODD axis. py4DSTEM's multicorr uses
 //  ifftshift(arange(N)) - floor(N/2) (References/py4DSTEM-dev/py4DSTEM/process/utils/
 //  multicorr.py:186, :195), whose middle bin is +(N-1)/2, not -(N+1)/2.

@@ -11,7 +11,7 @@
 //    object). A user-set cut, never a shipped threshold: the published
 //    Thronsen truth removed small regions with cuts of 4, 782 and 10 px on
 //    ITS dataset, and on a different specimen those numbers mean nothing
-//    (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`). Objects under it stay
+//    (archived `docs/cloud/2026-09-23/T2-direction-check.md`). Objects under it stay
 //    in the rows, flagged, and are left out of the counted statistics.
 //  - **The calibration is read at report time**, not at segmentation time,
 //    so a density can never be stale against the scan scale the reader

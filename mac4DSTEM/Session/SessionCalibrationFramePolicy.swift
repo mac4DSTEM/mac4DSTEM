@@ -174,7 +174,7 @@ package nonisolated enum SessionCalibrationTranslation {
 }
 
 /// When the peaks a session sidecar stores may be adopted on open
-/// (../_archive/mac4DSTEM/docs/registrations/bragg-restore-registration-2026-09-28.md). Pure, so each
+/// (archived docs/registrations/bragg-restore-registration-2026-09-28.md). Pure, so each
 /// refusal is unit-pinned. Peaks are scan-indexed detector coordinates:
 /// unlike calibration they are never re-mapped between views, so the only
 /// frame treatment that adopts them is `.identity` — the exact view they were
