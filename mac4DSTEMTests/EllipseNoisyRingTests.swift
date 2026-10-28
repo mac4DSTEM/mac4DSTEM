@@ -1,6 +1,8 @@
 import XCTest
 import DSTEMCore
 import DiffractoGeometry
+// swiftformat:disable:next duplicateImports
+import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 @testable import mac4DSTEM
 
 /// The profile ring fit (`EllipseCalibration.fitAmorphousRing`, behind the Fit
