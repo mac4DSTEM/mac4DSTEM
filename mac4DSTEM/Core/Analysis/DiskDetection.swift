@@ -175,7 +175,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
 /// vocabularies name six keys differently (`sigma_dp_px` / `sigma_dp`, …), so
 /// this table is the one place that says which is which. Used to decide
 /// whether peaks restored from a sidecar are the peaks the recorded step made
-/// (../_archive/mac4DSTEM/docs/registrations/bragg-restore-registration-2026-09-28.md).
+/// (archived docs/registrations/bragg-restore-registration-2026-09-28.md).
 package nonisolated enum DiskDetectionRecordMatch {
     /// (provenance key, step key). Every pair is REQUIRED: a step or a
     /// provenance that lacks one cannot be verified, and unverified peaks are
@@ -478,7 +478,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var upsampleFactor: Int = 16
     package var minAbsoluteIntensity: Float = 0
     // DEVIATION (ADR 041, Gate D 2026-09-28,
-    // ../_archive/mac4DSTEM/docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
+    // archived docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
     // find_Bragg_disks defaults to 0.005 (diskdetection.py:34). The app's
     // default is 0.15 %: at 0.5 % the weak θ′/T1 reflections phase mapping
     // needs are cut — on Thronsen dataset A, 11.42 % per-position error and
@@ -515,7 +515,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     /// a 512 px detector) is wrong in principle and measurably wrong in
     /// practice. Bragg spacing is set by camera length, accelerating voltage
     /// and d-spacing — it does not scale with the detector. Measured on the
-    /// training set with `../_archive/mac4DSTEM/tools/bragg-spacing-probe/` (40 patterns each,
+    /// training set with archived `tools/bragg-spacing-probe/` (40 patterns each,
     /// peaks detected under each rule):
     ///
     /// | dataset | probe r | true nearest-neighbour | qMin/8 | 1.0·r |
@@ -956,7 +956,7 @@ package nonisolated final class DiskDetector {
     /// the edge boundary on the refined position, non-maximum suppression at
     /// `minPeakSpacing` by NET score, and the `maxNumPeaks` cap. No correlation-relative
     /// intensity cut: that is the cut that drops the faint disks the net is for. Mirrors
-    /// `evaluate.refine` + `evaluate.accept` in ../_archive/mac4DSTEM/tools/disk-detector/evaluate.py (the Python reference the
+    /// `evaluate.refine` + `evaluate.accept` in archived tools/disk-detector/evaluate.py (the Python reference the
     /// Swift fixture test compares against; Python has no cap).
     ///
     /// DEVIATION from py4DSTEM `get_maxima_2D` (preprocess/utils.py), on purpose — the

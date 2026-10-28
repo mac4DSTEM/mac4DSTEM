@@ -1,6 +1,6 @@
 //
 //  DetectionScorerTests.swift
-//  The Swift port of `../_archive/mac4DSTEM/tools/disk-detector/evaluate.py`'s `match` (C3 pre-registration §2(b)): greedy nearest
+//  The Swift port of archived `tools/disk-detector/evaluate.py`'s `match` (C3 pre-registration §2(b)): greedy nearest
 //  pairing within 2 px, each prediction used once. Hand cases pin the rules; the fixture case pins the
 //  counts Python's `evaluate.match` gives on the committed 16-pattern fixture — truth from
 //  fixture/expected.json shifted into the 256 frame (+64, the fit offset), predictions the raw picks in

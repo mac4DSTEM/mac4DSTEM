@@ -19,7 +19,7 @@ import SpectroCore
 /// open-items "DM4 on a disconnected volume").
 ///
 /// MEASURED on a RAM disk (HFS+, `hdiutil detach -force`, macOS 27.0.1; probe
-/// and logs in `../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/`): a path
+/// and logs in archived `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/`): a path
 /// probe is the wrong tool. `statfs(path)` fails after the yank, but passes again with
 /// the SAME `f_fsid`, `st_dev` and `st_ino` once a volume of that name is back
 /// with the file copied to the same path, while the old mapping is still dead
@@ -64,7 +64,7 @@ package nonisolated struct MappingLiveness: Sendable {
         /// for `fcntl(F_GETFD)` keeps every unit test green and still dies with
         /// a SIGBUS after a forced unmount; only a force-ejected RAM disk shows
         /// it. After ANY change to this class, re-run
-        /// `../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/drive.sh`.
+        /// archived `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/drive.sh`.
         var answers: Bool {
             var info = stat()
             return fstat(descriptor, &info) == 0
@@ -165,8 +165,8 @@ package actor DM4Reader: FourDDataSource {
                 // rather than hidden: on a file that really carries that artefact, every q-vector read here sits 2 px from
                 // where py4DSTEM would put it, which is a calibration-scale shift, not a rounding one. It is unported because
                 // no TitanX file has been available to measure it on, and rolling every 3D file by −2 px on the strength of
-                // a comment would silently corrupt the ones that do not need it. `../_archive/mac4DSTEM/docs/dm4-format.md`
-                // §3.3 carries the record; the note is here because CLAUDE.md requires a deviation to be readable at the code.
+                // a comment would silently corrupt the ones that do not need it. archived `docs/dm4-format.md`
+                // §3.3 carries the record; the note is here because the project requires a deviation to be readable at the code.
                 guard let scanX = Self.scanShape(tree.numbers, "Scan shape X"), let scanY = Self.scanShape(tree.numbers, "Scan shape Y"),
                       scanX > 0, scanY > 0 else { continue }
                 guard let flat = try? ScanShapedCube(path: path, options: options, object: object, dataType: code, scanY: scanY, scanX: scanX) else {

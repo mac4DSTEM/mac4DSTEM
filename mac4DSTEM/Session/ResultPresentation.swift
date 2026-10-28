@@ -65,7 +65,7 @@ package final class ResultPresentation {
 
     // These are memoized derivations, not semantic state. They are deliberately
     // ignored by Observation and keyed on the same explicit invalidation token
-    // as the texture upload. See ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md, seam 5 decision b.
+    // as the texture upload. See archived docs/archive/v4/appstate-seams-plan.md, seam 5 decision b.
     @ObservationIgnored private var resultValueRangeCache:
         (version: Int, regionReference: Bool, symmetric: Bool,
          low: Double, high: Double)?

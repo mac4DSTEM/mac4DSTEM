@@ -692,7 +692,7 @@ struct Harness {
         // more seeds (lane R report, 2026-10-01: GD truth Pearson 0.980-0.987 at 32 iterations, rms 0.017-0.018 rad; app-py4DSTEM
         // GD error histories within 1.8e-2, final phase within 1.5e-2 rad; wrong-sign probe 0.12-0.21);
         // each bar sits >= 2.8x outside what was measured. The difference map was removed 2026-10-01 (it diverged in py4DSTEM's own
-        // DM_AP too: ../_archive/mac4DSTEM/docs/archive/v4/slot2-r-record-2026-10-01.md), so only gradient descent is scored.
+        // DM_AP too: archived docs/archive/v4/slot2-r-record-2026-10-01.md), so only gradient descent is scored.
         // Parity needs `constrainObjectAmplitude = true`: py4DSTEM clamps |object| <= 1 on every iteration of a complex object
         // (ptychographic_constraints.py `_object_constraints` -> `_object_threshold_constraint`, unconditional); the app exposes
         // that clamp as an option. The clamp-off run is the anti-vacuity control: the parity bar must tell it apart.
