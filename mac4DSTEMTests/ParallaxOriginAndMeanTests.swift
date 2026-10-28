@@ -90,7 +90,7 @@ final class ParallaxDiffractionOriginTests: XCTestCase {
     }
 
     /// With no measured origin the aperture the user placed IS the origin — the
-    /// `tools/harnesses/parallax-preprocessing-test` axis-convention case, unchanged.
+    /// `parallax-preprocessing-test` (a retired harness; the kit's parity tests hold it) axis-convention case, unchanged.
     func testManualOriginFallsBackToTheAperture() throws {
         var calibration = Calibration()
         calibration.originProvenance = .manual

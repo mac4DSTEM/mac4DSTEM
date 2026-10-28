@@ -419,7 +419,7 @@ package nonisolated enum DiffractionEmbedding {
     /// vectors (positions x binnedSize², row-major, scan order): CuboEmbedding's
     /// `DiffractionFeatures.binnedVector` on its vDSP path (finite patterns; NaN and ±Inf take the kit's
     /// scalar loop, which keeps NaN and clamps -Inf to 0). The py4DSTEM parity harness
-    /// (`tools/harnesses/embedding-pca-parity`) calls the same function, so both sides see the same matrix.
+    /// (`embedding-pca-parity` (a retired harness; the kit's parity tests hold it)) calls the same function, so both sides see the same matrix.
     private static func binnedBlock(
         tile: FourDScanTile, qy: Int, qx: Int, binnedSize: Int
     ) throws -> [Float] {

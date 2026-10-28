@@ -121,7 +121,7 @@ final class FFT2DArbitraryLengthTests: XCTestCase {
     }
 
     func testTheRetiredScalarLoopWasLessAccurateThanBluestein() throws {
-        // Evidence for re-pinning tools/harnesses/disk-correlation-parity/baseline-250.json:
+        // Evidence for re-pinning the retired disk-correlation-parity harness's baseline-250.json:
         // the pre-change baseline was recorded on the scalar loop, whose Float
         // angle 2π·j·k/N reaches ~1560 rad at N = 250 and carries ~1e-4 rad of
         // rounding. Bluestein's chirp is built in Double from n² mod 2N. The
