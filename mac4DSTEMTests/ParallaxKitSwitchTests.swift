@@ -33,7 +33,11 @@ final class ParallaxKitSwitchTests: XCTestCase {
     }
 
     private func texture(_ count: Int) -> [Float] {
-        (0..<count).map { Float(sin(Double($0) * 1.7) + 0.3 * cos(Double($0) * 0.4) + 2) }
+        (0..<count).map { i -> Float in
+            let x = Double(i)
+            let value: Double = sin(x * 1.7) + 0.3 * cos(x * 0.4) + 2
+            return Float(value)
+        }
     }
 
     private func alignment() -> ParallaxAlignmentResult {
