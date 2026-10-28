@@ -3,8 +3,7 @@ Copyright (C) 2026 Paul Lobpreis
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
+Foundation, version 3 of the License only.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
@@ -19,7 +18,7 @@ CuboKit (a Swift package the app is built with)
 ================================================================================
 
 The app links CuboKit (https://github.com/mac4DSTEM/CuboKit, tag 0.9.0, commit
-9c5365eede096a5f562fb402ee869b8f35eb2c57), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+9c5365eede096a5f562fb402ee869b8f35eb2c57), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for the 4D-STEM core: virtual imaging and detectors, centre of mass, probe and origin fitting, the strain fit, DPC and
 iDPC, parallax and ptychography. Its methods are ported from py4DSTEM (see the py4DSTEM section below), which is its
 reference. Its own notices are in its NOTICE.
@@ -29,7 +28,7 @@ DiffractoKit (a Swift package the app is built with)
 ================================================================================
 
 The app links DiffractoKit (https://github.com/mac4DSTEM/DiffractoKit, tag 0.10.0, commit
-317b280dbe35ce1c2e057e2416d3a1be6eaf1d1f), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+317b280dbe35ce1c2e057e2416d3a1be6eaf1d1f), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for crystal structures, the CIF import, kinematic reflection lists, ring and ellipse calibration, the known-crystal Q
 calibration, the ACOM orientation matcher, phase mapping and orientation-relationship variants. Its scattering table and
 lattice conventions are py4DSTEM's (GPL-3.0); pymatgen (MIT) was its oracle and none of its code is copied. Its own
@@ -40,7 +39,7 @@ SpectroKit (a Swift package the app is built with)
 ================================================================================
 
 The app links SpectroKit (https://github.com/mac4DSTEM/SpectroKit, tag 0.12.0, commit
-7e8aa8264adb536d1be230eb81cf11fa02021da0), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+7e8aa8264adb536d1be230eb81cf11fa02021da0), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for the Spectroscopy room: the EDX spectrum image, line windows and maps, Auto ID and the quantification with its
 uncertainties. The app embeds its resource bundle of NIST EPQ tables (see the NIST EPQ section below). Its
 eXSpy/HyperSpy and other third-party notices are in its NOTICE.
@@ -50,7 +49,7 @@ FormatoKit (a Swift package the app is built with)
 ================================================================================
 
 The app links FormatoKit (https://github.com/mac4DSTEM/FormatoKit, tag 0.11.0, commit
-7e68615ff8812f3d412429c5edc9022fab0639d3), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+7e68615ff8812f3d412429c5edc9022fab0639d3), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for its file readers (HDF5 and EMD, DM3/DM4, Velox EMD, Merlin MIB, EMPAD RAW), its HDF5 layer and lock (`HDF5Serial`),
 and the HDF5, libaec and libsz frameworks listed under Bundled third-party libraries below. Its own third-party notices
 (eXSpy and RosettaSciIO, whose rules its readers port, among them) are in its NOTICE.
@@ -60,7 +59,7 @@ ImagoKit (a Swift package the app is built with)
 ================================================================================
 
 The app links ImagoKit (https://github.com/mac4DSTEM/ImagoKit, tag 0.8.0, commit
-27a6eaef6658d175d2b386819773e0f236b5f115), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+27a6eaef6658d175d2b386819773e0f236b5f115), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for the exact-length 2D FFT (radix-2, 3, 5 and general lengths on vDSP, with an exact Bluestein path for every other
 length), the 1D FFT of the ACOM azimuthal transform, line profiles, labelling, object measurements and labelled
 statistics. The kit's FFT2D is this application's former Core/Compute FFT2D source, the same arithmetic, written by the
@@ -72,7 +71,7 @@ MacEMUI (a Swift package the app is built with)
 ================================================================================
 
 The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.3.0, commit
-b800cab772102f50f04f6281955d1214fe719e61), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-or-later,
+b800cab772102f50f04f6281955d1214fe719e61), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for the window shell, the inspector, the controls and the Metal image view mac4DSTEM shares with macTEM. Its own notices
 are in its NOTICE.
 

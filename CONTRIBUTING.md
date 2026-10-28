@@ -74,6 +74,6 @@ issue to talk it through before building it.
 ## Licence
 
 By contributing you agree that your contribution is licensed under the
-**GNU General Public License v3.0 or later**, consistent with the project and
+**GNU General Public License v3.0 only (GPL-3.0-only)**, consistent with the project and
 with py4DSTEM, from which its algorithms are derived. See `LICENSE` and
 `NOTICE`.
