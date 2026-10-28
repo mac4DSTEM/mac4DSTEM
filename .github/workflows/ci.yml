@@ -18,9 +18,12 @@
 #   * `tools/run-tests.sh inventory`   — the repo's own review (below).
 #   * `tools/run-tests.sh core`        — the package layers (below).
 #
-# PAUSED since 2026-09-28 (ADR 040): `unit`, the fast XCTest suite — the app
-# targets macOS 27 and the macos-26 image cannot build it. It runs locally,
-# with every other gate, before each release.
+#   * `tools/run-tests.sh unit`        — the fast XCTest suite. Paused
+#     2026-09-28 (ADR 040) while the app targeted macOS 27; back since the app
+#     and MacEMUI 0.3.2 deploy to macOS 26 (2026-10-28).
+#
+# XCODE: every job uses Xcode 26.6 (DEVELOPER_DIR below), never the image's
+# default, so an image update cannot change the toolchain on an unchanged tree.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
 # missing (../_archive/mac4DSTEM/docs/archive/v2/v2-release.md §3):
@@ -51,8 +54,8 @@
 #
 # KNOWN CAVEATS, stated so a green run is not made to claim too much:
 #   * macos-26 runners are the first automated exercise below the dev Mac's
-#     macOS 27. That is build/numeric evidence only; no Track B pass has driven
-#     the app on macOS 26 (docs/open-items.md).
+#     macOS 27. That is build/numeric evidence only; no one has driven the app
+#     on macOS 26 yet.
 #   * Xcode 26 ships the Metal compiler as a separate downloadable component;
 #     the scientific job installs it if the image lacks it (the GPU harnesses'
 #     `xcrun metal` need it; so did the .metal compile in `unit`). At runtime
@@ -75,14 +78,13 @@ concurrency:
   # commit's finished run IS the record (and an S17-intermittent observation).
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # Pinned: the macos-26 image's Xcode 26.6 (Swift 6.3, macOS 26 SDK). Bump on purpose.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
 jobs:
   unit:
     name: unit (XCTest)
-    # PAUSED 2026-09-28 (ADR 040): the app targets macOS 27 and the macos-26 image
-    # cannot build it, so this job could only ever be red. It comes back, as the
-    # independent gate a one-machine setup lacks, once GitHub offers a macOS 27
-    # image: delete this `if` and set `runs-on` to it.
-    if: false
     runs-on: macos-26
     timeout-minutes: 90
     steps:

@@ -84,7 +84,11 @@ final class ParallaxKitBridgeTests: XCTestCase {
     }
 
     private func texture(_ count: Int) -> [Float] {
-        (0..<count).map { Float(sin(Double($0) * 1.7) + 0.3 * cos(Double($0) * 0.4) + 2) }
+        (0..<count).map { i -> Float in
+            let x = Double(i)
+            let value: Double = sin(x * 1.7) + 0.3 * cos(x * 0.4) + 2
+            return Float(value)
+        }
     }
 
     /// C1 alone: the full-fit CTF (one radial term) and the defocus-only CTF are the same sin(pi lambda C1 q^2), so the two
@@ -172,7 +176,12 @@ final class ParallaxKitBridgeTests: XCTestCase {
     func testDepthPlanesEqualAnIndependentShiftOfTheAlignedStack() throws {
         let pre = preprocessing()
         let rows = 6, columns = 5, count = rows * columns, c1 = 300.0
-        let images = (0..<4).map { b in (0..<count).map { Float(sin(Double($0 + 3 * b) * 1.3) + 0.2 * Double(b) + 2) } }
+        let images: [[Float]] = (0..<4).map { b in
+            (0..<count).map { i -> Float in
+                let value: Double = sin(Double(i + 3 * b) * 1.3) + 0.2 * Double(b) + 2
+                return Float(value)
+            }
+        }
         let aligned = alignment(shifts: [ParallaxScanShift](repeating: ParallaxScanShift(row: 0, column: 0), count: 4),
                                 stack: images.flatMap { $0 }, aligned: texture(count))
         var options = ParallaxDepthOptions()

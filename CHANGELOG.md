@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
+  button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
+
 ## v5.0.1 — 2026-10-23
 
 v5.0.0 as described below, notarized: the two Quick Look extensions now run with the hardened runtime, which Apple's notary service

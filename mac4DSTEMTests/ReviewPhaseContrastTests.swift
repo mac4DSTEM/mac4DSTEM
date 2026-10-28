@@ -72,7 +72,8 @@ final class ReviewPhaseContrastTests: XCTestCase {
         var stack = [Float](); stack.reserveCapacity(indices.count * plane)
         for (k, _) in indices.enumerated() {
             for y in 0..<side { for x in 0..<side {
-                stack.append(1 + 0.2 * Float(sin(0.9 * Double(y + k % 3) + 0.4 * Double(x)) * cos(0.5 * Double(y))))
+                let wave: Double = sin(0.9 * Double(y + k % 3) + 0.4 * Double(x)) * cos(0.5 * Double(y))
+                stack.append(1 + 0.2 * Float(wave))
             } }
         }
         let vectors = indices.map { ParallaxVector(qx: Float($0.qx - 12) * 0.01, qy: Float($0.qy - 12) * 0.01) }

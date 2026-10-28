@@ -232,6 +232,7 @@ final class DetectorTrainingReviewFixesTests: XCTestCase {
 
     @MainActor
     func testADatasetOpenedDuringThePrepareDoesNotTrainTheOldCube() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let state = AppState()
         var spec = LoadSpecification()
         spec.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4)
@@ -252,6 +253,7 @@ final class DetectorTrainingReviewFixesTests: XCTestCase {
 
     @MainActor
     func testALoadForAReplacedModelNeverBecomesTheSessionsDetector() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let bundled = try TrainingTestSupport.bundledPackage
         let copy = try TrainingTestSupport.tempDirectory(self).appendingPathComponent("b.mlpackage")
         try ModelPackageWriter.write(weights: try DetectorWeights.load(fromPackage: bundled), toCopyOf: bundled, at: copy)
