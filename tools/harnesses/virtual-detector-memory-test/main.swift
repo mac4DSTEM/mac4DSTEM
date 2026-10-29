@@ -195,8 +195,11 @@ default:
 log.sample()
 
 let samples = log.samples
-guard samples.count == nTiles + 1 else {
-    fail("expected \(nTiles) tile reads plus the final sample, got \(samples.count) samples")
+// The selected-area diffraction is CuboKit's VirtualDiffraction since aea14a99: it reads only the tiles that hold a
+// selected scan position (8 of 12 for this circle), so it may sample fewer tiles; every other path reads them all.
+let readsAllTiles = path != "diffraction"
+guard readsAllTiles ? samples.count == nTiles + 1 : (2...nTiles + 1).contains(samples.count) else {
+    fail("expected \(readsAllTiles ? "" : "at most ")\(nTiles) tile reads plus the final sample, got \(samples.count) samples")
 }
 for (i, fp) in samples.enumerated() {
     let step = i > 0 ? fp - samples[i - 1] : .nan

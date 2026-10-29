@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import ShellMetal   // MetalEngine (MacEMUI) loads its library from its own bundle
 
 // Memory-growth gate for DiskDetection.detectAll(data:) — the app's own tiled
 // full-scan path (CuboKit's `BraggDisks.detectAll` over `CuboCubeSource` since 0.7.0, which binds no

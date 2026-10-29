@@ -1,4 +1,5 @@
 // swift-tools-version: 6.2
+// SPDX-License-Identifier: GPL-3.0-only
 // DSTEMCore — Core/ compiled as a standalone module (v2.5 step 2, 2026-09-02).
 //
 // The Xcode app target links these two products (`packageProductDependencies`);
