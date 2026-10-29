@@ -268,10 +268,11 @@ let sd = try await VirtualDetector.tiledDiffraction(data: streamData, descriptor
 expectIdentical(rd.pixels, sd.pixels, "cropped selected-area diffraction")
 
 let copiesAfterBound = await residentData.residentTileCopies
-guard copiesAfterBound == copiesBeforeBound else {
-    fail("the cropped resident diffraction copied \(copiesAfterBound - copiesBeforeBound) tile(s)")
+// The selected-area diffraction is CuboKit's since aea14a99 and reads through CuboCubeSource: at most one copy per tile.
+guard copiesAfterBound - copiesBeforeBound <= tileCount else {
+    fail("the cropped resident diffraction copied \(copiesAfterBound - copiesBeforeBound) tile(s), at most one per tile (\(tileCount))")
 }
-pass("cropped resident diffraction made zero staging copies; the statistics one copy per tile (\(tileCount))")
+pass("cropped resident diffraction at most one copy per tile, the statistics one per tile (\(tileCount))")
 
 // CuboKit 0.7.0: the per-position origin is CuboKit's (through CuboCubeSource), one tile copy per tile.
 let copiesBeforeOrigins = await residentData.residentTileCopies
