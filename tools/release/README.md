@@ -36,8 +36,14 @@ notary-service credentials. Those secrets do not belong in the repository.
 
 ## Releases
 
+App tags carry a `v` (`v5.0.1`); the kits and MacEMUI use bare versions (`0.9.0`). From v5.0.0 on, each release's notes
+and assets are on the [GitHub releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases) and its entry in
+`CHANGELOG.md`; the table keeps the earlier releases' build evidence.
+
 | Version | State | Evidence |
 |---|---|---|
+| v5.0.1 | released 2026-10-23 (tag `v5.0.1` on `63106e4`) | GitHub release, `CHANGELOG.md` |
+| v5.0.0 | released 2026-10-23 (tag `v5.0.0` on `b86bbe0`) | GitHub release, `CHANGELOG.md` |
 | v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
 | v2.0.0 | named 2026-09-02, never built, superseded by v2.5.0; never tagged on GitHub | `CHANGELOG.md` |
 | v4.5.0 | **released 2026-10-05** (GitHub release 12:50 UTC, marked Latest; tag `v4.5.0` on `6432f2dd`; assets `mac4DSTEM-4.5.0.dmg` and `mac4DSTEM.dmg`, both digest `sha256:2b779090…53b4d6`; `releases/latest/download/mac4DSTEM.dmg` downloaded and hashed identical; mac4dstem.com deployed `eea3358` 12:52 UTC) — version/build 4.5.0 / 8, the v4.1 plateau released as it stands; the unpublished 4.1.0 / 8 cut renamed. Built from `6432f2dd` with `Developer ID Application: Paul Lobpreis (3B8SMSSAX4)` by Xcode 27.0 (27A266a); app notarization `e9720976-f35d-4abe-9e88-8cea02f04232`, DMG `193f2b56-9cd8-426c-905f-8562df224978`, both Accepted and stapled, Gatekeeper "Notarized Developer ID"; DMG SHA-256 `2b7790901f5f8016b4a8e9fc3ea96f7b9e8e8ff8696debc94537e703b153b4d6` (post-staple; pre-staple `f13b8a19…aa63`), 6 059 725 bytes; the mounted app 4.5.0 (8), `LSMinimumSystemVersion` 27.0, arm64 alone with its three dylibs, LICENSE and NOTICE present, launched (alive 15 s, no crash report; no analysis run in it). Gate: `run-tests.sh all` exit 0 on `6432f2dd` (`all-v45b-20261005.log`: unit 1675/0/3 = 1678, 54 sections, zero FAIL lines). Superseded: the `286a45ed` build (notarized, never distributed; a Swift 6 isolation warning fixed in `6432f2dd`). Not done: a clean-account launch. | `CHANGELOG.md` |

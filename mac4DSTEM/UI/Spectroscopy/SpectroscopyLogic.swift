@@ -5,6 +5,7 @@ import SpectroEDX
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 #endif
+import ShellEDXModel
 
 // The Spectroscopy room's pure half (v5.0 WP2 lane V, ADR 054/055): everything the
 // views decide that is not drawing — element roles, the "Auto ID never drops manual
