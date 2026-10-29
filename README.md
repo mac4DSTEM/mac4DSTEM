@@ -77,6 +77,6 @@ If you use mac4DSTEM in published work, please cite it and py4DSTEM, where the m
 
 ## Licence
 
-GPL-3.0-or-later ([`LICENSE`](LICENSE)). Third-party notices are in [`NOTICE`](NOTICE).
+GPL-3.0-only ([`LICENSE`](LICENSE)). Third-party notices are in [`NOTICE`](NOTICE).
 
 Contact: mail@mac4dstem.com
