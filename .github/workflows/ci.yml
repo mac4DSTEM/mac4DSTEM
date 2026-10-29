@@ -1,7 +1,10 @@
 # CI — the aggregate claim, made mechanical (v2 S21, archived docs/archive/v2/v2-release.md §8).
 #
-# WHAT RUNS on every push and pull request — three jobs, each a gate a public
-# checkout can reproduce:
+# WHAT RUNS on every push and pull request — the jobs below, each a gate a public
+# checkout can reproduce. `scientific` (up to three hours, not a required check)
+# runs on push and workflow_dispatch only, never on a pull request, so a PR waits
+# only for the required checks; dispatch CI on a branch to run it before merging.
+# `kit boundary` is a plain grep and runs on Linux, off the macOS runner queue.
 #   * `tools/run-tests.sh scientific`  — every harness in that script's
 #     `scientific` array (the array is the roster; no count is stated here so
 #     this comment cannot go stale), one half of one harness excepted (below).
@@ -91,7 +94,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           sw_vers
@@ -108,10 +111,13 @@ jobs:
 
   scientific:
     name: scientific (py4DSTEM parity)
-    runs-on: macos-26
+    # Off pull requests: the macOS runners are the CI bottleneck and this is the slowest, non-required job.
+    if: github.event_name != 'pull_request'
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           sw_vers
@@ -123,11 +129,23 @@ jobs:
             sudo xcodebuild -downloadComponent MetalToolchain
           fi
           xcrun -sdk macosx metal --version
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
+        if: runner.environment == 'github-hosted'
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: tools/lib/py4dstem-ci-constraints.txt
+      # On the Mac runner setup-python would need sudo; uv puts a Python 3.12 venv (python, python3, pip) on PATH instead.
+      - uses: astral-sh/setup-uv@v6
+        if: runner.environment == 'self-hosted'
+      - name: Python 3.12 venv and the macOS SDK (Mac runner)
+        if: runner.environment == 'self-hosted'
+        # SDKROOT: with no SDK named, Xcode 26.6's xcrun on the macOS 27 Mac picks the Command Line Tools' 27.0 SDK,
+        # whose libSystem.tbd 26.6's linker cannot read; the harnesses' bare swiftc/clang calls then fail to link.
+        run: |
+          uv venv --seed --python 3.12 "$RUNNER_TEMP/py"
+          echo "$RUNNER_TEMP/py/bin" >> "$GITHUB_PATH"
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
       - name: Fetch the py4DSTEM source lock
         # Since 2026-09-03 the lock is fetched at a pinned upstream commit
         # (tools/lib/fetch-py4dstem.sh), not tracked in the tree.
@@ -148,10 +166,11 @@ jobs:
 
   inventory:
     name: inventory (repo review)
-    runs-on: macos-26
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The C5 growth rule reads HEAD^ on a clean tree. The default depth
           # of 1 does not have it, and the read used to fall through to zero,
@@ -165,10 +184,11 @@ jobs:
 
   core:
     name: core (DSTEMCore + DSTEMSession package build)
-    runs-on: macos-26
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           xcode-select -p
@@ -178,10 +198,11 @@ jobs:
 
   kit-boundary:
     name: kit boundary (no numerics frameworks in the app)
-    runs-on: macos-26
+    # Plain bash, grep and awk: Linux runs it (checked with mawk), off the macOS queue.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fail on Accelerate / Metal / vDSP outside the allowlist
         # Decision D15. Plain grep, no build; also part of `inventory`, kept as its own job so the red is named.
         run: tools/check-kit-boundary.sh
@@ -200,7 +221,7 @@ jobs:
     name: No private references
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Scan tracked files
         run: |
           if git grep -n -I -E '_archive|CLAUDE\.md|memcap|macEM-suite|setup-python-refs' -- ':!.gitignore' ':!.github/workflows/ci.yml'; then

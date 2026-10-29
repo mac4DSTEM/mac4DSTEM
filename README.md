@@ -2,7 +2,7 @@
 
 # mac4DSTEM
 
-4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDX spectrum images, worked
+4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDS spectrum images, worked
 on interactively instead of in scripts.
 
 mac4DSTEM is the companion to [macTEM](https://github.com/mac4DSTEM/macTEM). Both are free, open source and built for
@@ -34,7 +34,7 @@ you see what a choice does while you make it.
 - **Crystal Maps**: strain from a local lattice fit, orientation by template matching (ACOM) against your own CIF or a
   Materials Project structure, phase maps, and precipitate objects with their sizes, variants and number density.
 - **Reconstruction**: DPC, iDPC, parallax and single-slice ptychography.
-- **Spectroscopy**: EDX spectrum images, on their own or with the 4D scan. Auto ID suggests the elements, element maps
+- **Spectroscopy**: EDS spectrum images, on their own or with the 4D scan. Auto ID suggests the elements, element maps
   and regions show where they are, and quantification gives wt% and at% with an uncertainty on every number.
 - **Results**: review, save and export. Bragg vectors, datacubes and maps are written as EMD files that py4DSTEM reads.
 
@@ -47,7 +47,7 @@ commit `f050d207` (version 0.14.19). Where the app departs from py4DSTEM the sou
 the reason. The rest is computed by the suite's Swift packages, each checked against the Python package it ports:
 [CuboKit](https://github.com/mac4DSTEM/CuboKit) (the 4D-STEM core),
 [DiffractoKit](https://github.com/mac4DSTEM/DiffractoKit) (crystallography and orientation),
-[SpectroKit](https://github.com/mac4DSTEM/SpectroKit) (EDX),
+[SpectroKit](https://github.com/mac4DSTEM/SpectroKit) (EDS),
 [FormatoKit](https://github.com/mac4DSTEM/FormatoKit) (file readers),
 [ImagoKit](https://github.com/mac4DSTEM/ImagoKit) (FFT and image maths) and
 [MacEMUI](https://github.com/mac4DSTEM/MacEMUI) (the window and controls both apps share). A result that has not yet
@@ -58,7 +58,7 @@ measurements are in [`docs/performance.md`](docs/performance.md).
 
 ## Building it yourself
 
-You need Xcode 27 on an Apple silicon Mac. Open `mac4DSTEM.xcodeproj`, pick the `mac4DSTEM` scheme and press ⌘R. The
+You need Xcode 26.6 or later on an Apple silicon Mac. Open `mac4DSTEM.xcodeproj`, pick the `mac4DSTEM` scheme and press ⌘R. The
 first build fetches the kits and MacEMUI from GitHub at the exact tags in `Package.swift`. The tests run with
 `tools/run-tests.sh unit`. How the code is organised is in [`docs/architecture.md`](docs/architecture.md), and how a
 release is built and notarised is in [`tools/release/README.md`](tools/release/README.md).
@@ -77,6 +77,6 @@ If you use mac4DSTEM in published work, please cite it and py4DSTEM, where the m
 
 ## Licence
 
-GPL-3.0-or-later ([`LICENSE`](LICENSE)). Third-party notices are in [`NOTICE`](NOTICE).
+GPL-3.0-only ([`LICENSE`](LICENSE)). Third-party notices are in [`NOTICE`](NOTICE).
 
 Contact: mail@mac4dstem.com
