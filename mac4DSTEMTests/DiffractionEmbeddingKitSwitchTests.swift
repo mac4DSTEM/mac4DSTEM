@@ -42,7 +42,7 @@ final class DiffractionEmbeddingKitSwitchTests: XCTestCase {
 
     static let scanW = 16, scanH = 25, qy = 32, qx = 30, binned = 8
 
-    /// The harness fixture of `tools/harnesses/embedding-pca-parity`: eight separated components, 400 positions.
+    /// The harness fixture of `embedding-pca-parity` (a retired harness; the kit's parity tests hold it): eight separated components, 400 positions.
     static func patterns() -> [[Float]] {
         var seed: UInt64 = 0xC0FFEE
         func rnd() -> Float {
