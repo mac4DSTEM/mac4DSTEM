@@ -8,6 +8,7 @@ import DSTEMCore
 import DSTEMSession
 import SpectroEDX
 #endif
+import ShellEDXModel
 
 /// Finder integration stays in App/; the window and its controls stay SwiftUI.
 @MainActor enum DatasetLocationActions {

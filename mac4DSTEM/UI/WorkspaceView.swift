@@ -5,6 +5,8 @@ import SwiftUI
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellEDXModel
+import ShellSpectroscopy
 
 /// The detail column: the science, and the infobar + process area along its bottom edge. The column's chassis (the
 /// divider, its drag, the infobar, the process area and their scene-stored fractions) is ShellLayout's `WorkspaceColumn`
@@ -77,8 +79,8 @@ struct WorkspaceView: View {
         } else if !appState.hasDocument {
             WelcomeWorkspace()
         } else if appState.navigation.workspaceArea == .spectroscopy {
-            // The EDS room: macTEM 1.0's room (2026-10-23), with mac4DSTEM's 4D links (`AppState+EDS`).
-            EDXRoom()
+            // The EDS room: MacEMUI's shared room, with mac4DSTEM's 4D links (`AppState+EDS`).
+            EDXRoom(session: appState.edx, state: appState.edxRoom, actions: appState.edxActions)
         } else if appState.isSpectrumOnly {
             // A spectrum image and no cube: Results has nothing of the 4D
             // kind to review, and a 4D room is withheld (`isWorkspaceWithheld`).

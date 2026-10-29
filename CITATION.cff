@@ -8,18 +8,18 @@ abstract: >-
   A native macOS application for interactive four-dimensional scanning
   transmission electron microscopy (4D-STEM) analysis on Apple Silicon.
   Covers virtual imaging, calibration, Bragg disk detection, strain mapping,
-  ACOM orientation mapping, and DPC/iDPC/parallax/ptychography phase
-  reconstruction, with every result carrying its model, scale, units and
+  ACOM orientation mapping, phase maps and precipitate objects,
+  DPC/iDPC/parallax/ptychography phase reconstruction and EDS spectrum
+  images, with every result carrying its model, scale, units and
   validity through display, export and reopen. Algorithms are ported from
   py4DSTEM and validated against it on experimental data.
 type: software
 authors:
   - family-names: Lobpreis
     given-names: Paul
-    # TODO(Paul): add orcid: "https://orcid.org/…" and affiliation: "…" here
-version: 4.5.0
-date-released: "2026-10-05"
-license: GPL-3.0-or-later
+version: 5.0.1
+date-released: "2026-10-23"
+license: GPL-3.0-only
 repository-code: https://github.com/mac4DSTEM/mac4DSTEM
 url: https://mac4dstem.com
 keywords:

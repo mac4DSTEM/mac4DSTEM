@@ -1,0 +1,39 @@
+name: Bug report
+description: The app crashes, a file does not open, or a number differs from py4DSTEM
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: For a wrong number, give the app's value and py4DSTEM's (with its version) if you compared them.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The room and task, and the settings you changed. Please do not attach datasets; describe them or link a published one.
+    validations:
+      required: true
+  - type: input
+    id: dataset
+    attributes:
+      label: Dataset format and shape
+      placeholder: "e.g. DM4, 128×128 scan, 256×256 detector, float32"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: What the app reported
+      description: Calibration badges, the readiness row, and any diagnostic the result carries (fit residual, indexed fraction, reliability).
+  - type: input
+    id: version
+    attributes:
+      label: mac4DSTEM version
+      description: mac4DSTEM ▸ About mac4DSTEM
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Mac model and macOS version

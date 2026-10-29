@@ -3,6 +3,7 @@
 // The window's File > Open keeps its own route (`AppState.openAsSpectrumImageIfApplicable`): a 4D file there goes to the 4D side.
 import Foundation
 import SpectroCore
+import ShellEDXModel
 
 package nonisolated enum EDXOpening {
     /// File extensions the Open panel offers (a Velox EMD, a GMS DM4, an MSA spectrum).
@@ -15,5 +16,13 @@ package nonisolated enum EDXOpening {
         let kind = SpectrumImageOpener.kind(ofFileAt: path)
         if kind == .other, url.pathExtension.lowercased() == "emd", let single = FileRouting.veloxSpectrum(path: path) { return single.image }
         return try SpectrumImageOpener.open(path: path, kind: kind, progress: progress)
+    }
+}
+
+extension EDXRoomHost {
+    /// mac4DSTEM in the shared EDS room: its names in the export files, its file routing for the room's Open button.
+    package static let mac4DSTEM = EDXRoomHost(appName: "mac4DSTEM", roomSource: "mac4DSTEM EDS room", regionsTitle: "mac4DSTEM EDS regions",
+                                               readableExtensions: EDXOpening.readableExtensions) { url, progress in
+        try EDXOpening.open(url: url, progress: progress)
     }
 }

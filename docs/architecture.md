@@ -14,9 +14,9 @@ Session/  → DSTEMSession     replay plan/run/record, sidecar location,  packag
                              gates, calibration frame policy, products,
                              residency, recovery, system monitor —
                              no SwiftUI, no AppState
-Core/     → DSTEMCore        pure algorithms, readers, writers, GPU     package
-                             engine — no SwiftUI, no AppState, no Session
-Shaders/, Support/           Metal kernels; export, bridging header     app target
+Core/     → DSTEMCore        pure algorithms, reader adapters,          package
+                             writers — no SwiftUI, no AppState, no Session
+Support/                     export, figures, bridging header           app target
 ```
 
 The rule that matters is direction: each layer knows nothing above it.
@@ -52,7 +52,7 @@ this class of defect — a narrowed, not closed, blind spot per
 **Workflow.** Seven workspaces that follow the data — **Prepare /
 Imaging / Bragg Disks / Crystal Maps / Reconstruction / Spectroscopy / Results** (`⌘1…⌘7`;
 `App/ProductWorkflow.swift`'s `WorkspaceArea`; `UI/WorkspaceSettings.swift`
-picks each task's inspector controls). A window holds a 4D cube, an EDX spectrum
+picks each task's inspector controls). A window holds a 4D cube, an EDS spectrum
 image (`Session/SpectroscopySession.swift`), or both: `hasDataset` still means a
 4D cube, `hasDocument` either; a spectrum-only window offers Spectroscopy and
 Results and greys the 4D rooms (`App/AppState+Spectroscopy.swift`). Navigation is side-effect free; whole-scan work starts
@@ -124,11 +124,12 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
    `ResidentCube`, gated by `Session/DatasetResidency.swift` ("nothing
    outside may set `isResident`").
 5. **Compute.** Per-mode analysis in `Core/Analysis/` and `Core/Crystal/`.
-   Some paths run pure CPU (Accelerate/vDSP, ImagoKit's `FFT2D`); others dispatch to
-   `Core/Compute/MetalEngine.swift`, whose GPU calls are **synchronous and
-   blocking** (`commit()` + `waitUntilCompleted()` — call only from a
-   background `Task`); its parameter structs stay byte-identical to their
-   `.metal` twins (Developer notes, below).
+   Most of the numerics are the kits' (CuboKit, DiffractoKit, ImagoKit), each
+   with a CPU path on Accelerate and a Metal path where size pays. The app's
+   own GPU work goes through MacEMUI's `ShellMetal` (`MetalEngine`, whose
+   calls are **synchronous and blocking**, `commit()` + `waitUntilCompleted()`:
+   call it only from a background `Task`); the app has no Metal kernels of
+   its own.
 6. **Publish.** A result becomes a `DisplayedProduct` — pixel payload, a
    `ProductDomain`, a `ProductQuantitativeStatus`, sampling, a flat
    `provenance: [String:String]` and overlays, so UI never infers semantics
@@ -155,22 +156,23 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
 
 ## Project structure and where files go
 
-Synchronized folder groups: any file under `mac4DSTEM/` joins the app target
-and `.metal` files route to the Metal compile phase. Placement is wiring.
+Synchronized folder groups: any file under `mac4DSTEM/` joins the app target.
+Placement is wiring.
 
 | Putting in… | goes under… |
 |---|---|
 | App entry, window state (`AppState`), pending load, workspace vocabulary | `mac4DSTEM/App/` |
 | Session state with no UI: replay, sidecars, gates, products, residency, recovery | `mac4DSTEM/Session/` (package `DSTEMSession`) |
 | App-side reader adapters over FormatoKit, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
-| Metal engine, matrix-DFT correlation, cancellation (the FFTs are ImagoKit's) | `mac4DSTEM/Core/Compute/` |
+| Cancellation (the Metal engine is MacEMUI's `ShellMetal`, the FFTs ImagoKit's) | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
 | Crystal model, CIF and Materials Project import, the ACOM orientation plan and backend choice (cells, presets, scattering factors and the CPU and Metal matcher are DiffractoKit's) | `mac4DSTEM/Core/Crystal/` |
 | Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `mac4DSTEM/Resources/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
+| EDS spectrum images: opening, line windows, maps, quantification inputs, exports (the science is SpectroKit's) | `mac4DSTEM/Core/EDS/`; the room in `mac4DSTEM/UI/EDS/` |
+| 4D × EDS registration | `mac4DSTEM/Core/Spectroscopy/Registration/` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
-| Metal kernels | `mac4DSTEM/Shaders/` |
 | SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
-| Export, bridging header | `mac4DSTEM/Support/` |
+| Export, figures, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/harnesses/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
 | Docs | `docs/` |
@@ -190,8 +192,8 @@ arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
 file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
-Science with a kit equivalent is the kit's, imported at exact tags (`Package.swift` is the truth for versions): standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
-(`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
+Science with a kit equivalent is the kit's, imported at exact tags (`Package.swift` is the truth for versions): standalone EDS (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
+(`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDS science goes to
 SpectroKit and arrives by a tag bump; the same holds for each kit.
 
 ## Ownership today and where it is going
@@ -308,16 +310,16 @@ again and no flag selects it. Six rules, the first three enforced by
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
   (`DEVELOPER_DIR` wins; the Command Line Tools directory is rejected).
-- Test: `tools/run-tests.sh unit | scientific | all | inventory | core | campaign` (six lanes; the script is the roster).
+- Test: `tools/run-tests.sh unit | scientific | all | inventory | core | campaign | ui` (the script is the roster).
   The `scientific` array in that script is the harness roster; no count is
-  stated anywhere else. On-screen verification is the owner driving the app
-  and reporting through `/diagnose` (the checklist was retired 2026-09-03).
+  stated anywhere else. On-screen verification is a person driving the app
+  on real data.
 - Never add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch.
 
 ## Tools and harnesses
 
-`tools/run-tests.sh {unit|scientific|core|inventory|campaign|all}`
-is the one discoverable entry point over the 54 harness directories. Every directory
+`tools/run-tests.sh {unit|scientific|core|inventory|campaign|ui|all}`
+is the one discoverable entry point over the harness directories. Every directory
 must appear in exactly one of five arrays at the top of that script —
 `scientific` (CI-gated), `diagnostic` (needs gitignored/machine-local data,
 never gated), `owner_only`, `retired`, `support` (`lib`, `release`, `hooks`) — plus `real-data-acceptance`/`package-test`, gated
@@ -326,8 +328,8 @@ Most harnesses are zsh `run.sh` scripts that compile a handful of production
 `Core/` sources with `xcrun swiftc`, sourcing `tools/lib/sources.manifest`
 first for a dependency-closed file list per named group (see "Project
 structure", above). One needing libhdf5 (FormatoKit's three frameworks, assembled side by side from the SwiftPM artifacts by `tools/lib/hdf5-dir.sh`, ad-hoc
-signed already) points `FORMATO_HDF5_PATH` at `FormatoLibHDF5.framework/FormatoLibHDF5` there; one needing GPU kernels compiles `Shaders/*.metal` to a
-`default.metallib` by hand. `tools/harnesses/package-test/run.sh` runs a full
+signed already) points `FORMATO_HDF5_PATH` at `FormatoLibHDF5.framework/FormatoLibHDF5` there; one needing GPU kernels takes them
+from MacEMUI's `ShellMetal`. `tools/harnesses/package-test/run.sh` runs a full
 `xcodebuild -configuration Release` at the release archive's own
 destination/architecture pin, because a prior gate on a generic destination
 once stayed green an hour before an archive build failed.
@@ -365,7 +367,7 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
 - Session rehydration is pixel and metadata level; transient arrays are not reconstructed.
 - Origin coarse search deviates from py4DSTEM (binned block-sum argmax); the
   probe-size fallback can look usable where py4DSTEM would return NaN.
-- No non-Metal fallback; `MetalEngine` fails fatally without a device.
+- No non-Metal fallback; `MetalEngine` (MacEMUI) fails fatally without a device.
 - R–Q rotation has an inherent 180° ambiguity (Flip 180° in Calibration).
 - MIB/EMPAD readers are Preview until real vendor acquisitions are supplied.
 - Bundle identifier `com.mac4dstem.mac4DSTEM` keys the sandbox container and
