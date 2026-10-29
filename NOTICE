@@ -3,7 +3,8 @@ Copyright (C) 2026 Paul Lobpreis
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
-Foundation, version 3 of the License only.
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
@@ -40,7 +41,7 @@ SpectroKit (a Swift package the app is built with)
 
 The app links SpectroKit (https://github.com/mac4DSTEM/SpectroKit, tag 0.12.0, commit
 7e8aa8264adb536d1be230eb81cf11fa02021da0), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
-for the Spectroscopy room: the EDX spectrum image, line windows and maps, Auto ID and the quantification with its
+for the Spectroscopy room: the EDS spectrum image, line windows and maps, Auto ID and the quantification with its
 uncertainties. The app embeds its resource bundle of NIST EPQ tables (see the NIST EPQ section below). Its
 eXSpy/HyperSpy and other third-party notices are in its NOTICE.
 
@@ -70,10 +71,20 @@ are in its NOTICE.
 MacEMUI (a Swift package the app is built with)
 ================================================================================
 
-The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.3.0, commit
-b800cab772102f50f04f6281955d1214fe719e61), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
+The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.3.2, commit
+16a08939d1fb4523db2227ca9b0afa43e05a85a2), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
 for the window shell, the inspector, the controls and the Metal image view mac4DSTEM shares with macTEM. Its own notices
 are in its NOTICE.
+
+================================================================================
+Code copied from macTEM
+================================================================================
+
+The Spectroscopy room's EDS code (`mac4DSTEM/Core/EDS/`, `mac4DSTEM/UI/EDS/`, `mac4DSTEM/Session/EDXSession.swift`
+and the files whose header names macTEM) is copied, whole or in part, from macTEM
+(https://github.com/mac4DSTEM/macTEM), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only: macTEM before v1.0.0
+(history squashed), published as tag v1.0.0, commit 91d4694ea44342b1dd18711d0ac94fc4b3c674f3. Its science is
+SpectroKit's (see the SpectroKit section above).
 
 ================================================================================
 py4DSTEM
@@ -101,10 +112,10 @@ the underlying methods:
 
 
 ================================================================================
-eXSpy and HyperSpy (EDX spectroscopy)
+eXSpy and HyperSpy (EDS spectroscopy)
 ================================================================================
 
-This EDX code is SpectroKit's (see the SpectroKit section above), whose own NOTICE carries
+This EDS code is SpectroKit's (see the SpectroKit section above), whose own NOTICE carries
 the same credits; the paths below are in that repository. The DM4 and Velox EMD readers and
 the HDF5 lock are FormatoKit's, whose NOTICE carries their credits (eXSpy and RosettaSciIO)
 and the libhdf5 files' hashes.
@@ -123,7 +134,7 @@ where this implementation departs.
     Both licensed under the GNU General Public License v3.0 or later
 
 ================================================================================
-NIST EPQ data (EDX quantification)
+NIST EPQ data (EDS quantification)
 ================================================================================
 
 `Sources/SpectroEDX/Resources/Spectroscopy/FFastMAC.csv` (mass absorption coefficients) and
