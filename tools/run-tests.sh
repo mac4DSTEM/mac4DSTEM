@@ -106,15 +106,9 @@ unit_tests() (
       SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO "${loud[@]}"
 )
 
-run_harnesses() {
-  for name in "$@"; do
-    local started=$(date +%s)
-    echo "==> $name"
-    "$ROOT/tools/harnesses/$name/run.sh"
-    local finished=$(date +%s)
-    echo "<== $name ($((finished - started)) s)"
-  done
-}
+# run_harnesses <root> <name>...: keeps going past a red harness and fails at the end, naming every red one.
+. "$(dirname "$0")/lib/run-harnesses.sh"
+H="$ROOT/tools/harnesses"
 
 # real-data-acceptance is NOT in the array below (inventory counts it as gated
 # on its own, and `all` runs it explicitly — listing it twice would run it twice).
@@ -130,7 +124,7 @@ real_data() {
     "$ROOT/tools/harnesses/real-data-acceptance/compare-selftest.sh"
     return
   fi
-  run_harnesses real-data-acceptance
+  run_harnesses "$H" real-data-acceptance
 }
 
 scientific=(
@@ -169,6 +163,8 @@ support=(lib release)
 
 inventory() {
   local rc=0 name f
+  echo "== the harness runner keeps going past a red harness"
+  "$ROOT/tools/lib/run-harnesses-selftest.sh" || rc=1
   echo "== kit boundary (no Accelerate / Metal / vDSP in the app outside tools/kit-boundary.allow)"
   "$ROOT/tools/check-kit-boundary.sh" || rc=1
   local -a gated=("${scientific[@]}" real-data-acceptance package-test)
@@ -412,8 +408,11 @@ case "${1:-unit}" in
   core) core_build ;;
   ui) shift; ui_tests "$@" ;;
   unit) require_free_space 4 "the xcodebuild unit suite"; unit_tests ;;
-  campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
-  scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}"; real_data ;;
-  all) require_free_space 8 "the full suite"; "$ROOT/tools/lib/fetch-py4dstem.sh"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
+  campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "$H" "${campaign[@]}" ;;
+  # scientific and all run every harness and real data even after a red one, then fail (run_harnesses names the red ones).
+  scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; rc=0
+    run_harnesses "$H" "${scientific[@]}" || rc=1; real_data || rc=1; exit $rc ;;
+  all) require_free_space 8 "the full suite"; "$ROOT/tools/lib/fetch-py4dstem.sh"; rc=0; unit_tests || rc=1
+    run_harnesses "$H" "${scientific[@]}" real-data-acceptance package-test || rc=1; exit $rc ;;
   *) echo "Usage: tools/run-tests.sh [unit|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
 esac
