@@ -30,15 +30,6 @@ export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader,
 
 "$PYTHON_BIN" reference.py "$WORK"
 
-# MetalEngine.makeDefaultLibrary() loads default.metallib from Bundle.main, and
-# both the virtual detector and the resident cube allocate through it. Build the
-# app's real shader sources, then run the harness from that directory.
-for source in "$REPO"/mac4DSTEM/Shaders/*.metal; do
-  name="${source:t:r}"
-  xcrun -sdk macosx metal -c "$source" -o "$WORK/$name.air"
-done
-xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
-
 mac4dstem_sources "$REPO" readers calibration analysis
 
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
@@ -51,5 +42,6 @@ codesign -f -s - "$WORK/harness" 2>/dev/null
 
 # H5Reader finds libhdf5 through FORMATO_HDF5_PATH above (FormatoKit's framework, see tools/lib/hdf5-dir.sh); MAC4DSTEM_HDF5_PATH is no longer read by the app.
 export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
+mac4dstem_copy_bundles "$WORK"   # MacEMUI_ShellMetal.bundle: MetalEngine's Metal library
 cd "$WORK"
 ./harness "$WORK"

@@ -20,7 +20,7 @@
 //  Math: py4DSTEM transforms calibrated vectors v_scan = R(θ)·F·v_det, where
 //  F swaps the components when `QR_flip` is set. Refitting the lattice from
 //  transformed vectors transforms the strain tensor by the same similarity,
-//  E_scan = (R·F)·E_det·(R·F)ᵀ — `tools/harnesses/strain-frame-test` pins that
+//  E_scan = (R·F)·E_det·(R·F)ᵀ — `strain-frame-test` (a retired harness; the kit's parity tests hold it) pins that
 //  equivalence against a refit — so the symmetric components rotate as
 //      ε'xx = c²·εxx − 2sc·εxy + s²·εyy
 //      ε'yy = s²·εxx + 2sc·εxy + c²·εyy
@@ -29,7 +29,7 @@
 //  lattice-rotation θ is a pseudo-scalar: invariant under the proper rotation,
 //  NEGATED by the improper transpose (py4DSTEM's `flip_theta`).
 //
-//  DEVIATION (measured 2026-08-25, tools/harnesses/strain-frame-test NC5): rotating the
+//  DEVIATION (measured 2026-08-25, strain-frame-test (a retired harness; the kit's parity tests hold it) NC5): rotating the
 //  fitted tensor matches py4DSTEM's `get_rotated_strain_map` path exactly,
 //  but py4DSTEM's CALIBRATED pipeline refits from rotated vectors, and its
 //  reference lattice (`get_reference_g1g2`) is a component-wise MEDIAN —

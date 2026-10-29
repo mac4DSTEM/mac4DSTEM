@@ -29,6 +29,7 @@
 
 import Foundation
 import Metal
+import ShellMetal   // MetalEngine (MacEMUI) loads its library from its own bundle
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
@@ -427,7 +428,7 @@ let streamOrigins = try await VirtualDetector.tiledMeasuredOrigins(
 expectIdentical(residentOrigins, streamOrigins, "measured origins")
 
 // CuboKit 0.7.0: the per-position origin is CuboKit's too (the iterated-window estimator through CuboCubeSource), so it
-// copies one tile per tile like the statistics; only the selected-area diffraction still binds the resident buffer.
+// copies one tile per tile like the statistics.
 let copiesAfterOrigins = await residentData.residentTileCopies
 guard copiesAfterOrigins - copiesAfterDiffraction == 4 else {
     fail("the CuboKit origins copied \(copiesAfterOrigins - copiesAfterDiffraction) tile(s) out of the resident cube, expected one per tile (4)")
@@ -446,22 +447,17 @@ let streamCoM = try await VirtualDetector.tiledCenterOfMass(
 )
 expectIdentical(residentCoM, streamCoM, "centre of mass")
 
-// MARK: - The staging copy is GONE, not merely still correct (v2 S18)
+// MARK: - Selected-area diffraction copies at most one tile per tile
 
-// Equality above proves the numbers did not change. It cannot distinguish
-// "bound the cube in place" from "copied every tile out and back again" — a
-// silently reintroduced staging copy passes every comparison in this file.
-// This is the assertion that fails when the copy comes back.
-let copiesAfterReducers = copiesAfterDiffraction
-guard copiesAfterReducers == copiesBeforeReducers else {
-    fail("""
-         the tiled reducer that binds the buffer (selected-area diffraction) copied \(copiesAfterReducers - copiesBeforeReducers) \
-         tile(s) out of the resident cube. It must bind the cube's buffer at \
-         each tile's byte offset instead — that copy is ~0.375 x working set of \
-         pure staging waste and v2 S18 removed it.
-         """)
+// Since aea14a99 the selected-area diffraction is CuboKit's VirtualDiffraction, read through CuboCubeSource like the
+// statistics, origins and centre of mass: it copies tiles out of the resident cube instead of binding its buffer (the
+// v2 S18 zero-copy claim held for the app's own Metal reducer, which that commit deleted). The binding contract of
+// TileGPUSource itself is checked above. This guards against a reducer copying the same tile more than once.
+let diffractionCopies = copiesAfterDiffraction - copiesBeforeReducers
+guard diffractionCopies <= 4 else {
+    fail("selected-area diffraction copied \(diffractionCopies) tile(s) out of the resident cube, at most one per tile (4)")
 }
-pass("resident Metal reducer (selected-area diffraction) made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
+pass("resident selected-area diffraction: \(diffractionCopies) tile copies, at most one per tile (4)")
 
 // MARK: - Browsing patterns comes out of the resident cube too (v2 S18)
 
