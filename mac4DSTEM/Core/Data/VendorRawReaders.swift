@@ -312,7 +312,7 @@ package actor MIBReader: FourDDataSource {
     /// Where the frames are read from.
     private enum Source: Sendable {
         case kit(array: any FormatoLazyArray, liveness: MappingLiveness)
-        /// delete at FormatoKit <next>: headers without width and height, and a detector that disagrees with its assembly (the kit does not take header-less MIB)
+        /// delete at FormatoKit <next>: headers without width and height, and a detector that disagrees with its assembly (the kit does not take header-less MIB; mac4DSTEM/FormatoKit#7)
         case frames(headerBytes: Int, bytesPerPixel: Int, frameBytes: Int)
     }
 

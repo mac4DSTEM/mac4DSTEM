@@ -81,7 +81,7 @@ package actor DM4Reader: FourDDataSource {
         /// A rank-4 object: FormatoKit's lazy gather (scan-fastest storage included).
         case kit(DM4Datacube)
         /// A rank-3 object reshaped to a scan by its "Scan shape X/Y" tags.
-        // delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (kit ask)
+        // delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (mac4DSTEM/FormatoKit#7)
         case scanShaped(ScanShapedCube)
     }
 
@@ -340,7 +340,7 @@ package actor DM4Reader: FourDDataSource {
 
 /// A rank-3 DM object (N_scan, Qy, Qx), mapped, read as the 4D cube `[Ry, Rx, Qy, Qx]` its scan-shape tags give. Frames are
 /// contiguous, so a slab is one run per detector row (one run per frame when the detector is not cropped).
-// delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (kit ask)
+// delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (mac4DSTEM/FormatoKit#7)
 private nonisolated struct ScanShapedCube: Sendable {
     let data: Data
     let offset: Int
