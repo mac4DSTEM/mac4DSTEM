@@ -44,7 +44,7 @@ with h5py.File(root / "rank3.h5", "w") as f:
     group.create_dataset("data", data=cube)
 
 # ---- DM4 --------------------------------------------------------------------
-# Byte layout per ../_archive/mac4DSTEM/docs/dm4-format.md and tools/harnesses/dm4-robustness-test: structure
+# Byte layout per archived docs/dm4-format.md and tools/harnesses/dm4-robustness-test: structure
 # fields big-endian, primitive values little-endian.
 def u8(v):    return struct.pack(">B", v)
 def u16be(v): return struct.pack(">H", v)

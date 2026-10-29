@@ -139,28 +139,19 @@ scientific=(
   virtual-detector-test
   virtual-detector-residency
   resident-cropped-view
-  disk-detection-test embedding-pca-parity disk-correlation-parity peak-overlay-test fit-overlay-test
-  phase-vector-matching
-  acom-orientation-test acom-matching-test acom-convention-test acom-mirror-test parity-metric-test cif-symmetry-test
-  ws2-crystal-test
-  idpc-test cancellation-test tiled-detection-memory-test virtual-detector-memory-test
-  bragg-export-test sidecar-result-test strain-test strain-frame-test
-  ellipse-calibration-test
+  peak-overlay-test fit-overlay-test
+  cancellation-test tiled-detection-memory-test virtual-detector-memory-test
+  bragg-export-test sidecar-result-test
   dm4-robustness-test vendor-reader-test load-spec-test datacube-discovery-test load-spec-calibration
   preprocess-crop-bin-test load-spec-roundtrip sidecar-error-detail-test
   two-spec-analysis-test reduced-export-test
-  preprocessing-export-test parallax-preprocessing-test parallax-alignment-test
-  parallax-aberration-test parallax-subpixel-test parallax-depth-test
-  singleslice-ptychography-test result-presentation-test
+  preprocessing-export-test
+  result-presentation-test
   scientific-bundle-test
   disk-detector
-  rotation-parity-test
-  friedel-origin-test
   hdf5-exit-race-test
 )
 campaign=(
-  parallax-preprocessing-test parallax-alignment-test parallax-aberration-test
-  parallax-subpixel-test parallax-depth-test singleslice-ptychography-test
   sidecar-result-test result-presentation-test
 )
 

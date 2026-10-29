@@ -26,7 +26,7 @@ final class DiskDetectionContractTests: XCTestCase {
 
     /// The minimum-spacing default must scale with the *probe*, not the
     /// detector. Measured on the training set (see
-    /// `DiskDetectionParams.detectorAdapted` and `../_archive/mac4DSTEM/tools/bragg-spacing-probe/`):
+    /// `DiskDetectionParams.detectorAdapted` and archived `tools/bragg-spacing-probe/`):
     /// a 128 px detector yields a 16 px detector-scaled gate, which sits above
     /// the true Bragg spacing on Si_SiGe (14.9 px) and Particle_1 (12.7 px)
     /// and suppresses the g-vectors that define the strain basis.
@@ -74,7 +74,7 @@ final class DiskDetectionContractTests: XCTestCase {
     }
 
     /// Omitting the probe radius must reproduce the historical detector-scaled
-    /// value exactly. `tools/harnesses/disk-correlation-parity` is gated against a
+    /// value exactly. `disk-correlation-parity` (a retired harness; the kit's parity tests hold it) is gated against a
     /// recorded 2697-peak baseline and calls this without a probe radius, so a
     /// change here would silently invalidate that baseline.
     func testDetectorScaledFallbackIsUnchangedWithoutAProbeRadius() {

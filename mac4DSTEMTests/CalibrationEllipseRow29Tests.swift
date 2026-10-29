@@ -1,6 +1,6 @@
 //
 //  CalibrationEllipseRow29Tests.swift
-//  Lane F-B row 29 (../_archive/mac4DSTEM/docs/archive/v4/review-2026-09-30-findings.md): `hasEllipse` accepted
+//  Lane F-B row 29 (archived docs/archive/v4/review-2026-09-30-findings.md): `hasEllipse` accepted
 //  b <= 0 and a < 0 while the readiness row required a > 0 && b > 0, so a file with such an
 //  ellipse had e = b/a <= 0 applied to every Bragg vector while the row read "No
 //  detector-distortion correction".

@@ -1,6 +1,6 @@
 //
 //  StrainProduct.swift
-//  Role: S8's seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — the one owner of the
+//  Role: S8's seam (archived docs/archive/development-process-2026-08-31.md §7) — the one owner of the
 //        strain analysis product and its run controls. Held by AppState with
 //        no forwarding properties; views read `strain.…`.
 //

@@ -17,7 +17,7 @@
 //    for the colour at the selected position, in physical units.
 //
 //  And one refusal: the result is badged UNVALIDATED until step 3 of
-//  `../_archive/mac4DSTEM/docs/v3-features.md#vector-matching` runs. The badge is not decoration — this
+//  archived `docs/v3-features.md#vector-matching` runs. The badge is not decoration — this
 //  method has never been scored against an external truth in this app.
 //
 

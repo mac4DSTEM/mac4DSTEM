@@ -5,7 +5,7 @@
 //        forwarding properties. `AppState+PhaseMapping.swift` is the first
 //        writer, over the vector-matched phase map; the pre-registered
 //        full-diffraction-pattern classification route
-//        (`../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2) would be a
+//        (archived `docs/v3-features.md#precipitate-classification` §2) would be a
 //        second writer of the same owner, still unbuilt.
 //
 
@@ -16,7 +16,7 @@ import DSTEMCore
 import Observation
 import DiffractoOrientation
 
-/// The Session boundary for `../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §3.
+/// The Session boundary for archived `docs/v3-features.md#precipitate-classification` §3.
 ///
 /// It owns only a published `ClassMapObjects` value — it does not classify
 /// anything itself, publish a view, or export. It makes no validation claim

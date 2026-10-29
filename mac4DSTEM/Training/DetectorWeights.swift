@@ -1,7 +1,7 @@
 //
 //  DetectorWeights.swift
 //  Role: the learned disk detector's 29 trainable tensors and where they sit in the shipped package's
-//        `weight.bin` (C3 pre-registration §2; the layout is `../_archive/mac4DSTEM/tools/mpsgraph-training-spike`'s, proven
+//        `weight.bin` (C3 pre-registration §2; the layout is archived `tools/mpsgraph-training-spike`'s, proven
 //        there against the shipped Core ML heatmap to 0.0027 on the GPU).
 //
 //  weight.bin is a MIL blob file: a 64-byte header, then per blob 64 bytes of metadata (sentinel

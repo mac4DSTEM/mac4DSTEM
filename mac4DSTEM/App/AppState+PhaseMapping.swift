@@ -13,7 +13,7 @@
 //
 //  UNVALIDATED. Every product published here carries `validation: "none"` and
 //  an exploratory quantitative status until step 3 of
-//  `../_archive/mac4DSTEM/docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
+//  archived `docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
 //  published ground truth. A phase map you can look at is worth having; a
 //  density taken off one is not a measurement yet.
 //
@@ -243,7 +243,7 @@ extension AppState {
     /// real-space calibration: density is then absent, never invented
     /// (`ObjectStatistics.arealDensity`'s own refusal rule).
     ///
-    /// `../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
+    /// archived `docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
     /// change what is validated: `PrecipitateClassificationProduct` makes no
     /// validation claim of its own, and the phase map it is built from is
     /// still `validation: "none"` — the Result section's badge says so for
