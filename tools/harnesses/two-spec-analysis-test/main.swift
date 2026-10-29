@@ -62,7 +62,7 @@
 //  tools/harnesses/load-spec-test; nothing here re-checks them, and an analysis defect
 //  specific to a sliced reader would not appear. It also runs on synthetic
 //  cubes: it can show that a reduced view agrees with full extent, not that
-//  either is physically right. That is tools/harnesses/disk-correlation-parity's job.
+//  either is physically right. That is disk-correlation-parity (a retired harness; the kit's parity tests hold it)'s job.
 //
 //  AND ONE BLIND SPOT WORTH NAMING, found by Gate B: both sides of every
 //  comparison call the same `VirtualDetector.makeMask`, so a change to the MASK

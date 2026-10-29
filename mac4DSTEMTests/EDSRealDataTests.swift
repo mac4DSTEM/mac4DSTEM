@@ -2,7 +2,7 @@
 //  EDSRealDataTests.swift
 //  The EDS room on the owner's Velox STEM-EDX files (data/stem-edx, read-only, never copied): Auto ID's picks as macTEM 1.0's room
 //  makes them on the same files (1339 and 1840: Mg, Al, Si; 1456: Si, Ni, Ge, Pt), and Quantify fits. Heavy, opt-in:
-//      ../tools/memcap.sh --gb 12 -- env TEST_RUNNER_MAC4DSTEM_EDS_REAL=1 MAC4DSTEM_UNIT_ONLY=EDSRealDataTests tools/run-tests.sh unit
+//      env TEST_RUNNER_MAC4DSTEM_EDS_REAL=1 MAC4DSTEM_UNIT_ONLY=EDSRealDataTests tools/run-tests.sh unit
 //  `MACEM_DATA` names the data folder (default ../data).
 //
 

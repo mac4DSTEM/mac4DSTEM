@@ -523,7 +523,7 @@ package nonisolated struct OriginMaps: Sendable {
     /// ADMITTED and this number is carried *on the product*, because accuracy
     /// of the fitted origin outranks coverage of the input measurements and the
     /// fraction is disclosure rather than an apology
-    /// (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §6a).
+    /// (archived `docs/q-calibration-design.md` §6a).
     package var excludedFraction: Float?
 
     /// RMS(measured − fitted) over the positions the robust fit KEPT.
@@ -649,7 +649,7 @@ package nonisolated struct Calibration: Sendable {
     ///
     /// **This is the single owner of that decision** (backlog #46) — the
     /// Prepare readiness row, `AppState.calibrateQFromCrystal()`, and
-    /// `../_archive/mac4DSTEM/tools/training-dataset-campaign` all read it. The badge the user sees,
+    /// archived `tools/training-dataset-campaign` all read it. The badge the user sees,
     /// the calibration the app is willing to perform, and the parity records
     /// therefore cannot disagree; the defect was exactly that disagreement,
     /// with the Origin row saying *"exceeds probe radius; recalibrate before

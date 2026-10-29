@@ -11,7 +11,7 @@
 //  `App/ProductWorkflow.swift` the way `AnalysisMode` itself did at step 1.
 //
 //  Why it moved: `AppState.swift` + `Support/ResultExport.swift` may never net
-//  positive lines in a commit (CLAUDE.md, measured by `tools/run-tests.sh
+//  positive lines in a commit (measured by `tools/run-tests.sh
 //  inventory`), and wiring diffraction grouping needs a handful of lines in
 //  `AppState.swift`. The port analysis pre-registered this as the lever to
 //  spend. Say so rather than letting a reader think the file was split for

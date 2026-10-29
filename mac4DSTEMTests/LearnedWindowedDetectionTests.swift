@@ -1,7 +1,7 @@
 //
 //  LearnedWindowedDetectionTests.swift
 //  The learned detector above the model's 256-px frame (Gate D record:
-//  ../_archive/mac4DSTEM/docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md).
+//  archived docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md).
 //
 //  D098  one dose scale per NATIVE pattern (`simulate.model_inputs` scales the native pattern, then fits it), not
 //        one per 256-px window: a window without the beam was inflated to the beam's dose.

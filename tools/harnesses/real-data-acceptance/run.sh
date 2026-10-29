@@ -46,11 +46,6 @@ resolve_mac4dstem_developer_dir
 HDF5_FRAMEWORKS="$("$ROOT/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
 HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
 export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader, writer and shims read it too (FormatoKit's lookup order)
-for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
-  xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
-done
-xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
-
 . "$ROOT/tools/lib/sources.manifest"
 mac4dstem_sources "$ROOT" qcalibration
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
@@ -58,6 +53,7 @@ xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
+mac4dstem_copy_bundles "$WORK"   # MacEMUI_ShellMetal.bundle: MetalEngine's Metal library
 cd "$WORK"
 MAC4DSTEM_HDF5_PATH="$HDF5_LIB" ./harness "${files[@]}" > report.json
 if [[ -n "${MAC4DSTEM_REAL_REPORT_OUTPUT:-}" ]]; then

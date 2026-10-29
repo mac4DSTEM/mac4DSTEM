@@ -2,7 +2,7 @@
 //  LearnedDiskDetectorTests.swift
 //  The learned disk-candidate stage against its Python reference (v3-plan §3a step 4; C7 2026-09-08).
 //
-//  The fixture is mac4DSTEMTests/Fixtures/DiskDetector/fixture/swift/, written by ../_archive/mac4DSTEM/tools/disk-detector/write_swift_fixture.py
+//  The fixture is mac4DSTEMTests/Fixtures/DiskDetector/fixture/swift/, written by archived tools/disk-detector/write_swift_fixture.py
 //  from the committed synthetic fixture (native 128 px) and the committed Core ML package (256 px):
 //  the 16 native patterns, the native probe, Python's model inputs for two patterns in the FITTED
 //  frame, and per pattern the raw peak picks and the accepted refined peaks (evaluate.pick / refine /

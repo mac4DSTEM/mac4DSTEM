@@ -1,4 +1,4 @@
-# CI — the aggregate claim, made mechanical (v2 S21, ../_archive/mac4DSTEM/docs/archive/v2/v2-release.md §8).
+# CI — the aggregate claim, made mechanical (v2 S21, archived docs/archive/v2/v2-release.md §8).
 #
 # WHAT RUNS on every push and pull request — three jobs, each a gate a public
 # checkout can reproduce:
@@ -26,7 +26,7 @@
 # default, so an image update cannot change the toolchain on an unchanged tree.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
-# missing (../_archive/mac4DSTEM/docs/archive/v2/v2-release.md §3):
+# missing (archived docs/archive/v2/v2-release.md §3):
 #   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
 #     exist only on the release owner's machines.
 #   * The learned half of tiled-detection-memory-test (see above) — no
@@ -39,7 +39,7 @@
 #     gated nothing and needed gitignored data or hand-supplied input.
 #   * On-screen verification — done by hand with the built app. No runner can stand in for it; the
 #     scripted checklist this line used to name was retired 2026-09-03 and is
-#     archived at ../_archive/mac4DSTEM/docs/archive/v2/visual-acceptance-checklist-2026-09-03.md.
+#     archived as visual-acceptance-checklist-2026-09-03.md.
 #
 # INVENTORY: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
@@ -68,7 +68,10 @@
 name: CI
 
 on:
+  # main and tags only: a PR branch's pushes run once, through pull_request (macEM-suite#77).
   push:
+    branches: [main]
+    tags: ['*']
   pull_request:
   workflow_dispatch:
 
@@ -182,3 +185,14 @@ jobs:
       - name: Fail on Accelerate / Metal / vDSP outside the allowlist
         # Decision D15. Plain grep, no build; also part of `inventory`, kept as its own job so the red is named.
         run: tools/check-kit-boundary.sh
+
+  private-refs:
+    name: No private references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files
+        run: |
+          if git grep -n -I -E '_archive|CLAUDE\.md|memcap|macEM-suite|setup-python-refs' -- ':!.gitignore' ':!.github/workflows/ci.yml'; then
+            echo "Private references above; this repo is public."; exit 1
+          fi

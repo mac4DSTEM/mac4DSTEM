@@ -2,6 +2,7 @@ import CuboCore
 import CuboVirtual
 import Foundation
 import Metal
+import ShellMetal   // MetalEngine (MacEMUI) loads its library from its own bundle
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
