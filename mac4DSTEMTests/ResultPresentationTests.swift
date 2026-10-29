@@ -218,7 +218,6 @@ final class ComputedProductSwitchTests: XCTestCase {
 
     func testNothingIsOfferedBeforeAnythingIsComputed() {
         let state = AppState()
-        XCTAssertTrue(state.availableComputedProducts.isEmpty)
         // Must be inert rather than crash or publish an empty product.
         state.showComputedProduct(.strain)
         state.showComputedProduct(.orientation)

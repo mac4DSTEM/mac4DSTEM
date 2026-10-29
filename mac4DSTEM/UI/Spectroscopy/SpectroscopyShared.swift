@@ -25,22 +25,14 @@ enum ResultFormat {
         guard let separator = locale.decimalSeparator, separator != "." else { return text }
         return text.replacingOccurrences(of: ".", with: separator)
     }
-    /// The k-free ratio and abundance cells of a row. Until WP3 fits a spectrum there is neither: "—", never a number.
-    static func fitCells(_ row: ResultRow, unit: AbundanceUnit, hasFit: Bool, locale: Locale = .current) -> (kFree: String, abundance: String) {
-        guard hasFit else { return ("—", "—") }
-        let abundance = row.hasAbundance
-            ? (unit == .atomic ? plusMinus(row.atPercent, row.atSigma, digits: 1, locale: locale)
-                               : plusMinus(row.wtPercent, row.wtSigma, digits: 1, locale: locale)) : "—"
-        guard row.hasKFree else { return ("—", abundance) }
-        return (row.kFreeSigma.map { plusMinus(row.kFreeRatio, $0, digits: 4, locale: locale) } ?? "1",
-                abundance)
-    }
-    /// Narrow-space grouping (`SpectrumReadout.grouped`, kept beside the spectrum logic so tools/ harnesses compile without views).
+    /// Digits grouped with a narrow no-break space (U+202F), in `locale`'s digits, decimal mark and minus sign. FormatStyle has no
+    /// grouping-separator option, so the locale's own thousands mark is swapped for U+202F (pinned by `FormatStyleMigrationTests`).
     nonisolated static func grouped(_ v: Double, fraction: ClosedRange<Int> = 0...0, locale: Locale) -> String {
-        SpectrumReadout.grouped(v, fraction: fraction, locale: locale)
+        v.formatted(.number.precision(.fractionLength(fraction)).locale(locale))
+            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "\u{202F}")
     }
     /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
-    nonisolated static func counts(_ v: Double) -> String { SpectrumReadout.counts(v) }
+    nonisolated static func counts(_ v: Double) -> String { grouped(v, locale: Locale(identifier: "en_US")) }
 }
 
 /// The badge `validation:"none"` carries on screen (ADR 054 §3). Orange text on a tint,

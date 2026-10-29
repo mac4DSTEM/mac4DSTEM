@@ -83,7 +83,7 @@ final class FormatStyleMigrationTests: XCTestCase {
         XCTAssertEqual(SpectroscopyPlaceholderFormat.number(0.0275, fraction: 0...2, locale: de), "0,03")
     }
 
-    /// The counts cells (ResultFormat.counts, SpectrumReadout.counts): en_US grouping, whole numbers, half-even on .5.
+    /// The counts cells (ResultFormat.counts): en_US grouping, whole numbers, half-even on .5.
     func testCountsCellsAreUnchanged() {
         let cases: [(Double, String)] = [
             (412380, "412\(nnbsp)380"), (0, "0"), (2.5, "2"), (3.5, "4"), (1234.5, "1\(nnbsp)234"), (999999.5, "1\(nnbsp)000\(nnbsp)000"),
@@ -92,7 +92,6 @@ final class FormatStyleMigrationTests: XCTestCase {
         ]
         for (v, expected) in cases {
             XCTAssertEqual(ResultFormat.counts(v), expected, "ResultFormat.counts \(v)")
-            XCTAssertEqual(SpectrumReadout.counts(v), expected, "SpectrumReadout.counts \(v)")
         }
     }
 }
