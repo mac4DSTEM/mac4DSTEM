@@ -46,10 +46,6 @@ mac4DSTEMTests/PhaseDiskClaimsTests.swift	simd	test of display, residency or det
 mac4DSTEMTests/PhaseMapAppTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/PhaseMappingReproductionTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ProbeSizeTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
-tools/harnesses/acom-convention-test/main.swift	simd	harness: GPU or simd types for the check it runs
-tools/harnesses/acom-mirror-test/main.swift	simd	harness: GPU or simd types for the check it runs
-tools/harnesses/acom-orientation-test/main.swift	simd	harness: GPU or simd types for the check it runs
-tools/harnesses/phase-vector-matching/main.swift	simd	harness: GPU or simd types for the check it runs
 tools/harnesses/resident-cropped-view/main.swift	Metal	harness: GPU or simd types for the check it runs
 tools/harnesses/tiled-detection-memory-test/main.swift	Metal	harness: GPU or simd types for the check it runs
 tools/harnesses/two-spec-analysis-test/main.swift	Metal	harness: GPU or simd types for the check it runs

@@ -16,7 +16,7 @@ import struct CuboParallax.ParallaxAberrationTerm
 /// Lane R1 (2026-09-30): the ptychography probe takes a defocus and the fitted aberrations.
 ///
 /// The fixture that pins the probe to py4DSTEM's `ComplexProbe` (planted wrong conventions included) is
-/// `tools/harnesses/singleslice-ptychography-test` - it needs py4DSTEM, so it lives in the scientific gate. What this class pins without
+/// `singleslice-ptychography-test` (a retired harness; the kit's parity tests hold it) - it needs py4DSTEM, so it lives in the scientific gate. What this class pins without
 /// Python: the conventions as plain arithmetic on the Fourier side of the probe, the seeding rule (defocus is MINUS the parallax fit's C1), and that the published product names the defocus it started from.
 /// Every test names the mutation it catches.
 @MainActor
