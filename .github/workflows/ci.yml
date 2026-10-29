@@ -138,11 +138,14 @@ jobs:
       # On the Mac runner setup-python would need sudo; uv puts a Python 3.12 venv (python, python3, pip) on PATH instead.
       - uses: astral-sh/setup-uv@v6
         if: runner.environment == 'self-hosted'
-      - name: Python 3.12 venv (Mac runner)
+      - name: Python 3.12 venv and the macOS SDK (Mac runner)
         if: runner.environment == 'self-hosted'
+        # SDKROOT: with no SDK named, Xcode 26.6's xcrun on the macOS 27 Mac picks the Command Line Tools' 27.0 SDK,
+        # whose libSystem.tbd 26.6's linker cannot read; the harnesses' bare swiftc/clang calls then fail to link.
         run: |
           uv venv --seed --python 3.12 "$RUNNER_TEMP/py"
           echo "$RUNNER_TEMP/py/bin" >> "$GITHUB_PATH"
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
       - name: Fetch the py4DSTEM source lock
         # Since 2026-09-03 the lock is fetched at a pinned upstream commit
         # (tools/lib/fetch-py4dstem.sh), not tracked in the tree.
