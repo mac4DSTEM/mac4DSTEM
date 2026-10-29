@@ -28,7 +28,7 @@ the same room macTEM 1.0 ships, joined to the 4D scan.
   a step in the session's lineage and a row in Results. Auto ID refines the energy axis before it proposes, as macTEM does.
 - **What changes for you.** The room's controls sit where macTEM's do (the control placement standard). The at%/wt% unit menu is
   gone (both columns show); the Profile and Table tabs are now the profile inset and the pins table; pins are not limited to three.
-  Steps recorded by earlier v5 development builds still read in Results and restore their method.
+  Steps recorded by earlier v5 development builds still read in Results.
 
 ### Added
 
