@@ -949,10 +949,43 @@ extension SessionReplayAppStateTests {
         XCTAssertEqual(productState(state, .strain), .current, "strain does not consume Q")
     }
 
-    /// (b) ACOM consumes origin, ellipse and Q. (A Q edit discards the ACOM
-    /// map outright — `ACOMSession.invalidateResult` — so the ellipse is the
-    /// change that can leave one on screen.) Mutation it catches: the verdict
-    /// blind to calibration for ACOM.
+    /// A Q edit keeps the orientation map and reads it stale, as it does the
+    /// phase map: the map was matched at the old scale, and the lineage says
+    /// so. Red before: the Q setters called `ACOMSession.invalidateResult`,
+    /// which deleted the map. Mutation it catches: putting that call back in
+    /// either setter.
+    func testAQEditKeepsTheOrientationMapAndReadsItStale() async throws {
+        let (state, kernel) = try await handSession()
+        state.acomSession.modelSelection = .library("au_fcc")
+        handRecord(state, "disk_detection", detectionRecord(state.diskDetection.diskParams, kernel: kernel))
+        let signature = try XCTUnwrap(state.currentReplaySignature(for: .acom), "a resolved model has a signature")
+        let a1 = handRecord(state, "acom", signature)
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        state.acomSession.hasOrientationMap = true
+        let matchedScale = state.acomScale
+        state.acomSession.lastRunSemantics = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Au", scale: state.acomScaleSemantics)
+        XCTAssertEqual(productState(state, .acom), .current, "precondition")
+
+        state.setManualQPixelSize(0.0213)
+        XCTAssertNotEqual(state.acomScale, matchedScale, "precondition: the scale in force moved")
+        XCTAssertEqual(state.fitOverlays.invAngstromPerPixel, matchedScale,
+                       "the kept map's templates are drawn at the scale they were matched at")
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "the map stays")
+        XCTAssertNotNil(state.acomSession.orientationMap)
+        let reason = try XCTUnwrap(productState(state, .acom).staleReason, "a Q edit reads the map stale")
+        XCTAssertTrue(reason.contains("Q calibration"), reason)
+        XCTAssertEqual(graphState(state, a1), .stale)
+
+        state.setManualQPixelUnits(state.manualQPixelUnits == "Å⁻¹" ? "nm⁻¹" : "Å⁻¹")
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "a unit change keeps it too")
+        state.setManualQPixelSize(0)   // cleared
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "a cleared Q keeps it too")
+        XCTAssertNotNil(productState(state, .acom).staleReason, "and it still reads stale")
+    }
+
+    /// (b) ACOM consumes origin, ellipse and Q. Mutation it catches: the
+    /// verdict blind to calibration for ACOM.
     func testAnEllipseFittedAfterACOMReadsItStale() async throws {
         let (state, kernel) = try await handSession()
         state.acomSession.modelSelection = .library("au_fcc")

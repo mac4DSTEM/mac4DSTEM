@@ -1619,7 +1619,9 @@ final class AppState {
             orientationPlan: acomSession.orientationPlan,
             orientationMap: acomSession.orientationMap,
             hasOrientationMap: acomSession.hasOrientationMap,
-            invAngstromPerPixel: acomScale
+            // The scale the map was matched at: a Q edit keeps a stale map, and its
+            // templates must not be redrawn at a scale they were never matched at.
+            invAngstromPerPixel: acomSession.lastRunSemantics?.scale.invAngstromPerPixel ?? acomScale
         )
     }
 

@@ -1431,6 +1431,12 @@ extension AppState {
     /// for the value in effect — so a Return or blur on an untouched "0,1904"
     /// (restored from the session) does not arrive here, and no unchanged-value
     /// guard is needed (P1, 2026-10-04: it replaced a 5e-7 tolerance here).
+    ///
+    /// The orientation map stays, as the strain and phase maps do (D068): it
+    /// reads stale. Its run consumed the Q node (`calibration_q`) and its
+    /// signature carries the matching scale, so a typed or cleared Q changes
+    /// one or both, and the export writes the scale the map was matched at
+    /// (`lastRunSemantics`), not the one in force.
     func setManualQPixelSize(_ value: Double) {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
@@ -1441,12 +1447,10 @@ extension AppState {
             // the picker's visible default instead of retaining pixels/px.
             calibrationSession.calibration.qPixelUnits = manualQPixelUnits
             calibrationSession.provenance.qScale = .manual
-            acomSession.invalidateResult()
             recordQCalibrationRun()   // lineage node (ADR 047)
         } else {
             calibrationSession.calibration.qPixelSize = nil
             calibrationSession.provenance.qScale = nil
-            acomSession.invalidateResult()
         }
         rederiveDisplayedDPCForScaleChange()
     }
@@ -1468,7 +1472,7 @@ extension AppState {
             // setter gives it (review 2026-09-30 row 2).
             recordQCalibrationRun()   // lineage node (ADR 047)
         }
-        acomSession.invalidateResult()
+        // The orientation map stays and reads stale (`setManualQPixelSize`).
         rederiveDisplayedDPCForScaleChange()
     }
 

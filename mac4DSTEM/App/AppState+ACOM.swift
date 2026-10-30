@@ -141,7 +141,7 @@ extension AppState {
         calibrationSession.provenance.qShellCaveat = Self.qShellCaveatText(estimate).map {
             CalibrationProvenance.QShellCaveat(pixelSize: estimate.invAngstromPerPixel, text: $0)
         }
-        acomSession.invalidateResult()
+        // An orientation map stays and reads stale, as after a typed Q (`setManualQPixelSize`).
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         var status = String(
