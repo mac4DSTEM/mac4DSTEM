@@ -1592,17 +1592,6 @@ final class AppState {
         }
     }
 
-    /// Products held in memory right now. `strain.map` and `orientationMap` are
-    /// retained simultaneously — only the *displayed* one was ever
-    /// single-valued, which is why running ACOM and then Strain looked like it
-    /// had lost the first result (backlog #28).
-    var availableComputedProducts: [ComputedProduct] {
-        var products: [ComputedProduct] = []
-        if strain.map != nil { products.append(.strain) }
-        if acomSession.hasOrientationMap { products.append(.orientation) }
-        return products
-    }
-
     /// Bring a retained product back to the viewer.
     /// Deliberately an **explicit action**, not a side effect of `changeMode`:
     /// navigating between tasks must never silently relabel the visible

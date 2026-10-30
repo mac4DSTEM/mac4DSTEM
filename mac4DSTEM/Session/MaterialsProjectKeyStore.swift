@@ -1,9 +1,8 @@
 //
 //  MaterialsProjectKeyStore.swift
 //  Where the Materials Project API key lives between launches. Keychain,
-//  not `UserDefaults`. A protocol
-//  in front of it so the search UI and its tests can swap in an in-memory
-//  store without touching the Keychain.
+//  not `UserDefaults`. A protocol in front of it so the tests can swap in an
+//  in-memory store (in the test target) without touching the Keychain.
 //
 //  Deliberately no `kSecUseDataProtectionKeychain`: this app is not signed
 //  into the data-protection keychain elsewhere, and adding it here would make
@@ -26,36 +25,6 @@ package nonisolated protocol APIKeyStore {
     func load() throws -> String?
     func save(_ key: String) throws
     func delete() throws
-}
-
-/// A process-lifetime store with no persistence — the default in tests, and
-/// available to production code as the fallback when the Keychain is
-/// unavailable (e.g. `errSecNotAvailable` in a restricted CI environment).
-package nonisolated final class InMemoryAPIKeyStore: APIKeyStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var storedKey: String?
-
-    package init(initial: String? = nil) {
-        self.storedKey = initial
-    }
-
-    package func load() throws -> String? {
-        lock.lock()
-        defer { lock.unlock() }
-        return storedKey
-    }
-
-    package func save(_ key: String) throws {
-        lock.lock()
-        defer { lock.unlock() }
-        storedKey = key
-    }
-
-    package func delete() throws {
-        lock.lock()
-        defer { lock.unlock() }
-        storedKey = nil
-    }
 }
 
 /// Stores the key as a Keychain generic-password item. `service`/`account`

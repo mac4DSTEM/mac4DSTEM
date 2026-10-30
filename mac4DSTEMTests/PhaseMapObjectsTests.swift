@@ -123,7 +123,7 @@ final class PhaseMapObjectsTests: XCTestCase {
         XCTAssertEqual(two.density.edgeExcluded, 0)
 
         // Object ids are unique across classes, so one inspector list can
-        // key on `rowIdentity` without collisions.
+        // key on them without collisions.
         let ids = result.classes.flatMap { $0.objects.map(\.id) }
         XCTAssertEqual(Set(ids).count, ids.count)
     }

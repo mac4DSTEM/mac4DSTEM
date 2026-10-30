@@ -80,7 +80,7 @@ final class EDSFourDLinkTests: XCTestCase {
     }
 
     /// The verb on the demo scan: a fit lands and the lineage gets one "quantification" step with the old room's keys (the method
-    /// JSON, the region, the result line), so Results rows and restores read it as before.
+    /// JSON, the region, the result line), so Results rows read it as before.
     /// Mutations: `quantifyEDS` not recording - no step - red; `region_kind` from the shape name ("whole") - red; `result_at` not written - red.
     func testQuantifyRecordsTheReplayStepWithTheOldKeys() async throws {
         let state = AppState(); keep.append(state)
@@ -97,6 +97,8 @@ final class EDSFourDLinkTests: XCTestCase {
         let expected = AppState.edsResultParameters(try XCTUnwrap(state.edx.fit))["result_at"]
         XCTAssertEqual(step.parameters["result_at"], expected)
         XCTAssertEqual(step.parameters["validation"], "none")
-        XCTAssertNotNil(SpectroscopySession().restoreQuantification(parameters: step.parameters), "the step restores a method")
+        var recorded = step.parameters
+        recorded["method"] = recorded["method_json"]
+        XCTAssertNotNil(QuantificationStep(parameters: recorded), "the recorded method JSON reads back")
     }
 }
