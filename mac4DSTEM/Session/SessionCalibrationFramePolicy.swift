@@ -173,8 +173,8 @@ package nonisolated enum SessionCalibrationTranslation {
     }
 }
 
-/// When the peaks a session sidecar stores may be adopted on open
-///. Pure, so each
+/// When the peaks a session sidecar stores may be adopted on open.
+/// Pure, so each
 /// refusal is unit-pinned. Peaks are scan-indexed detector coordinates:
 /// unlike calibration they are never re-mapped between views, so the only
 /// frame treatment that adopts them is `.identity` — the exact view they were

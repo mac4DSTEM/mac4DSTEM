@@ -475,8 +475,7 @@ extension AppState {
     }
 
     /// Publish where the last neural-net and the last classical full-scan run
-    /// on this dataset disagree, peak against peak, as a scan map
-    ///.
+    /// on this dataset disagree, peak against peak, as a scan map.
     /// Runs nothing and records no recipe step: both inputs are completed
     /// results held by `learnedDetection`, which clears them on dataset
     /// activation, so the pair is always one dataset's; a replay reproduces

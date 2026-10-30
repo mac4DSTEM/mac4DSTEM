@@ -89,8 +89,7 @@ final class ProbeSizeTests: XCTestCase {
     ///
     /// Nothing pinned this rule below the `all` gate until 2026-09-09, and
     /// `all` reaches `tools/harnesses/real-data-acceptance/` alone: the corrected radius
-    /// sat unnoticed against a stale golden for three days
-    ///. This is that pin.
+    /// sat unnoticed against a stale golden for three days. This is that pin.
     ///
     /// The pattern is a flat core of radius 6 with a Gaussian shoulder
     /// (sigma 2) — a step-edged disk gives an all-zero `dr` on which BOTH
