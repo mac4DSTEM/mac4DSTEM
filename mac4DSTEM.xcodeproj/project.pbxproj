@@ -34,6 +34,7 @@
 		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
 		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
 		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
+		300000000000000000000412 /* ShellEDXModel in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000411 /* ShellEDXModel */; };
 		500000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000301 /* DSTEMQuickLook */; };
 		500000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000303 /* FormatoPeek */; };
 		600000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000301 /* DSTEMQuickLook */; };
@@ -111,7 +112,6 @@
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
 				Core/Analysis/FitOverlays.swift,
-				Core/Analysis/MapProfile.swift,
 				Core/Analysis/OrientationResult.swift,
 				Core/Analysis/OriginCalibration.swift,
 				Core/Analysis/ParallaxAberrationCorrection.swift,
@@ -120,14 +120,11 @@
 				Core/Analysis/ParallaxDepthSectioning.swift,
 				Core/Analysis/ParallaxPreprocessing.swift,
 				Core/Analysis/ParallaxSubpixelReconstruction.swift,
-				Core/Analysis/Precipitates/PrecipitateReflections.swift,
 				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
-				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
 				Core/Analysis/ProbeKernel.swift,
 				Core/Analysis/ProbeRingHint.swift,
 				Core/Analysis/PtychographyPreparation.swift,
 				Core/Analysis/QCalibration.swift,
-				Core/Analysis/RegionMapTable.swift,
 				Core/Analysis/RotationCalibration.swift,
 				Core/Analysis/SingleslicePtychography.swift,
 				Core/Analysis/StrainFrame.swift,
@@ -135,8 +132,6 @@
 				Core/Analysis/TiledDiskDetection.swift,
 				Core/Analysis/VirtualDetector.swift,
 				Core/Compute/AnalysisCancellationToken.swift,
-				Core/Compute/MetalEngine.swift,
-				"Core/Compute/MTLTexture+Float.swift",
 				Core/Crystal/CIFModelImport.swift,
 				Core/Crystal/Crystal.swift,
 				Core/Crystal/CrystalModel.swift,
@@ -220,6 +215,7 @@
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplaceUndo.swift,
+				Session/ReplayContract.swift,
 				Session/ReplayPlan.swift,
 				Session/ReplayRun.swift,
 				Session/ResultPresentation.swift,
@@ -318,6 +314,7 @@
 				300000000000000000000406 /* ShellInspector in Frameworks */,
 				300000000000000000000408 /* ShellLayout in Frameworks */,
 				300000000000000000000410 /* ShellSpectroscopy in Frameworks */,
+				300000000000000000000412 /* ShellEDXModel in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -429,6 +426,7 @@
 				300000000000000000000405 /* ShellInspector */,
 				300000000000000000000407 /* ShellLayout */,
 				30000000000000000000040F /* ShellSpectroscopy */,
+				300000000000000000000411 /* ShellEDXModel */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -1427,7 +1425,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = exactVersion;
-				version = 0.3.2;
+				version = 0.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1554,6 +1552,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellSpectroscopy;
+		};
+		300000000000000000000411 /* ShellEDXModel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
+			productName = ShellEDXModel;
 		};
 		500000000000000000000301 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;

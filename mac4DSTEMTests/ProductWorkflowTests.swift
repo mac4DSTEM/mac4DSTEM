@@ -393,21 +393,6 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertFalse(ProductWorkflow.mayRun(.virtualDetector, readiness: unmet, isBusy: true))
     }
 
-    func testRecommendedFlowMovesTowardAReusableResult() {
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: false, hasResult: false),
-            .prepare
-        )
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: true, hasResult: false),
-            .image
-        )
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: true, hasResult: true),
-            .results
-        )
-    }
-
     /// IPF·Z is promoted over the Reliability default only for a user who has
     /// not chosen a display. The flag is what separates "still on the default"
     /// from "asked for Reliability", which `didSet` alone cannot see — if it

@@ -10,9 +10,10 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import ImagoCore
-@testable import SpectroCore
-@testable import SpectroEDX
+import SpectroCore
+import SpectroEDX
 @testable import mac4DSTEM
+import ShellEDXModel
 
 final class ObjectJoinsTests: XCTestCase {
     private let n = 8

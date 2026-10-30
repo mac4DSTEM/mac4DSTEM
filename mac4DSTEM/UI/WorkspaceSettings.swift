@@ -4,6 +4,8 @@ import ShellInspector
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellEDXModel
+import ShellSpectroscopy
 
 /// The selected task's controls in the inspector's Settings tab — the one
 /// place a (workspace, task) pair picks its room file, so the width budget
@@ -37,7 +39,7 @@ struct WorkspaceSettings: View {
             }
         case .reconstruct: ReconstructionSettings().environment(\.inspectorScope, "settings.phase")
         // v5.0 WP2: lane V's step inspectors replace the placeholder (R2).
-        case .spectroscopy: EDXRoomSettings().environment(\.inspectorScope, "settings.spectroscopy")
+        case .spectroscopy: EDXRoomSettings(session: appState.edx, state: appState.edxRoom, actions: appState.edxActions).environment(\.inspectorScope, "settings.spectroscopy")
         case .results: ResultsSettings().environment(\.inspectorScope, "settings.results")
         }
     }

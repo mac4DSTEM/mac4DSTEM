@@ -27,7 +27,8 @@ import SpectroCore
 /// dead for good: `fstat` fails with EBADF (`pread` with EIO) after the yank
 /// and again after the remount. So the witness is a descriptor, opened before
 /// the file is mapped and kept for the reader's life; it also survives the user
-/// renaming the file in Finder, which a path probe would report as a loss.
+/// renaming the file in Finder, which a path probe would report as a loss. Once it fails, the reader maps the file again
+/// from its path with a new descriptor (`DM4Reader.reopen`), never through the old mapping.
 package nonisolated struct MappingLiveness: Sendable {
     /// `true` while the disk answers. The reader latches the first `false`.
     package let isAlive: @Sendable () -> Bool
@@ -80,21 +81,27 @@ package actor DM4Reader: FourDDataSource {
         /// A rank-4 object: FormatoKit's lazy gather (scan-fastest storage included).
         case kit(DM4Datacube)
         /// A rank-3 object reshaped to a scan by its "Scan shape X/Y" tags.
-        // delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (kit ask)
+        // delete at mac4DSTEM/FormatoKit#7: a 3D-to-4D reshape by scan-shape tags in DM4Datacube
         case scanShaped(ScanShapedCube)
     }
 
-    private let cube: Cube
+    /// Replaced only by `reopen`, with a fresh mapping of the same path.
+    private var cube: Cube
     package let filePath: String
     private let descriptor: DatasetDescriptor
     /// Scan-fastest storage: no scan crop skips I/O. Immutable, so the nonisolated `loadPushdown` reads it.
     private let isScanFastest: Bool
+    /// How the file is held, chosen once at open; a reopen holds it the same way.
+    private let options: Data.ReadingOptions
 
     /// Non-nil only when the file is MAPPED: a file read into memory (a network volume) is valid after its disk is gone and
-    /// needs no guard. Owner: this reader; one descriptor per open reader.
-    private let liveness: MappingLiveness?
-    /// THE LATCH (owner card Q1 = a, 2026-10-04): set by the first read that finds the disk gone, never cleared. A plain "is
-    /// the volume there" check would pass again the moment the disk is plugged back in, while the old mapping is still dead.
+    /// needs no guard. Owner: this reader; one descriptor per open reader (a reopen replaces it with the new mapping's).
+    private var liveness: MappingLiveness?
+    /// The test's check, when one was injected: a reopen keeps it instead of opening a real descriptor.
+    private let injectedLiveness: MappingLiveness?
+    /// THE LATCH (owner card Q1 = a, 2026-10-04): set by the read that finds the disk gone. A plain "is the volume there"
+    /// check would pass again the moment the disk is plugged back in, while the old mapping is still dead, so the old
+    /// mapping is never read again: it is cleared only by `reopen`, which maps the file anew from its path (2026-10-30).
     private var diskGone = false
 
     // Best-effort calibration.
@@ -133,51 +140,12 @@ package actor DM4Reader: FourDDataSource {
         // The file is mapped but its disk cannot be watched (the descriptor failed while the open above succeeded: EMFILE, a
         // permission race): refuse, never read it unguarded. The open's own error, above, wins whenever both fail.
         liveness = try watch.get()
+        injectedLiveness = injected
         filePath = path
+        self.options = options
 
-        let objects = try DM4Experiment.list(path: path)
-        let tree = try DM4Experiment.tagTree(path: path)
-        var chosen: (cube: Cube, object: DM4ImageObject, dataType: Int, shape: [Int], scanFastest: Bool, note: String?)?
-        for object in objects {
-            let dims = object.dimensions
-            // `ImageData.DataType` is the tag tree's (the object's own copy is package-level in the kit).
-            guard let code = tree.numbers["ImageList.\(object.index).ImageData.DataType"].flatMap({ Int(exactly: $0) }) else { continue }
-            // The first object with more than two non-singleton dimensions and a pixel type the kit reads.
-            guard dims.filter({ $0 > 1 }).count > 2, DMFile.dataType(code: code) != nil else { continue }
-            if dims.count == 4 {
-                let kit: DM4Datacube
-                do {
-                    kit = try DM4Datacube(path: path, objectIndex: object.index, convention: .appCalibratedAxes,
-                                          storage: isMapped ? .mapped : .readIntoMemory)
-                } catch DM4Error.cannotOpen(let detail) {
-                    throw DM4Error.cannotOpen(detail)
-                } catch {
-                    continue          // a declared length that does not fit the file: the next candidate, as before
-                }
-                let shape = kit.layout.permutation.map { kit.layout.storedShape[$0] }
-                chosen = (.kit(kit), object, code, shape, kit.layout.scanFastest, kit.calibrationNote)
-                break
-            } else if dims.count == 3 {
-                // (N_scan, Qy, Qx); the scan shape comes from the tags.
-                //
-                // DEVIATION from py4DSTEM, deliberate and unported: for this 3D "TitanX" layout py4DSTEM rolls the data by −2
-                // pixels along axis 1, correcting a TitanX detector artefact. This reader does not. The consequence is stated
-                // rather than hidden: on a file that really carries that artefact, every q-vector read here sits 2 px from
-                // where py4DSTEM would put it, which is a calibration-scale shift, not a rounding one. It is unported because
-                // no TitanX file has been available to measure it on, and rolling every 3D file by −2 px on the strength of
-                // a comment would silently corrupt the ones that do not need it. archived `docs/dm4-format.md`
-                // §3.3 carries the record; the note is here because the project requires a deviation to be readable at the code.
-                guard let scanX = Self.scanShape(tree.numbers, "Scan shape X"), let scanY = Self.scanShape(tree.numbers, "Scan shape Y"),
-                      scanX > 0, scanY > 0 else { continue }
-                guard let flat = try? ScanShapedCube(path: path, options: options, object: object, dataType: code, scanY: scanY, scanX: scanX) else {
-                    continue
-                }
-                chosen = (.scanShaped(flat), object, code, [scanY, scanX, dims[1], dims[0]], false, nil)
-                break
-            }
-        }
-        guard let chosen else { throw DM4Error.noDatacube }
-
+        let opened = try Self.openCube(path: path, options: options)
+        let chosen = opened.chosen, tree = opened.tree
         cube = chosen.cube
         isScanFastest = chosen.scanFastest
         calibrationNote = chosen.note
@@ -207,6 +175,68 @@ package actor DM4Reader: FourDDataSource {
         voltage = object.voltage ?? tree.numbers.keys.sorted().first { $0.contains("Microscope Info.Voltage") }.flatMap { tree.numbers[$0] }
     }
 
+    /// The datacube object `openCube` chose, and how it is read.
+    private struct Chosen {
+        let cube: Cube
+        let object: DM4ImageObject
+        let dataType: Int
+        let shape: [Int]
+        let scanFastest: Bool
+        let note: String?
+    }
+
+    /// Lists the file's objects and maps the first that is a datacube; `init` and `reopen` share it, so a reopen chooses the
+    /// object exactly as the first open did.
+    private nonisolated static func openCube(path: String, options: Data.ReadingOptions)
+        throws -> (chosen: Chosen, tree: (numbers: [String: Double], strings: [String: String])) {
+        let isMapped = options == .alwaysMapped
+        let objects = try DM4Experiment.list(path: path)
+        let tree = try DM4Experiment.tagTree(path: path)
+        var chosen: Chosen?
+        for object in objects {
+            let dims = object.dimensions
+            // `ImageData.DataType` is the tag tree's (the object's own copy is package-level in the kit).
+            guard let code = tree.numbers["ImageList.\(object.index).ImageData.DataType"].flatMap({ Int(exactly: $0) }) else { continue }
+            // The first object with more than two non-singleton dimensions and a pixel type the kit reads.
+            guard dims.filter({ $0 > 1 }).count > 2, DMFile.dataType(code: code) != nil else { continue }
+            if dims.count == 4 {
+                let kit: DM4Datacube
+                do {
+                    kit = try DM4Datacube(path: path, objectIndex: object.index, convention: .appCalibratedAxes,
+                                          storage: isMapped ? .mapped : .readIntoMemory)
+                } catch DM4Error.cannotOpen(let detail) {
+                    throw DM4Error.cannotOpen(detail)
+                } catch {
+                    continue          // a declared length that does not fit the file: the next candidate, as before
+                }
+                let shape = kit.layout.permutation.map { kit.layout.storedShape[$0] }
+                chosen = Chosen(cube: .kit(kit), object: object, dataType: code, shape: shape,
+                                scanFastest: kit.layout.scanFastest, note: kit.calibrationNote)
+                break
+            } else if dims.count == 3 {
+                // (N_scan, Qy, Qx); the scan shape comes from the tags.
+                //
+                // DEVIATION from py4DSTEM, deliberate and unported: for this 3D "TitanX" layout py4DSTEM rolls the data by −2
+                // pixels along axis 1, correcting a TitanX detector artefact. This reader does not. The consequence is stated
+                // rather than hidden: on a file that really carries that artefact, every q-vector read here sits 2 px from
+                // where py4DSTEM would put it, which is a calibration-scale shift, not a rounding one. It is unported because
+                // no TitanX file has been available to measure it on, and rolling every 3D file by −2 px on the strength of
+                // a comment would silently corrupt the ones that do not need it. archived `docs/dm4-format.md`
+                // §3.3 carries the record; the note is here because the project requires a deviation to be readable at the code.
+                guard let scanX = Self.scanShape(tree.numbers, "Scan shape X"), let scanY = Self.scanShape(tree.numbers, "Scan shape Y"),
+                      scanX > 0, scanY > 0 else { continue }
+                guard let flat = try? ScanShapedCube(path: path, options: options, object: object, dataType: code, scanY: scanY, scanX: scanX) else {
+                    continue
+                }
+                chosen = Chosen(cube: .scanShaped(flat), object: object, dataType: code, shape: [scanY, scanX, dims[1], dims[0]],
+                                scanFastest: false, note: nil)
+                break
+            }
+        }
+        guard let chosen else { throw DM4Error.noDatacube }
+        return (chosen, tree)
+    }
+
     /// How the file is held (2026-09-24, open-items "DM4Reader silently reads whole files into RAM off non-local volumes").
     ///
     /// `.mappedIfSafe` maps only on a volume that is local AND not removable, so every external disk falls back to reading the
@@ -218,8 +248,8 @@ package actor DM4Reader: FourDDataSource {
     /// (`read_dm.py:100-121`, `mem="RAM"`, `binfactor > 1`) and its `mem="MEMMAP"` (`:123-124`) both read through ncempy's
     /// `np.memmap` (`ncempy/io/dm.py:1195`). If the volume disappears while mapped, the next page touched is a SIGBUS: the app
     /// crashes without a dialog, not a thrown `DM4Error`. Since Slot 4⅞ every read first asks `requireDiskAlive()` and, once
-    /// the disk is gone, throws `DM4Error.volumeGone` for the rest of the reader's life; a read already in flight at the
-    /// moment of the yank can still crash.
+    /// the disk is gone, throws `DM4Error.volumeGone` until the file can be mapped again from its path (`reopen`); a read
+    /// already in flight at the moment of the yank can still crash.
     ///
     /// DEVIATION: ncempy maps on every volume. A network volume (no `MNT_LOCAL`) is not mapped here: the kit reads the
     /// object's pixel bytes into memory once (`DM4DatacubeStorage.readIntoMemory`), because a mapped page the network cannot
@@ -246,10 +276,35 @@ package actor DM4Reader: FourDDataSource {
     }
 
     /// One check per public read (not per decode: a tile is many decodes and the check is a syscall). Latches on the first
-    /// failure; see `diskGone`.
+    /// failure; see `diskGone`. A latched reader tries `reopen` at every read, so a reconnected disk reads again without the
+    /// user reopening the dataset; while the disk stays away every read throws `volumeGone`.
     private func requireDiskAlive() throws {
         if !diskGone, let liveness, !liveness.isAlive() { diskGone = true }
-        if diskGone { throw DM4Error.volumeGone(displayFileName(filePath)) }
+        if diskGone { try reopen() }
+    }
+
+    /// Drops the dead mapping and maps the file again from its path, with a new descriptor opened first, as `init` does.
+    /// Refuses (`volumeGone`) while the file cannot be opened or its new descriptor is not alive, and refuses (`cannotOpen`)
+    /// a file at that path whose datacube is no longer the one opened (another shape or pixel type): its pixels would be
+    /// read through this reader's descriptor. Either way the latch stays set and the old mapping stays unread.
+    private func reopen() throws {
+        let name = displayFileName(filePath)
+        let fresh: Chosen
+        let watch: MappingLiveness?
+        do {
+            watch = options == .alwaysMapped ? try injectedLiveness ?? MappingLiveness.descriptor(path: filePath) : nil
+            fresh = try Self.openCube(path: filePath, options: options).chosen
+        } catch {
+            throw DM4Error.volumeGone(name)
+        }
+        guard fresh.shape == descriptor.shape, fresh.scanFastest == isScanFastest,
+              Self.dtypeName(fresh.dataType) == descriptor.dtypeDescription else {
+            throw DM4Error.cannotOpen("\(name) — the file at its path is no longer the dataset that was opened. Reopen it.")
+        }
+        guard watch?.isAlive() ?? true else { throw DM4Error.volumeGone(name) }
+        cube = fresh.cube
+        liveness = watch
+        diskGone = false
     }
 
     /// `rows` x `columns` source scan positions over the view's READ crop (or the whole detector), as Float, BEFORE binning.
@@ -339,7 +394,7 @@ package actor DM4Reader: FourDDataSource {
 
 /// A rank-3 DM object (N_scan, Qy, Qx), mapped, read as the 4D cube `[Ry, Rx, Qy, Qx]` its scan-shape tags give. Frames are
 /// contiguous, so a slab is one run per detector row (one run per frame when the detector is not cropped).
-// delete at FormatoKit <next>: a 3D-to-4D reshape by scan-shape tags in DM4Datacube (kit ask)
+// delete at mac4DSTEM/FormatoKit#7: a 3D-to-4D reshape by scan-shape tags in DM4Datacube
 private nonisolated struct ScanShapedCube: Sendable {
     let data: Data
     let offset: Int

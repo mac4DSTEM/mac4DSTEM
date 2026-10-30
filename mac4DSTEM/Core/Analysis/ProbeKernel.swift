@@ -104,7 +104,7 @@ package nonisolated struct ProbeKernel: Sendable {
     /// The probe is py4DSTEM's generate_synthetic_probe, the shift to the corner, the normalisation and the sine² trench
     /// are the kit's.
     ///
-    /// DEVIATION (kept in the app, "delete at CuboKit with a centre parameter"): the kit's `SyntheticProbe.make` centres
+    /// DEVIATION (kept in the app; delete at mac4DSTEM/CuboKit#10, `SyntheticProbe.make` with a centre parameter): the kit's `SyntheticProbe.make` centres
     /// the disk on (rows/2, columns/2), a half pixel for an odd detector side, and the shift then blurs it bilinearly.
     /// The app's kernel has always centred the disk on the pixel (rows/2, columns/2) with integer division, so the
     /// shift is exact. For an even side the two probes are the same numbers; for an odd side (125 × 125 on

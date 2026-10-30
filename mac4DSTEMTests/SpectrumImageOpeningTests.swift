@@ -49,7 +49,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertTrue(state.hasSpectrumImage)
         XCTAssertEqual(state.spectroscopy.metadata?.sameScanAsCube, true)
         XCTAssertEqual(state.navigation.workspaceArea, .image, "the joint open lands on the cube's room, as before")
-        XCTAssertEqual(state.spectroscopy.regions.first?.pixelCount, 24)
+        XCTAssertEqual(state.spectroscopy.metadata?.pixelCount, 24)
     }
 
     /// The shipped-behaviour change, through the open funnel: a Velox EMD opens as a spectrum image in a spectrum-only
@@ -78,7 +78,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
 
     // MARK: Regions and net counts
 
-    /// A drawn region's sum is the sum over exactly its mask's pixels, and the pixel count is the mask's.
+    /// A drawn region's sum is the sum over exactly its mask's pixels.
     /// Mutation: `.rectangle` masking `x0...x1` (inclusive) — red.
     func testARegionsSumIsTheSumOverItsMask() throws {
         let store = try VeloxEMDReader(path: Self.velox).readSpectrumImage().eventStore
@@ -89,33 +89,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
         var expected = [UInt64](repeating: 0, count: 8)
         for p in [2, 4] { for (c, v) in store.spectrum(pixel: p).enumerated() { expected[c] += UInt64(v) } }
         XCTAssertEqual(image.sum(mask: mask), expected)
-        let session = SpectroscopySession()
-        session.open(image)
-        let region = try XCTUnwrap(session.addDrawnRegion(shape))
-        XCTAssertEqual(region.pixelCount, 2)
-        XCTAssertEqual(session.selectedRegionID, region.id)
-        XCTAssertNil(session.addDrawnRegion(.rectangle(PixelRect(x0: 5, y0: 5, x1: 6, y1: 6))), "a shape off the grid draws nothing")
-        session.removeRegion(id: 0)
-        XCTAssertEqual(session.regions.count, 2, "the whole map is never removed")
-        session.removeRegion(id: region.id)
-        XCTAssertEqual(session.selectedRegionID, 0)
-    }
-
-    // MARK: The room, bound
-
-    /// The hover's cut-off is the marker's own FWHM: a cursor 70 eV from a line 40 eV wide names no line, and one 30 eV away does.
-    /// Mutation: the `?? lineTolerance` made unconditional — red.
-    func testTheHoverCutOffIsTheLinesOwnFWHM() {
-        let series = SpectrumSeries(energyStart: 1, energyStep: 0.01, data: [Double](repeating: 1, count: 100), background: [], model: [], overlay: nil)
-        let vp = SpectrumViewport(domain: series.domain)
-        let narrow = LineMarker(label: "Mg Kα", energy: 1.5, elementZ: 12, fwhm: 0.04)
-        func line(at e: Double, _ m: LineMarker) -> String? {
-            SpectrumHover.sample(series: series, viewport: vp, fraction: (e - vp.lo) / vp.span, markers: [m])?.line
-        }
-        XCTAssertNil(line(at: 1.57, narrow))
-        XCTAssertEqual(line(at: 1.53, narrow), "Mg Kα")
-        var wide = narrow; wide.fwhm = nil
-        XCTAssertEqual(line(at: 1.57, wide), "Mg Kα", "no FWHM: the old 0.1 keV cut-off")
     }
 
     // MARK: Round 2 (Gate B)

@@ -53,8 +53,8 @@ package nonisolated struct SpectrumPool: Equatable, Sendable, Identifiable {
     package var validation: String?
     /// The picker section.
     package var section: PoolSection { kind == .group ? .groups : .phases }
-    /// The badge. `PooledSpectrum.isUnvalidated`'s predicate (`validation == "none"`), NOT `ValidationState.isUnvalidated(nil)`,
-    /// which reads a missing validation as unvalidated: a group pool has no phase-map claim to retract and carries no badge.
+    /// The badge. `PooledSpectrum.isUnvalidated`'s predicate (`validation == "none"`): a missing validation is not read as
+    /// unvalidated, because a group pool has no phase-map claim to retract and carries no badge.
     package var isUnvalidated: Bool { PoolCatalogue.isUnvalidated(validation: validation) }
 }
 

@@ -125,11 +125,6 @@ package final class ResultPresentation {
         braggPeakCount = count
     }
 
-    package func clearBraggVectors() {
-        braggVectors = nil
-        braggPeakCount = nil
-    }
-
     package func setVirtualDiffractionPattern(_ pattern: DiffractionPattern?) {
         virtualDiffractionPattern = pattern
     }
