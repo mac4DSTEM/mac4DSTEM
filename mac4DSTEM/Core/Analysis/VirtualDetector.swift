@@ -125,14 +125,24 @@ extension DetectorShape {
             // pixel by its integer index, as the drawn ring and py4DSTEM's
             // `virtualimage.py` np.indices mask do. A `+ 0.5` on the centre
             // put the mask on the pixel corner, half a pixel off the drawn
-            // ROI in both axes (register D025, Gate D 2026-09-30). The
-            // `+ 0.5` on the radius is unchanged and is NOT the rectangle's
-            // rule: with the strict `<` it takes pixels whose centres lie up
-            // to half a pixel OUTSIDE the drawn ring (R 5: 97 px; `d ≤ R` would
-            // be 81, py4DSTEM's strict `< R` 69). DEVIATION from py4DSTEM;
-            // changing it moves numbers and is its own decision (open-items).
+            // ROI in both axes (register D025, Gate D 2026-09-30).
+            // The region holds the pixels whose centres lie on or inside the
+            // drawn ring, `d² ≤ R²`, as the rectangle holds the pixels whose
+            // centres lie on or inside the drawn square (R 5: 81 px). Pixel
+            // offsets are integers, so `d² ≤ R²` is `d² ≤ ⌊R²⌋`, which the
+            // mask's strict `<` reads exactly at a radius of √(⌊R²⌋ + ½) (exact in
+            // `fillRadial`'s Float arithmetic for R below about 2048 scan px; the
+            // radius control stops at half the scan). The
+            // radius was `R + 0.5` until 2026-10-30, which took centres up to
+            // half a pixel OUTSIDE the ring (R 5: 97 px).
+            // DEVIATION from py4DSTEM's strict `< R` (69 px at R 5): this is a
+            // scan-space region the user draws, not a py4DSTEM detector, and it
+            // selects what the ring shows.
+            guard radius.isFinite, radius >= 0 else {
+                return .circle(centerX: Float(scanX), centerY: Float(scanY), radius: 0)
+            }
             return .circle(centerX: Float(scanX), centerY: Float(scanY),
-                           radius: radius + 0.5)
+                           radius: (Float((Double(radius) * Double(radius)).rounded(.down)) + 0.5).squareRoot())
         }
     }
 }
