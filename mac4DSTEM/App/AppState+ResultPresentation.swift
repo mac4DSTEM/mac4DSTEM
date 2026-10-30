@@ -213,9 +213,10 @@ extension AppState {
         case .strain, .acom, .dpc, .ptychography, .singleslicePtychography:
             // Polish lane J (owner card S5 a): the same rule for the other rooms. A product of
             // another room is replaced by this room's own result through the room's own show
-            // function (no compute, no new state), or by nothing.
-            guard let kind = resultPresentation.product?.kind,
-                  AnalysisMode.owning(productKind: kind) != mode else { return }
+            // function (no compute, no new state), or by nothing. An EMPTY pane is re-shown the same way: an
+            // Orientation visit with no orientation map clears the strain map, and coming back to Strain left
+            // "No Result Yet" over a computed map while the guard asked only about another room's product.
+            if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == mode { return }
             switch mode {
             case .strain:
                 if strain.map != nil { applyStrainDisplay() }

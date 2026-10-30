@@ -69,6 +69,34 @@ final class ProductKindModeSwitchTests: XCTestCase {
         XCTAssertEqual(state.resultPresentation.product?.kind, "strain_exx")
     }
 
+    /// Strain computed, Orientation visited (no orientation map: the strain product is cleared), Strain again: the strain
+    /// map is shown. The room returned early on an EMPTY pane ("No Result Yet", journey
+    /// `CrystalMapsJourney.testStrainSurvivesAnOrientationVisit`), because its guard asked only "is another room's
+    /// product on screen?". Mutation: restore the `guard let kind = product?.kind` -> nil, red.
+    func testReturningToStrainAfterAnEmptyOrientationVisitShowsTheStrainMap() {
+        let state = AppState()
+        state.strain.publish(strainMap())
+        state.changeMode(.strain)
+        XCTAssertEqual(state.resultPresentation.product?.kind, "strain_exx", "precondition: the strain map is shown")
+        state.changeMode(.acom)
+        XCTAssertNil(state.resultPresentation.product, "precondition: Orientation with no map shows nothing")
+        state.changeMode(.strain)
+        XCTAssertEqual(state.resultPresentation.product?.kind, "strain_exx")
+    }
+
+    /// The same rule for Orientation: an ACOM map held, Strain visited with no strain map, Orientation again.
+    func testReturningToOrientationAfterAnEmptyStrainVisitShowsTheOrientationMap() {
+        let state = AppState()
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        state.changeMode(.acom)
+        XCTAssertEqual(AnalysisMode.owning(productKind: state.resultPresentation.product?.kind ?? ""), .acom,
+                       "precondition: the orientation map is shown")
+        state.changeMode(.strain)
+        XCTAssertNil(state.resultPresentation.product, "precondition: Strain with no map shows nothing")
+        state.changeMode(.acom)
+        XCTAssertEqual(AnalysisMode.owning(productKind: state.resultPresentation.product?.kind ?? ""), .acom)
+    }
+
     /// Mutation: drop the `.acom` branch -> the strain product stays.
     func testEnteringOrientationWithAStrainProductAndAnACOMResultShowsACOM() {
         let state = AppState()
