@@ -984,6 +984,45 @@ extension SessionReplayAppStateTests {
         XCTAssertNotNil(productState(state, .acom).staleReason, "and it still reads stale")
     }
 
+    /// A map restored from the session file has a task-row verdict, judged by
+    /// the run it names: current on the path, stale off it or after a
+    /// calibration it read was replaced; a map naming no run reads current.
+    /// Red before: the row asked only about the in-memory map (`strain.map`)
+    /// and read nothing at all. Mutations it catches: ignoring the restored
+    /// product (.none); judging it by the active run instead of the named one
+    /// (the off-path case reads current); leaving its calibration out.
+    func testARestoredMapGetsItsTaskRowVerdict() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        func restore(_ step: String?) {
+            state.publishRestoredProduct(
+                kind: "strain_exx", displayName: "Strain · exx", valueUnits: "strain",
+                payload: .scalar(FloatImage(width: 2, height: 2, pixels: [0, 0, 0, 0])),
+                pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil,
+                provenance: step.map { ["lineage_step": $0] } ?? [:])
+        }
+        let s1 = handRecord(state, "strain", consensusStrain)
+        XCTAssertNil(state.strain.map, "precondition: no strain map in memory")
+        restore(s1)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "its run is the active strain run")
+        restore(nil)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "a map naming no run has nothing to judge by")
+
+        state.replay.markProduct(step: s1, as: "strain_map")   // saved: a later run cannot overwrite it
+        var other = consensusStrain
+        other["basis_mode"] = "manual"
+        let s2 = handRecord(state, "strain", other)
+        XCTAssertNotEqual(s1, s2, "precondition: a second run")
+        restore(s1)
+        XCTAssertEqual(state.taskProductState(for: .strain).staleReason, offThePathReason)
+        restore(s2)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "settings are not compared for a restored map")
+
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        XCTAssertEqual(state.taskProductState(for: .strain).staleReason, calibrationReason("ellipse calibration"))
+        XCTAssertEqual(state.taskProductState(for: .acom), .none, "another task's row is untouched")
+    }
+
     /// (b) ACOM consumes origin, ellipse and Q. Mutation it catches: the
     /// verdict blind to calibration for ACOM.
     func testAnEllipseFittedAfterACOMReadsItStale() async throws {
