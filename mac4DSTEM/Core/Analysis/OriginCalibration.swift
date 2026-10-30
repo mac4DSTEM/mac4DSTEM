@@ -416,7 +416,7 @@ package nonisolated enum OriginCalibration {
     /// bullseye) that window cuts the ring, the true centre is an unstable fixed
     /// point, and the answer walks — 3.87 px between k = 1.2 and 2 on
     /// bullseye_sim, against ≤ 0.03 px on six compact cubes
-    /// (archived `docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`, §10). Compact probes do not
+    ///. Compact probes do not
     /// care which window they get; ringed ones do, and this reads which kind the
     /// scan is without choosing a window for it. nil when it cannot be measured.
     package nonisolated static func windowSensitivityPixels(

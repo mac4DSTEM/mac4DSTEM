@@ -2,7 +2,7 @@ import XCTest
 import CuboEmbedding
 import DSTEMCore
 
-/// Gate D, 2026-09-28 (archived `docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
+/// Gate D, 2026-09-28:
 /// `embed` moved to Accelerate for finite patterns; since 2026-10-21 that path is CuboEmbedding 0.6.0's
 /// `DiffractionFeatures.binnedVector(implementation: .accelerate)` and the app's copy is gone. The old `embed` is kept
 /// here VERBATIM (from `DiffractionEmbedding.swift` at f940fb7) as the

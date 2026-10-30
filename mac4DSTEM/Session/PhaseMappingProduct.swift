@@ -572,7 +572,7 @@ package final class PhaseMappingProduct {
     }
 
     /// Al–Mg–Si preset: the DATASET-INDEPENDENT phase setup only (owner
-    /// decision 2026-09-30, from archived `docs/archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`
+    /// decision 2026-09-30, from archived the archived notes
     /// "The app recipe for this cube"). Replaces the phase list with
     /// Al (matrix, zone [0 0 1]) and the given β″ (Mg5Si6) structure twice —
     /// zone [0 1 0] (needles end-on) and [0 0 1] (in-plane) — with

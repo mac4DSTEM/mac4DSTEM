@@ -5,7 +5,7 @@ import DiffractoScattering
 import DSTEMCore
 @testable import mac4DSTEM
 
-/// Gate B refuter D for the DiffractoKit switch: the oracle of registration P4' (docs/archive/v5/
+/// Gate B refuter D for the DiffractoKit switch: the oracle of registration P4' (the archived notes
 /// diffractokit-switch-p4-registration-2026-10-15.md). The plants are written here as CIF text; the 622 rotations are
 /// integer matrices written here (hexagonal axes), checked against the cell's reciprocal metric, never taken from the kit.
 final class DiffractoP4RefuterTests: XCTestCase {

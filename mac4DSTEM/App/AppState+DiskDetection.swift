@@ -4,7 +4,7 @@
 //        live overlay, the full-scan run, the Bragg vector map, the
 //        classical/neural-net disagreement map, and the one calibrated-
 //        Bragg-vectors derivation strain/ACOM/the Bragg map all share.
-//        Placement only (seam 3, archived docs/archive/v4/appstate-seams-plan.md); no
+//        Placement only (seam 3, the archived notes); no
 //        logic differs from AppState's own.
 //
 //  `diskParams` lives on `Session/DiskDetectionProduct.swift`, read here as
@@ -476,7 +476,7 @@ extension AppState {
 
     /// Publish where the last neural-net and the last classical full-scan run
     /// on this dataset disagree, peak against peak, as a scan map
-    /// (archived docs/registrations/learned-detector-preregistration-2026-09-07.md).
+    ///.
     /// Runs nothing and records no recipe step: both inputs are completed
     /// results held by `learnedDetection`, which clears them on dataset
     /// activation, so the pair is always one dataset's; a replay reproduces

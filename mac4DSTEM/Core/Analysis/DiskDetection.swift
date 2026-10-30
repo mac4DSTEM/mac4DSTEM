@@ -174,8 +174,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
 /// (`DiskDetectionParams.replayParameters` + the detector-class keys). The two
 /// vocabularies name six keys differently (`sigma_dp_px` / `sigma_dp`, …), so
 /// this table is the one place that says which is which. Used to decide
-/// whether peaks restored from a sidecar are the peaks the recorded step made
-/// (archived docs/registrations/bragg-restore-registration-2026-09-28.md).
+/// whether peaks restored from a sidecar are the peaks the recorded step made.
 package nonisolated enum DiskDetectionRecordMatch {
     /// (provenance key, step key). Every pair is REQUIRED: a step or a
     /// provenance that lacks one cannot be verified, and unverified peaks are
@@ -478,7 +477,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var upsampleFactor: Int = 16
     package var minAbsoluteIntensity: Float = 0
     // DEVIATION (ADR 041, Gate D 2026-09-28,
-    // archived docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
+    // the archived notes): py4DSTEM's
     // find_Bragg_disks defaults to 0.005 (diskdetection.py:34). The app's
     // default is 0.15 %: at 0.5 % the weak θ′/T1 reflections phase mapping
     // needs are cut — on Thronsen dataset A, 11.42 % per-position error and

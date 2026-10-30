@@ -1,4 +1,4 @@
-# CI — the aggregate claim, made mechanical (v2 S21, archived docs/archive/v2/v2-release.md §8).
+# CI — the aggregate claim, made mechanical (v2 S21, the archived notes §8).
 #
 # WHAT RUNS on every push and pull request — the jobs below, each a gate a public
 # checkout can reproduce. `scientific` (up to three hours, not a required check)
@@ -29,7 +29,7 @@
 # default, so an image update cannot change the toolchain on an unchanged tree.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
-# missing (archived docs/archive/v2/v2-release.md §3):
+# missing (the archived notes §3):
 #   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
 #     exist only on the release owner's machines.
 #   * The learned half of tiled-detection-memory-test (see above) — no

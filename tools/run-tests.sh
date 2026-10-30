@@ -164,7 +164,7 @@ owner_only=()
 retired=()
 # Every harness folder lives in tools/harnesses/ and is named in an array above; `support` names the folders that stay
 # directly in tools/ (lib, release procedure tools/release/README.md). A folder here that nothing gated runs
-# belongs in ../process/archive/mac4DSTEM/tools/.
+# belongs in the project archive.
 support=(lib release)
 
 inventory() {

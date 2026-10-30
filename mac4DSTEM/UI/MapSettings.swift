@@ -1250,7 +1250,7 @@ private struct ACOMSections: View {
             // The app's only measured figure for how well it orients, so a
             // user reads it before trusting a zone axis to the degree.
             // Planted aluminium patterns, measured 2026-09-15 with the since
-            // retired `tools/acom-groundtruth` (restore: archived docs/archive/v4/
+            // retired `tools/acom-groundtruth` (restore: the archived notes
             // tools-retired-2026-09-23.md); no other phase has been measured.
             // Static on purpose: a number with its date and scope, not a promise.
             InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
