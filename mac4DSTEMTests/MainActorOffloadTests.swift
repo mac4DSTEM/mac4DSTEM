@@ -43,6 +43,12 @@ final class MainActorOffloadTests: XCTestCase {
     /// its own timeout without the signal (no timing threshold: only the 60 s backstops, long enough for a busy CI runner,
     /// where the test process's main actor and the lock can still be held by an earlier test's tail).
     func testMakeReaderWaitsForTheHDF5LockOffTheMainActor() async throws {
+        // A real, readable HDF5 cube (written before the lock is taken): the route accepts it, so the open goes on
+        // past the sniff into `H5Reader(path:)`, which takes the lock again. A file the sniff refused would never
+        // reach the reader, and the test would prove only the sniff.
+        let url = try await writeSmallCube()
+        defer { try? FileManager.default.removeItem(at: url) }
+
         let held = DispatchSemaphore(value: 0)
         let release = DispatchSemaphore(value: 0)
         let signalled = Flag()
@@ -55,15 +61,45 @@ final class MainActorOffloadTests: XCTestCase {
         holder.start()
         XCTAssertEqual(held.wait(timeout: .now() + 60), .success)
 
-        // An HDF5-signature file: the route sniffs it (under the lock) and the HDF5 reader opens it (under the lock), both off the main actor.
-        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("not-really-\(UUID().uuidString).h5")
-        try Data([0x89, 0x48, 0x44, 0x46, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0]).write(to: url)
-        defer { try? FileManager.default.removeItem(at: url) }
+        // The route sniffs the file (under the lock) and the HDF5 reader opens it (under the lock), both off the main actor.
         let open = Task { try? await AppState.makeReader(for: url) }
         try await Task.sleep(nanoseconds: 200_000_000)   // the main actor is alive while the open waits on the lock
         release.signal()
-        _ = await open.value
+        let reader = await open.value
         XCTAssertTrue(signalled.value, "the main actor was blocked behind the HDF5 lock while the file opened")
+        XCTAssertTrue(reader is H5Reader, "the open must reach the HDF5 reader, not stop at the sniff")
+    }
+
+    /// B2, the reader itself: building the reader is file I/O (a DM4 map, a MIB or EMPAD header, the HDF5 open), so
+    /// `makeReader` must finish while the main thread is busy. The main thread blocks on a semaphore that only the
+    /// finished open signals. A main-actor `makeReader` (the project's default isolation without `@concurrent`) could
+    /// not start until the wait gave up, and the test fails; the lock test above cannot see that, because
+    /// `H5Reader(path:)` takes no HDF5 lock once libhdf5 is loaded.
+    func testMakeReaderFinishesWhileTheMainThreadIsBlocked() async throws {
+        let url = try await writeSmallCube()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let done = DispatchSemaphore(value: 0)
+        let reachedReader = Flag()
+        let open = Task.detached {
+            let reader = try? await AppState.makeReader(for: url)
+            reachedReader.set(reader is H5Reader)
+            done.signal()
+        }
+        let finished = done.wait(timeout: .now() + 30) == .success   // blocks the main thread on purpose
+        await open.value
+        XCTAssertTrue(finished, "makeReader needed the main thread to build the reader")
+        XCTAssertTrue(reachedReader.value, "the open must reach the HDF5 reader")
+    }
+
+    /// A real, readable 2 x 2-position HDF5 cube of the demo patterns, written as py4DSTEM EMD.
+    private func writeSmallCube() async throws -> URL {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("offload-\(UUID().uuidString).h5")
+        let source = DemoFourDDataSource()
+        let descriptor = try await source.discoverPrimaryDataset()
+        _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+            source: source, view: LoadView(fullExtentOf: descriptor), calibration: PixelCalibration(),
+            options: CalibratedDataCubeExportOptions(scanY: 0..<2, scanX: 0..<2), to: url)
+        return url
     }
 
     private nonisolated final class Flag: @unchecked Sendable {
