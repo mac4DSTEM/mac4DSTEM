@@ -93,6 +93,9 @@ extension AppState {
 
     func commitApertureChange() {
         guard navigation.analysisMode == .virtualDetector else { return }
+        // A replayed virtual-detector step sets the shape and aperture itself and
+        // computes the image; the view's change handler must not run a second one.
+        guard !promoteRunRefusesUserRuns else { return }
         Task { await runVirtualDetector() }   // final pass, with status
     }
 

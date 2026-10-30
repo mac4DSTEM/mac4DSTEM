@@ -1059,6 +1059,42 @@ extension SessionReplayAppStateTests {
                        AnalysisMode.virtualDetector.rawValue, "the current mode's own metadata is unchanged")
     }
 
+    /// A run the user starts while a promote run replays the recipe does not
+    /// take over Cancel: it does not start, the step keeps running, and Cancel
+    /// stops the step. After the promote run a user run starts as before.
+    /// Red before: the user's `begin` cancelled the step and became the
+    /// operation Cancel stops. Mutation it catches: dropping the
+    /// `replayRun.isRunning` check in `beginCancellableOperation`.
+    func testARunStartedDuringAPromoteRunDoesNotTakeOverCancel() {
+        let state = AppState()
+        XCTAssertTrue(state.replayRun.begin(titles: ["Strain"]))
+        let step = PromoteRunContext.$isPromoteRun.withValue(true) {
+            state.beginCancellableOperation("Strain", status: "Replaying strain…")
+        }
+        let user = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertTrue(user.isCancelled, "the user's run does not start")
+        XCTAssertFalse(step.isCancelled, "the promote run's step keeps running")
+        XCTAssertTrue(state.isCurrentOperation(step), "and keeps the operation")
+
+        state.cancelActiveOperation()
+        XCTAssertTrue(step.isCancelled, "Cancel stops the promote run's step")
+        state.finishCancellableOperation(user)   // a refused run's defer is harmless
+        state.finishCancellableOperation(step)
+
+        // A file opened mid-run is not the promote run's: its runs start.
+        state.promoteRunEpoch = state.datasetSession.epoch + 1
+        let other = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertFalse(other.isCancelled, "a run on another dataset is not refused")
+        state.finishCancellableOperation(other)
+        state.promoteRunEpoch = nil
+        state.replayRun.finish(haltReason: "cancelled")
+
+        let later = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertFalse(later.isCancelled, "after the promote run a user run starts")
+        XCTAssertTrue(state.isCurrentOperation(later))
+        state.finishCancellableOperation(later)
+    }
+
     /// (b) ACOM consumes origin, ellipse and Q. Mutation it catches: the
     /// verdict blind to calibration for ACOM.
     func testAnEllipseFittedAfterACOMReadsItStale() async throws {
