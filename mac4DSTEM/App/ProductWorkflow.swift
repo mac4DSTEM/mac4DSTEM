@@ -767,12 +767,4 @@ enum ProductWorkflow {
         }
     }
 
-    static func recommendedNextArea(
-        calibrationReady: Bool,
-        hasResult: Bool
-    ) -> WorkspaceArea {
-        if !calibrationReady { return .prepare }
-        if !hasResult { return .image }
-        return .results
-    }
 }
