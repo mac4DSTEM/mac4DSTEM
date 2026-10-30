@@ -631,7 +631,7 @@ extension AppState {
             case .acom(let acomPlan):
                 if let reason = replayMaterialRefusal(acomPlan) { return failure(reason) }
                 return .success(.acom(acomPlan))
-            case .dpc, .ptychography:
+            case .dpc, .ptychography, .parallax:
                 return .success(nil)
             }
         case "calibration_ellipse":

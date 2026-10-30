@@ -43,7 +43,24 @@ final class ReplayContractTests: XCTestCase {
                 calibration: ParallaxPhysicalCalibration(
                     scanSamplingAngstrom: 0.5, reciprocalSamplingInvAngstrom: 0.0125, energyEV: 80_000,
                     wavelengthAngstrom: 0.0418, originQX: 30, originQY: 31.5, rotationRad: 0.2, transpose: false)),
+            "parallax": parallaxPlan.recordedParameters,
         ]
+    }
+
+    /// Every stage reached, non-default in every field, so dropping any key changes the plan.
+    private let parallaxPlan = ReplayStepPlan.ParallaxReplayPlan(
+        calibration: .init(scanSamplingAngstrom: 0.5, reciprocalSamplingInvAngstrom: 0.0125, energyEV: 80_000,
+                           rotationRad: 0.2, transpose: true),
+        alignmentLevels: 3, alignmentComplete: true, fitsAberrations: true,
+        subpixel: .init(upsampleFactor: 2.5, kdeSigmaPixels: 0.25, lowpass: true, lanczosOrder: 3,
+                        positionCorrectionIterations: 4, positionCorrectionCheckerboard: true),
+        correction: .init(qLowpassInvAngstrom: 1.5, qHighpassInvAngstrom: 0.05),
+        depth: .init(startAngstrom: -100, endAngstrom: 120, planeCount: 12, useFullFit: false,
+                     informationLimitInvAngstrom: 1.2, informationPower: 2))
+
+    private var parallaxSignature: [String: String] {
+        ReplayStepPlan.ParallaxReplayPlan.currentSignature(
+            subpixel: parallaxPlan.subpixel, correction: parallaxPlan.correction, depth: parallaxPlan.depth)
     }
 
     /// Non-default in every field, so dropping any key changes the plan.
@@ -141,7 +158,8 @@ final class ReplayContractTests: XCTestCase {
                     aperture: Aperture(centerX: 16, centerY: 16, inner: 0, outer: 4),
                     dpcOriginReference: "global center", diskKernel: kernel, diskParams: DiskDetectionParams(),
                     learnedDetectorParameters: learnedParameters, strainSignature: strain.currentReplaySignature,
-                    acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings)
+                    acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings,
+                    parallaxSignature: parallaxSignature)
             }
             let built = try XCTUnwrap(signature(kernel: kernel), "\(kind): no signature")
             XCTAssertTrue(Set(built.keys).isSubset(of: entry.signatureKeys),
@@ -158,7 +176,8 @@ final class ReplayContractTests: XCTestCase {
                 aperture: Aperture(centerX: 16, centerY: 16, inner: 0, outer: 4),
                 dpcOriginReference: "global center", diskKernel: kernel, diskParams: DiskDetectionParams(),
                 learnedDetectorParameters: learnedParameters, strainSignature: strain.currentReplaySignature,
-                acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings), built,
+                acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings,
+                parallaxSignature: parallaxSignature), built,
                 "\(kind): the contract's filter dropped a key the builder writes")
         }
     }
@@ -171,6 +190,7 @@ final class ReplayContractTests: XCTestCase {
         XCTAssertEqual(ReplayPlanner.title(forKind: "strain"), "Strain mapping")
         XCTAssertEqual(ReplayPlanner.title(forKind: "acom"), "ACOM orientation mapping")
         XCTAssertEqual(ReplayPlanner.title(forKind: "ptychography"), "Single-slice ptychography")
+        XCTAssertEqual(ReplayPlanner.title(forKind: "parallax"), "Parallax")
         XCTAssertEqual(ReplayPlanner.title(forKind: "unknown_kind"), "unknown_kind")
     }
 }
