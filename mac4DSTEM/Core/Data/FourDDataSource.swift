@@ -80,6 +80,26 @@ package nonisolated enum AcceleratingVoltage {
     package static func kilovolts(fromAttribute raw: Double) -> Double {
         raw > 1_000 ? raw / 1_000 : raw
     }
+
+    /// The root attribute naming the voltage's unit ("kV"), written beside it by this app's datacube export since
+    /// 2026-10-30. Without it a session voltage above 1000 kV reopened divided by 1000 (the rule above).
+    package static let unitsAttributeName = "accelerating_voltage_units"
+
+    /// `raw` in kV, by its stated unit: "kV" as is, "V" or "eV" divided by 1000 (the electron energy in eV is the voltage
+    /// in V). No unit, or one this does not know: the rule above, as every file before the unit was written.
+    package static func kilovolts(fromAttribute raw: Double, units: String?) -> Double {
+        switch units?.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "kv": return raw
+        case "v", "ev": return raw / 1_000
+        default: return kilovolts(fromAttribute: raw)
+        }
+    }
+
+    /// The file's accelerating voltage in kV, from its root attributes; nil when it has none.
+    package static func kilovolts(from reader: any FourDDataSource) async -> Double? {
+        guard let raw = await reader.readDoubleAttribute(attributeName, onObjectPath: "/") else { return nil }
+        return kilovolts(fromAttribute: raw, units: await reader.readStringAttribute(unitsAttributeName, onObjectPath: "/"))
+    }
 }
 
 /// Pixel-size calibration read from the file, when the format carries it
@@ -212,11 +232,14 @@ package protocol FourDDataSource: Actor {
                       yRange: Range<Int>) throws -> FourDScanTile
     /// A scalar attribute (e.g. accelerating voltage), or nil if absent.
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double?
+    /// A scalar text attribute (e.g. the voltage's unit), or nil if absent; nil for every format but HDF5.
+    func readStringAttribute(_ name: String, onObjectPath path: String) -> String?
     /// Pixel sizes/units from file metadata, or nil if the format has none.
     func pixelCalibration() -> PixelCalibration?
 }
 
 package extension FourDDataSource {
+    func readStringAttribute(_ name: String, onObjectPath path: String) -> String? { nil }
     func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate] { [] }
     func readProbe(_ candidate: ProbeCandidate) throws -> [Float] {
         throw FourDDataSourceError.noProbe(candidate.path)
