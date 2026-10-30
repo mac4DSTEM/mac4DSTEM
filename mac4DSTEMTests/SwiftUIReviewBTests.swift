@@ -40,7 +40,8 @@ final class SwiftUIReviewBTests: XCTestCase {
     /// lock and gives it up only once the MAIN ACTOR has proved it still runs: a main-actor sleep started after the
     /// open began wakes, and then signals the holder. If `makeReader` ran on the main thread it would sit in the
     /// lock's `acquire` with the main thread blocked, the sleep could never wake, and the holder would give up on
-    /// its own timeout without the signal (no timing threshold: only the 10 s backstop).
+    /// its own timeout without the signal (no timing threshold: only the 60 s backstops, long enough for a busy CI runner,
+    /// where the test process's main actor and the lock can still be held by an earlier test's tail).
     func testMakeReaderWaitsForTheHDF5LockOffTheMainActor() async throws {
         let held = DispatchSemaphore(value: 0)
         let release = DispatchSemaphore(value: 0)
@@ -48,11 +49,11 @@ final class SwiftUIReviewBTests: XCTestCase {
         let holder = Thread {
             HDF5Serial.acquire()
             held.signal()
-            signalled.set(release.wait(timeout: .now() + 10) == .success)
+            signalled.set(release.wait(timeout: .now() + 60) == .success)
             HDF5Serial.release()
         }
         holder.start()
-        XCTAssertEqual(held.wait(timeout: .now() + 5), .success)
+        XCTAssertEqual(held.wait(timeout: .now() + 60), .success)
 
         // An HDF5-signature file: the route sniffs it (under the lock) and the HDF5 reader opens it (under the lock), both off the main actor.
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("not-really-\(UUID().uuidString).h5")
