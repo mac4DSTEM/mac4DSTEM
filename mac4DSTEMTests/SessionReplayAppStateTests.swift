@@ -983,4 +983,46 @@ extension SessionReplayAppStateTests {
         XCTAssertEqual(activeID(state, "dpc"), d1, "no recompute, no new DPC node")
         XCTAssertEqual(productState(state, .dpc).staleReason, calibrationReason("origin calibration"))
     }
+
+    /// Prepare's Clear Calibration is a calibration change like a re-fit: a
+    /// strain map that stood on an ellipse reads stale after it and stays shown,
+    /// and a rewind to the run puts the ellipse back. Mutation it catches: the
+    /// clear recording no node (the map read current against an ellipse that is
+    /// gone).
+    func testClearCalibrationAfterStrainReadsTheMapStaleAndRewindPutsTheEllipseBack() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        let e1 = try XCTUnwrap(activeID(state, "calibration_ellipse"), state.statusText)
+        let s1 = try await detectAndStrain(state, "strain on e1")
+        XCTAssertEqual(productState(state, .strain), .current, "precondition")
+
+        state.clearCalibrationAndRecord()
+        XCTAssertNil(state.calibrationSession.calibration.ellipseA, "precondition: the clear took the ellipse")
+        let cleared = try XCTUnwrap(activeID(state, "calibration_ellipse"), "the clear is a node")
+        XCTAssertNotEqual(cleared, e1)
+        XCTAssertNotNil(state.strain.map, "the map stays")
+        XCTAssertTrue(productState(state, .strain).staleReason?.contains("ellipse calibration") == true,
+                      "\(productState(state, .strain))")
+
+        let refusal = await state.rewindLineage(to: s1)
+        XCTAssertNil(refusal, refusal ?? "")
+        XCTAssertEqual(activeID(state, "calibration_ellipse"), e1)
+        XCTAssertEqual(state.calibrationSession.calibration.ellipseA, 10.1)
+        // The demo's origin came from the file and stays cleared (a cleared
+        // calibration does not block the rewind); only the ellipse is back.
+        XCTAssertFalse(productState(state, .strain).staleReason?.contains("ellipse calibration") == true,
+                       "the run's own ellipse is back: \(productState(state, .strain))")
+    }
+
+    /// A dataset's own reset (activation) records nothing: only the Prepare
+    /// action is a change to this session's calibration.
+    func testClearCalibrationWithoutRecordingMakesNoNode() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        let e1 = try XCTUnwrap(activeID(state, "calibration_ellipse"))
+        state.clearCalibration()
+        XCTAssertEqual(activeID(state, "calibration_ellipse"), e1)
+    }
 }

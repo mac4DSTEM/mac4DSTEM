@@ -1319,6 +1319,25 @@ extension AppState {
         acomSession.invalidateResult()
     }
 
+    /// Prepare's Clear Calibration: the reset, and a lineage node for each
+    /// calibration kind the session had a node or a value of
+    /// (`recordCalibrationClearedRuns`) — a value from the file or a sidecar has
+    /// no node, and a product that used it must still read stale.
+    /// Activation and a cancelled load call `clearCalibration()` alone: a new
+    /// dataset's reset is not a change to this session's calibration.
+    func clearCalibrationAndRecord() {
+        let active = Set(replay.lineage.activeNodes().map(\.kind))
+        let calibration = calibrationSession.calibration
+        let present: Set<String> = [
+            calibration.origin != nil || calibration.meanOrigin != nil ? "calibration_origin" : nil,
+            calibration.ellipseA != nil ? "calibration_ellipse" : nil,
+            calibration.qPixelSize != nil ? "calibration_q" : nil,
+        ].reduce(into: []) { if let kind = $1 { $0.insert(kind) } }
+        let held = Self.clearedCalibrationKinds.filter { active.contains($0) || present.contains($0) }
+        clearCalibration()
+        recordCalibrationClearedRuns(kinds: held)
+    }
+
     /// Undo a manual center: reinstate the fitted maps it set aside (with their original
     /// provenance) and the file's recorded centre it parked, and recenter the aperture on
     /// them. Either may be absent — a file with only a recorded mean has no maps.

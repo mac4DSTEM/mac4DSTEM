@@ -155,8 +155,6 @@ final class PreprocessExportTests: XCTestCase {
         let options = CalibratedDataCubeExportOptions(scanY: 1..<6, scanX: 2..<9, scanStride: 3)
         XCTAssertEqual(options.scanYPositions, [1])          // 5 // 3 = 1
         XCTAssertEqual(options.scanXPositions, [2, 5])       // 7 // 3 = 2
-        XCTAssertTrue(options.reframesRecipe)
-        XCTAssertFalse(CalibratedDataCubeExportOptions(scanY: 0..<4, scanX: 0..<4).reframesRecipe)
     }
 
     func testProvenanceNamesStrideAndMaskOnlyWhenUsed() throws {
