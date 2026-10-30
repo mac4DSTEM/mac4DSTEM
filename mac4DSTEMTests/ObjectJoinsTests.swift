@@ -10,8 +10,8 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import ImagoCore
-@testable import SpectroCore
-@testable import SpectroEDX
+import SpectroCore
+import SpectroEDX
 @testable import mac4DSTEM
 import ShellEDXModel
 

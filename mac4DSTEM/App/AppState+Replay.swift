@@ -267,7 +267,39 @@ extension AppState {
             acomSession.refinesInPlaneAngle = acomPlan.refinesInPlaneAngle
             if let reason = replayRefusal(for: .acom) { return .refused(reason) }
             return .ran(await runACOM(replaying: true))
+
+        case .ptychography(let ptychographyPlan):
+            ptychography.apply(ptychographyPlan.settings)
+            // The probe is built at the aperture's outer radius: put the
+            // recorded one back, keeping an annulus valid.
+            aperture.outer = ptychographyPlan.probeRadiusPixels
+            aperture.inner = min(aperture.inner, aperture.outer)
+            // With no fitted or recorded mean origin, the run's origin WAS the
+            // aperture centre (`Calibration.referenceOrigin`), a control: put it
+            // back too, or the check below refuses an origin the user placed.
+            let calibration = calibrationSession.calibration
+            if calibration.meanOrigin == nil, calibration.recordedMeanOrigin == nil {
+                aperture.centerX = Float(ptychographyPlan.calibration.originQY)
+                aperture.centerY = Float(ptychographyPlan.calibration.originQX)
+            }
+            if let reason = replayRefusal(for: .singleslicePtychography) { return .refused(reason) }
+            if let reason = replayPtychographyCalibrationRefusal(ptychographyPlan) { return .refused(reason) }
+            return .ran(await runSingleslicePtychography(replaying: true))
         }
+    }
+
+    /// Why the session's calibration, resolved as the run resolves it, is not
+    /// the one the recorded ptychography ran with; nil when it is. Writes nothing.
+    func replayPtychographyCalibrationRefusal(_ plan: ReplayStepPlan.PtychographyReplayPlan) -> String? {
+        let resolved: ParallaxPhysicalCalibration
+        do {
+            resolved = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibrationSession.calibration, apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY, acceleratingVoltageKV: calibrationSession.acceleratingVoltage)
+        } catch {
+            return "this session's calibration cannot be resolved for ptychography — \(error.localizedDescription)"
+        }
+        return plan.calibrationRefusal(against: resolved)
     }
 }
 

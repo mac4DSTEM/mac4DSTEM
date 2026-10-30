@@ -124,6 +124,7 @@ spectrokit_module() {
     # SpectroKit's own Package.resolved names the FormatoKit it was released with (0.6.1: 0.3.0), but its manifest accepts 0.3.0..<0.5.0.
     # The harnesses must test the FormatoKit the app ships (the pin here, 0.4.0), so SpectroKit is built from a writable copy of the
     # pinned checkout whose Package.resolved is moved to that revision (the checkout itself is read-only and stays as SwiftPM left it).
+    rm -rf "$scratch/out"   # no object of the previous pin survives into SPECTROKIT_FLAGS (as kit_module)
     local src="$repo/.build/spectrokit-tools-src"
     rm -rf "$src"; ditto "$ck" "$src"; chmod -R u+w "$src"
     swift package --package-path "$src" --scratch-path "$scratch" resolve >&2 \
@@ -172,6 +173,10 @@ kit_module() {
   local app_pins; app_pins=$(shasum "$repo/Package.resolved" | cut -c1-12)
   if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $app_pins $*" ]]; then
     # SwiftPM's checkouts are read-only: build a writable copy of the pinned source with the app's Package.resolved.
+    # The products of a previous pin go first: KIT_FLAGS links every *.o in $prod, and a target the new pin renamed or
+    # dropped would otherwise still be linked from the old build. A change of targets alone keeps them (incremental).
+    local built; built=$(cat "$scratch/.pin" 2>/dev/null || true)
+    [[ "${built%% *}" == "$pin" && "$(echo "$built" | cut -d' ' -f2)" == "$app_pins" ]] || rm -rf "$scratch/out"
     local src="$scratch/src"
     rm -rf "$src"; mkdir -p "$src"; rsync -a --exclude .git "$ck/" "$src/"; chmod -R u+w "$src"
     cp "$repo/Package.resolved" "$src/Package.resolved"

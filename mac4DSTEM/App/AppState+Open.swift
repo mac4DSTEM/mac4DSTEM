@@ -503,14 +503,8 @@ extension AppState {
             inner: 0,
             outer: Float(defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy))  // one source with the preview's bright-field disk
         )
-        if let rawVoltage = await reader.readDoubleAttribute(
-            AcceleratingVoltage.attributeName, onObjectPath: "/"
-        ) {
-            // One app convention, kV — the rule (eV above 1000) is Core's, shared with the preprocessing export.
-            calibrationSession.acceleratingVoltage = AcceleratingVoltage.kilovolts(fromAttribute: rawVoltage)
-        } else {
-            calibrationSession.acceleratingVoltage = nil
-        }
+        // One app convention, kV — the rule (the stated unit, else eV above 1000) is Core's, shared with the preprocessing export.
+        calibrationSession.acceleratingVoltage = await AcceleratingVoltage.kilovolts(from: reader)
         // Strain dies BEFORE the calibration reset: `activate` suspends on reader
         // awaits in between, the export menu is reachable during a suspension, and
         // the strain frame keys come from the LIVE calibration — an uncleared map
@@ -1032,9 +1026,11 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetSession.epoch
+        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is refused here like an unreadable one.
+        let sourcePath = descriptor.filePath
         do {
             let snapshot = try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: sourcePath)
             }.value
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
