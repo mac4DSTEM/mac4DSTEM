@@ -360,6 +360,8 @@ package enum ReplayStepPlan: Equatable {
     case diskDetection(DiskDetectionParams, detector: DiskDetectorReplay)
     case strain(StrainReplayPlan)
     case acom(ACOMReplayPlan)
+    /// Single-slice ptychography (`PtychographyReplay.swift`).
+    case ptychography(PtychographyReplayPlan)
 
     /// The recorded detector class for a `diskDetection` step, and, for
     /// `.learned`, the threshold and model identity it ran against.
@@ -559,7 +561,9 @@ package enum ReplayStepPlan: Equatable {
     /// replayed disk detection's, not recorded numbers.
     package var usesDetectorFrameParameters: Bool {
         switch self {
-        case .virtualDetector, .diskDetection, .acom: true
+        // Ptychography reads the probe radius, the origin and the Q sampling,
+        // all in detector pixels.
+        case .virtualDetector, .diskDetection, .acom, .ptychography: true
         case .dpc: false
         case .strain(let plan): plan.manualBasis != nil
         }

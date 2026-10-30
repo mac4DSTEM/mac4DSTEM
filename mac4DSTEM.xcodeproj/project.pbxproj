@@ -218,6 +218,7 @@
 				Session/PrecipitateClassificationProduct.swift,
 				Session/PrecipitateObjectReport.swift,
 				Session/PromotionRun.swift,
+				Session/PtychographyReplay.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplaceUndo.swift,

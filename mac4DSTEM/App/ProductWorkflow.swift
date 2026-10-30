@@ -259,8 +259,8 @@ extension AnalysisMode {
     }
 
     /// The `SessionReplayRecord.Step.kind` this task's product is recorded
-    /// under (C4(b)) — nil for the two kinds with no recorder (ptychography,
-    /// parallax): a mode with no kind here is never judged stale, whatever
+    /// under (C4(b)) — nil for parallax (the `.ptychography` mode), which has
+    /// no recorder: a mode with no kind here is never judged stale, whatever
     /// its retained product.
     var replayKind: String? {
         switch self {
@@ -271,7 +271,8 @@ extension AnalysisMode {
         case .acom: "acom"
         case .diffractionGroups: "diffraction_groups"
         case .phaseMapping: "phase_mapping"
-        case .ptychography, .singleslicePtychography: nil
+        case .singleslicePtychography: "ptychography"
+        case .ptychography: nil
         }
     }
 
@@ -409,7 +410,7 @@ enum TaskProductState: Equatable, Sendable {
 /// recorded step's own output-only keys (strain's `resolved_g*`) never
 /// participate.
 enum StalenessVerdict: Equatable, Sendable {
-    /// No signature builder exists for this kind (ptychography, parallax),
+    /// No signature builder exists for this kind (parallax),
     /// or the recorded step matches current settings on every key it names.
     case current
     /// The recorded step is missing keys current settings would record, or
@@ -488,13 +489,15 @@ enum ProductWorkflow {
         diskKernel: ProbeKernel?, diskParams: DiskDetectionParams, learnedDetectorParameters: [String: String],
         strainSignature: [String: String],
         acomSignature: [String: String]?,
-        diskPeaksProvenance: [String: String]? = nil
+        diskPeaksProvenance: [String: String]? = nil,
+        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil
     ) -> [String: String]? {
         let signature = settingsSignature(
             for: mode, virtualDetectorShape: virtualDetectorShape, aperture: aperture,
             dpcOriginReference: dpcOriginReference, diskKernel: diskKernel, diskParams: diskParams,
             learnedDetectorParameters: learnedDetectorParameters, strainSignature: strainSignature,
-            acomSignature: acomSignature, diskPeaksProvenance: diskPeaksProvenance)
+            acomSignature: acomSignature, diskPeaksProvenance: diskPeaksProvenance,
+            ptychographySettings: ptychographySettings)
         // The replay contract names which recorded keys the staleness check
         // compares; a key outside it never takes part (`ReplayContractTests`
         // holds each builder below to exactly that set).
@@ -514,7 +517,8 @@ enum ProductWorkflow {
         diskKernel: ProbeKernel?, diskParams: DiskDetectionParams, learnedDetectorParameters: [String: String],
         strainSignature: [String: String],
         acomSignature: [String: String]?,
-        diskPeaksProvenance: [String: String]?
+        diskPeaksProvenance: [String: String]?,
+        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil
     ) -> [String: String]? {
         switch mode {
         case .virtualDetector:
@@ -545,7 +549,14 @@ enum ProductWorkflow {
             return strainSignature
         case .acom:
             return acomSignature
-        case .ptychography, .singleslicePtychography:
+        case .singleslicePtychography:
+            // The controls and the probe radius (the aperture's outer radius);
+            // the calibration keys the run also records are checked by the
+            // replay, not compared here (`ReplayContract`).
+            return ptychographySettings.map {
+                ReplayStepPlan.PtychographyReplayPlan.currentSignature(settings: $0, probeRadiusPixels: aperture.outer)
+            }
+        case .ptychography:
             return nil
         case .phaseMapping:
             // `PhaseMappingProduct.isStale` compares the phase LIST and both
