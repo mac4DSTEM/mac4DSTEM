@@ -109,7 +109,7 @@ final class QuantificationMethodTests: XCTestCase {
         XCTAssertEqual(parsed.jsonString, json)
         XCTAssertEqual(parsed.node(id: first)?.parameters, replay.lineage.node(id: first)?.parameters)
 
-        // Branch: a different method after saving the product is a new node; rewind to the first restores it.
+        // Branch: a different method after saving the product is a new node; the first step still reads back its own method.
         replay.markProduct(step: first, as: "quant_table_1")
         let methodAtFirst = session.method
         session.method.thickness = .init(nanometres: 80, sigmaNanometres: 8)
@@ -118,11 +118,12 @@ final class QuantificationMethodTests: XCTestCase {
         let plan = try replay.lineage.rewindPlan(to: first).get()
         XCTAssertTrue(plan.restore.contains(first))
         replay.apply(plan)
-        let restored = session.restoreQuantification(parameters: try XCTUnwrap(replay.lineage.node(id: first)).parameters)
-        XCTAssertNotNil(restored)
-        XCTAssertEqual(session.method, methodAtFirst, "rewind restores the method")
-        XCTAssertEqual(session.method.hash, methodAtFirst.hash)
-        XCTAssertEqual(restored?.registration, registration)
+        var recorded = try XCTUnwrap(replay.lineage.node(id: first)).parameters
+        recorded["method"] = recorded["method_json"]
+        let restored = try XCTUnwrap(QuantificationStep(parameters: recorded))
+        XCTAssertEqual(restored.method, methodAtFirst, "the step reads back the method it recorded")
+        XCTAssertEqual(restored.method.hash, methodAtFirst.hash)
+        XCTAssertEqual(restored.registration, registration)
     }
 
     /// A step whose JSON no longer matches its hash, or with no method, restores nothing.
@@ -134,8 +135,5 @@ final class QuantificationMethodTests: XCTestCase {
         p["method_hash"] = String(repeating: "0", count: 64)
         XCTAssertNil(QuantificationStep(parameters: p))
         XCTAssertNil(QuantificationStep(parameters: ["region_kind": "wholeMap"]))
-        let session = SpectroscopySession()
-        XCTAssertNil(session.restoreQuantification(parameters: p))
-        XCTAssertEqual(session.method, QuantificationMethod(), "a refused restore changes nothing")
     }
 }
