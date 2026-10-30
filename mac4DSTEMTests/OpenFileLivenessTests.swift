@@ -6,9 +6,10 @@ import SpectroCore
 
 /// Slot 4⅞ lane D (owner card Q1 = a, 2026-10-04): a DM4 whose disk has been
 /// disconnected refuses with `DM4Error.volumeGone` instead of dying with a
-/// SIGBUS, and the refusal LATCHES — once a read has found the disk gone, every
-/// later read of that reader throws, even if the disk answers again, because
-/// the old mapping stays dead after a remount.
+/// SIGBUS, and the refusal LATCHES — once a read has found the disk gone, the
+/// old mapping is never read again, because it stays dead after a remount.
+/// Since 2026-10-30 a later read maps the file anew from its path and reads
+/// again once the disk is back; while it is away every read throws.
 ///
 /// The real SIGBUS and the real forced unmount are not unit-testable; the
 /// probe that measured them (a RAM disk, `hdiutil detach -force`, HEAD dies
@@ -46,21 +47,21 @@ final class OpenFileLivenessTests: XCTestCase {
     }
 
     /// Ry = 2, Rx = 2, Qy = 2, Qx = 3, int16 values 0..<24 in storage order.
-    private static func tinyCube() -> Data {
+    private static func tinyCube(base: Int16 = 0, scanY: Int32 = 2) -> Data {
         var header = Writer()
         header.u32be(4); header.u64be(0); header.u32be(1)
         var group = Writer()
         group.u8(1); group.u8(0); group.u64be(1)
         var pixels = Writer()
-        for i in 0..<24 { pixels.i16le(Int16(i)) }
+        for i in 0..<(12 * Int(scanY)) { pixels.i16le(base + Int16(i)) }
         var array = Writer()
         array.u8(21); array.u16be(4); array.ascii("Data")
-        array.u64be(0); array.ascii("%%%%"); array.u64be(3); array.u64be(20); array.u64be(2); array.u64be(24)
+        array.u64be(0); array.ascii("%%%%"); array.u64be(3); array.u64be(20); array.u64be(2); array.u64be(UInt64(12 * scanY))
         // Wrapped as DigitalMicrograph stores an image: ImageList entry 1 holds ImageData (FormatoKit reads that structure only).
         let image = subgroup("ImageList", nTags: 1) + subgroup("", nTags: 1) + subgroup("ImageData", nTags: 3)
             + numberTag("DataType", 1)
             + subgroup("Dimensions", nTags: 4)
-            + numberTag("0", 3) + numberTag("1", 2) + numberTag("2", 2) + numberTag("3", 2)
+            + numberTag("0", 3) + numberTag("1", 2) + numberTag("2", 2) + numberTag("3", scanY)
             + array.bytes + pixels.bytes
         return Data(header.bytes + group.bytes + image)
     }
@@ -77,9 +78,9 @@ final class OpenFileLivenessTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    private func writeCube(named name: String = "cube.dm4") throws -> String {
+    private func writeCube(named name: String = "cube.dm4", base: Int16 = 0, scanY: Int32 = 2) throws -> String {
         let url = directory.appendingPathComponent(name)
-        try Self.tinyCube().write(to: url)
+        try Self.tinyCube(base: base, scanY: scanY).write(to: url)
         return url.path
     }
 
@@ -90,6 +91,8 @@ final class OpenFileLivenessTests: XCTestCase {
         private var asked = 0
         /// `script` is consumed one answer per question; the last answer repeats.
         init(_ script: [Bool]) { answers = script }
+        /// Replaces what is left of the script: the disk is back, or gone, for every later question.
+        func answerFromNowOn(_ alive: Bool) { lock.lock(); defer { lock.unlock() }; answers = [alive] }
         var questions: Int { lock.lock(); defer { lock.unlock() }; return asked }
         var liveness: MappingLiveness {
             MappingLiveness { [self] in
@@ -259,22 +262,68 @@ final class OpenFileLivenessTests: XCTestCase {
         }
     }
 
-    // MARK: The latch
+    // MARK: The latch, and the reopen (2026-10-30)
 
-    /// The disk answers "gone" once and "here" ever after: the old mapping is
-    /// dead whatever the disk says now, so every later read of every kind must
-    /// still throw.
-    func testOnceGoneEveryLaterReadStillRefusesEvenWhenTheDiskAnswersAgain() async throws {
-        let disk = Disk([true, false, true])      // alive, gone, alive again from then on
+    /// The old mapping is dead whatever the disk says once it was found gone, so
+    /// the reader never reads through it again: it maps the file anew from its
+    /// path. Here the file is gone with the disk and comes back with other
+    /// pixels: the reads while it is away refuse, and the first read after it is
+    /// back returns the NEW file's pixels, which only a fresh mapping can give.
+    /// (Until 2026-10-30 every later read refused until the user reopened the
+    /// dataset.)
+    func testAReconnectedDiskReadsAgainThroughAFreshMapping() async throws {
+        let disk = Disk([true, false])            // alive, then gone; the reopen's check answers alive below
+        let path = try writeCube()
+        let reader = try await DM4Reader(path: path, liveness: disk.liveness)
+        let ds = try await reader.discoverPrimaryDataset()
+        let view = LoadView(fullExtentOf: ds)
+        let before = try await reader.readPattern(view, ry: 0, rx: 0)                         // question 1: alive
+        XCTAssertEqual(before, [0, 1, 2, 3, 4, 5])
+        try FileManager.default.removeItem(atPath: path)
+        // Question 2 finds the disk gone; the file cannot be mapped again, so the read refuses.
+        await requireGone({ _ = try await reader.readPattern(view, ry: 0, rx: 0) }, "the read that finds it gone")
+        await requireGone({ _ = try await reader.readScanRow(view, ry: 1) }, "readScanRow while the file is away")
+        // The disk is back, with the file at its path.
+        _ = try writeCube(base: 100)
+        disk.answerFromNowOn(true)
+        let after = try await reader.readPattern(view, ry: 1, rx: 1)
+        XCTAssertEqual(after, [118, 119, 120, 121, 122, 123], "the first read after the reconnect maps the file again")
+        let tile = try await reader.readScanTile(view, yRange: 0..<2)
+        XCTAssertEqual(tile.pixels, (100..<124).map(Float.init))
+    }
+
+    /// The disk answers "here" again but the reopened descriptor still says
+    /// gone: the reader keeps refusing and never touches the old mapping.
+    func testAReopenWhoseDiskStillAnswersGoneKeepsRefusing() async throws {
+        let disk = Disk([true, false])            // alive once, gone ever after (the reopen asks too)
         let reader = try await DM4Reader(path: try writeCube(), liveness: disk.liveness)
         let ds = try await reader.discoverPrimaryDataset()
         let view = LoadView(fullExtentOf: ds)
-        _ = try await reader.readPattern(view, ry: 0, rx: 0)                       // question 1: alive
+        _ = try await reader.readPattern(view, ry: 0, rx: 0)
+        await requireGone({ _ = try await reader.readPattern(view, ry: 0, rx: 0) }, "readPattern")
+        await requireGone({ _ = try await reader.readScanRow(view, ry: 1) }, "readScanRow")
+        await requireGone({ _ = try await reader.readScanTile(view, yRange: 0..<2) }, "readScanTile")
+    }
+
+    /// A file of another shape at the path is not the dataset that was opened:
+    /// the reopen refuses it rather than read its pixels as this one's.
+    func testAReopenRefusesAFileOfAnotherShapeAtThePath() async throws {
+        let disk = Disk([true, false])
+        let path = try writeCube()
+        let reader = try await DM4Reader(path: path, liveness: disk.liveness)
+        let ds = try await reader.discoverPrimaryDataset()
+        let view = LoadView(fullExtentOf: ds)
+        _ = try await reader.readPattern(view, ry: 0, rx: 0)
+        try FileManager.default.removeItem(atPath: path)
         await requireGone({ _ = try await reader.readPattern(view, ry: 0, rx: 0) }, "the read that finds it gone")
-        // The disk is back (the check now says so); the reader must not resume.
-        await requireGone({ _ = try await reader.readPattern(view, ry: 1, rx: 1) }, "readPattern after reconnect")
-        await requireGone({ _ = try await reader.readScanRow(view, ry: 1) }, "readScanRow after reconnect")
-        await requireGone({ _ = try await reader.readScanTile(view, yRange: 0..<2) }, "readScanTile after reconnect")
+        _ = try writeCube(scanY: 3)
+        disk.answerFromNowOn(true)
+        do {
+            _ = try await reader.readPattern(view, ry: 0, rx: 0)
+            XCTFail("a file of another shape must not be read as the opened dataset")
+        } catch DM4Error.cannotOpen(let detail) {
+            XCTAssertTrue(detail.hasPrefix("cube.dm4 — the file at its path is no longer the dataset that was opened"), detail)
+        }
     }
 
     // MARK: One check per public read

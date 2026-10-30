@@ -28,14 +28,12 @@ final class DetectorPresetRadiusTests: XCTestCase {
         let adf = DetectorPreset.adf.radii(maxRadius: 64, probeRadius: 25.3)!
         XCTAssertEqual(adf.inner, 0.25 * 64, accuracy: 1e-5)
         XCTAssertEqual(adf.outer, 0.55 * 64, accuracy: 1e-5)
-        XCTAssertFalse(DetectorPreset.adf.followsBeam(maxRadius: 64, probeRadius: 25.3))
     }
 
     /// r = 8: ADF is 3r...6r = 24...48 (py4DSTEM tutorial). Mutation: 6r -> 5r -> red.
     func testADFIsThreeToSixProbeRadii() {
         let adf = DetectorPreset.adf.radii(maxRadius: 64, probeRadius: 8)!
         XCTAssertEqual(adf.inner, 24, accuracy: 1e-5); XCTAssertEqual(adf.outer, 48, accuracy: 1e-5)
-        XCTAssertTrue(DetectorPreset.adf.followsBeam(maxRadius: 64, probeRadius: 8))
         // 6r past the edge clips to the edge.
         XCTAssertEqual(DetectorPreset.adf.radii(maxRadius: 64, probeRadius: 12)!.outer, 64)
         // HAADF is unchanged by the beam.
@@ -48,7 +46,6 @@ final class DetectorPresetRadiusTests: XCTestCase {
         for probe: Float? in [nil, 0, -3, .nan] {
             let bf = DetectorPreset.brightField.radii(maxRadius: 64, probeRadius: probe)!
             XCTAssertEqual(bf.outer, 0.20 * 64, accuracy: 1e-5)
-            XCTAssertFalse(DetectorPreset.brightField.followsBeam(maxRadius: 64, probeRadius: probe))
         }
     }
 

@@ -7,8 +7,8 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
-@testable import SpectroCore
-@testable import SpectroEDX
+import SpectroCore
+import SpectroEDX
 
 @MainActor
 enum SpectroQuantFixtures {
@@ -18,17 +18,6 @@ enum SpectroQuantFixtures {
 
     static func image() throws -> LoadedSpectrumImage {
         try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: fixtures.appendingPathComponent("demo-edx-tiny.dm4").path, fourD: nil))
-    }
-
-    /// Truth: the summed expected counts of the named component over the whole map.
-    static func truthArea(_ component: String) throws -> Double {
-        let data = try Data(contentsOf: fixtures.appendingPathComponent("demo-edx-tiny.truth.json"))
-        let t = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let names = try XCTUnwrap(t["component_names"] as? [String])
-        let arrays = try XCTUnwrap(t["arrays"] as? [String: Any])
-        let comp = try XCTUnwrap(arrays["component_expected_counts"] as? [[[Double]]])
-        let i = try XCTUnwrap(names.firstIndex(of: component))
-        return comp[i].flatMap { $0 }.reduce(0, +)
     }
 
     static func method(elements: [(String, QuantificationMethod.ElementRole)] = [("Al", .quantify), ("Mg", .quantify), ("Si", .quantify), ("Cu", .quantify), ("O", .fitOnly), ("Ga", .fitOnly)]) -> QuantificationMethod {

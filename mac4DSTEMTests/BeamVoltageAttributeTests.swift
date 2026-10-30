@@ -114,6 +114,30 @@ final class BeamVoltageAttributeTests: XCTestCase {
         XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: try XCTUnwrap(stored)), 300.5)
     }
 
+    /// A voltage above 1000 kV reopens as written: the unit is stored beside it. Before it was, the unitless rule read
+    /// 1500 kV back as 1.5 kV (eV above 1000).
+    func testAVoltageAboveAThousandKilovoltsReopensAsWritten() async throws {
+        let url = try scratchDirectory().appendingPathComponent("v1500.h5")
+        _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+            source: VoltageFixtureSource(voltage: nil), view: LoadView(fullExtentOf: descriptor),
+            calibration: PixelCalibration(), acceleratingVoltageKV: 1_500, options: wholeCube(), to: url
+        )
+        let reader = try H5Reader(path: url.path)
+        let units = await reader.readStringAttribute(AcceleratingVoltage.unitsAttributeName, onObjectPath: "/")
+        XCTAssertEqual(units, "kV")
+        let kilovolts = await AcceleratingVoltage.kilovolts(from: reader)
+        XCTAssertEqual(kilovolts, 1_500)
+    }
+
+    /// The stated unit wins over the size rule; no unit (every file written before it, and other writers) keeps the rule.
+    func testTheStatedUnitWinsOverTheSizeRule() {
+        XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: 1_500, units: "kV"), 1_500)
+        XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: 300_000, units: "eV"), 300)
+        XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: 200, units: "V"), 0.2)
+        XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: 300_000, units: nil), 300)
+        XCTAssertEqual(AcceleratingVoltage.kilovolts(fromAttribute: 1_500, units: "furlongs"), 1.5, "an unknown unit keeps the rule")
+    }
+
     /// No usable value, no attribute: nothing is invented. Mutation: drop `isFinite` or `> 0` from the writer's guard ->
     /// NaN / inf / 0 / -80 are written and read back as numbers.
     func testNoUsableVoltageWritesNoAttribute() async throws {

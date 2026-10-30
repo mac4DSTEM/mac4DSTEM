@@ -129,22 +129,17 @@ extension AppState {
         // ("consensus"/"manual", "selected-region"/"whole-scan"), not Swift
         // case names — the two carriers share keys and must share values
         // (Gate B-lite F10).
-        var strainParameters: [String: String] = [
-            "reference_mode": map.diagnostics.referenceMaskApplied
-                ? "selected-region" : "whole-scan",
-            "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
-            "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
-            "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
-        ]
-        // A manual run's INPUT basis (the g-vectors it indexed with). The resolved
-        // ones above are the lattice it found, a median of local fits — not the
-        // same numbers, and running again from them is not running again from
-        // these. Only the lineage rewind reads these keys (replay keeps using the
-        // resolved ones, unchanged).
-        if let initialBasis {   // captured before the compute, not read back from the live fields
-            strainParameters["input_g1_x"] = String(initialBasis.g1.x); strainParameters["input_g1_y"] = String(initialBasis.g1.y)
-            strainParameters["input_g2_x"] = String(initialBasis.g2.x); strainParameters["input_g2_y"] = String(initialBasis.g2.y)
-        }
+        // A manual run's INPUT basis (the g-vectors it indexed with) rides along.
+        // The resolved ones are the lattice it found, a median of local fits —
+        // not the same numbers, and running again from them is not running again
+        // from these. Only the lineage rewind reads the input keys (replay keeps
+        // using the resolved ones, unchanged). `initialBasis` was captured
+        // before the compute, not read back from the live fields.
+        let strainParameters = StrainProduct.recordedParameters(
+            referenceMaskApplied: map.diagnostics.referenceMaskApplied,
+            automaticBasis: map.diagnostics.automaticBasis,
+            resolvedG1: (x: map.refG1.x, y: map.refG1.y), resolvedG2: (x: map.refG2.x, y: map.refG2.y),
+            inputBasis: initialBasis)
         recordReplayStep(kind: "strain", parameters: strainParameters, replaying: replaying)
         resultPresentation.resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
