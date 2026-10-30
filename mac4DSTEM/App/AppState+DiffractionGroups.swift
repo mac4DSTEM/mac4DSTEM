@@ -76,7 +76,7 @@ extension AppState {
 
             publishDiffractionGroupsProduct()
             statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
-                + "first 3 components explain \(String(format: "%.1f", Self.firstThreePercent(of: result))) %"
+                + "first 3 components explain \(Num.fixed(Double(Self.firstThreePercent(of: result)), 1)) %"
             return .published
         } catch {
             presentComputeFailure(error)

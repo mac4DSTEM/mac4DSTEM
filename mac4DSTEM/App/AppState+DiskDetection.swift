@@ -84,8 +84,8 @@ extension AppState {
             pattern: LearnedDetectionSession.syntheticProbe(qy: descriptor.qy, qx: descriptor.qx, centre: (x: origin.x, y: origin.y), radius: radius),
             centreX: origin.x, centreY: origin.y, radius: radius, source: .synthetic)
         recordInstantRun("Probe kernel", since: began)
-        statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
-                            radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
+        statusText = "Probe kernel ✓  r = \(Num.fixed(Double(radius), 1)) px, "
+            + "trench \(Num.fixed(Double(kernel.trenchRadii.inner), 0))–\(Num.fixed(Double(kernel.trenchRadii.outer), 0)) px"
         await detectCurrentPattern()
     }
 
@@ -112,10 +112,8 @@ extension AppState {
         probeKernel = kernel
         learnedDetection.probeReference = .init(pattern: pattern, centreX: origin.x, centreY: origin.y, radius: radius, source: .measured)
         recordInstantRun("Probe kernel", since: began)
-        statusText = String(
-            format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
-            mode.rawValue.lowercased()
-        )
+        statusText = "Measured probe kernel ✓  r = \(Num.fixed(Double(radius), 1)) px from current CBED/ROI, "
+            + mode.rawValue.lowercased()
         await detectCurrentPattern()
     }
 
@@ -163,10 +161,8 @@ extension AppState {
         learnedDetection.probeReference = .init(pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe)
         recordInstantRun("Probe kernel", since: began)
         let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
-        statusText = String(
-            format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,
-            mode.rawValue.lowercased(), candidate.path, others
-        )
+        statusText = "File probe kernel ✓  r = \(Num.fixed(Double(size.r), 1)) px, "
+            + "\(mode.rawValue.lowercased()), from \(candidate.path)\(others)"
         await detectCurrentPattern()
     }
 
@@ -197,8 +193,8 @@ extension AppState {
             learnedDetection.probeReference = .init(
                 pattern: pattern, centreX: result.centreX, centreY: result.centreY,
                 radius: result.radius, source: .vacuumScan)
-            statusText = String(format: "Vacuum probe kernel ✓  r = %.1f px from %@, %@",
-                                result.radius, url.lastPathComponent, mode.rawValue.lowercased())
+            statusText = "Vacuum probe kernel ✓  r = \(Num.fixed(Double(result.radius), 1)) px "
+                + "from \(url.lastPathComponent), \(mode.rawValue.lowercased())"
             await detectCurrentPattern()
         } catch {
             presentComputeFailure(error)
