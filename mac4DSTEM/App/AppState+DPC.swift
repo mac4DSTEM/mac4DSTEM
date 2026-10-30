@@ -189,8 +189,11 @@ extension AppState {
         // carrier, as strain does (`strainFrameProvenance`). iDPC is not
         // listed in the finding and keeps its own provenance.
         let frameKeys = kind == "idpc_phase" || kind == "idpc_qualitative" ? [:] : dpcFrameProvenance
+        let own = scalarPersistenceMetadata(for: .dpc)   // its own keys, whatever the current mode
         publishProduct(kind: kind, displayName: name, valueUnits: units, payload: payload,
-                       extraProvenance: frameKeys)
+                       sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+                       extraProvenance: own.provenance.merging(frameKeys) { _, frame in frame },
+                       ownProvenanceOnly: true)
         return nil
     }
 

@@ -1023,6 +1023,42 @@ extension SessionReplayAppStateTests {
         XCTAssertEqual(state.taskProductState(for: .acom), .none, "another task's row is untouched")
     }
 
+    /// Strain, ACOM and DPC take their keys from their own task, not from the
+    /// room the window is in: the window here is on Imaging, and each task's
+    /// metadata still names that task and its own source product, and the
+    /// strain product carries exactly those keys. Before, the metadata existed
+    /// only for the current mode (`currentScalarPersistenceMetadata`): under
+    /// Imaging every task got the virtual image's `analysis_mode`. Each publish
+    /// site is still guarded on its own mode, so no product differs today; this
+    /// pins the keys for a path that publishes outside the room (replay, rewind).
+    func testStrainACOMAndDPCPublishUnderTheirOwnKeys() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        _ = try await detectAndStrain(state, "strain")
+        let published = try XCTUnwrap(state.resultPresentation.product, state.statusText)
+        let strainOwn = state.scalarPersistenceMetadata(for: .strain).provenance
+        for (key, value) in strainOwn {
+            XCTAssertEqual(published.provenance[key], value, "the strain product carries its own \(key)")
+        }
+
+        state.navigation.analysisMode = .virtualDetector
+        let strain = state.scalarPersistenceMetadata(for: .strain).provenance
+        XCTAssertEqual(strain["analysis_mode"], AnalysisMode.strain.rawValue)
+        XCTAssertEqual(strain["source_product"], published.provenance["source_product"])
+
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        let acom = state.scalarPersistenceMetadata(for: .acom).provenance
+        XCTAssertEqual(acom["analysis_mode"], AnalysisMode.acom.rawValue)
+        XCTAssertEqual(acom["source_product"], "acom_\(state.acomSession.display.rawValue)")
+
+        state.dpc.dpcDisplay = .idpc
+        let dpc = state.scalarPersistenceMetadata(for: .dpc).provenance
+        XCTAssertEqual(dpc["analysis_mode"], AnalysisMode.dpc.rawValue)
+        XCTAssertEqual(dpc["source_product"]?.hasPrefix("idpc_"), true, "iDPC's own source key")
+        XCTAssertEqual(state.currentScalarPersistenceMetadata.provenance["analysis_mode"],
+                       AnalysisMode.virtualDetector.rawValue, "the current mode's own metadata is unchanged")
+    }
+
     /// (b) ACOM consumes origin, ellipse and Q. Mutation it catches: the
     /// verdict blind to calibration for ACOM.
     func testAnEllipseFittedAfterACOMReadsItStale() async throws {

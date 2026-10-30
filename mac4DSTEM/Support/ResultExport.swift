@@ -1409,14 +1409,21 @@ extension AppState {
 
     var currentScalarPersistenceMetadata:   // internal since v2.5 step 3c: publishLegacy reads it
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
-        if navigation.analysisMode == .dpc, dpc.dpcDisplay == .idpc {
+        scalarPersistenceMetadata(for: navigation.analysisMode)
+    }
+
+    /// A task's own sampling and provenance keys, whatever room the window is in: the strain, ACOM and DPC publish
+    /// sites take theirs from here, so a product never carries another task's `analysis_mode` or source keys.
+    func scalarPersistenceMetadata(for mode: AnalysisMode)
+        -> (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        if mode == .dpc, dpc.dpcDisplay == .idpc {
             if let physical = idpcPhysicalCalibration {
                 return (
                     Double(physical.rowSamplingAngstrom),
                     Double(physical.columnSamplingAngstrom),
                     "A",
                     [
-                        "analysis_mode": navigation.analysisMode.rawValue,
+                        "analysis_mode": mode.rawValue,
                         "source_product": "idpc_phase",
                         "quantitative": "true",
                         "boundary": "symmetric_zero_padded",
@@ -1436,7 +1443,7 @@ extension AppState {
             // still subtracted from the CoM field". A reader of the exported
             // file needs that difference to know whether to trust contrast.
             var provenance: [String: String] = [
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "idpc_qualitative",
                 "quantitative": "false",
                 "boundary": "symmetric_zero_padded",
@@ -1457,10 +1464,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .strain, let map = strain.map {
+        if mode == .strain, let map = strain.map {
             let diagnostics = map.diagnostics
             var provenance: [String: String] = [
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "strain_\(strain.component.rawValue)",
                 "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
                 "basis_support_fraction": String(diagnostics.basisSupportFraction),
@@ -1493,10 +1500,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .acom, let map = acomSession.orientationMap {
+        if mode == .acom, let map = acomSession.orientationMap {
             var provenance = acomSession.lastRunSemantics?.provenance ?? [:]
             provenance.merge([
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "acom_\(acomSession.display.rawValue)",
                 "crystal_symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
@@ -1514,10 +1521,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .disks { return braggMapPersistenceMetadata }
+        if mode == .disks { return braggMapPersistenceMetadata }
         // Both modes: single-slice runs in its own (SingleslicePtychographyExportTests).
-        guard navigation.analysisMode == .ptychography || navigation.analysisMode == .singleslicePtychography else {
-            return scanMapPersistenceMetadata(for: navigation.analysisMode)
+        guard mode == .ptychography || mode == .singleslicePtychography else {
+            return scanMapPersistenceMetadata(for: mode)
         }
         switch phaseContrast.parallaxResultProduct {
         case .preprocess:
