@@ -4,6 +4,15 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
+/// Marks the promote run's own work — its reopen and its replayed steps, and
+/// every task they start — so `beginCancellableOperation` can tell it from a
+/// run the user starts while the promote run is in flight. A task started
+/// inside keeps the flag for its whole life; it matters only while a promote
+/// run is running (`promoteRunRefusesUserRuns`).
+nonisolated enum PromoteRunContext {
+    @TaskLocal static var isPromoteRun = false
+}
+
 /// Promote-and-replay orchestration and step execution.
 extension AppState {
     /// The promote control's action — the release claim's "one action"
@@ -53,7 +62,9 @@ extension AppState {
             frameNote = nil
         }
         guard replayRun.begin(titles: planned.map(\.title), frameNote: frameNote) else { return }
-        await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
+        await PromoteRunContext.$isPromoteRun.withValue(true) {
+            await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
+        }
         // Replay only on the back of a promote that actually happened: a
         // refused or cancelled promote leaves the rehearsal (or nothing)
         // loaded, and running the recipe against it would be the promote
@@ -63,7 +74,9 @@ extension AppState {
             statusText = "Promote run stopped — the reopen did not complete; nothing was replayed"
             return
         }
-        await executeReplay(planned: planned)
+        await PromoteRunContext.$isPromoteRun.withValue(true) {
+            await executeReplay(planned: planned)
+        }
     }
 
     /// Sequential replay: one step at a time, in recipe order. The first
@@ -73,6 +86,8 @@ extension AppState {
     /// keep-awake assertion from before the reopen.
     private func executeReplay(planned: [PlannedReplayStep]) async {
         let epoch = datasetSession.epoch
+        promoteRunEpoch = epoch
+        defer { promoteRunEpoch = nil }
         var haltReason: String?
         for (index, step) in planned.enumerated() {
             guard datasetSession.epoch == epoch, !datasetSession.isLoading else {

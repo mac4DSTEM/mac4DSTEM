@@ -99,6 +99,11 @@ extension AppState {
         }
 
         let epoch = datasetSession.epoch
+        // Refused before the release below: a refused run must not discard the parallax products it would replace.
+        guard !promoteRunRefusesUserRuns else {
+            statusText = "Parallax preprocessing not started — the promote run is replaying the recipe; wait for it, or cancel it first"
+            return
+        }
         let release = releaseParallaxProductsForPreview()
         let token = beginCancellableOperation(
             "Parallax preprocessing", status: "Preparing virtual-BF stack…",

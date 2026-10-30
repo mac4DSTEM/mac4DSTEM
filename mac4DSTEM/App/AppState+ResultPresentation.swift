@@ -93,6 +93,9 @@ extension AppState {
 
     func commitApertureChange() {
         guard navigation.analysisMode == .virtualDetector else { return }
+        // A replayed virtual-detector step sets the shape and aperture itself and
+        // computes the image; the view's change handler must not run a second one.
+        guard !promoteRunRefusesUserRuns else { return }
         Task { await runVirtualDetector() }   // final pass, with status
     }
 
@@ -483,6 +486,7 @@ extension AppState {
         case .residual: (kind, units) = ("strain_fit_residual", "detector_px")
         case .indexed:  (kind, units) = ("strain_indexed", "boolean")
         }
+        let own = scalarPersistenceMetadata(for: .strain)   // its own keys, whatever the current mode
         publishProduct(
             kind: kind, displayName: "Strain · \(strain.component.rawValue)", valueUnits: units,
             payload: .scalar(map.presented(in: strainPresentationFrame).component(strain.component)),
@@ -496,7 +500,9 @@ extension AppState {
                     image: FloatImage(width: map.width, height: map.height, pixels: map.mask.map { $0 ? 1 : 0 })),
             ],
             overlays: [ProductOverlayDescriptor(
-                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")])
+                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")],
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance, ownProvenanceOnly: true)
     }
 
 
