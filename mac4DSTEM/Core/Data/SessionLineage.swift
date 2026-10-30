@@ -621,6 +621,7 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         if kind == "precipitate_objects" { return "precipitate_objects" }
         if kind == "diffraction_groups" { return "diffraction_groups" }
         if kind == "bragg_vector_map" { return "disk_detection" }
+        if kind.hasPrefix("ptychography_") { return "ptychography" }
         return nil
     }
 

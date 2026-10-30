@@ -1077,7 +1077,8 @@ final class AppState {
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature,
-            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance)
+            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance,
+            ptychographySettings: ptychography.replaySettings)
     }
 
     // The result-value cache moved to `resultPresentation` with the result
@@ -1374,7 +1375,7 @@ final class AppState {
             if navigation.analysisMode == .dpc {
                 await runCurrentAnalysis()
             } else if navigation.analysisMode == .singleslicePtychography {
-                await runSingleslicePtychography()   // v2.5 step 7a: its own task
+                outcome = await runSingleslicePtychography()   // v2.5 step 7a: its own task
             } else if phaseContrast.parallaxPreprocess == nil {
                 await prepareParallaxPreview()
             } else if phaseContrast.parallaxAlignment?.isComplete != true {
