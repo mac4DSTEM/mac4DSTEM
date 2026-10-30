@@ -429,7 +429,7 @@
 				30000000000000000000040F /* ShellSpectroscopy */,
 				300000000000000000000411 /* ShellEDXModel */,
 			);
-			productName = MyApp;
+			productName = mac4DSTEM;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
 			productType = "com.apple.product-type.application";
 		};
