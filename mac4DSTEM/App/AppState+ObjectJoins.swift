@@ -10,6 +10,7 @@ import DSTEMCore
 import DSTEMSession
 import ImagoCore
 import SpectroEDX
+import ShellEDXModel
 
 /// The two joins' results as one value the report is made from.
 nonisolated struct PrecipitateJoins: Sendable, Equatable {

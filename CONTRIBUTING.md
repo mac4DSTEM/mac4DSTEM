@@ -50,7 +50,7 @@ the app target automatically. Views describe the interface only; loading, parsin
 `DSTEMCore` package), which never imports anything above it. Layering and ownership in more detail:
 [`docs/architecture.md`](docs/architecture.md).
 
-Science that has a kit equivalent (EDX, file readers, crystallography, the 4D-STEM core, FFTs and image maths) is fixed
+Science that has a kit equivalent (EDS, file readers, crystallography, the 4D-STEM core, FFTs and image maths) is fixed
 in the kit's own repository and reaches the app when `Package.swift` moves to the kit's new tag.
 
 ## The rules that matter
@@ -62,8 +62,7 @@ in the kit's own repository and reaches the app when `Package.swift` moves to th
   commit, with the reason. [`docs/parity.md`](docs/parity.md) lists each function and its tolerance.
 - **One focused change per commit**, with a clear message, and CI green.
 - Mark every deviation from py4DSTEM with an inline `DEVIATION` note giving the reason and the py4DSTEM source it
-  departs from, keep Metal parameter structs byte-identical to their `.metal` counterparts, and never loosen a check
-  that fails silently.
+  departs from, and never loosen a check that fails silently.
 - A result that has not been compared with a dataset of known truth is shown with `validation: none` until it has.
 
 ## Scope
@@ -74,6 +73,6 @@ issue to talk it through before building it.
 ## Licence
 
 By contributing you agree that your contribution is licensed under the
-**GNU General Public License v3.0 or later**, consistent with the project and
+**GNU General Public License v3.0 only (GPL-3.0-only)**, consistent with the project and
 with py4DSTEM, from which its algorithms are derived. See `LICENSE` and
 `NOTICE`.

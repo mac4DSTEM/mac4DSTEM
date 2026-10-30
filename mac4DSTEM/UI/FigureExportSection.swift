@@ -4,6 +4,7 @@ import SwiftUI
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellSpectroscopy
 
 /// The Results inspector's Figure section: several of the window's images in one labelled file, each with its scale bar, the detector
 /// outlined on the pattern and the regions on the EDX maps as the screen draws them. The file is a PNG or TIFF at 1x, 2x or 3x pixels, or

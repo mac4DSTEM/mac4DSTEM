@@ -37,8 +37,6 @@ package nonisolated struct OrientationPlan {
     package var intensityPower: Double { library.settings.intensityPower }
     /// Radial width (Å⁻¹) each spot is spread over when deposited (py4DSTEM's `corr_kernel_size`).
     package var radialKernelInvAngstrom: Double { library.settings.radialKernel }
-    /// How far apart two zone axes must be to count as different orientations for the runner-up of the reliability.
-    package var distinctOrientationRad: Double { library.distinctOrientationRadians }
 
     package nonisolated init(library: ACOMTemplateLibrary, symmetry: ACOMCrystalSymmetry) {
         self.library = library

@@ -35,13 +35,6 @@ enum FigureOverlay {
     case detector(Aperture, VirtualShapeMode, ColorScheme)
 }
 
-/// How a region's outline is stroked: the live region is the dashed accent line, a pin a thinner solid line in its tint.
-struct RegionStroke {
-    var color: CGColor
-    var width: CGFloat
-    var dash: [CGFloat] = []
-}
-
 /// Which of the app's two scale bars a panel carries.
 enum FigureScaleBar {
     /// The result and diffraction bar (`burnScaleBar`'s): a 1-2-5 length near a fifth of the width. nil sampling is a bar in data px.
