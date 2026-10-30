@@ -249,7 +249,7 @@ extension AppState {
         return record
     }
 
-    var publicationCaption: String {   // internal: PolishATests reads it
+    var publicationCaption: String {   // internal: ColormapAndCaptionTests reads it
         guard let product = displayedProduct else { return currentResultValueUnits }
         var parts = [
             product.domain.rawValue + " space",

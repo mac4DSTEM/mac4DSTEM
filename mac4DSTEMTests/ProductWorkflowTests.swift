@@ -650,7 +650,7 @@ final class ProductWorkflowTests: XCTestCase {
 
         // owner card S5 (a), 2026-10-02: entering ACOM with no ACOM result clears the Bragg map from
         // the underlying result (the reference above still displays). Re-showing it on return to Disks
-        // needs held vectors: PolishJTests.testReturningToDisksReShowsTheBraggMapFromHeldVectors.
+        // needs held vectors: ProductKindModeSwitchTests.testReturningToDisksReShowsTheBraggMapFromHeldVectors.
         XCTAssertNil(state.resultPresentation.product)
         XCTAssertNotEqual(state.currentResultKind, "bragg_vector_map")
     }
