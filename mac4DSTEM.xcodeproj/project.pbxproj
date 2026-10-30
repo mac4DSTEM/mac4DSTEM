@@ -215,6 +215,7 @@
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplaceUndo.swift,
+				Session/ReplayContract.swift,
 				Session/ReplayPlan.swift,
 				Session/ReplayRun.swift,
 				Session/ResultPresentation.swift,
