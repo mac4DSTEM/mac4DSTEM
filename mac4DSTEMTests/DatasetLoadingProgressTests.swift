@@ -104,6 +104,27 @@ final class DatasetLoadingProgressTests: XCTestCase {
         )
     }
 
+    /// "Streamed" counts what a binned load READS, not what it keeps: a bin-2 view of 64 x 64 patterns reads the whole
+    /// 64 x 64 detector per position (16 KiB) and keeps 32 x 32 (4 KiB). Counting the binned size understated it by bin².
+    /// A detector crop reads only the crop.
+    func testStreamedBytesCountTheReadExtentOfABinnedView() throws {
+        let source = DatasetDescriptor(filePath: "/tmp/x.h5", datasetPath: "/data",
+                                       shape: [4, 4, 64, 64], dtypeDescription: "uint16", chunkShape: nil)
+        let binned = try LoadView(source: source, specification: LoadSpecification(detectorBin: 2))
+        XCTAssertEqual(binned.descriptor.qy * binned.descriptor.qx, 32 * 32, "precondition: the view keeps 32 x 32")
+        XCTAssertEqual(binned.readBytesPerPattern, 64 * 64 * 4)
+
+        let cropped = try LoadView(source: source, specification: LoadSpecification(
+            detectorCrop: AxisCrop(yOffset: 8, xOffset: 4, height: 40, width: 20), detectorBin: 2))
+        XCTAssertEqual(cropped.readBytesPerPattern, 40 * 20 * 4)
+        XCTAssertEqual(try LoadView(source: source, specification: LoadSpecification()).readBytesPerPattern, 64 * 64 * 4)
+
+        let status = SystemMonitor.scanProgressStatus(
+            "Scanning patterns", processed: 16, total: 16, descriptor: binned.descriptor,
+            bytesPerPattern: binned.readBytesPerPattern)
+        XCTAssertTrue(status.contains(SystemMonitor.byteString(16 * 64 * 64 * 4)), "Expected the pre-bin read size in \(status)")
+    }
+
     // MARK: The load survives past the first whole-cube pass
 
     /// The regression this pins: the load used to finish *before* the first
