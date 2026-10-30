@@ -26,6 +26,7 @@ nonisolated extension BraggVectorEMDWriter {
         removingKind: String?,
         loadSpecification: LoadSpecification?,
         replayRecord: SessionReplayRecord?,
+        source: SessionSourceStamp?,
         diskCentreLabelsJSON: String?,
         supportedSchema: Int,
         cancellation: AnalysisCancellationToken?,
@@ -90,6 +91,12 @@ nonisolated extension BraggVectorEMDWriter {
         var preservedLabelsJSON: String?
         if diskCentreLabelsJSON == nil, let existingFile, existingFile.isGroup(rootPath) {
             preservedLabelsJSON = try existingFile.stringAttribute(diskCentreLabelsAttribute, at: rootPath)
+        }
+        // The source stamp, by the same rule: the caller's wins, else the file's own is carried over (read like the
+        // reader reads it: an unreadable one is absent, not a reason to refuse the save).
+        var preservedSourceJSON: String?
+        if source == nil, let existingFile, existingFile.isGroup(rootPath) {
+            preservedSourceJSON = (try? existingFile.stringAttribute(sourceAttribute, at: rootPath)) ?? nil
         }
 
         let braggPath = "\(rootPath)/braggvectors"
@@ -187,6 +194,8 @@ nonisolated extension BraggVectorEMDWriter {
         // specification is recorded (dangerous to ignore), 5 otherwise, so a
         // marker-checking reader never refuses a file it could read safely.
         try setText(minimumReaderAttribute, String(minimumReaderSchema(for: loadSpecification)))
+        // Which source this session belongs to: additive, so the minimum-reader marker above does not move with it.
+        if let json = source?.jsonString ?? preservedSourceJSON { try setText(sourceAttribute, json) }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
         let recordJSON = replayRecord.flatMap { $0.isEmpty ? nil : $0.jsonString }

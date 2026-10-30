@@ -1447,7 +1447,7 @@ final class AppState {
         let read: Result<LoadSpecification?, Error>
         do {
             read = .success(try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: path)
             }.value.loadSpecification)
         } catch {
             read = .failure(error)

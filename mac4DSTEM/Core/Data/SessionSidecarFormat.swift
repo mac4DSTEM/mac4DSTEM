@@ -69,6 +69,12 @@ package nonisolated enum SessionSidecarFormat {
     /// Root attribute carrying the serialized `SessionLineage` (JSON), schema 7.
     /// The linear record above is its projection and is still written with it.
     package static let lineageAttribute = "mac4dstem_lineage"
+
+    /// Root attribute naming the source the sidecar belongs to (JSON: the source file's name with its extension, its byte
+    /// size and the 4D shape as loaded; `SessionSourceStamp`). The sidecar's own name drops the source's extension, so
+    /// `scan.dm4` and `scan.h5` beside each other share one `scan.mac4dstem.h5`; the stamp says which of them wrote it.
+    /// Additive and safe to ignore, so the minimum-reader marker does not move with it (the schema-7 precedent above).
+    package static let sourceAttribute = "mac4dstem_source"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)
