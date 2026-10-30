@@ -62,7 +62,6 @@ struct WorkspaceInspector: View {
     }
 }
 
-
 // MARK: - Settings tab
 
 /// Readiness first, then the selected workspace's own controls.

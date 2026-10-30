@@ -189,8 +189,14 @@ nonisolated extension BraggVectorEMDWriter {
     /// against a REAL file through the REAL gate: a test reads a genuinely
     /// cropped sidecar as a schema-5 reader and watches the refusal fire.
     /// Production callers never pass it — the default is the build's truth.
+    ///
+    /// `sourcePath`: the source being opened. When given, a sidecar that belongs to another source is refused whole
+    /// (`WriterError.belongsToAnotherSource`, `SessionSourceStamp.check`), before anything is restored; the inventory
+    /// reads pass nil.
     package static func loadSession(
         from url: URL,
+        forSourcePath sourcePath: String? = nil,
+        siblings: [String]? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> SessionSidecarSnapshot {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
@@ -208,6 +214,17 @@ nonisolated extension BraggVectorEMDWriter {
         // numbers at wrong positions, no warning" failure the marker exists
         // to prevent.
         try enforceMinimumReader(file, supportedSchema: supportedSchema)
+
+        // Which source wrote it, read like the schema stamp (garbage is absent), and checked before anything is restored.
+        let sourceText: String? = (try? file.stringAttribute(sourceAttribute, at: rootPath)) ?? nil
+        let source = sourceText.flatMap(SessionSourceStamp.decoded(from:))
+        if let sourcePath {
+            if case .refused(let sentence) = SessionSourceStamp.check(
+                source, sourcePath: sourcePath, sidecarName: url.lastPathComponent,
+                siblings: siblings ?? SessionSourceStamp.siblingNames(ofSourcePath: sourcePath)) {
+                throw WriterError.belongsToAnotherSource(sentence)
+            }
+        }
 
         let results = try readResultDescriptors(file)
         let recordedCurrent = try file.stringAttribute(currentResultAttribute, at: rootPath)
@@ -302,13 +319,15 @@ nonisolated extension BraggVectorEMDWriter {
         // The stamp is read like the minimum-reader marker: garbage is absent.
         let schemaText: String? = (try? file.stringAttribute(schemaAttribute, at: rootPath)) ?? nil
         let schemaStamp = schemaText.flatMap { Int($0) }
-        return SessionSidecarSnapshot(
+        var snapshot = SessionSidecarSnapshot(
             inventory: inventory, calibration: calibration,
             currentResult: currentResult, currentRGBAResult: currentRGBAResult,
             loadSpecification: specification, schema: schemaStamp,
             replayRecord: replay,
             lineage: lineage, lineageNote: lineageNote
         )
+        snapshot.source = source
+        return snapshot
     }
 
     /// The peaks a sidecar's `braggvectors/_v_uncal` holds, with the detector

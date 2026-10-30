@@ -294,16 +294,84 @@ extension AppState {
         guard !uses.isEmpty else { return nil }
         var recorded: [String: String] = [:], current: [String: String] = [:]
         for use in uses {
-            let key = switch use.kind {
-            case "calibration_origin": "origin calibration"
-            case "calibration_ellipse": "ellipse calibration"
-            case "calibration_q": "Q calibration"
-            default: use.kind
-            }
+            let key = Self.calibrationKey(forKind: use.kind)
             recorded[key] = use.used ?? "none"
             current[key] = use.active ?? "none"
         }
         return (recorded, current)
+    }
+
+    // MARK: - The task row's verdict
+
+    /// Whether this task holds its product in memory — only for the tasks with
+    /// an unambiguous retained product. Virtual imaging and DPC share the single
+    /// scalar result slot, so "has produced" is read from the recipe record — it
+    /// survives the slot being replaced and resets with the dataset.
+    func taskHasProduct(_ mode: AnalysisMode) -> Bool {
+        switch mode {
+        case .disks: resultPresentation.braggVectors != nil
+        case .strain: strain.map != nil
+        case .acom: acomSession.hasOrientationMap
+        case .virtualDetector: replay.record.steps.contains { $0.kind == "virtual_detector" }
+        case .dpc: replay.record.steps.contains { $0.kind == "dpc" }
+        case .diffractionGroups: diffractionGroups.result != nil
+        case .phaseMapping: phaseMapping.map != nil
+        case .ptychography, .singleslicePtychography: false
+        }
+    }
+
+    /// The sidebar task row's verdict. The task's in-memory product is judged
+    /// first (`recordedReplayStep`, `currentReplaySignature`). With none, a map
+    /// of this task restored from the session file and on screen is judged by
+    /// the run it names (`lineage_step`), on the path alone: current while that
+    /// run is the active run of its kind and the calibration it consumed is
+    /// still in force; "no longer part of the recipe" when the run left the
+    /// path; "Computed with different … calibration" when a calibration it
+    /// read was replaced. Its settings are not compared: a reopened session
+    /// does not put the run's controls back, so a comparison would read every
+    /// restored map stale. A restored map that names no run (an older file)
+    /// has nothing to be judged by and reads current, as the lineage pane
+    /// marks nothing stale for it. Virtual imaging and DPC keep the record
+    /// rule (`taskHasProduct` reads the adopted recipe), as before.
+    func taskProductState(for mode: AnalysisMode) -> TaskProductState {
+        if taskHasProduct(mode) {
+            return ProductWorkflow.productState(
+                for: mode, hasProduct: true,
+                recordedStep: recordedReplayStep(for: mode),
+                currentSignature: currentReplaySignature(for: mode))
+        }
+        // Not disks: a restored Bragg map whose peaks this session refused
+        // (`braggVectors` nil) must not read current. Precipitate objects are
+        // judged by their own kind's run, under the phase-mapping row.
+        guard mode != .disks,
+              let product = resultPresentation.product, product.origin == .restoredFromSidecar,
+              AnalysisMode.owning(productKind: product.kind) == mode,
+              let kind = SessionLineage.lineageKind(forProductKind: product.kind) else { return .none }
+        guard let node = lineageNode(named: product.provenance["lineage_step"], kind: kind) else {
+            return .current
+        }
+        var recorded: [String: String] = [:], current: [String: String] = [:]
+        for use in replay.lineage.calibrationUses(of: node) {
+            let key = Self.calibrationKey(forKind: use.kind)
+            recorded[key] = use.used ?? "none"
+            current[key] = use.active ?? "none"
+        }
+        let onPath = replay.lineage.activeNodes().contains { $0.id == node.id }
+        return ProductWorkflow.productState(
+            for: mode, hasProduct: true,
+            recordedStep: onPath ? SessionReplayRecord.Step(kind: node.kind, parameters: recorded,
+                                                            recorded: node.recorded) : nil,
+            currentSignature: current)
+    }
+
+    /// The word a calibration kind reads as in the stale sentence.
+    static func calibrationKey(forKind kind: String) -> String {
+        switch kind {
+        case "calibration_origin": "origin calibration"
+        case "calibration_ellipse": "ellipse calibration"
+        case "calibration_q": "Q calibration"
+        default: kind
+        }
     }
 
     // MARK: - Rewind (R4, phase L4)
@@ -563,7 +631,7 @@ extension AppState {
             case .acom(let acomPlan):
                 if let reason = replayMaterialRefusal(acomPlan) { return failure(reason) }
                 return .success(.acom(acomPlan))
-            case .dpc:
+            case .dpc, .ptychography:
                 return .success(nil)
             }
         case "calibration_ellipse":

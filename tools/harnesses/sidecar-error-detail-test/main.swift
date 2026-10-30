@@ -41,7 +41,6 @@ func message(openingSidecarAt url: URL) -> String {
     }
 }
 
-
 /// A small but genuinely valid sidecar, written through the production writer.
 func writeRealSidecar(to url: URL) throws {
     let map = ScalarResultMap(

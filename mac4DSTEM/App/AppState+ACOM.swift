@@ -141,7 +141,7 @@ extension AppState {
         calibrationSession.provenance.qShellCaveat = Self.qShellCaveatText(estimate).map {
             CalibrationProvenance.QShellCaveat(pixelSize: estimate.invAngstromPerPixel, text: $0)
         }
-        acomSession.invalidateResult()
+        // An orientation map stays and reads stale, as after a typed Q (`setManualQPixelSize`).
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         var status = String(
@@ -422,6 +422,7 @@ extension AppState {
             gateProvenance["reliability_threshold"] = String(format: "%.3f", threshold)
             gateProvenance["fraction_above_reliability_threshold"] = String(format: "%.3f", kept)
         }
+        let own = scalarPersistenceMetadata(for: .acom)   // its own keys, whatever the current mode
         publishProduct(
             kind: "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))",
             displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomSession.display.rawValue)",
@@ -435,7 +436,9 @@ extension AppState {
                 ProductQualityField(name: "mirrored", units: "flag", image: map.mirroredImage),
             ],
             overlays: [ProductOverlayDescriptor(
-                kind: "matched_template", provenance: "selected ACOM orientation template")])
+                kind: "matched_template", provenance: "selected ACOM orientation template")],
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance, ownProvenanceOnly: true)
         if !gateProvenance.isEmpty, let product = resultPresentation.product {
             resultPresentation.replaceProduct(DisplayedProduct(
                 origin: product.origin, kind: product.kind, displayName: product.displayName,

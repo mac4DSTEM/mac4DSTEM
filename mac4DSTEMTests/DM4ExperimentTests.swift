@@ -5,7 +5,7 @@ import SpectroCore
 
 /// v5.0 WP1 lane B: `DM4Experiment` lists every image object of a GMS `.dm4`
 /// ("one experiment") and reads a 2D one back. The files are synthetic, built
-/// tag by tag the way `FinalPolishDTests` builds its cube, but with the tag
+/// tag by tag the way `OpenFileLivenessTests` builds its cube, but with the tag
 /// layout of the owner's `134_STEM SI.dm4` / `036_STEM SI.dm4` (measured
 /// 2026-10-05): unnamed `ImageList` entries, `Experiment keywords.{1,2}`, the
 /// rect and survey ID under `SI.Acquisition.Survey Image` on the SI objects,

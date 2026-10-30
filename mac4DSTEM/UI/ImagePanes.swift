@@ -1605,7 +1605,6 @@ struct RealSpacePane: View {
 
     // MARK: Keyboard
 
-
     /// The empty pane names the action that produces ITS result — the old
     /// single string told a pane titled "Bragg vector map" to "adjust the
     /// aperture", which cannot produce one.

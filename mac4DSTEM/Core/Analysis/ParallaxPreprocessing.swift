@@ -135,7 +135,6 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         )
     }
 
-
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double, wavelengthAngstrom: Double, originQX: Double, originQY: Double, rotationRad: Double, transpose: Bool) {
         self.scanSamplingAngstrom = scanSamplingAngstrom
@@ -397,7 +396,7 @@ package nonisolated enum ParallaxPreprocessor {
     /// extent is the expression `FourDArray.scanTileRows` uses; at bin 1 it is
     /// the view's, so the rows are unchanged. No number depends on the
     /// grouping: both passes accumulate pattern by pattern in scan order.
-    /// `package` so `ReviewTileBudgetSiblingsTests` can pin it.
+    /// `package` so `TileReadBudgetSiblingTests` can pin it.
     package static func resolvedTileRows(
         view: LoadView, requested: Int?
     ) -> Int {
