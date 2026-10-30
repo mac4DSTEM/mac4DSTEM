@@ -89,8 +89,6 @@ package nonisolated struct DiffractionPattern {
         }
     }
 
-    package nonisolated var asFloatImage: FloatImage { FloatImage(width: qx, height: qy, pixels: pixels) }
-
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(qy: Int, qx: Int, pixels: [Float]) {
         self.qy = qy
