@@ -34,8 +34,10 @@ extension AppState {
     /// it: a 4D room in a spectrum-only window. Narrower than
     /// `!isWorkspaceAvailable` on purpose — with no document at all the
     /// sidebar's rooms stay selectable, as they were before the seventh room.
+    /// With a 4D cube and no spectrum image, Spectroscopy is withheld: it would open empty.
     func isWorkspaceWithheld(_ area: WorkspaceArea) -> Bool {
-        isSpectrumOnly && area.needsFourDCube
+        (isSpectrumOnly && area.needsFourDCube)
+            || (hasDataset && !hasSpectrumImage && area.needsSpectrumImage)
     }
 
     /// Opening a 4D file while this window holds only a spectrum image opens a
