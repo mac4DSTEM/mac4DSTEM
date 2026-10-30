@@ -64,13 +64,6 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     /// Which crystal shell the first observed ring was taken to be (nil for an estimate made against a caller-chosen reference shell).
     package let assignment: ShellAssignment.Assigned?
 
-    /// `medianAbsoluteDeviationPixels / observedRadiusPixels`. Computed and
-    /// exposed because it is free and a later design pass will need it; **no
-    /// threshold is applied to it** — see the note on `KnownCrystalQCalibration`.
-    package var shellConsistency: Double {
-        observedRadiusPixels > 0 ? medianAbsoluteDeviationPixels / observedRadiusPixels : .infinity
-    }
-
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck, sameShellPeaksPerPosition: Double, assignment: ShellAssignment.Assigned? = nil) {
         self.invAngstromPerPixel = invAngstromPerPixel
