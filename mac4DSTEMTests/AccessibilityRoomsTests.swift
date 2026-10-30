@@ -178,11 +178,4 @@ final class AccessibilityRoomsTests: XCTestCase {
         XCTAssertNil(RoomAccessibilityText.steppedSample(finiteIndices: [], current: nil, offset: 1))
     }
 
-    /// Mutation: lose the lower bound (zoom below 1 would shrink the shared panels), the upper bound, or swap in/out -> red.
-    func testSteppedZoomDoublesHalvesAndStaysInRange() {
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: true, maximum: 64), 2)
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(8, zoomIn: false, maximum: 64), 4)
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: false, maximum: 64), 1, "never below 1")
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(48, zoomIn: true, maximum: 64), 64, "never above the maximum")
-    }
 }

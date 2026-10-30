@@ -690,6 +690,10 @@ package actor H5Reader: FourDDataSource {
         }
     }
 
+    package func readStringAttribute(_ name: String, onObjectPath path: String = "/") -> String? {
+        stringAttribute(name, onPath: path)
+    }
+
     package func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
         switch try? reader.attribute(name, of: path) {
         case .real(let value)?: return value

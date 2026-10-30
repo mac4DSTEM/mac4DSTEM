@@ -220,61 +220,14 @@ package enum ReplayRecordFrameMap {
         case perPixelScale
     }
 
-    /// Every key the recording sites write, by kind. `nil` = unknown key.
+    /// Every key the recording sites write, by kind (`ReplayContract`). `nil` =
+    /// unknown key. g-vectors are DISPLACEMENTS: they scale with the pixel and
+    /// never see the crop offset, and are mapped even for a consensus-basis
+    /// step (where they are informational) so every carried number stays
+    /// frame-true. An unclassified key refuses the whole step on promote and
+    /// drops the recipe from a binned export.
     package static func role(kind: String, key: String) -> Role? {
-        switch kind {
-        case "virtual_detector":
-            switch key {
-            case "shape": .invariant
-            case "center_x": .positionX
-            case "center_y": .positionY
-            case "inner", "outer": .length
-            default: nil
-            }
-        case "dpc":
-            key == "origin_reference" ? .invariant : nil
-        case "disk_detection":
-            switch key {
-            case "corr_power", "subpixel", "upsample_factor",
-                 "min_relative_intensity", "relative_to_peak", "max_peaks",
-                 "kernel_source", "kernel_mode", "kernel_probe_path",
-                 "detector_class", "learned_threshold", "learned_model_sha256",
-                 "learned_model_origin", "learned_model_parent_sha256": .invariant
-            case "sigma_dp", "sigma_cc", "min_peak_spacing", "relative_reference_minimum_radius_px": .length
-            case "edge_boundary": .lengthInt
-            case "min_absolute_intensity": .absoluteIntensity
-            default: nil
-            }
-        case "strain":
-            switch key {
-            case "reference_mode", "basis_mode": .invariant
-            // g-vectors are DISPLACEMENTS: they scale with the pixel and
-            // never see the crop offset. Mapped even for a consensus-basis
-            // step (where they are informational) so every carried number
-            // stays frame-true.
-            // `input_g*` are the basis a manual run indexed with (recorded for
-            // the lineage rewind): the same displacements, so the same role. An
-            // unclassified key refuses the whole step on promote and drops the
-            // recipe from a binned export.
-            case "resolved_g1_x", "resolved_g1_y",
-                 "resolved_g2_x", "resolved_g2_y",
-                 "input_g1_x", "input_g1_y",
-                 "input_g2_x", "input_g2_y": .length
-            default: nil
-            }
-        case "acom":
-            switch key {
-            // lattice_a is in Å — frame-invariant. Missing from this table it
-            // would drop every custom-phase recipe from a binned export
-            // (refuter, Gate D).
-            case "material", "matching_backend", "scope", "quality", "lattice_a",
-                 "material_fingerprint", "refines_in_plane": .invariant
-            case "scale_inv_angstrom_per_pixel": .perPixelScale
-            default: nil
-            }
-        default:
-            nil
-        }
+        ReplayContract.entry(kind: kind)?.keys[key]?.role
     }
 
     /// Map one step. Total and explicit, like the parser: every value that
@@ -629,16 +582,9 @@ package struct PlannedReplayStep: Equatable {
 
 package enum ReplayPlanner {
 
-    /// Titles for the summary and progress UI, by recorded kind.
+    /// Titles for the summary and progress UI, by recorded kind (`ReplayContract`).
     package static func title(forKind kind: String) -> String {
-        switch kind {
-        case "virtual_detector": "Virtual detector"
-        case "dpc": "DPC"
-        case "disk_detection": "Bragg disk detection"
-        case "strain": "Strain mapping"
-        case "acom": "ACOM orientation mapping"
-        default: kind
-        }
+        ReplayContract.entry(kind: kind)?.title ?? kind
     }
 
     /// Parse a whole record against the frame it was recorded in. Rules that
@@ -699,190 +645,202 @@ package enum ReplayPlanner {
         }
     }
 
-    /// Parse one step. The keys and vocabularies are exactly what the
-    /// recording sites write (`AppState.recordReplayStep` call sites) — this
-    /// function must follow those sites, never lead them.
+    /// Parse one step with its kind's parser in `ReplayContract`. The keys and
+    /// vocabularies are exactly what the recording sites write
+    /// (`AppState.recordReplayStep` call sites) — the parsers must follow
+    /// those sites, never lead them.
     package static func parse(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
-        let p = step.parameters
-        switch step.kind {
-        case "virtual_detector":
-            guard let shapeText = p["shape"], let shape = VirtualShapeMode(rawValue: shapeText) else {
-                return refused(step, key: "shape", value: p["shape"])
-            }
-            guard let centerX = finiteFloat(p["center_x"]) else { return refused(step, key: "center_x", value: p["center_x"]) }
-            guard let centerY = finiteFloat(p["center_y"]) else { return refused(step, key: "center_y", value: p["center_y"]) }
-            guard let inner = finiteFloat(p["inner"]), inner >= 0 else { return refused(step, key: "inner", value: p["inner"]) }
-            guard let outer = finiteFloat(p["outer"]), outer >= inner else { return refused(step, key: "outer", value: p["outer"]) }
-            return .success(.virtualDetector(
-                shape: shape,
-                aperture: Aperture(centerX: centerX, centerY: centerY, inner: inner, outer: outer)
-            ))
-
-        case "dpc":
-            // The two strings `runDPC` writes, verbatim.
-            switch p["origin_reference"] {
-            case "calibrated origins": return .success(.dpc(wantsFittedOrigin: true))
-            case "global center": return .success(.dpc(wantsFittedOrigin: false))
-            default: return refused(step, key: "origin_reference", value: p["origin_reference"])
-            }
-
-        case "disk_detection":
-            // The kernel class is a detection parameter even though the
-            // struct does not carry it: the correlation response the
-            // thresholds were tuned against depends on it. A MEASURED kernel
-            // came from a vacuum ROI the recipe cannot carry, so replaying
-            // with the synthetic one would be a silent substitution — the
-            // exact class this executor bans (Gate A finding C3).
-            switch p["kernel_source"] {
-            case "synthetic":
-                break
-            case "measured_roi":
-                return .failure(ReplayRefusal(reason: "it detected disks with a probe kernel measured from a vacuum ROI, and the recipe cannot carry that measurement — measure a kernel on the promoted view, then run detection by hand"))
-            case "measured_file_probe":
-                // The probe image IS in the file (kernel_probe_path), so this
-                // could replay; it does not yet — the executor builds no
-                // kernel. Refused rather than substituted.
-                return .failure(ReplayRefusal(reason: "it detected disks with the file's own probe image as the kernel (\(p["kernel_probe_path"] ?? "")), which the replay does not rebuild yet — choose Use File's Probe on the promoted view, then run detection by hand"))
-            case "measured_vacuum_scan":
-                // The probe came from a SEPARATE vacuum scan the recipe cannot
-                // carry (only its file name, kernel_probe_path). Refused rather
-                // than substituted, like the vacuum-ROI case.
-                return .failure(ReplayRefusal(reason: "it detected disks with a probe measured from a separate vacuum scan (\(p["kernel_probe_path"] ?? "")), which the recipe cannot carry — load that vacuum scan as the probe on the promoted view, then run detection by hand"))
-            default:
-                return refused(step, key: "kernel_source", value: p["kernel_source"])
-            }
-            // Absent `detector_class` means classical: every recipe written
-            // before the learned detector shipped has no such key, and every
-            // one of them ran the classical detector — the only one that
-            // existed then.
-            let detector: ReplayStepPlan.DiskDetectorReplay
-            switch p["detector_class"] {
-            case nil, "classical":
-                detector = .init(detectorClass: .classical)
-            case "learned":
-                guard let learnedThreshold = finiteFloat(p["learned_threshold"]) else {
-                    return refused(step, key: "learned_threshold", value: p["learned_threshold"])
-                }
-                guard let sha = p["learned_model_sha256"], !sha.isEmpty else {
-                    return refused(step, key: "learned_model_sha256", value: p["learned_model_sha256"])
-                }
-                detector = .init(detectorClass: .learned, learnedThreshold: learnedThreshold, learnedModelSHA256: sha)
-            default:
-                return refused(step, key: "detector_class", value: p["detector_class"])
-            }
-            var params = DiskDetectionParams()
-            guard let corrPower = finiteFloat(p["corr_power"]) else { return refused(step, key: "corr_power", value: p["corr_power"]) }
-            guard let sigmaDP = finiteFloat(p["sigma_dp"]) else { return refused(step, key: "sigma_dp", value: p["sigma_dp"]) }
-            guard let sigmaCC = finiteFloat(p["sigma_cc"]) else { return refused(step, key: "sigma_cc", value: p["sigma_cc"]) }
-            guard let subpixelText = p["subpixel"],
-                  let subpixel = SubpixelMode.allCases.first(where: { $0.provenanceID == subpixelText }) else {
-                return refused(step, key: "subpixel", value: p["subpixel"])
-            }
-            guard let upsample = int(p["upsample_factor"]) else { return refused(step, key: "upsample_factor", value: p["upsample_factor"]) }
-            guard let minAbs = finiteFloat(p["min_absolute_intensity"]) else { return refused(step, key: "min_absolute_intensity", value: p["min_absolute_intensity"]) }
-            guard let minRel = finiteFloat(p["min_relative_intensity"]) else { return refused(step, key: "min_relative_intensity", value: p["min_relative_intensity"]) }
-            guard let relativeTo = int(p["relative_to_peak"]) else { return refused(step, key: "relative_to_peak", value: p["relative_to_peak"]) }
-            guard let spacing = finiteFloat(p["min_peak_spacing"]) else { return refused(step, key: "min_peak_spacing", value: p["min_peak_spacing"]) }
-            guard let edge = int(p["edge_boundary"]) else { return refused(step, key: "edge_boundary", value: p["edge_boundary"]) }
-            guard let maxPeaks = int(p["max_peaks"]) else { return refused(step, key: "max_peaks", value: p["max_peaks"]) }
-            params.corrPower = corrPower
-            params.sigmaDP = sigmaDP
-            params.sigmaCC = sigmaCC
-            params.subpixel = subpixel
-            params.upsampleFactor = upsample
-            params.minAbsoluteIntensity = minAbs
-            params.minRelativeIntensity = minRel
-            params.relativeToPeak = relativeTo
-            // Absent on every sidecar before 2026-09-15, and 0 is that
-            // rule (the brightest maximum anywhere), so absence replays.
-            if let raw = p["relative_reference_minimum_radius_px"] {
-                guard let radius = finiteFloat(raw), radius >= 0 else {
-                    return refused(step, key: "relative_reference_minimum_radius_px", value: raw)
-                }
-                params.relativeReferenceMinimumRadiusPx = radius
-            }
-            params.minPeakSpacing = spacing
-            params.edgeBoundary = edge
-            params.maxNumPeaks = maxPeaks
-            return .success(.diskDetection(params, detector: detector))
-
-        case "strain":
-            // Vocabulary shared with result provenance (Gate B-lite F10):
-            // "whole-scan"/"selected-region", "consensus"/"manual".
-            switch p["reference_mode"] {
-            case "whole-scan":
-                break
-            case "selected-region":
-                // The recipe records the MODE but not the region geometry, so
-                // there is nothing faithful to replay it against.
-                return .failure(ReplayRefusal(reason: "it used a selected-region reference and the recipe does not carry the region — pick the reference region on the promoted view and run strain by hand"))
-            default:
-                return refused(step, key: "reference_mode", value: p["reference_mode"])
-            }
-            switch p["basis_mode"] {
-            case "consensus":
-                return .success(.strain(.init(manualBasis: nil)))
-            case "manual":
-                guard let g1x = finiteFloat(p["resolved_g1_x"]) else { return refused(step, key: "resolved_g1_x", value: p["resolved_g1_x"]) }
-                guard let g1y = finiteFloat(p["resolved_g1_y"]) else { return refused(step, key: "resolved_g1_y", value: p["resolved_g1_y"]) }
-                guard let g2x = finiteFloat(p["resolved_g2_x"]) else { return refused(step, key: "resolved_g2_x", value: p["resolved_g2_x"]) }
-                guard let g2y = finiteFloat(p["resolved_g2_y"]) else { return refused(step, key: "resolved_g2_y", value: p["resolved_g2_y"]) }
-                return .success(.strain(.init(manualBasis: .init(g1x: g1x, g1y: g1y, g2x: g2x, g2y: g2y))))
-            default:
-                return refused(step, key: "basis_mode", value: p["basis_mode"])
-            }
-
-        case "acom":
-            guard let material = p["material"], !material.isEmpty else {
-                return refused(step, key: "material", value: p["material"])
-            }
-            guard let scale = finiteDouble(p["scale_inv_angstrom_per_pixel"]), scale > 0 else {
-                return refused(step, key: "scale_inv_angstrom_per_pixel", value: p["scale_inv_angstrom_per_pixel"])
-            }
-            // Scope and quality were recorded via `String(describing:)` — case
-            // names, not raw values — so they are parsed the same way.
-            guard let scopeText = p["scope"],
-                  let scope = ACOMRunScope.allCases.first(where: { String(describing: $0) == scopeText }) else {
-                return refused(step, key: "scope", value: p["scope"])
-            }
-            if scope == .selectedRegion {
-                return .failure(ReplayRefusal(reason: "it ran on a selected region and the recipe does not carry the region — select it on the promoted view and run ACOM by hand"))
-            }
-            guard let qualityText = p["quality"],
-                  let quality = ACOMQualityPreset.allCases.first(where: { String(describing: $0) == qualityText }) else {
-                return refused(step, key: "quality", value: p["quality"])
-            }
-            // Optional key: absent on records that predate it. Present but
-            // unparseable is a refusal like every other malformed value.
-            var latticeA: Double? = nil
-            if let text = p["lattice_a"] {
-                guard let value = finiteDouble(text), value > 0 else {
-                    return refused(step, key: "lattice_a", value: text)
-                }
-                latticeA = value
-            }
-            // Optional like `lattice_a`; present but empty is malformed.
-            var fingerprint: String? = nil
-            if let text = p["material_fingerprint"] {
-                guard !text.isEmpty else { return refused(step, key: "material_fingerprint", value: text) }
-                fingerprint = text
-            }
-            // Optional: absent means off; present must be "true".
-            var refines = false
-            if let text = p["refines_in_plane"] {
-                guard text == "true" else { return refused(step, key: "refines_in_plane", value: text) }
-                refines = true
-            }
-            var plan = ReplayStepPlan.ACOMReplayPlan(materialID: material, latticeA: latticeA, materialFingerprint: fingerprint,
-                                      scaleInvAngstromPerPixel: scale, scope: scope, quality: quality)
-            plan.refinesInPlaneAngle = refines
-            return .success(.acom(plan))
-
-        default:
+        guard let entry = ReplayContract.entry(kind: step.kind) else {
             // A kind this build does not know — a newer app's recipe, or a
             // hand-edited file. Refusing by name beats dropping it silently.
             return .failure(ReplayRefusal(reason: "this version of mac4DSTEM does not know how to replay a '\(step.kind)' step"))
         }
+        return entry.parse(step)
+    }
+
+    // MARK: - Per-kind parsers (the `ReplayContract` rows)
+
+    static func parseVirtualDetector(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+        let p = step.parameters
+        guard let shapeText = p["shape"], let shape = VirtualShapeMode(rawValue: shapeText) else {
+            return refused(step, key: "shape", value: p["shape"])
+        }
+        guard let centerX = finiteFloat(p["center_x"]) else { return refused(step, key: "center_x", value: p["center_x"]) }
+        guard let centerY = finiteFloat(p["center_y"]) else { return refused(step, key: "center_y", value: p["center_y"]) }
+        guard let inner = finiteFloat(p["inner"]), inner >= 0 else { return refused(step, key: "inner", value: p["inner"]) }
+        guard let outer = finiteFloat(p["outer"]), outer >= inner else { return refused(step, key: "outer", value: p["outer"]) }
+        return .success(.virtualDetector(
+            shape: shape,
+            aperture: Aperture(centerX: centerX, centerY: centerY, inner: inner, outer: outer)
+        ))
+    }
+
+    static func parseDPC(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+        let p = step.parameters
+        // The two strings `runDPC` writes, verbatim.
+        switch p["origin_reference"] {
+        case "calibrated origins": return .success(.dpc(wantsFittedOrigin: true))
+        case "global center": return .success(.dpc(wantsFittedOrigin: false))
+        default: return refused(step, key: "origin_reference", value: p["origin_reference"])
+        }
+    }
+
+    static func parseDiskDetection(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+        let p = step.parameters
+        // The kernel class is a detection parameter even though the
+        // struct does not carry it: the correlation response the
+        // thresholds were tuned against depends on it. A MEASURED kernel
+        // came from a vacuum ROI the recipe cannot carry, so replaying
+        // with the synthetic one would be a silent substitution — the
+        // exact class this executor bans (Gate A finding C3).
+        switch p["kernel_source"] {
+        case "synthetic":
+            break
+        case "measured_roi":
+            return .failure(ReplayRefusal(reason: "it detected disks with a probe kernel measured from a vacuum ROI, and the recipe cannot carry that measurement — measure a kernel on the promoted view, then run detection by hand"))
+        case "measured_file_probe":
+            // The probe image IS in the file (kernel_probe_path), so this
+            // could replay; it does not yet — the executor builds no
+            // kernel. Refused rather than substituted.
+            return .failure(ReplayRefusal(reason: "it detected disks with the file's own probe image as the kernel (\(p["kernel_probe_path"] ?? "")), which the replay does not rebuild yet — choose Use File's Probe on the promoted view, then run detection by hand"))
+        case "measured_vacuum_scan":
+            // The probe came from a SEPARATE vacuum scan the recipe cannot
+            // carry (only its file name, kernel_probe_path). Refused rather
+            // than substituted, like the vacuum-ROI case.
+            return .failure(ReplayRefusal(reason: "it detected disks with a probe measured from a separate vacuum scan (\(p["kernel_probe_path"] ?? "")), which the recipe cannot carry — load that vacuum scan as the probe on the promoted view, then run detection by hand"))
+        default:
+            return refused(step, key: "kernel_source", value: p["kernel_source"])
+        }
+        // Absent `detector_class` means classical: every recipe written
+        // before the learned detector shipped has no such key, and every
+        // one of them ran the classical detector — the only one that
+        // existed then.
+        let detector: ReplayStepPlan.DiskDetectorReplay
+        switch p["detector_class"] {
+        case nil, "classical":
+            detector = .init(detectorClass: .classical)
+        case "learned":
+            guard let learnedThreshold = finiteFloat(p["learned_threshold"]) else {
+                return refused(step, key: "learned_threshold", value: p["learned_threshold"])
+            }
+            guard let sha = p["learned_model_sha256"], !sha.isEmpty else {
+                return refused(step, key: "learned_model_sha256", value: p["learned_model_sha256"])
+            }
+            detector = .init(detectorClass: .learned, learnedThreshold: learnedThreshold, learnedModelSHA256: sha)
+        default:
+            return refused(step, key: "detector_class", value: p["detector_class"])
+        }
+        var params = DiskDetectionParams()
+        guard let corrPower = finiteFloat(p["corr_power"]) else { return refused(step, key: "corr_power", value: p["corr_power"]) }
+        guard let sigmaDP = finiteFloat(p["sigma_dp"]) else { return refused(step, key: "sigma_dp", value: p["sigma_dp"]) }
+        guard let sigmaCC = finiteFloat(p["sigma_cc"]) else { return refused(step, key: "sigma_cc", value: p["sigma_cc"]) }
+        guard let subpixelText = p["subpixel"],
+              let subpixel = SubpixelMode.allCases.first(where: { $0.provenanceID == subpixelText }) else {
+            return refused(step, key: "subpixel", value: p["subpixel"])
+        }
+        guard let upsample = int(p["upsample_factor"]) else { return refused(step, key: "upsample_factor", value: p["upsample_factor"]) }
+        guard let minAbs = finiteFloat(p["min_absolute_intensity"]) else { return refused(step, key: "min_absolute_intensity", value: p["min_absolute_intensity"]) }
+        guard let minRel = finiteFloat(p["min_relative_intensity"]) else { return refused(step, key: "min_relative_intensity", value: p["min_relative_intensity"]) }
+        guard let relativeTo = int(p["relative_to_peak"]) else { return refused(step, key: "relative_to_peak", value: p["relative_to_peak"]) }
+        guard let spacing = finiteFloat(p["min_peak_spacing"]) else { return refused(step, key: "min_peak_spacing", value: p["min_peak_spacing"]) }
+        guard let edge = int(p["edge_boundary"]) else { return refused(step, key: "edge_boundary", value: p["edge_boundary"]) }
+        guard let maxPeaks = int(p["max_peaks"]) else { return refused(step, key: "max_peaks", value: p["max_peaks"]) }
+        params.corrPower = corrPower
+        params.sigmaDP = sigmaDP
+        params.sigmaCC = sigmaCC
+        params.subpixel = subpixel
+        params.upsampleFactor = upsample
+        params.minAbsoluteIntensity = minAbs
+        params.minRelativeIntensity = minRel
+        params.relativeToPeak = relativeTo
+        // Absent on every sidecar before 2026-09-15, and 0 is that
+        // rule (the brightest maximum anywhere), so absence replays.
+        if let raw = p["relative_reference_minimum_radius_px"] {
+            guard let radius = finiteFloat(raw), radius >= 0 else {
+                return refused(step, key: "relative_reference_minimum_radius_px", value: raw)
+            }
+            params.relativeReferenceMinimumRadiusPx = radius
+        }
+        params.minPeakSpacing = spacing
+        params.edgeBoundary = edge
+        params.maxNumPeaks = maxPeaks
+        return .success(.diskDetection(params, detector: detector))
+    }
+
+    static func parseStrain(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+        let p = step.parameters
+        // Vocabulary shared with result provenance (Gate B-lite F10):
+        // "whole-scan"/"selected-region", "consensus"/"manual".
+        switch p["reference_mode"] {
+        case "whole-scan":
+            break
+        case "selected-region":
+            // The recipe records the MODE but not the region geometry, so
+            // there is nothing faithful to replay it against.
+            return .failure(ReplayRefusal(reason: "it used a selected-region reference and the recipe does not carry the region — pick the reference region on the promoted view and run strain by hand"))
+        default:
+            return refused(step, key: "reference_mode", value: p["reference_mode"])
+        }
+        switch p["basis_mode"] {
+        case "consensus":
+            return .success(.strain(.init(manualBasis: nil)))
+        case "manual":
+            guard let g1x = finiteFloat(p["resolved_g1_x"]) else { return refused(step, key: "resolved_g1_x", value: p["resolved_g1_x"]) }
+            guard let g1y = finiteFloat(p["resolved_g1_y"]) else { return refused(step, key: "resolved_g1_y", value: p["resolved_g1_y"]) }
+            guard let g2x = finiteFloat(p["resolved_g2_x"]) else { return refused(step, key: "resolved_g2_x", value: p["resolved_g2_x"]) }
+            guard let g2y = finiteFloat(p["resolved_g2_y"]) else { return refused(step, key: "resolved_g2_y", value: p["resolved_g2_y"]) }
+            return .success(.strain(.init(manualBasis: .init(g1x: g1x, g1y: g1y, g2x: g2x, g2y: g2y))))
+        default:
+            return refused(step, key: "basis_mode", value: p["basis_mode"])
+        }
+    }
+
+    static func parseACOM(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
+        let p = step.parameters
+        guard let material = p["material"], !material.isEmpty else {
+            return refused(step, key: "material", value: p["material"])
+        }
+        guard let scale = finiteDouble(p["scale_inv_angstrom_per_pixel"]), scale > 0 else {
+            return refused(step, key: "scale_inv_angstrom_per_pixel", value: p["scale_inv_angstrom_per_pixel"])
+        }
+        // Scope and quality were recorded via `String(describing:)` — case
+        // names, not raw values — so they are parsed the same way.
+        guard let scopeText = p["scope"],
+              let scope = ACOMRunScope.allCases.first(where: { String(describing: $0) == scopeText }) else {
+            return refused(step, key: "scope", value: p["scope"])
+        }
+        if scope == .selectedRegion {
+            return .failure(ReplayRefusal(reason: "it ran on a selected region and the recipe does not carry the region — select it on the promoted view and run ACOM by hand"))
+        }
+        guard let qualityText = p["quality"],
+              let quality = ACOMQualityPreset.allCases.first(where: { String(describing: $0) == qualityText }) else {
+            return refused(step, key: "quality", value: p["quality"])
+        }
+        // Optional key: absent on records that predate it. Present but
+        // unparseable is a refusal like every other malformed value.
+        var latticeA: Double? = nil
+        if let text = p["lattice_a"] {
+            guard let value = finiteDouble(text), value > 0 else {
+                return refused(step, key: "lattice_a", value: text)
+            }
+            latticeA = value
+        }
+        // Optional like `lattice_a`; present but empty is malformed.
+        var fingerprint: String? = nil
+        if let text = p["material_fingerprint"] {
+            guard !text.isEmpty else { return refused(step, key: "material_fingerprint", value: text) }
+            fingerprint = text
+        }
+        // Optional: absent means off; present must be "true".
+        var refines = false
+        if let text = p["refines_in_plane"] {
+            guard text == "true" else { return refused(step, key: "refines_in_plane", value: text) }
+            refines = true
+        }
+        var plan = ReplayStepPlan.ACOMReplayPlan(materialID: material, latticeA: latticeA, materialFingerprint: fingerprint,
+                                  scaleInvAngstromPerPixel: scale, scope: scope, quality: quality)
+        plan.refinesInPlaneAngle = refines
+        return .success(.acom(plan))
     }
 
     // MARK: - Parsing primitives

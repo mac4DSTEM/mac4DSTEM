@@ -347,11 +347,6 @@ extension RoomAccessibilityText {
         return indices[min(indices.count - 1, max(0, position + offset))]
     }
 
-    /// The comparison panels' shared zoom after a VoiceOver / keyboard zoom step: doubled or halved, between 1 and `maximum`.
-    static func steppedZoom(_ zoom: Double, zoomIn: Bool, maximum: Double) -> Double {
-        min(maximum, max(1, zoomIn ? zoom * 2 : zoom / 2))
-    }
-
     /// A saved product's state value: "Shown" for the product on screen, empty otherwise.
     static func shownValue(isCurrent: Bool) -> String { isCurrent ? "Shown" : "" }
 }
