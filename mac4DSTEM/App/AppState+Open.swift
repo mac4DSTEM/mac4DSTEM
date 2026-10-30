@@ -230,8 +230,6 @@ extension AppState {
         }
     }
 
-
-
     /// "Ignore Session Sidecar…" (Dataset menu) and the inspector's "Reopen Without This Session": ASKS, never
     /// acts (owner card Q2 a, 2026-10-04). The reopen replaces the dataset, so every product computed in this
     /// window and not saved to the session goes with it; the app has no "unsaved work" test, and a wrong
@@ -269,7 +267,6 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         return FileManager.default.fileExists(atPath: url.path) ? url.lastPathComponent : nil
     }
-
 
     func selectScan(x: Int, y: Int) {
         if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
@@ -1278,7 +1275,6 @@ extension AppState {
         }
     }
 
-
     func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
         calibrationSession.parkedRecordedOrigin = nil
@@ -1518,7 +1514,6 @@ extension AppState {
         rederiveDisplayedDPCForScaleChange()
     }
 
-
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
     /// Derived from the same DetectorShape as virtual diffraction so both
@@ -1529,7 +1524,5 @@ extension AppState {
             shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
         return VirtualDetector.makeMask(shape: shape, qy: d.ry, qx: d.rx).map { $0 != 0 }
     }
-
-
 
 }

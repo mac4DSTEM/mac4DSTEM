@@ -302,4 +302,3 @@ extension AppState {
         return plan.calibrationRefusal(against: resolved)
     }
 }
-

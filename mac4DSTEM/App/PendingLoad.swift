@@ -420,7 +420,6 @@ final class PendingLoad: Identifiable {
     }
 }
 
-
 /// Whether a cube may be held in memory (owner 2026-10-01). Pure over bytes and
 /// the machine's numbers, so the sheet, the commit and the tests agree. It
 /// lives here, not in `ResidencyAdmission`, whose `measuredWorkingSetFraction`

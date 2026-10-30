@@ -129,7 +129,6 @@ final class DiffractoOrientationAdoptionTests: XCTestCase {
         }
     }
 
-
     /// Negative control: the same check on wurtzite with one O moved off the 6mm positions (Laue class below 6/mmm) must FAIL
     /// the 622 invariance by a wide margin, or the check could not see a wrong reduction.
     func testQ1InvarianceCheckCanFailOnADistortedWurtzite() throws {
@@ -234,7 +233,6 @@ final class DiffractoOrientationAdoptionTests: XCTestCase {
                       atoms: [("Mg", 0, 0, 0, 1), ("Mg", 2.0 / 3, 1.0 / 3, 0.5, 1)])
         XCTAssertEqual(try CIFModelImport.crystalModel(from: hcp, fileBaseName: "hcp").symmetry, .hexagonal)
     }
-
 
     /// The kit's metric test for a monoclinic cell is 1e-9 degrees; `CrystalModel.validationIssues` keeps the old importer's
     /// 0.05 degrees (`CrystalModel.monoclinicAngleToleranceDeg`). Refuted at 37f0c0d3: a b-unique 2/m cell with beta in

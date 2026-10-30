@@ -135,7 +135,6 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
         )
     }
 
-
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double, wavelengthAngstrom: Double, originQX: Double, originQY: Double, rotationRad: Double, transpose: Bool) {
         self.scanSamplingAngstrom = scanSamplingAngstrom

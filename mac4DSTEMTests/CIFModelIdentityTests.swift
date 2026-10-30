@@ -26,7 +26,6 @@ func rdFPCases() -> [(String, String)] {
     ]
 }
 
-
 /// Refuter D, P3 (and the site ORDER behind it) on CIFs the lane did not use: P6_3/mmc with a 24-operation loop, NiAs written in
 /// both atom orders, NaCl and diamond Si with centring-only loops and the atoms listed in reverse, a b-unique monoclinic with a
 /// general position, a scrambled P1 fcc, magnesium written with 0.333. Expected strings are 7f192da9's own `CIFImport.crystalModel`

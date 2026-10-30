@@ -513,7 +513,6 @@ private extension JSONDecoder {
     }
 }
 
-
 // MARK: - Owner decision 2 (2026-09-30 night): "Fit anyway" survives a reopen
 //
 // The mark lives in `calibrationSession.provenance.ellipse`, which the sidecar

@@ -204,7 +204,6 @@ package nonisolated enum PtychographyReconstructor {
         }
     }
 
-
     /// The reconstruction is CuboPtycho's `SingleslicePtychography`: Float32 on vDSP's DFT where the detector size allows it
     /// (`reconstructSingle`, no position correction, as before), otherwise the kit's Double path (about twice the memory, so the
     /// working-set check is repeated for it). The app keeps its Float façade (input, options, result, error text) and the

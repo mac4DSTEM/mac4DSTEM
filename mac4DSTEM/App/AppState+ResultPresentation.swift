@@ -73,7 +73,6 @@ extension AppState {
         }
     }
 
-
     /// Test seam (review row 25): awaited after the pixels are computed and
     /// before the run lands, so a test can hold a quiet run back and force the
     /// ordering "commit lands first, the stale quiet run second" without sleeps.
@@ -168,7 +167,6 @@ extension AppState {
             if epoch == datasetSession.epoch { presentComputeFailure(error) }
         }
     }
-
 
     /// The measured beam radius the BF/ADF presets follow (polish lane F, S3):
     /// the Prepare calibration's probe radius, only when it is a usable number.
@@ -443,7 +441,6 @@ extension AppState {
         }
     }
 
-
     func showComputedProduct(_ product: ComputedProduct) {
         resultPresentation.inspectQualityField = false
         switch product {
@@ -504,7 +501,6 @@ extension AppState {
             sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
             extraProvenance: own.provenance, ownProvenanceOnly: true)
     }
-
 
 }
 
