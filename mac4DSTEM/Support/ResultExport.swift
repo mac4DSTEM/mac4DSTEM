@@ -712,13 +712,14 @@ extension AppState {
                 productMark = self.markLineageProductSaved(
                     productKind: scalarMap?.kind ?? rgbaMap?.kind ?? metadata.kind)
                 let recipe = replay.recordForSaving
+                let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
                 try await Task.detached(priority: .userInitiated) {
                     if let scalarMap {
                         try BraggVectorEMDWriter.mergeResultMap(
                             scalarMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
-                            loadSpecification: specification, replayRecord: recipe,
+                            loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                             cancellation: token, progress: progressUpdate
                         )
                     } else if let rgbaMap {
@@ -726,7 +727,7 @@ extension AppState {
                             rgbaMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
-                            loadSpecification: specification, replayRecord: recipe,
+                            loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                             cancellation: token, progress: progressUpdate
                         )
                     }
@@ -976,11 +977,12 @@ extension AppState {
             // recipe like every other rewrite. // v2 S5
             let specification = loadedView.specification
             let recipe = replay.recordForSaving
+            let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
             try await Task.detached(priority: .userInitiated) {
                 try BraggVectorEMDWriter.removeResult(
                     kind: saved.kind, qWidth: descriptor.qx, qHeight: descriptor.qy,
                     calibration: calibration, from: url,
-                    loadSpecification: specification, replayRecord: recipe,
+                    loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                     cancellation: token
                 )
             }.value
@@ -1211,6 +1213,7 @@ extension AppState {
         // The recipe travels with every publish, captured on the MainActor
         // before the detached write. // v2 S5
         let recipe = replay.recordForSaving
+        let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
         // Labels ride along the same way (C7 session 4); nil (an empty
         // store) tells `mergeCalibration` to preserve what the sidecar has.
         // Review 2026-10-02 a3: labels this view refused to restore are still in the sidecar, and a non-nil value
@@ -1235,7 +1238,7 @@ extension AppState {
                     try BraggVectorEMDWriter.mergeCalibration(
                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
                         to: url, loadSpecification: specification,
-                        replayRecord: recipe, diskCentreLabelsJSON: labelsJSON,
+                        replayRecord: recipe, source: sourceStamp, diskCentreLabelsJSON: labelsJSON,
                         cancellation: token
                     )
                 }.value

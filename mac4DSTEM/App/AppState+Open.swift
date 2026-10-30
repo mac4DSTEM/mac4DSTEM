@@ -1032,9 +1032,11 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetSession.epoch
+        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is refused here like an unreadable one.
+        let sourcePath = descriptor.filePath
         do {
             let snapshot = try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: sourcePath)
             }.value
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
