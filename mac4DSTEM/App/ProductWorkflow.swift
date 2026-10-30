@@ -490,6 +490,32 @@ enum ProductWorkflow {
         acomSignature: [String: String]?,
         diskPeaksProvenance: [String: String]? = nil
     ) -> [String: String]? {
+        let signature = settingsSignature(
+            for: mode, virtualDetectorShape: virtualDetectorShape, aperture: aperture,
+            dpcOriginReference: dpcOriginReference, diskKernel: diskKernel, diskParams: diskParams,
+            learnedDetectorParameters: learnedDetectorParameters, strainSignature: strainSignature,
+            acomSignature: acomSignature, diskPeaksProvenance: diskPeaksProvenance)
+        // The replay contract names which recorded keys the staleness check
+        // compares; a key outside it never takes part (`ReplayContractTests`
+        // holds each builder below to exactly that set).
+        guard let signature, let kind = mode.replayKind, let entry = ReplayContract.entry(kind: kind) else {
+            return signature
+        }
+        let compared = entry.signatureKeys
+        return signature.filter { compared.contains($0.key) }
+    }
+
+    /// The signature each kind's builder writes, before the contract's filter
+    /// (`ReplayContractTests` reads it to hold the builders to the table).
+    static func settingsSignature(
+        for mode: AnalysisMode,
+        virtualDetectorShape: String, aperture: Aperture,
+        dpcOriginReference: String,
+        diskKernel: ProbeKernel?, diskParams: DiskDetectionParams, learnedDetectorParameters: [String: String],
+        strainSignature: [String: String],
+        acomSignature: [String: String]?,
+        diskPeaksProvenance: [String: String]?
+    ) -> [String: String]? {
         switch mode {
         case .virtualDetector:
             return Aperture.replayParameters(shape: virtualDetectorShape, aperture: aperture)
