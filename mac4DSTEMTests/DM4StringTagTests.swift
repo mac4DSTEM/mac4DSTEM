@@ -13,7 +13,7 @@ import DSTEMCore
 /// decode as written.
 final class DM4StringTagTests: XCTestCase {
 
-    // MARK: Synthetic DM4 writer (version 4, little-endian, the cube of `FinalPolishDTests`)
+    // MARK: Synthetic DM4 writer (version 4, little-endian, the cube of `OpenFileLivenessTests`)
 
     private indirect enum Node {
         case int(String, Int32)

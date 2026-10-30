@@ -162,6 +162,39 @@ package enum ReplayContract {
                 "refines_in_plane": Key(.invariant, .compared, .read),
             ],
             parse: ReplayPlanner.parseACOM),
+        Entry(
+            kind: "ptychography", title: "Single-slice ptychography",
+            // `PtychographyReplayPlan.recordedParameters`. The controls and the
+            // probe radius are compared and put back; the calibration is what
+            // `resolve` built, which the replay checks against the session's
+            // and refuses on, so it is read but not compared (a calibration is
+            // not this task's setting).
+            keys: [
+                "iterations": Key(.invariant, .compared, .read),
+                "step_size": Key(.invariant, .compared, .read),
+                "normalization_minimum": Key(.invariant, .compared, .read),
+                "fix_probe": Key(.invariant, .compared, .read),
+                "constrain_object_amplitude": Key(.invariant, .compared, .read),
+                "pure_phase_object": Key(.invariant, .compared, .read),
+                "fix_probe_center_of_mass": Key(.invariant, .compared, .read),
+                "constrain_probe_amplitude": Key(.invariant, .compared, .read),
+                // Fractions of the probe's extent, not pixels.
+                "probe_amplitude_radius": Key(.invariant, .compared, .read),
+                "probe_amplitude_width": Key(.invariant, .compared, .read),
+                "defocus_angstrom": Key(.invariant, .compared, .read),
+                "c12a_angstrom": Key(.invariant, .compared, .read),
+                "c12b_angstrom": Key(.invariant, .compared, .read),
+                "probe_radius_px": Key(.length, .compared, .read),
+                // A scan crop keeps the scan sampling; there is no scan bin.
+                "scan_sampling_angstrom": Key(.invariant, .notCompared, .read),
+                "reciprocal_sampling_inv_angstrom_per_pixel": Key(.perPixelScale, .notCompared, .read),
+                "energy_ev": Key(.invariant, .notCompared, .read),
+                "origin_x_px": Key(.positionX, .notCompared, .read),
+                "origin_y_px": Key(.positionY, .notCompared, .read),
+                "rotation_rad": Key(.invariant, .notCompared, .read),
+                "transpose": Key(.invariant, .notCompared, .read),
+            ],
+            parse: ReplayPlanner.parsePtychography),
     ]
 
     /// The row for a recorded kind; nil for a kind this build does not record.

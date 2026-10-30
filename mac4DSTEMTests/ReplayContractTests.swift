@@ -38,8 +38,19 @@ final class ReplayContractTests: XCTestCase {
                 resolvedG1: (x: 10.5, y: 0.5), resolvedG2: (x: -0.5, y: 10),
                 inputBasis: (g1: (x: 10, y: 0), g2: (x: 0, y: 10))),
             "acom": acom,
+            "ptychography": ReplayStepPlan.PtychographyReplayPlan.recordedParameters(
+                settings: ptychographySettings, probeRadiusPixels: 9,
+                calibration: ParallaxPhysicalCalibration(
+                    scanSamplingAngstrom: 0.5, reciprocalSamplingInvAngstrom: 0.0125, energyEV: 80_000,
+                    wavelengthAngstrom: 0.0418, originQX: 30, originQY: 31.5, rotationRad: 0.2, transpose: false)),
         ]
     }
+
+    /// Non-default in every field, so dropping any key changes the plan.
+    private let ptychographySettings = ReplayStepPlan.PtychographyReplayPlan.Settings(
+        iterations: 3, stepSize: 0.25, normalizationMinimum: 0.5, fixProbe: true, constrainObjectAmplitude: false,
+        purePhaseObject: true, fixProbeCenterOfMass: true, constrainProbeAmplitude: true,
+        probeAmplitudeRadius: 0.4, probeAmplitudeWidth: 0.1, defocusAngstrom: -600, c12aAngstrom: 35, c12bAngstrom: -20)
 
     /// What `LearnedDetectionSession.replayParameters(for: .learned, ...)` writes
     /// for a fine-tuned model (the branch with every key).
@@ -130,7 +141,7 @@ final class ReplayContractTests: XCTestCase {
                     aperture: Aperture(centerX: 16, centerY: 16, inner: 0, outer: 4),
                     dpcOriginReference: "global center", diskKernel: kernel, diskParams: DiskDetectionParams(),
                     learnedDetectorParameters: learnedParameters, strainSignature: strain.currentReplaySignature,
-                    acomSignature: acom, diskPeaksProvenance: [:])
+                    acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings)
             }
             let built = try XCTUnwrap(signature(kernel: kernel), "\(kind): no signature")
             XCTAssertTrue(Set(built.keys).isSubset(of: entry.signatureKeys),
@@ -147,7 +158,7 @@ final class ReplayContractTests: XCTestCase {
                 aperture: Aperture(centerX: 16, centerY: 16, inner: 0, outer: 4),
                 dpcOriginReference: "global center", diskKernel: kernel, diskParams: DiskDetectionParams(),
                 learnedDetectorParameters: learnedParameters, strainSignature: strain.currentReplaySignature,
-                acomSignature: acom, diskPeaksProvenance: [:]), built,
+                acomSignature: acom, diskPeaksProvenance: [:], ptychographySettings: ptychographySettings), built,
                 "\(kind): the contract's filter dropped a key the builder writes")
         }
     }
@@ -159,6 +170,7 @@ final class ReplayContractTests: XCTestCase {
         XCTAssertEqual(ReplayPlanner.title(forKind: "disk_detection"), "Bragg disk detection")
         XCTAssertEqual(ReplayPlanner.title(forKind: "strain"), "Strain mapping")
         XCTAssertEqual(ReplayPlanner.title(forKind: "acom"), "ACOM orientation mapping")
+        XCTAssertEqual(ReplayPlanner.title(forKind: "ptychography"), "Single-slice ptychography")
         XCTAssertEqual(ReplayPlanner.title(forKind: "unknown_kind"), "unknown_kind")
     }
 }

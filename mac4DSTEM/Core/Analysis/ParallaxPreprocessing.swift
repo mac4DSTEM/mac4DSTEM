@@ -396,7 +396,7 @@ package nonisolated enum ParallaxPreprocessor {
     /// extent is the expression `FourDArray.scanTileRows` uses; at bin 1 it is
     /// the view's, so the rows are unchanged. No number depends on the
     /// grouping: both passes accumulate pattern by pattern in scan order.
-    /// `package` so `ReviewTileBudgetSiblingsTests` can pin it.
+    /// `package` so `TileReadBudgetSiblingTests` can pin it.
     package static func resolvedTileRows(
         view: LoadView, requested: Int?
     ) -> Int {

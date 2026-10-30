@@ -398,13 +398,19 @@ extension AppState {
         }
     }
 
-    func runSingleslicePtychography() async {
+    /// Returns the typed run verdict (`runVirtualDetector`'s note); a published
+    /// run records its replay step (`PtychographyReplayPlan.recordedParameters`)
+    /// from what it ran with: the options it handed the reconstructor, the
+    /// probe `prepare` received, the probe radius and the resolved calibration.
+    @discardableResult
+    func runSingleslicePtychography(replaying: Bool = false) async -> AnalysisRunOutcome {
         // As in `prepareParallaxPreview`: take the view from the array, so the
         // reader is told where the shape it is given sits in the file.
         guard let source = datasetSession.reader,
               let fourD = datasetSession.fourD, let descriptor else {
-            presentComputeFailure(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
-            return
+            let reason = "Open a 4D dataset before ptychographic reconstruction."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         let view = fourD.view
         let physical: ParallaxPhysicalCalibration
@@ -416,8 +422,9 @@ extension AppState {
             )
         } catch {
             presentPhaseContrastFailure(error)
-            return
+            return .failed(error.localizedDescription)
         }
+        let probeRadiusPixels = aperture.outer
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
@@ -439,7 +446,7 @@ extension AppState {
             prepareOptions.maxResidentBytes = phaseContrastWorkingLimitBytes
             let input = try await PtychographyPreparer.prepare(
                 source: source, view: view, calibration: physical,
-                probeRadiusPixels: aperture.outer, aberrations: aberrations, options: prepareOptions,
+                probeRadiusPixels: probeRadiusPixels, aberrations: aberrations, options: prepareOptions,
                 cancellation: token, progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
@@ -468,8 +475,8 @@ extension AppState {
                     progress: reconstructProgress
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
             // What the run started from is read back from the RESULT (the input `prepare` built), not from the settings, so a
@@ -479,12 +486,24 @@ extension AppState {
                 result.probeAberrations.defocusAngstrom,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
+            // Recipe step, after the publish (as DPC): the product on screen is this run's. The probe's higher-order terms are
+            // not carried: no control fills them (`PtychographySettings.setProbe`), so they are empty on every run.
+            recordReplayStep(
+                kind: "ptychography",
+                parameters: ReplayStepPlan.PtychographyReplayPlan.recordedParameters(
+                    settings: .init(options: result.options, probe: result.probeAberrations),
+                    probeRadiusPixels: probeRadiusPixels, calibration: physical),
+                replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch PtychographyReconstructor.ReconstructionError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Single-slice ptychography cancelled; prior result retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 

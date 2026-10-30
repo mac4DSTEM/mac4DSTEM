@@ -265,7 +265,7 @@ extension AppState {
     /// rows are unchanged.
     /// No number depends on the grouping: both kernels sum one scan position's
     /// own pattern (CuboKit's virtual-image reducers).
-    /// `static` and not private so `ReviewTileBudgetSiblingsTests` can pin it.
+    /// `static` and not private so `TileReadBudgetSiblingTests` can pin it.
     static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
         let readHeight = view.readDetectorCrop?.height ?? view.source.qy
         let readWidth = view.readDetectorCrop?.width ?? view.source.qx
