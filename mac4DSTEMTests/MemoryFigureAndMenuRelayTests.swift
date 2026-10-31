@@ -143,8 +143,20 @@ final class MemoryFigureAndMenuRelayTests: XCTestCase {
     /// Mutation it catches: a branch's text changed or dropped (strain with / without a residual,
     /// template), the strain branch no longer winning over the calibration branch, an origin or an
     /// ellipse part lost, the separator changed, or the residual's format changed (1.234 reads 1.23
-    /// at `%.3g`, 1.2 at `%.1f`; a round 0.5 could not tell them apart). `String(format:)` is not
-    /// locale-aware, so the decimals are the C ones on every Mac.
+    /// at `%.3g`, 1.2 at `%.1f`; a round 0.5 could not tell them apart). The unit tests run in en_US;
+    /// the comma case is `testTheLegendTextUsesTheLocaleDecimalMark`.
+    func testTheLegendTextUsesTheLocaleDecimalMark() {
+        let de = Locale(identifier: "de_DE")
+        XCTAssertEqual(
+            PatternFitOverlay.legendText(strain: strainOverlay(residual: 1.234), template: nil,
+                                         originPoint: nil, ellipse: [], locale: de),
+            "● measured  ✕ local fit  ⇢ reference · residual 1,23 px")
+        XCTAssertEqual(
+            PatternFitOverlay.legendText(strain: nil, template: templateOverlay(reliability: 0.8),
+                                         originPoint: nil, ellipse: [], locale: de),
+            "● measured  ✕ template · reliability 0,80")
+    }
+
     func testTheLegendTextBranches() {
         let marker = FitOverlays.Marker(x: 10, y: 10, weight: 1)
         XCTAssertEqual(

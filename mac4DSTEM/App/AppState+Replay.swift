@@ -199,9 +199,9 @@ extension AppState {
     func replayScaleRefusal(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
         let sessionScale = acomScaleSemantics.invAngstromPerPixel
         guard !acomPlan.agrees(withScaleInForce: sessionScale) else { return nil }
-        return String(
-            format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
-            acomPlan.scaleInvAngstromPerPixel, sessionScale)
+        return "the recipe matched at \(Num.sig(Double(acomPlan.scaleInvAngstromPerPixel), 6)) Å⁻¹/px "
+            + "but this session's scale is \(Num.sig(Double(sessionScale), 6)) Å⁻¹/px — matching at a different scale "
+            + "gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand"
     }
 
     /// Select the recorded phase model by id (never a fallback crystal), or
