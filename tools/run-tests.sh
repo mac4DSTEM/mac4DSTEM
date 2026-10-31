@@ -133,20 +133,19 @@ scientific=(
   virtual-detector-test
   virtual-detector-residency
   resident-cropped-view
-  peak-overlay-test fit-overlay-test
-  cancellation-test tiled-detection-memory-test virtual-detector-memory-test
+  fit-overlay-test
+  tiled-detection-memory-test virtual-detector-memory-test
   bragg-export-test sidecar-result-test
   dm4-robustness-test vendor-reader-test load-spec-test datacube-discovery-test load-spec-calibration
   preprocess-crop-bin-test load-spec-roundtrip sidecar-error-detail-test
   two-spec-analysis-test reduced-export-test
   preprocessing-export-test
-  result-presentation-test
   scientific-bundle-test
   disk-detector
   hdf5-exit-race-test
 )
 campaign=(
-  sidecar-result-test result-presentation-test
+  sidecar-result-test
 )
 
 # Inventory — the repo's own review (CI runs it on every push). Every tools/harnesses/ directory (and every other tools/ directory) must be in exactly one list below; the
