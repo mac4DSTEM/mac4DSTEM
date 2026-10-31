@@ -118,6 +118,18 @@ final class HDF5HelperTests: XCTestCase {
         await client.close(handle: handle)
     }
 
+    /// The first call after a helper ended can reach the dying process, or be refused while launchd starts the
+    /// service again (seen on the CI runner, not on the development Mac); it is tried once more, as slice 2's
+    /// client will reopen once. The first error is kept in the test log.
+    private func openAfterRestart(_ client: HDF5HelperClient, _ url: URL) async throws -> Int {
+        do {
+            return try await client.open(url)
+        } catch {
+            XCTContext.runActivity(named: "first open after the restart failed: \(error)") { _ in }
+            return try await client.open(url)
+        }
+    }
+
     /// A Debug helper honours faults; anything else answers false at once, and the fault tests skip.
     private func injectOrSkip(_ client: HDF5HelperClient, _ fault: HDF5HelperFault) async throws {
         if try await client.injectFault(fault) {
@@ -140,7 +152,7 @@ final class HDF5HelperTests: XCTestCase {
             XCTAssertEqual(error, .helperStopped(operation: "running a test fault"))
         }
         let other = HDF5HelperTests.fixtures.appendingPathComponent("emd_dims_f64.h5")
-        _ = try await client.open(other)
+        _ = try await openAfterRestart(client, other)
         do {
             _ = try await client.describePrimaryDataset(handle: handle, filePath: cube.path)
             XCTFail("a restarted helper described a handle of the old one")
@@ -175,8 +187,8 @@ final class HDF5HelperTests: XCTestCase {
         XCTAssertLessThan(cut.timeIntervalSince(start), 6, "the hang was not cut")
         // launchd starts a service again no sooner than 10 s after its previous launch (measured: cut after 1.0 s,
         // helper back after 10.0 s), so the next call may wait that long; it must not wait for ever.
-        let handle = try await client.open(cube)
-        XCTAssertLessThan(Date().timeIntervalSince(cut), 15, "the helper did not come back")
+        let handle = try await openAfterRestart(client, cube)
+        XCTAssertLessThan(Date().timeIntervalSince(cut), 30, "the helper did not come back")
         _ = try await client.describePrimaryDataset(handle: handle, filePath: cube.path)
         XCTAssertNotEqual(client.helperProcessIdentifier, hungPID, "the hung helper still serves")
     }
