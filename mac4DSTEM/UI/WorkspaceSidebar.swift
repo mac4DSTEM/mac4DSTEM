@@ -154,6 +154,9 @@ struct WorkspaceSidebar: View {
             }
         }
         .help(state.staleReason ?? "\(mode.productTitle) — \(mode.productSubtitle)")
+        // One element for the row that CONTAINS its children: without it the row's identifier below is pushed down onto every
+        // child and the stale glyph's own `task.<Task>.stale` is lost (a journey could not find it, 2026-10-30).
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
