@@ -327,6 +327,8 @@ nonisolated extension BraggVectorEMDWriter {
             lineage: lineage, lineageNote: lineageNote
         )
         snapshot.source = source
+        // Presence is the statement, read like the stamp: an unreadable one is absent, so the disks are refused, never misread.
+        snapshot.disksWithoutRecipe = ((try? file.stringAttribute(disksWithoutRecipeAttribute, at: rootPath)) ?? nil) != nil
         return snapshot
     }
 

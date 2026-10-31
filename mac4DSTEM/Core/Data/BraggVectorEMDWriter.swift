@@ -28,6 +28,7 @@ package nonisolated enum BraggVectorEMDWriter {
     static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
     static let lineageAttribute = SessionSidecarFormat.lineageAttribute
     static let sourceAttribute = SessionSidecarFormat.sourceAttribute
+    static let disksWithoutRecipeAttribute = SessionSidecarFormat.disksWithoutRecipeAttribute
     /// Why the last write left the lineage out, or nil when it wrote it (or had
     /// none). Written inside `writeFile` and read by `takeLineageOmission`,
     /// both under `HDF5Serial` — the lock every sidecar write already holds.
@@ -271,6 +272,7 @@ package nonisolated enum BraggVectorEMDWriter {
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
         source: SessionSourceStamp? = nil,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -297,6 +299,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -310,6 +313,7 @@ package nonisolated enum BraggVectorEMDWriter {
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
         source: SessionSourceStamp? = nil,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -329,6 +333,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -458,6 +463,7 @@ package nonisolated enum BraggVectorEMDWriter {
         source: SessionSourceStamp? = nil,
         diskCentreLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -472,6 +478,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     calibration: calibration, preserving: existing, removingKind: removingKind,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     diskCentreLabelsJSON: diskCentreLabelsJSON, supportedSchema: supportedSchema,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress
                 )
             }

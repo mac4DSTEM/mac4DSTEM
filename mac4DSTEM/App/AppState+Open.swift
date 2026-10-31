@@ -794,6 +794,8 @@ extension AppState {
     /// what vouched for the peaks) and the learned-detector record is not
     /// touched (`learnedDetection.record` is for a completed run). The read
     /// is off the main actor and epoch-guarded like the calibration restore.
+    /// A schema-5 sidecar has no record: its disks are adopted on the shape
+    /// checks alone, at whole file only, and the controls are left alone.
     func restoreSessionPeaks(
         from snapshot: SessionSidecarSnapshot?, for descriptor: DatasetDescriptor
     ) async -> String? {
@@ -802,9 +804,15 @@ extension AppState {
         if let reason = SessionPeakRestore.refusalBeforeReading(
             viewRecord: snapshot.viewRecord,
             loadedSpecification: loadedView.specification,
-            replay: snapshot.replayRecord
+            replay: snapshot.replayRecord,
+            schema: snapshot.schema,
+            disksWithoutRecipe: snapshot.disksWithoutRecipe
         ) { return reason }
-        guard let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord) else { return nil }
+        // Nil only for disks with no recipe behind them (a sidecar that
+        // predates the replay record, or one marked so by a later save): the
+        // refusal above returns for every other sidecar without a disk step.
+        // The marker wins over a step in the record beside it.
+        let step = snapshot.disksWithoutRecipe ? nil : SessionPeakRestore.diskStep(in: snapshot.replayRecord)
         let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetSession.epoch
         let grid: BraggVectorEMDWriter.StoredPeakGrid?
@@ -824,8 +832,18 @@ extension AppState {
             for: grid, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
             detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
         ) { return reason }
-        resultPresentation.setBraggVectors(grid.vectors)
+        // Without a recipe the disks are flagged, so they never read current
+        // and the next save marks them the same way (mac4DSTEM#61).
+        resultPresentation.setBraggVectors(grid.vectors, withoutRecipe: step == nil)
         resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
+        guard let step else {
+            // No recipe: the controls stay at the detector defaults, and the
+            // disks read as not produced by the current settings until a new
+            // detection runs.
+            return "Disks restored from an older session without a recipe — "
+                + "\(SystemMonitor.count(grid.vectors.totalPeakCount)) peaks; "
+                + "their detection settings were not recorded, so run disk detection again to use them for strain or orientation"
+        }
         // Only on adoption: the controls show what these disks were detected
         // with, so a kernel built later with the same class judges them
         // `.current` until the user changes a control. A refusal returned

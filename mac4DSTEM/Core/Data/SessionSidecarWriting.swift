@@ -29,6 +29,7 @@ nonisolated extension BraggVectorEMDWriter {
         source: SessionSourceStamp?,
         diskCentreLabelsJSON: String?,
         supportedSchema: Int,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -224,6 +225,23 @@ nonisolated extension BraggVectorEMDWriter {
         } else if replayRecord?.lineage != nil {
             lineageOmission = "The lineage was not saved — it could not be encoded."
         }
+        // Disks with no recipe behind them (`disksWithoutRecipeAttribute`):
+        // fresh vectors carry the caller's word; copied vectors carry the word
+        // of the file they are copied from, which says so either by this
+        // marker or by predating the replay record (no record, stamp below 6
+        // or none). Never inferred from the record being written: a current
+        // session's disks without a disk step stay refused, as before.
+        let disksWithoutRecipe: Bool
+        if vectors != nil {
+            disksWithoutRecipe = vectorsWithoutRecipe
+        } else if canCopyBragg, let existingFile {
+            disksWithoutRecipe = existingDisksLackRecipe(existingFile)
+        } else {
+            disksWithoutRecipe = false
+        }
+        if disksWithoutRecipe {
+            try setText(disksWithoutRecipeAttribute, "restored from a session saved before the replay record")
+        }
         // Same rule as the replay record immediately above: the caller's
         // live value wins, otherwise the labels already on the file survive
         // the rewrite. // C7 session 4
@@ -234,6 +252,16 @@ nonisolated extension BraggVectorEMDWriter {
         }
         progress?(1)
         try checkCancellation(cancellation)   // after the last progress tick: a cancel raised by it still stops before the publish
+    }
+
+    /// True when the stored disks of `file` have no recipe behind them: it carries the marker, or it predates the replay
+    /// record (`SessionPeakRestore.predatesReplayRecord`'s rule, read like the reader reads the stamp: garbage is absent).
+    static func existingDisksLackRecipe(_ file: SidecarFile) -> Bool {
+        if ((try? file.stringAttribute(disksWithoutRecipeAttribute, at: rootPath)) ?? nil) != nil { return true }
+        if ((try? file.stringAttribute(replayRecordAttribute, at: rootPath)) ?? nil) != nil { return false }
+        let stamp = ((try? file.stringAttribute(schemaAttribute, at: rootPath)) ?? nil).flatMap { Int($0) }
+        guard let stamp else { return true }
+        return stamp < SessionViewRecord.firstSchemaThatRecordsTheView
     }
 
     /// The app's calibration as the kit's EMD calibration (py4DSTEM's `Calibration` entries). The rotation in degrees is the kit's

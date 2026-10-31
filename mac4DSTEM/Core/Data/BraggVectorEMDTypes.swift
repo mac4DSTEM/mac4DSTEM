@@ -225,6 +225,11 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
     /// Which source the sidecar says it belongs to; nil when the file carries no stamp (written before 2026-10-30) or an
     /// unreadable one (read like the schema stamp: garbage is absent).
     package var source: SessionSourceStamp? = nil
+
+    /// True when the file says its stored disks have no recipe behind them
+    /// (`SessionSidecarFormat.disksWithoutRecipeAttribute`): restored from a
+    /// schema-5 session and saved again with no detection run since.
+    package var disksWithoutRecipe = false
 }
 
 /// The source a session sidecar belongs to (`SessionSidecarFormat.sourceAttribute`). A sidecar is named after the source's

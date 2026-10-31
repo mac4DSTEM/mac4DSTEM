@@ -75,6 +75,16 @@ package nonisolated enum SessionSidecarFormat {
     /// `scan.dm4` and `scan.h5` beside each other share one `scan.mac4dstem.h5`; the stamp says which of them wrote it.
     /// Additive and safe to ignore, so the minimum-reader marker does not move with it (the schema-7 precedent above).
     package static let sourceAttribute = "mac4dstem_source"
+
+    /// Root attribute present when the stored Bragg disks have no recipe behind them: they were restored from a session
+    /// saved before the replay record (schema 5) and no detection has run since. Without it, the next save stamps the
+    /// current schema over disks no recipe step vouches for, and the reopen refuses them as "a recipe that moved on".
+    /// With it, the reopen restores them the way it restored them from the schema-5 file: on the scan and detector
+    /// shape checks alone, never as current. Written by the writer, never by hand: on fresh vectors the caller says so,
+    /// on copied vectors the file being replaced decides. Additive and safe to ignore, so neither the schema nor the
+    /// minimum-reader marker moves with it: an older reader refuses the disks, or, where a later disk step is recorded
+    /// beside them, reads the file exactly as it read the same file written before this marker existed.
+    package static let disksWithoutRecipeAttribute = "mac4dstem_disks_without_recipe"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)
