@@ -178,7 +178,8 @@ extension ReplayStepPlan {
         }
 
         package var calibration: Calibration
-        /// Alignment levels completed (0: preprocessed only).
+        /// Alignment levels completed (0: preprocessed only). A consistency check on the record (the stop's passes,
+        /// a later stage needs a level), not what a partial replay runs to: that is `alignmentStop`.
         package var alignmentLevels: Int
         /// The whole bin schedule was aligned.
         package var alignmentComplete: Bool
@@ -222,11 +223,23 @@ extension ReplayStepPlan {
             return nil
         }
 
+        /// Why a partial alignment cannot replay on any schedule, before anything runs: a bin schedule holds whole
+        /// detector pixels, so a stop that is not one (an export binned past it) matches no level. Nil otherwise;
+        /// the schedule-dependent check is `replayLevelCount`.
+        package var alignmentStopUnreachable: String? {
+            guard !alignmentComplete, alignmentLevels > 0, let alignmentStop else { return nil }
+            guard alignmentStop.bin < 1 || alignmentStop.bin.rounded() != alignmentStop.bin else { return nil }
+            return alignmentStopRefusal(schedule: [])
+        }
+
         /// The refusal for `replayLevelCount` nil, naming the stop and this view's schedule.
         package func alignmentStopRefusal(schedule: [Int]) -> String {
             let stop = alignmentStop.map {
                 String(format: "bin %g px after %d pass%@", $0.bin, $0.passes, $0.passes == 1 ? "" : "es")
             } ?? "an unrecorded bin"
+            if schedule.isEmpty {
+                return "the recipe stopped its parallax alignment at \(stop), which is not a whole detector pixel in this view, so no bin schedule reaches it — align parallax by hand"
+            }
             let bins = schedule.map(String.init).joined(separator: ", ")
             return "the recipe stopped its parallax alignment at \(stop), which this view's bin schedule (\(bins)) does not reach the same way — align parallax by hand"
         }

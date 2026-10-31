@@ -90,6 +90,12 @@ final class ParallaxAlignmentStopTests: XCTestCase {
         guard case .parallax(let exported) = try ReplayPlanner.parse(mapped).get() else { throw NotAParallaxPlan() }
         XCTAssertEqual(exported.alignmentStop, .init(bin: 0.5, passes: 1))
         XCTAssertNil(exported.replayLevelCount(schedule: [2, 1, 1]))
+        let reason = try XCTUnwrap(exported.alignmentStopUnreachable, "a fractional stop is refused before anything runs")
+        XCTAssertTrue(reason.contains("bin 0.5 px"), reason)
+        XCTAssertNil(partial([4, 2, 1]).alignmentStopUnreachable, "a whole-pixel stop is checked against the schedule")
+        var complete = exported
+        complete.alignmentComplete = true
+        XCTAssertNil(complete.alignmentStopUnreachable)
     }
 
     /// The stop is required with a level and refused without one.
@@ -125,12 +131,11 @@ final class ParallaxAlignmentStopTests: XCTestCase {
         outcome = await state.alignParallaxNextLevel()
         XCTAssertEqual(outcome, .published, state.statusText)
         let schedule = try XCTUnwrap(state.phaseContrast.parallaxAlignment?.alignmentSchedule)
-        try XCTSkipUnless(schedule.count >= 3, "the demo schedule is too short to tell a count from a bin")
+        XCTAssertGreaterThanOrEqual(schedule.count, 2, "the demo schedule must be long enough to tell a count from a bin")
         var plan = try XCTUnwrap(state.phaseContrast.parallaxReplayPlan)
         XCTAssertEqual(plan.alignmentStop, .init(bin: Double(schedule[0]), passes: 1))
 
         plan.alignmentLevels = 2   // a count that disagrees with the stop: the stop decides
-        state.resetParallaxAlignment()
         outcome = await state.runParallaxReplay(plan)
         XCTAssertEqual(outcome, .published, state.statusText)
         XCTAssertEqual(state.phaseContrast.parallaxAlignment?.completedBins, [schedule[0]])
