@@ -202,6 +202,12 @@ nonisolated extension BraggVectorEMDWriter {
         if let pull = calibration.originMaps?.windowPullBoundPixels, pull.isFinite, pull >= 0 {
             try setText(SessionSidecarFormat.originWindowPullAttribute, String(pull))
         }
+        if let stop = calibration.originMaps?.beamStopCoversBeam {
+            try setText(SessionSidecarFormat.originBeamStopAttribute, stop ? "true" : "false")
+        }
+        if let fallback = calibration.originMaps?.friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
+            try setText(SessionSidecarFormat.originFriedelFallbackAttribute, String(fallback))
+        }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
         let recordJSON = replayRecord.flatMap { $0.isEmpty ? nil : $0.jsonString }

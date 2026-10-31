@@ -562,6 +562,16 @@ nonisolated extension BraggVectorEMDWriter {
                let pull = Double(text), pull.isFinite, pull >= 0 {
                 calibration.originMaps?.windowPullBoundPixels = pull
             }
+            // The beam-stop test, the same way: absent or unreadable is unknown.
+            switch (try? file.stringAttribute(SessionSidecarFormat.originBeamStopAttribute, at: rootPath)) ?? nil {
+            case "true": calibration.originMaps?.beamStopCoversBeam = true
+            case "false": calibration.originMaps?.beamStopCoversBeam = false
+            default: break
+            }
+            if let text = (try? file.stringAttribute(SessionSidecarFormat.originFriedelFallbackAttribute, at: rootPath)) ?? nil,
+               let fallback = Double(text), fallback.isFinite, fallback >= 0 {
+                calibration.originMaps?.friedelFallbackResidualPixels = fallback
+            }
         }
         let hasValue = calibration.rSize != nil || calibration.rUnits != nil
             || calibration.qSize != nil || calibration.qUnits != nil
