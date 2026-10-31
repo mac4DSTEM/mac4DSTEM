@@ -73,18 +73,20 @@ extension AppState {
         // frames is real math for a session that wants it; recorded in
         // docs/open-items.md, not improvised here.
         //
-        // A thinned scan or a cropped detector moves positions the frame table
-        // has no role for (it knows the bin, not a stride or a crop offset), so
-        // the recipe is left out by name rather than stamped in a frame the
-        // file is not in (X2).
-        let (mappedRecipe, recipeOmission) = options.reframesRecipe && !(replay.recordForSaving?.isEmpty ?? true)
-            ? (nil, "the export thins the scan or crops the detector, which the recipe's frame table does not describe")
-            : ReplayRecordFrameMap.exportableRecipe(
-                record: replay.recordForSaving,
-                recordedFrame: replay.parameterFrame,
-                currentSpecification: loadedView.specification,
-                exportBin: options.qBin
-            )
+        // A thinned scan moves no detector-frame number (like a scan crop), so
+        // the recipe goes as it is. A cropped detector moves positions by the
+        // crop's offset before the bin, which the export transform applies in
+        // the writer's own order (crop, then bin).
+        let (mappedRecipe, recipeOmission) = ReplayRecordFrameMap.exportableRecipe(
+            record: replay.recordForSaving,
+            recordedFrame: replay.parameterFrame,
+            currentSpecification: loadedView.specification,
+            exportBin: options.qBin,
+            cropXOffset: options.qCropX?.lowerBound ?? 0,
+            cropYOffset: options.qCropY?.lowerBound ?? 0,
+            exportedWidth: (options.qCropX?.count ?? view.descriptor.qx) / max(options.qBin, 1),
+            exportedHeight: (options.qCropY?.count ?? view.descriptor.qy) / max(options.qBin, 1)
+        )
         runDataCubeWrite(
             DataCubeWriteRequest(
                 source: source, view: view, calibration: snapshot,

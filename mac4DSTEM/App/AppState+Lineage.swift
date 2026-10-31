@@ -79,15 +79,38 @@ extension AppState {
     /// product between fit and drag the manual record overwrites that node in
     /// place, and a search of the lineage would find only "manual".
     func recordOriginRestoredRun(fitParameters: [String: String]? = nil) {
-        let captured = fitParameters.flatMap { $0["method"] == "manual" ? nil : $0 }
+        func isFit(_ p: [String: String]) -> Bool {
+            p["method"] != "manual" && p["method"] != Self.clearedCalibrationValue
+        }
+        let captured = fitParameters.flatMap { isFit($0) ? $0 : nil }
         var parameters = captured ?? replay.lineage.nodes
-            .last { $0.kind == "calibration_origin" && $0.parameters["method"] != "manual" }?
+            .last { $0.kind == "calibration_origin" && isFit($0.parameters) }?
             .parameters ?? ["method": "restored", OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"]
         if let origin = calibrationSession.calibration.meanOrigin {
             parameters["origin_x_px"] = String(origin.x)
             parameters["origin_y_px"] = String(origin.y)
         }
         recordLineageRun(kind: "calibration_origin", parameters: parameters)
+    }
+
+    /// The calibration kinds Clear Calibration takes away, in dependency order.
+    static let clearedCalibrationKinds = ["calibration_origin", "calibration_ellipse", "calibration_q"]
+
+    /// The `source` (ellipse, Q) or `method` (origin) of a node Clear Calibration recorded.
+    static let clearedCalibrationValue = SessionLineage.clearedCalibrationValue
+
+    /// Prepare's Clear Calibration just took the calibration away. Each kind the
+    /// lineage held a node of gets a "cleared" node, so a product that stood on
+    /// the old calibration reads stale ("Computed with different … calibration")
+    /// instead of current against a calibration that is gone. A rewind onto a
+    /// cleared ellipse or Q node clears the value again (`preparedRestore`).
+    func recordCalibrationClearedRuns(kinds: [String]) {
+        for kind in kinds {
+            let parameters = kind == "calibration_origin"
+                ? ["method": Self.clearedCalibrationValue, OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"]
+                : ["source": Self.clearedCalibrationValue]
+            recordLineageRun(kind: kind, parameters: parameters)
+        }
     }
 
     /// The ellipse in `calibrationSession` was just fitted or typed.
@@ -316,7 +339,10 @@ extension AppState {
         case .dpc: replay.record.steps.contains { $0.kind == "dpc" }
         case .diffractionGroups: diffractionGroups.result != nil
         case .phaseMapping: phaseMapping.map != nil
-        case .ptychography, .singleslicePtychography: false
+        // Parallax holds its run from the preprocess on (every later stage stands on it); single-slice ptychography holds
+        // its reconstruction. Both record a step and carry a signature, so the row judges them like any other task.
+        case .ptychography: phaseContrast.parallaxPreprocess != nil
+        case .singleslicePtychography: phaseContrast.singleslicePtychography != nil
         }
     }
 
@@ -392,6 +418,9 @@ extension AppState {
         case acom(ReplayStepPlan.ACOMReplayPlan)
         case ellipse(a: Double, b: Double, thetaDegrees: Double, provenance: CalibrationValueProvenance?)
         case qScale(size: Double, units: String?, provenance: CalibrationValueProvenance?)
+        /// A Clear Calibration node: no ellipse / no Q scale.
+        case clearEllipse
+        case clearQScale
     }
 
     /// Rewind to run `step` (ADR 047 R4 and its L4 amendment): put the settings
@@ -444,13 +473,21 @@ extension AppState {
         // gets every orientation wrong with nothing to catch it. A Q scale this
         // same rewind restores counts as the scale that will be in force.
         var expectedScale = acomScaleSemantics.invAngstromPerPixel
-        for case .qScale(let size, let units, _) in restores {
-            let wavelength = calibrationSession.acceleratingVoltage.flatMap {
-                DPC.electronWavelengthAngstrom(voltageKV: $0)
-            }
-            if let physical = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
-                value: size, units: units, wavelengthAngstrom: wavelength) {
-                expectedScale = physical
+        for restore in restores {
+            switch restore {
+            case .qScale(let size, let units, _):
+                let wavelength = calibrationSession.acceleratingVoltage.flatMap {
+                    DPC.electronWavelengthAngstrom(voltageKV: $0)
+                }
+                if let physical = CalibrationUnitConversion.reciprocalInvAngstromPerPixel(
+                    value: size, units: units, wavelengthAngstrom: wavelength) {
+                    expectedScale = physical
+                }
+            case .clearQScale:
+                // No Q: ACOM matches on the exploratory scale (`acomScaleSemantics`).
+                expectedScale = acomSession.exploratoryScale
+            default:
+                break
             }
         }
         for case .acom(let acomPlan) in restores {
@@ -508,6 +545,20 @@ extension AppState {
                 calibrationSession.calibration.qPixelSize = size
                 calibrationSession.calibration.qPixelUnits = units
                 if let provenance { calibrationSession.provenance.qScale = provenance }
+                phaseContrast.parallaxPreprocess = nil
+                phaseContrast.parallaxAlignment = nil
+                rederiveDisplayedDPCForScaleChange()
+            case .clearEllipse:
+                calibrationSession.calibration.ellipseA = nil
+                calibrationSession.calibration.ellipseB = nil
+                calibrationSession.calibration.ellipseTheta = nil
+                calibrationSession.provenance.ellipse = nil
+                calibrationSession.lastEllipseFit = nil
+                calibrationSession.ellipseFitAnywayOffer = nil
+            case .clearQScale:
+                calibrationSession.calibration.qPixelSize = nil
+                calibrationSession.calibration.qPixelUnits = nil
+                calibrationSession.provenance.qScale = nil
                 phaseContrast.parallaxPreprocess = nil
                 phaseContrast.parallaxAlignment = nil
                 rederiveDisplayedDPCForScaleChange()
@@ -631,9 +682,13 @@ extension AppState {
             case .acom(let acomPlan):
                 if let reason = replayMaterialRefusal(acomPlan) { return failure(reason) }
                 return .success(.acom(acomPlan))
-            case .dpc, .ptychography:
+            case .dpc, .ptychography, .parallax:
                 return .success(nil)
             }
+        case "calibration_ellipse" where p["source"] == Self.clearedCalibrationValue:
+            return .success(calibrationSession.calibration.ellipseA == nil ? nil : .clearEllipse)
+        case "calibration_q" where p["source"] == Self.clearedCalibrationValue:
+            return .success(calibrationSession.calibration.qPixelSize == nil ? nil : .clearQScale)
         case "calibration_ellipse":
             guard let a = p["a_px"].flatMap(Double.init), let b = p["b_px"].flatMap(Double.init),
                   let theta = p["theta_deg"].flatMap(Double.init),

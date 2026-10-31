@@ -346,10 +346,6 @@ package nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable 
         guard stride > 0 else { return [] }
         return (0..<(range.count / stride)).map { range.lowerBound + $0 * stride }
     }
-
-    /// True when the export changes the detector frame or thins the scan in a
-    /// way the replay recipe's frame table does not describe.
-    package var reframesRecipe: Bool { scanStride != 1 || qCropY != nil || qCropX != nil }
 }
 
 package nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
