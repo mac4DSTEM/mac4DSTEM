@@ -805,11 +805,14 @@ extension AppState {
             viewRecord: snapshot.viewRecord,
             loadedSpecification: loadedView.specification,
             replay: snapshot.replayRecord,
-            schema: snapshot.schema
+            schema: snapshot.schema,
+            disksWithoutRecipe: snapshot.disksWithoutRecipe
         ) { return reason }
-        // Nil only for a sidecar that predates the replay record (schema 5):
-        // the refusal above returns for every other sidecar without a disk step.
-        let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord)
+        // Nil only for disks with no recipe behind them (a sidecar that
+        // predates the replay record, or one marked so by a later save): the
+        // refusal above returns for every other sidecar without a disk step.
+        // The marker wins over a step in the record beside it.
+        let step = snapshot.disksWithoutRecipe ? nil : SessionPeakRestore.diskStep(in: snapshot.replayRecord)
         let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetSession.epoch
         let grid: BraggVectorEMDWriter.StoredPeakGrid?
@@ -829,7 +832,9 @@ extension AppState {
             for: grid, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
             detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
         ) { return reason }
-        resultPresentation.setBraggVectors(grid.vectors)
+        // Without a recipe the disks are flagged, so they never read current
+        // and the next save marks them the same way (mac4DSTEM#61).
+        resultPresentation.setBraggVectors(grid.vectors, withoutRecipe: step == nil)
         resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
         guard let step else {
             // No recipe: the controls stay at the detector defaults, and the

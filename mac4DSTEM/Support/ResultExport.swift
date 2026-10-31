@@ -683,6 +683,9 @@ extension AppState {
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let pixelCalibration = sessionPixelCalibration(descriptor: descriptor)
         let vectors = resultPresentation.braggVectors
+        // Disks restored without a recipe are saved as such, or the reopen
+        // after this save refuses them (mac4DSTEM#61).
+        let vectorsWithoutRecipe = resultPresentation.braggVectorsWithoutRecipe
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Session sidecar", status: "Saving \(metadata.displayName)…"
@@ -720,6 +723,7 @@ extension AppState {
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
                             loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
+                            vectorsWithoutRecipe: vectorsWithoutRecipe,
                             cancellation: token, progress: progressUpdate
                         )
                     } else if let rgbaMap {
@@ -728,6 +732,7 @@ extension AppState {
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
                             loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
+                            vectorsWithoutRecipe: vectorsWithoutRecipe,
                             cancellation: token, progress: progressUpdate
                         )
                     }
