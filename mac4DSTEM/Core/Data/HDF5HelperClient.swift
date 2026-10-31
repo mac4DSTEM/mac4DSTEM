@@ -134,11 +134,18 @@ package nonisolated final class HDF5HelperClient: @unchecked Sendable {
         }
     }
 
-    /// Opens `url` in the helper; the handle names it in later calls.
+    /// Opens `url` in the helper; the handle names it in later calls. The file crosses as a bookmark
+    /// (`HDF5HelperBookmark`), made here while the app can read the file: call it while accessing a security-scoped URL.
     package func open(_ url: URL) async throws -> Int {
         let seconds = seconds
+        let bookmark: Data
+        do {
+            bookmark = try HDF5HelperBookmark.make(url)
+        } catch {
+            throw HDF5HelperError.refused("The file could not be passed to the HDF5 reader: \(error.localizedDescription)")
+        }
         return try await call("opening the file") { helper, done in
-            helper.open(url: url, seconds: seconds) { handle, sentence in
+            helper.open(bookmark: bookmark, seconds: seconds) { handle, sentence in
                 if handle > 0 { done(.success(handle)) } else { done(.failure(.refused(sentence ?? "The file could not be opened."))) }
             }
         }

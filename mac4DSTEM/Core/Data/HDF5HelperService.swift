@@ -12,7 +12,14 @@ package nonisolated final class HDF5HelperService: NSObject, HDF5HelperXPC, @unc
     /// True in the helper process: a watchdog that fires and an injected fault end the process. False in process.
     private let isolated: Bool
     private let lock = NSLock()
-    private var readers: [Int: H5Reader] = [:]
+    private var readers: [Int: OpenFile] = [:]
+
+    /// A file the helper holds: the reader, and the security scope it opened the file under.
+    private struct OpenFile {
+        let reader: H5Reader
+        let url: URL
+        let scoped: Bool
+    }
     /// Every libhdf5 call of this process, one at a time in arrival order (libhdf5 is serial anyway). The watchdog of
     /// a call starts when its turn comes, so waiting behind another client's long read never counts against it.
     private let work = DispatchQueue(label: "HDF5HelperService.work", qos: .userInitiated)
@@ -54,23 +61,33 @@ package nonisolated final class HDF5HelperService: NSObject, HDF5HelperXPC, @unc
         }
     }
 
-    package func open(url: URL, seconds: Double, reply: @escaping @Sendable (Int, String?) -> Void) {
-        let path = url.path
+    package func open(bookmark: Data, seconds: Double, reply: @escaping @Sendable (Int, String?) -> Void) {
         let outcome = Outcome<(Int, String?)>((0, "The file could not be opened."))
         watched(seconds, { [self] in
+            let url: URL
             do {
-                let reader = try H5Reader(path: path)
+                url = try HDF5HelperBookmark.resolve(bookmark)
+            } catch {
+                outcome.set((0, "The HDF5 reader could not reach the file: \(error.localizedDescription)"))
+                return
+            }
+            // Held for as long as the file is open; released by `close` (false when the URL needs no scope, as in
+            // process or for a file the helper may read anyway).
+            let scoped = url.startAccessingSecurityScopedResource()
+            do {
+                let reader = try H5Reader(path: url.path)
                 let handle = newHandle()
-                lock.withLock { readers[handle] = reader }
+                lock.withLock { readers[handle] = OpenFile(reader: reader, url: url, scoped: scoped) }
                 outcome.set((handle, nil))
             } catch {
+                if scoped { url.stopAccessingSecurityScopedResource() }
                 outcome.set((0, error.localizedDescription))
             }
         }, reply: { let (handle, sentence) = outcome.value; reply(handle, sentence) })
     }
 
     package func describePrimaryDataset(handle: Int, seconds: Double, reply: @escaping @Sendable (Data?, String?) -> Void) {
-        guard let reader = lock.withLock({ readers[handle] }) else {
+        guard let reader = lock.withLock({ readers[handle]?.reader }) else {
             reply(nil, Self.unknownHandle)
             return
         }
@@ -89,8 +106,11 @@ package nonisolated final class HDF5HelperService: NSObject, HDF5HelperXPC, @unc
     /// libhdf5, which can hang like any other call.
     package func close(handle: Int, reply: @escaping @Sendable () -> Void) {
         watched(5, { [self] in
-            let reader = lock.withLock { readers.removeValue(forKey: handle) }
-            _ = reader   // released here, at the end of this closure
+            var file = lock.withLock { readers.removeValue(forKey: handle) }
+            let access = file.map { ($0.url, $0.scoped) }
+            file = nil   // usually the reader's last reference; a finishing describe task may hold it a moment longer,
+                         // which is harmless: ending the scope does not close a file libhdf5 already has open
+            if let (url, scoped) = access, scoped { url.stopAccessingSecurityScopedResource() }
         }, reply: reply)
     }
 

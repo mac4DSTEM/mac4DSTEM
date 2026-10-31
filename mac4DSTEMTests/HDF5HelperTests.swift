@@ -84,6 +84,47 @@ final class HDF5HelperTests: XCTestCase {
         }
     }
 
+    /// The file crosses as a bookmark, not a path: a file renamed after the app made the bookmark is still the one
+    /// the helper opens (a path would name nothing), and it describes as the in-process reader describes it.
+    func testTheHelperOpensTheFileItsBookmarkNames() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("hdf5-helper-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let before = folder.appendingPathComponent("before.h5"), after = folder.appendingPathComponent("after.h5")
+        try FileManager.default.copyItem(at: cube, to: before)
+        let bookmark = try HDF5HelperBookmark.make(before)
+        try FileManager.default.moveItem(at: before, to: after)
+        let service = HDF5HelperService(isolated: false)
+        let opened = expectation(description: "open replies")
+        let result = OpenReply()
+        service.open(bookmark: bookmark, seconds: 10) { handle, sentence in result.set(handle, sentence); opened.fulfill() }
+        await fulfillment(of: [opened], timeout: 10)
+        XCTAssertGreaterThan(result.handle, 0, result.sentence ?? "no sentence")
+        let described = expectation(description: "describe replies")
+        let json = JSONOutcome()
+        service.describePrimaryDataset(handle: result.handle, seconds: 10) { data, _ in json.data = data; described.fulfill() }
+        await fulfillment(of: [described], timeout: 10)
+        let expected = try await H5Reader(path: after.path).discoverPrimaryDataset()
+        let dataset = try JSONDecoder().decode(HDF5HelperDataset.self, from: XCTUnwrap(json.data))
+        XCTAssertEqual(dataset, HDF5HelperDataset(expected))
+        let closed = expectation(description: "close replies")
+        service.close(handle: result.handle) { closed.fulfill() }
+        await fulfillment(of: [closed], timeout: 10)
+    }
+
+    /// Bytes that are not a bookmark are refused with a sentence; nothing is opened.
+    func testAnUnreadableBookmarkIsRefused() async throws {
+        let service = HDF5HelperService(isolated: false)
+        let opened = expectation(description: "open replies")
+        let result = OpenReply()
+        service.open(bookmark: Data("not a bookmark".utf8), seconds: 10) { handle, sentence in
+            result.set(handle, sentence); opened.fulfill()
+        }
+        await fulfillment(of: [opened], timeout: 10)
+        XCTAssertEqual(result.handle, 0)
+        XCTAssertTrue(result.sentence?.hasPrefix("The HDF5 reader could not reach the file") == true, result.sentence ?? "nil")
+    }
+
     /// In process the service refuses every fault: nothing may end the app.
     func testFaultsAreRefusedInProcess() async throws {
         let host = AnonymousHelperListener()
@@ -114,6 +155,23 @@ final class HDF5HelperTests: XCTestCase {
         XCTAssertGreaterThan(client.helperProcessIdentifier, 0, "no helper process is connected")
         XCTAssertNotEqual(client.helperProcessIdentifier, getpid(), "the helper ran in the app process")
         let described = try await client.describePrimaryDataset(handle: handle, filePath: cube.path)
+        XCTAssertEqual(HDF5HelperDataset(described), HDF5HelperDataset(expected))
+        await client.close(handle: handle)
+    }
+
+    /// The real helper reads a file in the app own temporary folder, which a sandboxed helper could reach only through
+    /// the bookmark. The unit-test host is unsigned, so neither process is sandboxed here: this passes on CI by
+    /// construction and proves the crossing only in a signed build.
+    func testTheEmbeddedHelperReadsAFileOnlyTheAppCanReach() async throws {
+        try embeddedServiceOrSkip()
+        let copy = FileManager.default.temporaryDirectory.appendingPathComponent("hdf5-helper-\(UUID().uuidString).h5")
+        try FileManager.default.copyItem(at: cube, to: copy)
+        defer { try? FileManager.default.removeItem(at: copy) }
+        let client = HDF5HelperClient(seconds: 20)
+        defer { client.invalidate() }
+        let expected = try await H5Reader(path: copy.path).discoverPrimaryDataset()
+        let handle = try await client.open(copy)
+        let described = try await client.describePrimaryDataset(handle: handle, filePath: copy.path)
         XCTAssertEqual(HDF5HelperDataset(described), HDF5HelperDataset(expected))
         await client.close(handle: handle)
     }
@@ -191,5 +249,24 @@ final class HDF5HelperTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(cut), 30, "the helper did not come back")
         _ = try await client.describePrimaryDataset(handle: handle, filePath: cube.path)
         XCTAssertNotEqual(client.helperProcessIdentifier, hungPID, "the hung helper still serves")
+    }
+}
+
+/// What the service's open reply carried, read after the reply's expectation is fulfilled.
+private nonisolated final class OpenReply: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: (Int, String?) = (0, nil)
+    func set(_ handle: Int, _ sentence: String?) { lock.withLock { stored = (handle, sentence) } }
+    var handle: Int { lock.withLock { stored.0 } }
+    var sentence: String? { lock.withLock { stored.1 } }
+}
+
+/// The JSON the service's describe reply carried.
+private nonisolated final class JSONOutcome: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Data?
+    var data: Data? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }
