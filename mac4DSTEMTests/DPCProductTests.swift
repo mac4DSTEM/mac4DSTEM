@@ -3,7 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// Seam 4 (archived docs/archive/v4/appstate-seams-plan.md), the last of the night's four
+/// Seam 4, the last of the night's four
 /// unattended seams: `DPCProduct` owns the DPC display choice
 /// (`dpcDisplay`). The display derivation that used to run directly from
 /// `dpcDisplay`'s `didSet` now reaches AppState through `onDisplayChange`,

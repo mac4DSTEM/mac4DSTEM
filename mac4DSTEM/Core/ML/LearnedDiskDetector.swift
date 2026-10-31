@@ -1,6 +1,6 @@
 //
 //  LearnedDiskDetector.swift
-//  The learned disk-candidate stage (archived docs/registrations/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), step 4; C7, 2026-09-08).
+//  The learned disk-candidate stage (the archived notes (was docs/v3-plan.md §3a), step 4; C7, 2026-09-08).
 //
 //  A candidate stage, never a measurement: the net paints a disk-centre heatmap on
 //  three channels (log-normalised pattern, the probe, the classical cross-correlation),
@@ -83,7 +83,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// Loads the asset: hash the package tree, compile it (Core ML writes the compiled
     /// model to a temporary location that lives as long as the process), load it on
     /// the Neural Engine. Slow the first time; never inside a run.
-    /// The compute units are `.cpuAndNeuralEngine`, not `.all` (2026-09-30, archived docs/archive/v4/ane-return-2026-09-30/):
+    /// The compute units are `.cpuAndNeuralEngine`, not `.all` (2026-09-30, the archived notes):
     /// on the M5 Pro under macOS 27.0.1 `.all` plans and runs this model on the GPU, whose heatmaps differ from
     /// the Neural Engine's the fixture and the threshold were measured on. Under `.cpuAndNeuralEngine` only the
     /// CPU can stand in for the Neural Engine, and it does so silently, so the load proves which ran: one fixed
@@ -427,7 +427,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// stage's identity, and the frame (`learned_windows`, `learned_window_overlap_px`,
     /// `learned_crop_origin_*` for the one-window case — negative means padding —
     /// `learned_window_origins` otherwise). Above the frame two rules differ from the one-window case (2026-09-29, the record
-    /// archived docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md):
+    /// the archived notes):
     /// the dose scale of a float pattern (`simulate.to_counts`) is taken once from the whole pattern (`nativeCountScale`)
     /// and shared by its windows (D098), and a window side shared with a neighbour takes the edge margin
     /// `edgeMargins` gives, so the band between two windows is searched by at least one of them (D004).
@@ -460,7 +460,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         // the probe's frame and its flat kernel, centred on the probe: ONE for every window.
         // Fitted like the pattern when the detector fits the frame; a centred crop clamped
         // inside the detector when windows are needed. Probe anchor, measured 2026-09-29/30 (the record
-        // archived docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md): with the model's probe channel zeroed,
+        // the archived notes): with the model's probe channel zeroed,
         // every peak list measured was bit-identical (512 px with the beam 90 px from an edge, ten real Si_SiGe
         // 448x480 patterns, the <= 256 px fixtures); an unclamped `fitOffset` crop (which also moves the kernel's
         // frame) finds the same disks at 2 px; a probe crop at each window's own origin loses 5 of 320 Si_SiGe

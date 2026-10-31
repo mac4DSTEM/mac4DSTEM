@@ -3,7 +3,7 @@
 # DiskDetection.detectAll(data:) and learned LearnedDiskDetector.detectAll(data:)
 # (the shipped Core ML package): phys_footprint must stay flat across tiles.
 # Gate D 2026-09-29: without an autorelease pool per tile, GPU memory grew by
-# about one tile per tile (archived docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md).
+# about one tile per tile.
 # Built at -O, as DSTEMCore is in both app configurations: the learned mode at
 # -Onone takes over ten minutes, and both A1 mutations (no pool: 321 MB; no
 # exact-size copy: 153 MB) fail identically at -O and -Onone (S11, 2026-09-29).

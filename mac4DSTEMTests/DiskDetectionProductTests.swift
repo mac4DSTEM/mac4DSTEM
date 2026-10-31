@@ -3,7 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// Seam 3 (archived docs/archive/v4/appstate-seams-plan.md): `DiskDetectionProduct` owns
+/// Seam 3: `DiskDetectionProduct` owns
 /// `diskParams` and its pure size-aware defaulting; the live-overlay refresh
 /// that used to run directly from `diskParams`'s `didSet` now reaches
 /// AppState through `onParamsChange`, the same hook shape

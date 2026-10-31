@@ -6,7 +6,7 @@ import DSTEMCore
 /// memory off an external SSD and panicked an 8 GB Mac (2026-09-24). The
 /// reader now maps on every `MNT_LOCAL` volume. The footprint proof on an
 /// exFAT disk image is archived `tools/dm4-parity-probe` (record:
-/// archived `docs/archive/v4/almgsi-gateD-2026-09-24.md` part 8); these pin the
+/// archived the archived notes part 8); these pin the
 /// choice, and `run-tests.sh inventory` pins that `init` uses it.
 final class DM4ReadingOptionsTests: XCTestCase {
 

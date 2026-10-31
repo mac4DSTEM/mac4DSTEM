@@ -1,6 +1,6 @@
 //
 //  OriginNonFiniteRow24Tests.swift
-//  Lane F-B row 24 (archived docs/archive/v4/review-2026-09-30-findings.md): neither origin path
+//  Lane F-B row 24: neither origin path
 //  sanitised non-finite pixels (detection does since D019, DiskDetector.fillNonFinite).
 //  Fixture: a flat disk, one NaN inside it; the origin must equal the clean run's. Since CuboKit 0.7.0 the per-position
 //  origin is the kit's iterated-window estimator, which reads a non-finite pixel as the median of its finite 8 neighbours,
