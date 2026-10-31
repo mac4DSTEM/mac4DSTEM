@@ -28,14 +28,14 @@ mac4DSTEMTests/ACOMKitCallSiteTests.swift	simd	test of display, residency or det
 mac4DSTEMTests/ACOMScanRouteTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMMetalMemoryTests.swift	Metal,simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMMetalPoolTests.swift	Metal,simd	test of display, residency or detector GPU path, or of simd-typed kit calls
-mac4DSTEMTests/ACOMRow1MirrorZoneTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/ACOMMirrorZoneTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMScanSelectionTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMTestSupport.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/DetectorTrainerTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/DiffractoOrientationAdoptionTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/HexagonalIPFKeyTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/LearnedDiskDetectionScanTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
-mac4DSTEMTests/LearnedDiskDetectorGateBTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
+mac4DSTEMTests/LearnedDiskDetectorRefineAndWindowTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/LearnedWindowedDetectionTests.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/LearnedWindowedFixture.swift	Metal	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/MaterialsProjectImportTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls

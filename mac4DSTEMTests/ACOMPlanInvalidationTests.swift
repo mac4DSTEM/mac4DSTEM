@@ -15,7 +15,7 @@ import DiffractoCore
 /// `calibrationSession.acceleratingVoltage` (Ewald curvature of every
 /// template); a voltage edit invalidated the result only when Q was in mrad.
 @MainActor
-final class ACOMRow4Row5PlanInvalidationTests: XCTestCase {
+final class ACOMPlanInvalidationTests: XCTestCase {
 
     private func imported(_ id: String, a: Double) -> CrystalModel {
         CrystalModel(id: id, displayName: id, structure: CrystalPresets.cubic(.fcc, a: a, z: 13),

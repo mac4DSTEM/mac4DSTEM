@@ -19,7 +19,7 @@ import DiffractoCore
 /// compared under an independent operator list (as acom-convention-test (a retired harness; the kit's parity tests hold it)).
 /// The retired harness `acom-mirror-test` ran the same check over 200 random
 /// directions, WS2, and measures the cost.
-final class ACOMRow1MirrorZoneTests: XCTestCase {
+final class ACOMMirrorZoneTests: XCTestCase {
 
     private static let wavelength = 0.02508      // 200 kV, what the app passes
     private static let scale = 0.008, origin = 256.0
