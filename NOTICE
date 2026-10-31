@@ -70,17 +70,16 @@ are in its NOTICE.
 MacEMUI (a Swift package the app is built with)
 ================================================================================
 
-The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.3.2, commit
-16a08939d1fb4523db2227ca9b0afa43e05a85a2), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
-for the window shell, the inspector, the controls and the Metal image view mac4DSTEM shares with macTEM. Its own notices
+The app links MacEMUI (https://github.com/mac4DSTEM/MacEMUI, tag 0.4.0, commit
+e06c8cf7950077be5ad23fada9355b180184d417), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only,
+for the window shell, the inspector, the controls, the Metal image view and the EDS room mac4DSTEM shares with macTEM. Its own notices
 are in its NOTICE.
 
 ================================================================================
 Code copied from macTEM
 ================================================================================
 
-The Spectroscopy room's EDS code (`mac4DSTEM/Core/EDS/`, `mac4DSTEM/UI/EDS/`, `mac4DSTEM/Session/EDXSession.swift`
-and the files whose header names macTEM) is copied, whole or in part, from macTEM
+The EDS spectrum-image opening (`mac4DSTEM/Core/EDS/`) and the files whose header names macTEM are copied, whole or in part, from macTEM
 (https://github.com/mac4DSTEM/macTEM), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only: macTEM before v1.0.0
 (history squashed), published as tag v1.0.0, commit 91d4694ea44342b1dd18711d0ac94fc4b3c674f3. Its science is
 SpectroKit's (see the SpectroKit section above).
