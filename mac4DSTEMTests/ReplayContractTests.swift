@@ -51,7 +51,7 @@ final class ReplayContractTests: XCTestCase {
     private let parallaxPlan = ReplayStepPlan.ParallaxReplayPlan(
         calibration: .init(scanSamplingAngstrom: 0.5, reciprocalSamplingInvAngstrom: 0.0125, energyEV: 80_000,
                            rotationRad: 0.2, transpose: true),
-        alignmentLevels: 3, alignmentComplete: true, fitsAberrations: true,
+        alignmentLevels: 3, alignmentComplete: true, alignmentStop: .init(bin: 1, passes: 2), fitsAberrations: true,
         subpixel: .init(upsampleFactor: 2.5, kdeSigmaPixels: 0.25, lowpass: true, lanczosOrder: 3,
                         positionCorrectionIterations: 4, positionCorrectionCheckerboard: true),
         correction: .init(qLowpassInvAngstrom: 1.5, qHighpassInvAngstrom: 0.05),
