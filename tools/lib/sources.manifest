@@ -379,12 +379,6 @@ mac4dstem_sources() {
           "$core/Data/SessionReplayRecord.swift"
         )
         ;;
-      presentation)
-        # ResultPresentation on the calibration group: its sampling label reads CalibrationUnitConversion
-        # (Calibration.swift, since 9925598) (tools/harnesses/result-presentation-test).
-        mac4dstem_sources "$repo" calibration
-        want+=("${MAC4DSTEM_SOURCES[@]}" "$core/Data/ResultPresentation.swift")
-        ;;
       fitoverlays)
         # The fitted-overlay geometry over ACOM and strain (fit-overlay-test).
         mac4dstem_sources "$repo" acom strain
@@ -445,7 +439,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation friedel parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation friedel parallax ptychography crystal fitoverlays core strain export embedding phasevectors" >&2
         exit 64
         ;;
     esac
