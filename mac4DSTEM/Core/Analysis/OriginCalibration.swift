@@ -335,8 +335,13 @@ package nonisolated enum OriginCalibration {
             throw OriginCalibrationError.probeNotMeasurable
         }
         let radius = probe.r
+        // The stop is read on the mean pattern before the origins are measured, so the bar can make room for the
+        // Friedel fallback: a second pass over the cube, as long as the first or longer (an FFT per pattern). Without
+        // a stop the measurement has the whole 0.35 to 0.9; with one it has 0.35 to 0.6 and the fallback 0.6 to 0.9.
+        let stop = originMethod == .centreOfMass ? beamStop(meanDP: statistics.meanDP, qy: d.qy, qx: d.qx) : nil
+        let measureShare = stop?.detected == true ? 0.25 : 0.55
         let originProgress: (@Sendable (Double) -> Void) = { fraction in
-            progress?(0.35 + 0.55 * fraction)
+            progress?(0.35 + measureShare * fraction)
         }
         let measured: [Float]
         switch originMethod {
@@ -389,12 +394,14 @@ package nonisolated enum OriginCalibration {
         // Its own failure (a mask with no pattern left, say) leaves the fallback unknown, which is not offered.
         var stopCoversBeam: Bool?
         var fallbackResidual: Float?
-        if originMethod == .centreOfMass, let stop = beamStop(meanDP: statistics.meanDP, qy: d.qy, qx: d.qx) {
+        if let stop {
             stopCoversBeam = stop.detected
             if stop.detected {
+                let fallbackStart = 0.35 + measureShare
                 fallbackResidual = try? await friedelFallbackResidual(
                     data: data, descriptor: d, meanDP: statistics.meanDP, fitFunction: fitFunction,
-                    maximumTileRows: maximumTileRows, cancellation: cancellation)
+                    maximumTileRows: maximumTileRows, cancellation: cancellation,
+                    progress: { fraction in progress?(fallbackStart + (0.9 - fallbackStart) * fraction) })
             }
         }
         guard cancellation?.isCancelled != true else { return nil }
@@ -413,7 +420,8 @@ package nonisolated enum OriginCalibration {
                        originValidity: fitted.kept,
                        windowPullBoundPixels: pull,
                        beamStopCoversBeam: stopCoversBeam,
-                       friedelFallbackResidualPixels: fallbackResidual),
+                       friedelFallbackResidualPixels: fallbackResidual,
+                       measuredByFriedel: originMethod == .friedel),
             statistics.maxDP, statistics.meanDP,
             sensitivity
         )
@@ -460,11 +468,12 @@ package nonisolated enum OriginCalibration {
     package nonisolated static func beamStop(meanDP: [Float], qy: Int, qx: Int) -> BeamStop? {
         guard meanDP.count == qy * qx, qy > 0, qx > 0 else { return nil }
         // A non-finite pixel is filled by its neighbours first, as for every pattern the app measures: a saturated core
-        // flagged NaN would otherwise read as a dark centre inside a bright rim, a stop that is not there. The fill is one
-        // pass of 8-neighbours, so a NaN core wider than about 1 px keeps its middle at 0 and can still read as a stop.
+        // flagged NaN would otherwise read as a dark centre inside a bright rim, a stop that is not there. The fill grows
+        // in from the edge of the missing region (`fillNonFiniteFromOutside`): the app's one-pass fill sets a pixel with
+        // no finite neighbour to 0, so a NaN core wider than about 1 px kept a dark middle and read as a stop.
         var filled = meanDP
         if filled.contains(where: { !$0.isFinite }) {
-            _ = BraggDetector.fillNonFinite(&filled, rows: qy, columns: qx)
+            fillNonFiniteFromOutside(&filled, rows: qy, columns: qx)
         }
         let v = filled.map { $0.isFinite ? Double(max($0, 0)) : 0 }
         var total = 0.0, sx = 0.0, sy = 0.0
@@ -506,6 +515,37 @@ package nonisolated enum OriginCalibration {
         return BeamStop(centreX: Float(cx), centreY: Float(cy),
                         centreContrast: Float((inner / innerCount) / ringMean), darkRadius: dark,
                         coverage: Float(bright) / Float(sectors))
+    }
+
+    /// Fills every non-finite pixel from the outside in: each pass replaces only the non-finite pixels that have at least
+    /// one finite 8-neighbour, by the median of those neighbours (read before the pass), until none is left. A missing
+    /// region therefore takes the values of its own border at any width, where one pass of `BraggDetector.fillNonFinite`
+    /// sets every pixel with no finite neighbour to 0. An image with no finite pixel at all is set to 0.
+    package nonisolated static func fillNonFiniteFromOutside(_ v: inout [Float], rows: Int, columns: Int) {
+        guard v.count == rows * columns else { return }
+        while true {
+            var fills: [(Int, Float)] = []
+            var remaining = 0
+            for r in 0..<rows { for c in 0..<columns where !v[r * columns + c].isFinite {
+                var neighbours: [Float] = []
+                for dr in -1...1 { for dc in -1...1 where dr != 0 || dc != 0 {
+                    let rr = r + dr, cc = c + dc
+                    guard rr >= 0, rr < rows, cc >= 0, cc < columns else { continue }
+                    let x = v[rr * columns + cc]
+                    if x.isFinite { neighbours.append(x) }
+                } }
+                if neighbours.isEmpty { remaining += 1; continue }
+                neighbours.sort()
+                let n = neighbours.count
+                fills.append((r * columns + c, n % 2 == 1 ? neighbours[n / 2] : (neighbours[n / 2 - 1] + neighbours[n / 2]) / 2))
+            } }
+            for (i, x) in fills { v[i] = x }
+            if remaining == 0 { return }
+            if fills.isEmpty {   // nothing finite anywhere
+                for i in v.indices where !v[i].isFinite { v[i] = 0 }
+                return
+            }
+        }
     }
 
     // MARK: - Window pull (the origin gate's bias test, 2026-10-31)
@@ -637,11 +677,12 @@ package nonisolated enum OriginCalibration {
     /// the number the refusal decides on. A second pass over the cube, CPU, paid only when a stop is found.
     package nonisolated static func friedelFallbackResidual(
         data: FourDArray, descriptor d: DatasetDescriptor, meanDP: [Float], fitFunction: OriginFitFunction,
-        maximumTileRows: Int?, cancellation: AnalysisCancellationToken?
+        maximumTileRows: Int?, cancellation: AnalysisCancellationToken?,
+        progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> Float? {
         let measured = try await friedelMeasuredOrigins(
             data: data, descriptor: d, mask: friedelPatternMask(meanDP: meanDP, descriptor: d),
-            maximumTileRows: maximumTileRows, cancellation: cancellation, progress: nil)
+            maximumTileRows: maximumTileRows, cancellation: cancellation, progress: progress)
         let count = d.ry * d.rx
         guard measured.count == 2 * count else { return nil }
         let x = (0..<count).map { measured[2 * $0] }, y = (0..<count).map { measured[2 * $0 + 1] }

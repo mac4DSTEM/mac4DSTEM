@@ -572,6 +572,12 @@ nonisolated extension BraggVectorEMDWriter {
                let fallback = Double(text), fallback.isFinite, fallback >= 0 {
                 calibration.originMaps?.friedelFallbackResidualPixels = fallback
             }
+            // The method the maps were measured with, the same way ("friedel" faces the 1 px residual limit).
+            switch (try? file.stringAttribute(SessionSidecarFormat.originMethodAttribute, at: rootPath)) ?? nil {
+            case "friedel": calibration.originMaps?.measuredByFriedel = true
+            case "centreOfMass": calibration.originMaps?.measuredByFriedel = false
+            default: break
+            }
         }
         let hasValue = calibration.rSize != nil || calibration.rUnits != nil
             || calibration.qSize != nil || calibration.qUnits != nil

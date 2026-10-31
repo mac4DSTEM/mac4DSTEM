@@ -53,6 +53,28 @@ final class BeamStopSidecarTests: XCTestCase {
         XCTAssertTrue(translated.calibration.friedelFallbackIsTrusted)
     }
 
+    /// The method travels too: a Friedel run reopened is still held to the 1 px limit. Break it by not writing (or not
+    /// reading) `originMethodAttribute`: the reopened 1.5 px Friedel fit is trusted again.
+    func testTheFriedelMethodSurvivesSaveAndReopen() throws {
+        for friedel in [true, false] {
+            var c = PixelCalibration(rSize: 1.0, rUnits: "nm", qSize: 0.01, qUnits: "A^-1", qrFlip: false)
+            c.probeSemiangle = 4
+            var maps = PixelOriginMaps(shape: [1, 2], fittedQX: [16, 16], fittedQY: [16, 16],
+                                       measuredQX: [16, 16], measuredQY: [17.5, 14.5])
+            maps.measuredByFriedel = friedel
+            c.originMaps = maps
+            let read = try roundTrip(c, name: "method-\(friedel)")
+            XCTAssertEqual(read.originMaps?.measuredByFriedel, friedel)
+            let app = try XCTUnwrap(read.originMaps?.appOriginMaps(width: 2, height: 1))
+            var calibration = DSTEMCore.Calibration()
+            calibration.origin = app
+            calibration.probeRadius = 4
+            XCTAssertEqual(calibration.originFitIsSane, !friedel)
+        }
+        let older = try roundTrip(calibration(stop: nil, fallback: nil), name: "older-method")
+        XCTAssertNil(older.originMaps?.measuredByFriedel)
+    }
+
     /// No stop round-trips as no stop; a session without the values reads unknown, which the gate does not refuse.
     func testNoStopAndUnknownRoundTrip() throws {
         let clear = try roundTrip(calibration(stop: false, fallback: nil), name: "clear")

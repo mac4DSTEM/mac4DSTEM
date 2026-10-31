@@ -87,6 +87,11 @@ package nonisolated enum SessionSidecarFormat {
     /// (`OriginMaps.friedelFallbackResidualPixels`). Additive, as the window pull: absent reads as unknown.
     package static let originBeamStopAttribute = "mac4dstem_origin_beam_stop"
     package static let originFriedelFallbackAttribute = "mac4dstem_origin_friedel_fallback_rms_px"
+
+    /// Root attribute naming how the same maps' origins were measured, as text: the `OriginMethod` raw value
+    /// ("centreOfMass" or "friedel"; `OriginMaps.measuredByFriedel`). A Friedel run faces the 1 px residual limit.
+    /// Additive: absent reads as unknown.
+    package static let originMethodAttribute = "mac4dstem_origin_method"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)
