@@ -214,12 +214,21 @@ nonisolated extension BraggVectorEMDWriter {
             // exact counts `cropped` requires.
             let fittedQX = cropped(maps.fittedQX, transformQX) ?? []
             let fittedQY = cropped(maps.fittedQY, transformQY) ?? []
-            output.originMaps = PixelOriginMaps(
+            var exported = PixelOriginMaps(
                 shape: [options.scanYPositions.count, options.scanXPositions.count],
                 fittedQX: fittedQX, fittedQY: fittedQY,
                 measuredQX: cropped(maps.measuredQX, transformQX),
                 measuredQY: cropped(maps.measuredQY, transformQY)
             )
+            // The origin gate's fields, as `CalibrationReReference` carries them: the window pull and the Friedel
+            // fallback's residual are lengths in detector pixels (unchanged by the crop, divided by the bin); the stop and
+            // the method describe the detector and the run, not which positions are kept. Dropping them reopened a
+            // refused origin as unknown, which the gate trusts.
+            exported.windowPullBoundPixels = maps.windowPullBoundPixels.map { $0 / bin }
+            exported.beamStopCoversBeam = maps.beamStopCoversBeam
+            exported.friedelFallbackResidualPixels = maps.friedelFallbackResidualPixels.map { $0 / bin }
+            exported.measuredByFriedel = maps.measuredByFriedel
+            output.originMaps = exported
             output.qx0Mean = fittedQX.isEmpty
                 ? output.qx0Mean : fittedQX.reduce(0, +) / Double(fittedQX.count)
             output.qy0Mean = fittedQY.isEmpty
@@ -304,6 +313,10 @@ nonisolated extension BraggVectorEMDWriter {
         if let replayRecord, !replayRecord.isEmpty, let json = replayRecord.jsonString {
             rootAttributes[replayRecordAttribute] = .text(json)
         }
+        // The origin gate's fields with the origin maps, under the session sidecar's names (`gateAttributes`), so a
+        // refused origin reopens refused. App-level attributes on the file root "/", as the voltage: py4DSTEM ignores them,
+        // and a file without them reads as unknown (every export before 2026-10-31).
+        for (name, value) in calibration.originMaps?.gateAttributes ?? [:] { header.attributes[name] = .text(value) }
         let layout = EMDDatacubeLayout(
             shape: outputShape, header: header, calibration: emdCalibration(calibration), booleanStorage: .uint8,
             rootAttributes: rootAttributes)
