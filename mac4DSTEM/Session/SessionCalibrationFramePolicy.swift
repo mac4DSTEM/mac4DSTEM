@@ -188,52 +188,91 @@ package nonisolated enum SessionPeakRestore {
         record?.steps.first { $0.kind == diskStepKind }
     }
 
-    /// As below, for a sidecar's own view record: disks detected on a view the
-    /// sidecar never recorded cannot be matched to the loaded one.
+    /// True for a sidecar written before the replay record existed (schema 5,
+    /// or no readable stamp): such a file has no recipe to vouch for its disks,
+    /// and its silence is not a refusal. A schema-6+ file without a disk step
+    /// is a recipe that moved on, and stays refused.
+    package static func predatesReplayRecord(schema: Int?, replay: SessionReplayRecord?) -> Bool {
+        guard replay == nil else { return false }
+        guard let schema else { return true }
+        return schema < SessionViewRecord.firstSchemaThatRecordsTheView
+    }
+
+    /// As below, for a sidecar's own view record. An unrecorded view (schema
+    /// 5 without a load specification) is the whole file: that writer recorded
+    /// a specification for every reduced view from 2026-08-18, and before that
+    /// there were no reduced loads. So its disks are matched only onto a
+    /// whole-file load, the rule the calibration beside them already follows
+    /// (`SessionCalibrationFramePolicy.decide(record:loaded:)`).
     package static func refusalBeforeReading(
         viewRecord: SessionViewRecord,
         loadedSpecification: LoadSpecification,
-        replay: SessionReplayRecord?
+        replay: SessionReplayRecord?,
+        schema: Int?
     ) -> String? {
-        guard case .recorded(let specification) = viewRecord else {
-            return "Stored disks not used — the session did not record which view they were detected on"
+        let sessionSpecification: LoadSpecification
+        switch viewRecord {
+        case .recorded(let specification):
+            sessionSpecification = specification
+        case .unrecorded:
+            guard loadedSpecification.isFullExtent else {
+                return "Stored disks not used — the session did not record which view they were detected on "
+                    + "(it was saved by an older version), so they are used only on the whole file"
+            }
+            sessionSpecification = loadedSpecification
         }
         return refusalBeforeReading(
-            sessionSpecification: specification,
-            loadedSpecification: loadedSpecification, replay: replay
+            sessionSpecification: sessionSpecification,
+            loadedSpecification: loadedSpecification, replay: replay, schema: schema
         )
     }
 
     /// The checks that need no peaks read — run first so a sidecar that cannot
-    /// pass is never read (a Thronsen-A grid is 18 MB).
+    /// pass is never read (a Thronsen-A grid is 18 MB). A nil return means
+    /// read the grid: either the recipe has a disk step, or the sidecar
+    /// `predatesReplayRecord` and the shape checks alone decide.
     package static func refusalBeforeReading(
         sessionSpecification: LoadSpecification,
         loadedSpecification: LoadSpecification,
-        replay: SessionReplayRecord?
+        replay: SessionReplayRecord?,
+        schema: Int?
     ) -> String? {
         guard SessionCalibrationFramePolicy.decide(
             session: sessionSpecification, loaded: loadedSpecification
         ) == .identity else {
             return "Stored disks not used — they were detected on a different view than the one loaded now"
         }
-        guard diskStep(in: replay) != nil else {
+        guard diskStep(in: replay) != nil || predatesReplayRecord(schema: schema, replay: replay) else {
             return "Stored disks not used — the session's recipe has no disk-detection step to vouch for them"
         }
         return nil
     }
 
-    /// The checks that need the stored grid.
+    /// The checks that need the stored grid. With no `step` (a sidecar that
+    /// predates the replay record) the detection settings cannot be compared,
+    /// so only the scan and detector shapes are checked.
+    /// A grid that states its own view (`StoredPeakGrid.view`) must have been
+    /// detected on the view loaded now: the sidecar's view is only the last
+    /// save's, and a grid carried through a save from a same-size crop passes
+    /// every shape check at the wrong positions.
     package static func refusal(
         for grid: BraggVectorEMDWriter.StoredPeakGrid,
+        loadedSpecification: LoadSpecification,
         scanWidth: Int, scanHeight: Int, detectorWidth: Int, detectorHeight: Int,
-        step: SessionReplayRecord.Step
+        step: SessionReplayRecord.Step?
     ) -> String? {
+        if let view = grid.view,
+           SessionCalibrationFramePolicy.decide(session: view, loaded: loadedSpecification) != .identity {
+            return "Stored disks not used — they were detected on a different view "
+                + "(\(view.isFullExtent ? "the whole file" : view.provenanceSummary ?? "a reduced view")) than the one loaded now"
+        }
         guard grid.vectors.scanWidth == scanWidth, grid.vectors.scanHeight == scanHeight else {
             return "Stored disks not used — they cover a \(grid.vectors.scanWidth) × \(grid.vectors.scanHeight) scan, not \(scanWidth) × \(scanHeight)"
         }
         guard grid.detectorWidth == detectorWidth, grid.detectorHeight == detectorHeight else {
             return "Stored disks not used — they were detected on a \(grid.detectorWidth) × \(grid.detectorHeight) detector, not \(detectorWidth) × \(detectorHeight)"
         }
+        guard let step else { return nil }
         let differing = DiskDetectionRecordMatch.mismatches(
             provenance: grid.vectors.detectionProvenance, stepParameters: step.parameters
         )

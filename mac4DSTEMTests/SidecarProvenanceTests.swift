@@ -103,11 +103,28 @@ final class SidecarViewRecordTests: XCTestCase {
             record: .recorded(.fullExtent), loaded: LoadSpecification(detectorBin: 2)), .reReference)
     }
 
-    func testDisksDetectedOnAnUnrecordedViewAreNotUsed() {
-        let reason = SessionPeakRestore.refusalBeforeReading(
-            viewRecord: .unrecorded, loadedSpecification: .fullExtent, replay: nil)
-        XCTAssertNotNil(reason)
-        XCTAssertTrue(reason?.contains("did not record") == true, reason ?? "")
+    /// An unrecorded view is the whole file (the calibration rule): its disks
+    /// pass the view check there and are refused on a reduced view.
+    func testDisksDetectedOnAnUnrecordedViewAreUsedOnlyOnTheWholeFile() {
+        let reduced = SessionPeakRestore.refusalBeforeReading(
+            viewRecord: .unrecorded, loadedSpecification: LoadSpecification(detectorBin: 2),
+            replay: nil, schema: 5)
+        XCTAssertTrue(reduced?.contains("did not record") == true, reduced ?? "nil")
+        XCTAssertNil(SessionPeakRestore.refusalBeforeReading(
+            viewRecord: .unrecorded, loadedSpecification: .fullExtent, replay: nil, schema: 5))
+    }
+
+    /// Only a sidecar from before the replay record may skip the disk step: a
+    /// current one without it is a recipe that moved on.
+    func testOnlyASidecarThatPredatesTheRecordRestoresWithoutADiskStep() {
+        XCTAssertTrue(SessionPeakRestore.predatesReplayRecord(schema: 5, replay: nil))
+        XCTAssertTrue(SessionPeakRestore.predatesReplayRecord(schema: nil, replay: nil))
+        XCTAssertFalse(SessionPeakRestore.predatesReplayRecord(schema: 6, replay: nil))
+        XCTAssertFalse(SessionPeakRestore.predatesReplayRecord(schema: 5, replay: SessionReplayRecord()))
+        let current = SessionPeakRestore.refusalBeforeReading(
+            viewRecord: .recorded(.fullExtent), loadedSpecification: .fullExtent,
+            replay: SessionReplayRecord(), schema: 7)
+        XCTAssertTrue(current?.contains("no disk-detection step") == true, current ?? "nil")
     }
 }
 
@@ -196,10 +213,12 @@ final class SidecarRestoreProvenanceTests: XCTestCase {
         XCTAssertEqual(state.sessionLoadSpecification, .fullExtent)
     }
 
-    /// The stored disks of an unrecorded session are not used, by the
-    /// production path (`restoreSessionPeaks`), with the reason. Hand-built
-    /// snapshot: the recipe vouches, the view is the only thing missing.
-    func testTheStoredDisksOfAnUnrecordedSessionAreRefusedByTheRestorePath() async throws {
+    /// The stored disks of an unrecorded session pass the view check on a
+    /// whole-file load, by the production path (`restoreSessionPeaks`).
+    /// Hand-built snapshot: the recipe vouches, the view is the only thing
+    /// missing. (The refusal onto a reduced view and the full round trip are
+    /// `LegacySessionDiskRestoreTests`.)
+    func testTheStoredDisksOfAnUnrecordedSessionPassTheViewCheckOnTheWholeFile() async throws {
         let state = AppState()
         await state.openDemoFixture()
         let descriptor = try XCTUnwrap(state.descriptor)
@@ -215,7 +234,7 @@ final class SidecarRestoreProvenanceTests: XCTestCase {
         }
 
         let legacy = await state.restoreSessionPeaks(from: snapshot(schema: 5), for: descriptor)
-        XCTAssertTrue(legacy?.contains("did not record") == true, legacy ?? "nil")
+        XCTAssertFalse(legacy?.contains("did not record") == true, legacy ?? "nil")
 
         let current = await state.restoreSessionPeaks(from: snapshot(schema: 7), for: descriptor)
         XCTAssertFalse(current?.contains("did not record") == true,
