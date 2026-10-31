@@ -8,7 +8,10 @@
 import XCTest
 import DSTEMCore
 import DiffractoGeometry
+// swiftlint:disable duplicate_imports
+// swiftformat:disable:next duplicateImports
 import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
+// swiftlint:enable duplicate_imports
 import DSTEMSession
 @testable import mac4DSTEM
 

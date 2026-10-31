@@ -221,6 +221,82 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
         self.lineage = lineage
         self.lineageNote = lineageNote
     }
+
+    /// Which source the sidecar says it belongs to; nil when the file carries no stamp (written before 2026-10-30) or an
+    /// unreadable one (read like the schema stamp: garbage is absent).
+    package var source: SessionSourceStamp? = nil
+}
+
+/// The source a session sidecar belongs to (`SessionSidecarFormat.sourceAttribute`). A sidecar is named after the source's
+/// stem, so `scan.h5` and `scan.dm4` in one folder share `scan.mac4dstem.h5`; without this stamp, opening one adopted the
+/// other's calibration (the 2× binned conversion opened with Q off by 2).
+package nonisolated struct SessionSourceStamp: Codable, Equatable, Sendable {
+    /// The source file's name with its extension, no folder.
+    package let name: String
+    /// The source file's size in bytes; nil when it could not be read.
+    package let bytes: Int64?
+    /// The 4D shape `[Ry, Rx, Qy, Qx]` as loaded (the source's full extent).
+    package let shape: [Int]
+
+    package init(name: String, bytes: Int64?, shape: [Int]) {
+        self.name = name
+        self.bytes = bytes
+        self.shape = shape
+    }
+
+    /// The stamp for the source at `path`, read from the file system now.
+    package init(sourcePath path: String, shape: [Int]) {
+        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value
+        self.init(name: URL(fileURLWithPath: path).lastPathComponent, bytes: size, shape: shape)
+    }
+
+    package var jsonString: String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return (try? encoder.encode(self)).map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    package static func decoded(from json: String) -> SessionSourceStamp? {
+        try? JSONDecoder().decode(SessionSourceStamp.self, from: Data(json.utf8))
+    }
+
+    /// Whether a sidecar may be restored onto the source at `sourcePath`.
+    package enum Check: Equatable, Sendable {
+        case matches
+        /// Refused; the sentence names both files.
+        case refused(String)
+    }
+
+    /// The restore rule. A stamp that names another file is refused. A sidecar with no stamp is restored only when no
+    /// sibling shares the source's stem with another extension (`siblings`, the names in the source's folder); with one,
+    /// nothing says which file wrote it, so it is refused too, naming the candidates. Names compare exactly (the stamp is
+    /// what this app wrote for that file).
+    package static func check(_ stamp: SessionSourceStamp?, sourcePath: String, sidecarName: String,
+                              siblings: [String]) -> Check {
+        let source = URL(fileURLWithPath: sourcePath)
+        let name = source.lastPathComponent
+        if let stamp {
+            return stamp.name == name ? .matches : .refused(
+                "\(sidecarName) belongs to \(stamp.name), not to \(name), so its session is not restored here. "
+                + "Open \(stamp.name) to use it.")
+        }
+        let stem = source.deletingPathExtension().lastPathComponent
+        let others = siblings
+            .filter { $0 != name && $0 != sidecarName && URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent == stem }
+            .sorted()
+        guard !others.isEmpty else { return .matches }
+        return .refused(
+            "\(sidecarName) was saved before sessions recorded their source, and \(([name] + others).joined(separator: " and ")) "
+            + "share its name, so it is not restored: it may belong to the other file. To use it with \(name), "
+            + "move the other file out of the folder and reopen.")
+    }
+
+    /// The names in the folder that holds `sourcePath`; empty when the folder cannot be listed (a sandboxed app may only
+    /// hold the file), which restores an unstamped sidecar as before.
+    package static func siblingNames(ofSourcePath sourcePath: String) -> [String] {
+        let folder = URL(fileURLWithPath: sourcePath).deletingLastPathComponent().path
+        return (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+    }
 }
 
 /// Bounded preprocessing applied while streaming a source datacube into a

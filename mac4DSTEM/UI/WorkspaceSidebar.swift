@@ -165,35 +165,12 @@ struct WorkspaceSidebar: View {
         ).count
     }
 
-    /// The state of this task's retained product — the same rule the
-    /// inspector's "Computed this session" rows apply, so the two surfaces
-    /// cannot give different verdicts on staleness: any task's own recipe
-    /// step, compared to what current settings would record (C4(b)).
+    /// The state of this task's retained product, or of a map of this task
+    /// restored from the session file (`AppState.taskProductState(for:)`). For
+    /// an in-memory product it is the rule the inspector's "In memory" rows
+    /// apply, so those two surfaces cannot disagree on its staleness.
     private func taskProductState(_ mode: AnalysisMode) -> TaskProductState {
-        ProductWorkflow.productState(
-            for: mode, hasProduct: taskHasProduct(mode),
-            recordedStep: appState.recordedReplayStep(for: mode),
-            currentSignature: appState.currentReplaySignature(for: mode))
-    }
-
-    /// Whether this task has produced its product in this session — only for
-    /// the tasks with an unambiguous retained product. Staleness is judged by
-    /// `taskProductState`, on top of this. Virtual imaging and DPC share the
-    /// single scalar result slot, so "has produced" is read from the recipe
-    /// record — it survives the slot being replaced and resets with the dataset.
-    private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
-        switch mode {
-        case .disks: appState.resultPresentation.braggVectors != nil
-        case .strain: appState.strain.map != nil
-        case .acom: appState.acomSession.hasOrientationMap
-        case .virtualDetector:
-            appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
-        case .dpc:
-            appState.replay.record.steps.contains { $0.kind == "dpc" }
-        case .diffractionGroups: appState.diffractionGroups.result != nil
-        case .phaseMapping: appState.phaseMapping.map != nil
-        case .ptychography, .singleslicePtychography: false
-        }
+        appState.taskProductState(for: mode)
     }
 
     /// Readiness is folded into the label rather than left on the glyph: an

@@ -52,7 +52,6 @@ struct ReconstructionSettings: View {
     }
 }
 
-
 // MARK: - DPC & iDPC
 
 private struct DPCSettingsSection: View {

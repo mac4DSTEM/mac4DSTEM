@@ -80,7 +80,6 @@ package struct Aperture: Equatable {
     }
 }
 
-
 // MARK: - Detector geometry (py4DSTEM get_virtual_image modes)
 
 /// A detector geometry in detector-pixel coordinates
@@ -184,16 +183,6 @@ package enum DetectorPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    /// True when `radii(maxRadius:probeRadius:)` follows the beam for this
-    /// preset (so the UI can say when a preset fell back to fractions).
-    package func followsBeam(maxRadius: Float, probeRadius: Float?) -> Bool {
-        guard let r = probeRadius, r.isFinite, r > 0 else { return false }
-        switch self {
-        case .brightField: return true
-        case .adf: return 3 * r < maxRadius
-        case .haadf, .custom: return false
-        }
-    }
 }
 
 // MARK: - Tile prefetching (overlap tile I/O with GPU compute)

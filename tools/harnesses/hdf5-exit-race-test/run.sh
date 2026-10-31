@@ -42,8 +42,7 @@ xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
   main.swift \
   "${MAC4DSTEM_SOURCES[@]}" \
   "${MAC4DSTEM_ISOLATION_FLAGS[@]}" \
-  -framework Accelerate -framework Metal \
-  -Xcc -DACCELERATE_NEW_LAPACK
+  -framework Accelerate -framework Metal
 codesign -f -s - "$WORK/probe" 2>/dev/null
 
 export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"

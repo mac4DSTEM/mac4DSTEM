@@ -260,6 +260,10 @@ final class AppState {
     /// (archived docs/archive/development-process-2026-08-31.md §7) — see `Session/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
+    /// The dataset epoch the promote run replays on, nil during its reopen
+    /// (`executeReplay` sets it). A file the user opens mid-run is not the
+    /// promote run's, and its own runs are not refused (`promoteRunRefusesUserRuns`).
+    @ObservationIgnored var promoteRunEpoch: Int?
     /// The configured-open slot consumed by commit or discard. The payload's
     /// preview/configuration remain owned by `PendingLoad`; no forwarding.
     let promotionRun = PromotionRun<PendingLoad>()
@@ -369,10 +373,11 @@ final class AppState {
     /// must not mutate the recipe. Without this, a replayed disk detection's
     /// `invalidating:` would DELETE the strain and ACOM steps mid-run, so a
     /// replay that halted between them would have destroyed the very recipe
-    /// it was executing. Keyed on the CALLER, not on `replayRun.isRunning` —
-    /// a user-initiated run that interleaves with the replay is a real
-    /// pipeline edit and suppressing it would silently diverge the recipe
-    /// from the published results (Gate A findings A4/B3, 2026-08-25). The
+    /// it was executing. Keyed on the CALLER, not on `replayRun.isRunning`
+    /// (Gate A findings A4/B3, 2026-08-25). A user-initiated run no longer
+    /// interleaves with the replay on its dataset — `beginCancellableOperation`
+    /// refuses it (`promoteRunRefusesUserRuns`) — but a run on a file opened
+    /// mid-replay is that file's own pipeline edit and records as one. The
     /// recipe keeps its rehearsal values; what actually ran is the results'
     /// own provenance and the run summary. // v2 S6
     /// Widened from `private` (seam 2, archived docs/archive/v4/appstate-seams-plan.md):
@@ -1077,7 +1082,8 @@ final class AppState {
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature,
-            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance)
+            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance,
+            ptychographySettings: ptychography.replaySettings)
     }
 
     // The result-value cache moved to `resultPresentation` with the result
@@ -1158,9 +1164,29 @@ final class AppState {
         _ name: String, status: String, totalUnits: Int? = nil
     )
         -> AnalysisCancellationToken {
+        // While a promote run replays the recipe, only its own work may become
+        // the operation: `begin` cancels the operation it replaces, so a run the
+        // user started between or during steps cancelled the step and took
+        // Cancel with it. Such a run gets a token already cancelled and unwinds
+        // at its first check, as a cancel; the promote run keeps Cancel.
+        if promoteRunRefusesUserRuns {
+            let refused = AnalysisCancellationToken()
+            refused.cancel()
+            statusText = "\(name) not started — the promote run is replaying the recipe; wait for it, or cancel it first"
+            return refused
+        }
         let token = operationCenter.begin(name: name, totalUnits: totalUnits)
         statusText = status
         return token
+    }
+
+    /// Whether a run the user starts now would cut into the promote run: one is
+    /// replaying on this dataset (or reopening for it), and the caller is not
+    /// its own work (`PromoteRunContext`). Entry points with side effects before
+    /// `beginCancellableOperation` ask it first.
+    var promoteRunRefusesUserRuns: Bool {
+        guard replayRun.isRunning, !PromoteRunContext.isPromoteRun else { return false }
+        return promoteRunEpoch.map { $0 == datasetSession.epoch } ?? true
     }
 
     func finishCancellableOperation(_ token: AnalysisCancellationToken) {
@@ -1374,7 +1400,7 @@ final class AppState {
             if navigation.analysisMode == .dpc {
                 await runCurrentAnalysis()
             } else if navigation.analysisMode == .singleslicePtychography {
-                await runSingleslicePtychography()   // v2.5 step 7a: its own task
+                outcome = await runSingleslicePtychography()   // v2.5 step 7a: its own task
             } else if phaseContrast.parallaxPreprocess == nil {
                 await prepareParallaxPreview()
             } else if phaseContrast.parallaxAlignment?.isComplete != true {
@@ -1446,7 +1472,7 @@ final class AppState {
         let read: Result<LoadSpecification?, Error>
         do {
             read = .success(try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: path)
             }.value.loadSpecification)
         } catch {
             read = .failure(error)
@@ -1619,7 +1645,9 @@ final class AppState {
             orientationPlan: acomSession.orientationPlan,
             orientationMap: acomSession.orientationMap,
             hasOrientationMap: acomSession.hasOrientationMap,
-            invAngstromPerPixel: acomScale
+            // The scale the map was matched at: a Q edit keeps a stale map, and its
+            // templates must not be redrawn at a scale they were never matched at.
+            invAngstromPerPixel: acomSession.lastRunSemantics?.scale.invAngstromPerPixel ?? acomScale
         )
     }
 

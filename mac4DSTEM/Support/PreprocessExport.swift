@@ -145,9 +145,7 @@ extension AppState {
                 let calibration = await pending.reader.pixelCalibration() ?? PixelCalibration()
                 // The source's own voltage (an H5 root attribute, a DM4's Microscope Info.Voltage), read and
                 // normalised by the rule the opener uses; a reader that has none (vendor raw) stays nil.
-                let voltage = await pending.reader.readDoubleAttribute(
-                    AcceleratingVoltage.attributeName, onObjectPath: "/"
-                ).map(AcceleratingVoltage.kilovolts(fromAttribute:))
+                let voltage = await AcceleratingVoltage.kilovolts(from: pending.reader)
                 runDataCubeWrite(
                     DataCubeWriteRequest(
                         source: pending.reader,

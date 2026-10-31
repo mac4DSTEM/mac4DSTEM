@@ -2,7 +2,7 @@ import XCTest
 @testable import mac4DSTEM
 
 /// Source contracts for the Results room's bar and inspector (lane C, 2026-10-14). SwiftUI layout cannot be measured headless, so
-/// these read the source, as `ReviewUXTests` does: each fails when the line it guards is put back. Tier 2.
+/// these read the source, as `ImportAndNetworkMessageTests` does: each fails when the line it guards is put back. Tier 2.
 final class ResultsBarContractTests: XCTestCase {
 
     private func source(_ relative: String) throws -> String {

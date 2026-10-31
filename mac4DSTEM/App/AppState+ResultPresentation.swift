@@ -73,7 +73,6 @@ extension AppState {
         }
     }
 
-
     /// Test seam (review row 25): awaited after the pixels are computed and
     /// before the run lands, so a test can hold a quiet run back and force the
     /// ordering "commit lands first, the stale quiet run second" without sleeps.
@@ -93,6 +92,9 @@ extension AppState {
 
     func commitApertureChange() {
         guard navigation.analysisMode == .virtualDetector else { return }
+        // A replayed virtual-detector step sets the shape and aperture itself and
+        // computes the image; the view's change handler must not run a second one.
+        guard !promoteRunRefusesUserRuns else { return }
         Task { await runVirtualDetector() }   // final pass, with status
     }
 
@@ -165,7 +167,6 @@ extension AppState {
             if epoch == datasetSession.epoch { presentComputeFailure(error) }
         }
     }
-
 
     /// The measured beam radius the BF/ADF presets follow (polish lane F, S3):
     /// the Prepare calibration's probe radius, only when it is a usable number.
@@ -267,7 +268,7 @@ extension AppState {
     /// rows are unchanged.
     /// No number depends on the grouping: both kernels sum one scan position's
     /// own pattern (CuboKit's virtual-image reducers).
-    /// `static` and not private so `ReviewTileBudgetSiblingsTests` can pin it.
+    /// `static` and not private so `TileReadBudgetSiblingTests` can pin it.
     static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
         let readHeight = view.readDetectorCrop?.height ?? view.source.qy
         let readWidth = view.readDetectorCrop?.width ?? view.source.qx
@@ -440,7 +441,6 @@ extension AppState {
         }
     }
 
-
     func showComputedProduct(_ product: ComputedProduct) {
         resultPresentation.inspectQualityField = false
         switch product {
@@ -483,6 +483,7 @@ extension AppState {
         case .residual: (kind, units) = ("strain_fit_residual", "detector_px")
         case .indexed:  (kind, units) = ("strain_indexed", "boolean")
         }
+        let own = scalarPersistenceMetadata(for: .strain)   // its own keys, whatever the current mode
         publishProduct(
             kind: kind, displayName: "Strain · \(strain.component.rawValue)", valueUnits: units,
             payload: .scalar(map.presented(in: strainPresentationFrame).component(strain.component)),
@@ -496,9 +497,10 @@ extension AppState {
                     image: FloatImage(width: map.width, height: map.height, pixels: map.mask.map { $0 ? 1 : 0 })),
             ],
             overlays: [ProductOverlayDescriptor(
-                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")])
+                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")],
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance, ownProvenanceOnly: true)
     }
-
 
 }
 

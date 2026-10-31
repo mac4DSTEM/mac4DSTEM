@@ -286,10 +286,12 @@ nonisolated extension BraggVectorEMDWriter {
         // `read_dm.py:76-86` reads a DM "Microscope Info.Voltage", to convert mrad to 1/A, and stores none), and its
         // functions take eV (`electron_wavelength_angstrom(E_eV)`). This attribute is app-level, ignored by
         // `py4DSTEM.read` (emdfile `read.py` names the root attributes it uses: emd_group_type, version_*, UUID);
-        // our reader takes kV or eV (> 1000) alike.
+        // our reader takes kV or eV (> 1000) alike when no unit is stated, so the unit is written beside it
+        // (`AcceleratingVoltage.unitsAttributeName`): a voltage above 1000 kV reopened divided by 1000 without it.
         var header = EMDFileHeader(authoringProgram: "mac4DSTEM", authoringUser: "", uuid: UUID().uuidString)
         if let acceleratingVoltageKV, acceleratingVoltageKV.isFinite, acceleratingVoltageKV > 0 {
             header.attributes[AcceleratingVoltage.attributeName] = .real(acceleratingVoltageKV)
+            header.attributes[AcceleratingVoltage.unitsAttributeName] = .text("kV")
         }
         // Provenance the reduced file carries about itself (v2 S10): where its
         // pixels came from, and the recipe of the analyses run on this data —

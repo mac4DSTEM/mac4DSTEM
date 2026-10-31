@@ -51,7 +51,6 @@ extension ScaleBar {
     }
 }
 
-
 // MARK: - Origin robust-trim wash
 
 /// The real-space wash for scan positions the origin fit's robust trim

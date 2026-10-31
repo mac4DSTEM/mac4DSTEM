@@ -393,21 +393,6 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertFalse(ProductWorkflow.mayRun(.virtualDetector, readiness: unmet, isBusy: true))
     }
 
-    func testRecommendedFlowMovesTowardAReusableResult() {
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: false, hasResult: false),
-            .prepare
-        )
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: true, hasResult: false),
-            .image
-        )
-        XCTAssertEqual(
-            ProductWorkflow.recommendedNextArea(calibrationReady: true, hasResult: true),
-            .results
-        )
-    }
-
     /// IPF·Z is promoted over the Reliability default only for a user who has
     /// not chosen a display. The flag is what separates "still on the default"
     /// from "asked for Reliability", which `didSet` alone cannot see — if it
@@ -650,7 +635,7 @@ final class ProductWorkflowTests: XCTestCase {
 
         // owner card S5 (a), 2026-10-02: entering ACOM with no ACOM result clears the Bragg map from
         // the underlying result (the reference above still displays). Re-showing it on return to Disks
-        // needs held vectors: PolishJTests.testReturningToDisksReShowsTheBraggMapFromHeldVectors.
+        // needs held vectors: ProductKindModeSwitchTests.testReturningToDisksReShowsTheBraggMapFromHeldVectors.
         XCTAssertNil(state.resultPresentation.product)
         XCTAssertNotEqual(state.currentResultKind, "bragg_vector_map")
     }

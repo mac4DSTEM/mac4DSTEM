@@ -949,10 +949,154 @@ extension SessionReplayAppStateTests {
         XCTAssertEqual(productState(state, .strain), .current, "strain does not consume Q")
     }
 
-    /// (b) ACOM consumes origin, ellipse and Q. (A Q edit discards the ACOM
-    /// map outright — `ACOMSession.invalidateResult` — so the ellipse is the
-    /// change that can leave one on screen.) Mutation it catches: the verdict
-    /// blind to calibration for ACOM.
+    /// A Q edit keeps the orientation map and reads it stale, as it does the
+    /// phase map: the map was matched at the old scale, and the lineage says
+    /// so. Red before: the Q setters called `ACOMSession.invalidateResult`,
+    /// which deleted the map. Mutation it catches: putting that call back in
+    /// either setter.
+    func testAQEditKeepsTheOrientationMapAndReadsItStale() async throws {
+        let (state, kernel) = try await handSession()
+        state.acomSession.modelSelection = .library("au_fcc")
+        handRecord(state, "disk_detection", detectionRecord(state.diskDetection.diskParams, kernel: kernel))
+        let signature = try XCTUnwrap(state.currentReplaySignature(for: .acom), "a resolved model has a signature")
+        let a1 = handRecord(state, "acom", signature)
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        state.acomSession.hasOrientationMap = true
+        let matchedScale = state.acomScale
+        state.acomSession.lastRunSemantics = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Au", scale: state.acomScaleSemantics)
+        XCTAssertEqual(productState(state, .acom), .current, "precondition")
+
+        state.setManualQPixelSize(0.0213)
+        XCTAssertNotEqual(state.acomScale, matchedScale, "precondition: the scale in force moved")
+        XCTAssertEqual(state.fitOverlays.invAngstromPerPixel, matchedScale,
+                       "the kept map's templates are drawn at the scale they were matched at")
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "the map stays")
+        XCTAssertNotNil(state.acomSession.orientationMap)
+        let reason = try XCTUnwrap(productState(state, .acom).staleReason, "a Q edit reads the map stale")
+        XCTAssertTrue(reason.contains("Q calibration"), reason)
+        XCTAssertEqual(graphState(state, a1), .stale)
+
+        state.setManualQPixelUnits(state.manualQPixelUnits == "Å⁻¹" ? "nm⁻¹" : "Å⁻¹")
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "a unit change keeps it too")
+        state.setManualQPixelSize(0)   // cleared
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "a cleared Q keeps it too")
+        XCTAssertNotNil(productState(state, .acom).staleReason, "and it still reads stale")
+    }
+
+    /// A map restored from the session file has a task-row verdict, judged by
+    /// the run it names: current on the path, stale off it or after a
+    /// calibration it read was replaced; a map naming no run reads current.
+    /// Red before: the row asked only about the in-memory map (`strain.map`)
+    /// and read nothing at all. Mutations it catches: ignoring the restored
+    /// product (.none); judging it by the active run instead of the named one
+    /// (the off-path case reads current); leaving its calibration out.
+    func testARestoredMapGetsItsTaskRowVerdict() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        func restore(_ step: String?) {
+            state.publishRestoredProduct(
+                kind: "strain_exx", displayName: "Strain · exx", valueUnits: "strain",
+                payload: .scalar(FloatImage(width: 2, height: 2, pixels: [0, 0, 0, 0])),
+                pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil,
+                provenance: step.map { ["lineage_step": $0] } ?? [:])
+        }
+        let s1 = handRecord(state, "strain", consensusStrain)
+        XCTAssertNil(state.strain.map, "precondition: no strain map in memory")
+        restore(s1)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "its run is the active strain run")
+        restore(nil)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "a map naming no run has nothing to judge by")
+
+        state.replay.markProduct(step: s1, as: "strain_map")   // saved: a later run cannot overwrite it
+        var other = consensusStrain
+        other["basis_mode"] = "manual"
+        let s2 = handRecord(state, "strain", other)
+        XCTAssertNotEqual(s1, s2, "precondition: a second run")
+        restore(s1)
+        XCTAssertEqual(state.taskProductState(for: .strain).staleReason, offThePathReason)
+        restore(s2)
+        XCTAssertEqual(state.taskProductState(for: .strain), .current, "settings are not compared for a restored map")
+
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        XCTAssertEqual(state.taskProductState(for: .strain).staleReason, calibrationReason("ellipse calibration"))
+        XCTAssertEqual(state.taskProductState(for: .acom), .none, "another task's row is untouched")
+    }
+
+    /// Strain, ACOM and DPC take their keys from their own task, not from the
+    /// room the window is in: the window here is on Imaging, and each task's
+    /// metadata still names that task and its own source product, and the
+    /// strain product carries exactly those keys. Before, the metadata existed
+    /// only for the current mode (`currentScalarPersistenceMetadata`): under
+    /// Imaging every task got the virtual image's `analysis_mode`. Each publish
+    /// site is still guarded on its own mode, so no product differs today; this
+    /// pins the keys for a path that publishes outside the room (replay, rewind).
+    func testStrainACOMAndDPCPublishUnderTheirOwnKeys() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        _ = try await detectAndStrain(state, "strain")
+        let published = try XCTUnwrap(state.resultPresentation.product, state.statusText)
+        let strainOwn = state.scalarPersistenceMetadata(for: .strain).provenance
+        for (key, value) in strainOwn {
+            XCTAssertEqual(published.provenance[key], value, "the strain product carries its own \(key)")
+        }
+
+        state.navigation.analysisMode = .virtualDetector
+        let strain = state.scalarPersistenceMetadata(for: .strain).provenance
+        XCTAssertEqual(strain["analysis_mode"], AnalysisMode.strain.rawValue)
+        XCTAssertEqual(strain["source_product"], published.provenance["source_product"])
+
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        let acom = state.scalarPersistenceMetadata(for: .acom).provenance
+        XCTAssertEqual(acom["analysis_mode"], AnalysisMode.acom.rawValue)
+        XCTAssertEqual(acom["source_product"], "acom_\(state.acomSession.display.rawValue)")
+
+        state.dpc.dpcDisplay = .idpc
+        let dpc = state.scalarPersistenceMetadata(for: .dpc).provenance
+        XCTAssertEqual(dpc["analysis_mode"], AnalysisMode.dpc.rawValue)
+        XCTAssertEqual(dpc["source_product"]?.hasPrefix("idpc_"), true, "iDPC's own source key")
+        XCTAssertEqual(state.currentScalarPersistenceMetadata.provenance["analysis_mode"],
+                       AnalysisMode.virtualDetector.rawValue, "the current mode's own metadata is unchanged")
+    }
+
+    /// A run the user starts while a promote run replays the recipe does not
+    /// take over Cancel: it does not start, the step keeps running, and Cancel
+    /// stops the step. After the promote run a user run starts as before.
+    /// Red before: the user's `begin` cancelled the step and became the
+    /// operation Cancel stops. Mutation it catches: dropping the
+    /// `replayRun.isRunning` check in `beginCancellableOperation`.
+    func testARunStartedDuringAPromoteRunDoesNotTakeOverCancel() {
+        let state = AppState()
+        XCTAssertTrue(state.replayRun.begin(titles: ["Strain"]))
+        let step = PromoteRunContext.$isPromoteRun.withValue(true) {
+            state.beginCancellableOperation("Strain", status: "Replaying strain…")
+        }
+        let user = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertTrue(user.isCancelled, "the user's run does not start")
+        XCTAssertFalse(step.isCancelled, "the promote run's step keeps running")
+        XCTAssertTrue(state.isCurrentOperation(step), "and keeps the operation")
+
+        state.cancelActiveOperation()
+        XCTAssertTrue(step.isCancelled, "Cancel stops the promote run's step")
+        state.finishCancellableOperation(user)   // a refused run's defer is harmless
+        state.finishCancellableOperation(step)
+
+        // A file opened mid-run is not the promote run's: its runs start.
+        state.promoteRunEpoch = state.datasetSession.epoch + 1
+        let other = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertFalse(other.isCancelled, "a run on another dataset is not refused")
+        state.finishCancellableOperation(other)
+        state.promoteRunEpoch = nil
+        state.replayRun.finish(haltReason: "cancelled")
+
+        let later = state.beginCancellableOperation("Virtual detector", status: "Computing…")
+        XCTAssertFalse(later.isCancelled, "after the promote run a user run starts")
+        XCTAssertTrue(state.isCurrentOperation(later))
+        state.finishCancellableOperation(later)
+    }
+
+    /// (b) ACOM consumes origin, ellipse and Q. Mutation it catches: the
+    /// verdict blind to calibration for ACOM.
     func testAnEllipseFittedAfterACOMReadsItStale() async throws {
         let (state, kernel) = try await handSession()
         state.acomSession.modelSelection = .library("au_fcc")

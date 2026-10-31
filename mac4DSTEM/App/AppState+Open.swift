@@ -230,8 +230,6 @@ extension AppState {
         }
     }
 
-
-
     /// "Ignore Session Sidecar…" (Dataset menu) and the inspector's "Reopen Without This Session": ASKS, never
     /// acts (owner card Q2 a, 2026-10-04). The reopen replaces the dataset, so every product computed in this
     /// window and not saved to the session goes with it; the app has no "unsaved work" test, and a wrong
@@ -269,7 +267,6 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         return FileManager.default.fileExists(atPath: url.path) ? url.lastPathComponent : nil
     }
-
 
     func selectScan(x: Int, y: Int) {
         if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
@@ -503,14 +500,8 @@ extension AppState {
             inner: 0,
             outer: Float(defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy))  // one source with the preview's bright-field disk
         )
-        if let rawVoltage = await reader.readDoubleAttribute(
-            AcceleratingVoltage.attributeName, onObjectPath: "/"
-        ) {
-            // One app convention, kV — the rule (eV above 1000) is Core's, shared with the preprocessing export.
-            calibrationSession.acceleratingVoltage = AcceleratingVoltage.kilovolts(fromAttribute: rawVoltage)
-        } else {
-            calibrationSession.acceleratingVoltage = nil
-        }
+        // One app convention, kV — the rule (the stated unit, else eV above 1000) is Core's, shared with the preprocessing export.
+        calibrationSession.acceleratingVoltage = await AcceleratingVoltage.kilovolts(from: reader)
         // Strain dies BEFORE the calibration reset: `activate` suspends on reader
         // awaits in between, the export menu is reachable during a suspension, and
         // the strain frame keys come from the LIVE calibration — an uncleared map
@@ -1032,9 +1023,11 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetSession.epoch
+        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is refused here like an unreadable one.
+        let sourcePath = descriptor.filePath
         do {
             let snapshot = try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: sourcePath)
             }.value
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
@@ -1282,7 +1275,6 @@ extension AppState {
         }
     }
 
-
     func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
         calibrationSession.parkedRecordedOrigin = nil
@@ -1450,6 +1442,12 @@ extension AppState {
     /// for the value in effect — so a Return or blur on an untouched "0,1904"
     /// (restored from the session) does not arrive here, and no unchanged-value
     /// guard is needed (P1, 2026-10-04: it replaced a 5e-7 tolerance here).
+    ///
+    /// The orientation map stays, as the strain and phase maps do (D068): it
+    /// reads stale. Its run consumed the Q node (`calibration_q`) and its
+    /// signature carries the matching scale, so a typed or cleared Q changes
+    /// one or both, and the export writes the scale the map was matched at
+    /// (`lastRunSemantics`), not the one in force.
     func setManualQPixelSize(_ value: Double) {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
@@ -1460,12 +1458,10 @@ extension AppState {
             // the picker's visible default instead of retaining pixels/px.
             calibrationSession.calibration.qPixelUnits = manualQPixelUnits
             calibrationSession.provenance.qScale = .manual
-            acomSession.invalidateResult()
             recordQCalibrationRun()   // lineage node (ADR 047)
         } else {
             calibrationSession.calibration.qPixelSize = nil
             calibrationSession.provenance.qScale = nil
-            acomSession.invalidateResult()
         }
         rederiveDisplayedDPCForScaleChange()
     }
@@ -1487,7 +1483,7 @@ extension AppState {
             // setter gives it (review 2026-09-30 row 2).
             recordQCalibrationRun()   // lineage node (ADR 047)
         }
-        acomSession.invalidateResult()
+        // The orientation map stays and reads stale (`setManualQPixelSize`).
         rederiveDisplayedDPCForScaleChange()
     }
 
@@ -1537,7 +1533,6 @@ extension AppState {
         rederiveDisplayedDPCForScaleChange()
     }
 
-
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
     /// Derived from the same DetectorShape as virtual diffraction so both
@@ -1548,7 +1543,5 @@ extension AppState {
             shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
         return VirtualDetector.makeMask(shape: shape, qy: d.ry, qx: d.rx).map { $0 != 0 }
     }
-
-
 
 }
