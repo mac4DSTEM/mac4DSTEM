@@ -174,22 +174,28 @@ final class ImportAndNetworkMessageTests: XCTestCase {
         XCTAssertTrue(hint.contains("inspector"), hint)
     }
 
-    /// The frozen toolbar's ACOM help is a private string, so this reads the source: no user-facing string may say "tools panel".
-    /// Mutation: restore the old ACOM help text -> red.
-    func testNoUserFacingStringInUIOrAppSaysToolsPanel() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        for relative in ["mac4DSTEM/UI/WorkspaceView.swift", "mac4DSTEM/App/ProductWorkflow.swift"] {
-            let url = root.appendingPathComponent(relative)
-            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
-                throw XCTSkip("source tree not beside the tests: \(url.path)")
+    /// No requirement row or empty-state line of any task points at "the tools panel" (the controls live in the
+    /// inspector). Every task is asked with every requirement unmet, so every row that can show is read.
+    /// Mutation: restore "…in the tools panel." in any requirement's title or pointer, or in an empty state -> red.
+    func testNoRequirementOrEmptyStateOfAnyTaskSaysToolsPanel() {
+        var unmet = ProductWorkflowReadiness()
+        unmet.hasValidDiskDetectionSettings = false
+        unmet.wantsLearnedDetector = true
+        unmet.hasLearnedDetectorAsset = false
+        unmet.phaseListRefusal = "No phase in the list can be matched."
+        var read = 0
+        for mode in AnalysisMode.allCases {
+            var lines = [RealSpacePane.pendingInstruction(for: mode)]
+            for item in ProductWorkflow.prerequisiteItems(for: mode, readiness: unmet) {
+                lines.append(item.title)
+                if case .taskPanel(let hint) = item.resolution { lines.append(hint) }
             }
-            for line in text.split(separator: "\n") where line.contains("\"") && line.localizedCaseInsensitiveContains("tools panel") {
-                // A string literal naming it; comments (//) are history, not UI.
-                if !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
-                    XCTFail("\(relative): \(line)")
-                }
+            for line in lines {
+                read += 1
+                XCTAssertFalse(line.localizedCaseInsensitiveContains("tools panel"), "\(mode): \(line)")
             }
         }
+        XCTAssertGreaterThan(read, AnalysisMode.allCases.count, "precondition: requirement rows were read too")
     }
 
     // MARK: - e7: single-slice ptychography's empty state names its own task

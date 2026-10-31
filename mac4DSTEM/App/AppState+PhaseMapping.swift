@@ -87,6 +87,14 @@ extension AppState {
     @discardableResult
     func runPhaseMapping() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
+        // First, as in strain and ACOM: peaks the current settings did not
+        // produce must not be matched (mac4DSTEM#69). A caller that skips the
+        // disabled button (replay, a test) reaches this.
+        if diskDetectionSettingsAreStale {
+            let reason = Self.phaseMappingStaleDisksRefusal
+            statusText = reason
+            return .failed(reason)
+        }
         if let refusal = phaseMapping.runRefusal { return .failed(refusal) }
         guard let rawVectors = resultPresentation.braggVectors else {
             return .failed("Detect Bragg disks first — phase mapping matches the "
@@ -551,6 +559,26 @@ extension AppState {
             + "peaks in detector pixels, so without it every position reads not indexed."
     }
 
+    /// The sentence strain, ACOM and q from crystal refuse stale disks with,
+    /// for the two phase-mapping runs (mac4DSTEM#69). Disks restored without
+    /// a recipe read stale too, through `diskDetectionSettingsAreStale`.
+    static let phaseMappingStaleDisksRefusal =
+        "Detection settings changed — run Detect All Disks again before phase mapping."
+    static let matrixZoneAxisStaleDisksRefusal =
+        "Detection settings changed — run Detect All Disks again before fitting the matrix zone axis."
+
+    /// Why Find Matrix Zone Axis cannot run now, or nil: no disks, disks the
+    /// current settings did not produce, or no physical Q scale. The button is
+    /// disabled on this and shows it as its help, and `findMatrixZoneAxis`
+    /// refuses on the same conditions.
+    var matrixZoneAxisRefusal: String? {
+        guard resultPresentation.braggVectors != nil else {
+            return "Detect Bragg disks first — this fits the axis to the peaks disk detection found."
+        }
+        if diskDetectionSettingsAreStale { return Self.matrixZoneAxisStaleDisksRefusal }
+        return phaseMappingQScaleRefusal
+    }
+
     /// Why the zone-axis ranking on the panel belongs to an earlier Q scale,
     /// origin or ellipse, or nil. Called from a view body, only while a ranking
     /// is shown (the stamp digests the fitted origin maps).
@@ -587,6 +615,11 @@ extension AppState {
     /// cannot tell a fit from a coin toss.
     func findMatrixZoneAxis() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
+        if diskDetectionSettingsAreStale {
+            let reason = Self.matrixZoneAxisStaleDisksRefusal
+            statusText = reason
+            return .failed(reason)
+        }
         guard let matrixIndex = phaseMapping.phases.firstIndex(where: \.isMatrix) else {
             return .failed("Mark one phase as the matrix first.")
         }

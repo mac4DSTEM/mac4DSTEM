@@ -90,15 +90,16 @@ struct PhaseMappingSections: View {
                 // position comes back "not indexed", which looks exactly like
                 // a method that does not work.
                 InspectorActionRow {
+                    // No disks, stale disks (mac4DSTEM#69) or no physical Q
+                    // scale (every axis would read "at chance", drive
+                    // 2026-09-24): disabled, and the help says which.
+                    let refusal = appState.matrixZoneAxisRefusal
                     InspectorAdaptiveButton("Find Matrix Zone Axis", systemImage: "scope",
-                                             help: "Symmetry-equivalent axes should tie exactly. They are shown "
-                                                 + "so a fit can be told from a coin toss.") {
+                                             help: refusal ?? ("Symmetry-equivalent axes should tie exactly. They are shown "
+                                                 + "so a fit can be told from a coin toss.")) {
                         PendingEdits.run { _ = await appState.findMatrixZoneAxis() }
                     }
-                    // No physical Q scale, no fit: every axis would read "at
-                    // chance" (drive 2026-09-24); the run section says why.
-                    .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil
-                              || appState.phaseMappingQScaleRefusal != nil)
+                    .disabled(appState.isBusy || refusal != nil)
                     .accessibilityIdentifier("phaseMapping.findZoneAxis")
                 }
 

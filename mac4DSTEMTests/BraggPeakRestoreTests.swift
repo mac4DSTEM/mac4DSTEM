@@ -465,6 +465,36 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         XCTAssertTrue(state.diskDetectionSettingsAreStale)
     }
 
+    /// Phase mapping refuses stale peaks as strain and ACOM do, with the same
+    /// sentence, and Find Matrix Zone Axis is disabled with that reason
+    /// (mac4DSTEM#69). Mutation: either run guard removed (the run fails for
+    /// another reason, or runs); the button predicate ignoring staleness (nil
+    /// once a physical Q scale is set).
+    func testPhaseMappingRefusesStalePeaksLikeStrain() async throws {
+        let opened = try await open()
+        let state = opened.state
+        let d = try XCTUnwrap(state.descriptor)
+        state.setManualQPixelSize(0.25)
+        state.probeKernel = try PeakRestoreFixture.kernel(qy: d.qy, qx: d.qx)
+        XCTAssertFalse(state.diskDetectionSettingsAreStale)
+        XCTAssertNil(state.matrixZoneAxisRefusal, "current peaks and a physical Q scale: the fit may run")
+
+        state.diskDetection.diskParams.edgeBoundary += 1
+        XCTAssertTrue(state.diskDetectionSettingsAreStale)
+
+        let sentence = "Detection settings changed — run Detect All Disks again before"
+        let refusal = try XCTUnwrap(state.matrixZoneAxisRefusal, "the button must be disabled on stale peaks")
+        XCTAssertTrue(refusal.hasPrefix(sentence), refusal)
+
+        let run = await state.runPhaseMapping()
+        guard case .failed(let why) = run else { return XCTFail("phase mapping ran on stale peaks: \(run)") }
+        XCTAssertTrue(why.hasPrefix(sentence), why)
+
+        let fit = await state.findMatrixZoneAxis()
+        guard case .failed(let fitWhy) = fit else { return XCTFail("the zone-axis fit ran on stale peaks: \(fit)") }
+        XCTAssertEqual(fitWhy, refusal, "the run refuses with the reason the button shows")
+    }
+
     func testTheNoKernelSignatureIsWhatThePeaksRecordAndNothingWithoutPeaks() throws {
         let d = (qy: 32, qx: 32)
         let provenance = try PeakRestoreFixture.provenance(qy: d.qy, qx: d.qx)
