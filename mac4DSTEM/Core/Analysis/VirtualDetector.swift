@@ -126,23 +126,16 @@ extension DetectorShape {
             // `virtualimage.py` np.indices mask do. A `+ 0.5` on the centre
             // put the mask on the pixel corner, half a pixel off the drawn
             // ROI in both axes (register D025, Gate D 2026-09-30).
-            // The region holds the pixels whose centres lie on or inside the
-            // drawn ring, `d² ≤ R²`, as the rectangle holds the pixels whose
-            // centres lie on or inside the drawn square (R 5: 81 px). Pixel
-            // offsets are integers, so `d² ≤ R²` is `d² ≤ ⌊R²⌋`, which the
-            // mask's strict `<` reads exactly at a radius of √(⌊R²⌋ + ½) (exact in
-            // `fillRadial`'s Float arithmetic for R below about 2048 scan px; the
-            // radius control stops at half the scan). The
-            // radius was `R + 0.5` until 2026-10-30, which took centres up to
-            // half a pixel OUTSIDE the ring (R 5: 97 px).
-            // DEVIATION from py4DSTEM's strict `< R` (69 px at R 5): this is a
-            // scan-space region the user draws, not a py4DSTEM detector, and it
-            // selects what the ring shows.
+            // The region is py4DSTEM's circular mask on the scan grid:
+            // `make_detector(shape, "circle", ((x, y), R))` (virtualimage.py,
+            // f050d207), the strict `d² < R²` that `fillRadial` applies at the
+            // radius as given (R 5: 69 positions). The radius was `R + 0.5`
+            // until 2026-10-31, which took centres up to half a pixel outside
+            // the ring (R 5: 97 positions).
             guard radius.isFinite, radius >= 0 else {
                 return .circle(centerX: Float(scanX), centerY: Float(scanY), radius: 0)
             }
-            return .circle(centerX: Float(scanX), centerY: Float(scanY),
-                           radius: (Float((Double(radius) * Double(radius)).rounded(.down)) + 0.5).squareRoot())
+            return .circle(centerX: Float(scanX), centerY: Float(scanY), radius: radius)
         }
     }
 }

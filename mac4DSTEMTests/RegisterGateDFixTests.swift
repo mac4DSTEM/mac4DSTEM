@@ -21,7 +21,7 @@ final class RegionCircleMaskCentreTests: XCTestCase {
             qy: 64, qx: 64)
         var count = 0, sx = 0.0, sy = 0.0
         for y in 0..<64 { for x in 0..<64 where mask[y * 64 + x] != 0 { count += 1; sx += Double(x); sy += Double(y) } }
-        XCTAssertEqual(count, 81, "the pixels whose centres lie on or inside the drawn ring of radius 5")
+        XCTAssertEqual(count, 69, "py4DSTEM make_detector circle at R 5: the strict d² < 25")
         XCTAssertEqual(sx / Double(count), 30, accuracy: 1e-9)
         XCTAssertEqual(sy / Double(count), 30, accuracy: 1e-9)
         for y in 0..<64 { for x in 1..<60 {
@@ -30,25 +30,38 @@ final class RegionCircleMaskCentreTests: XCTestCase {
         } }
     }
 
-    /// The region holds exactly the pixels whose centres lie on or inside the drawn ring, `d² ≤ R²`, never one half a
-    /// pixel outside it (the old `R + 0.5` took 97 pixels at R 5 where the ring holds 81), for whole and fractional radii.
-    func testTheCircleRegionHoldsExactlyThePixelsInsideTheRing() {
+    /// The region is py4DSTEM's circular mask on the scan grid, the strict `d² < R²` of `make_detector(shape, "circle",
+    /// ((x, y), R))` (virtualimage.py, f050d207), never a pixel on or outside the ring (the old `R + 0.5` took 97
+    /// pixels at R 5), for whole and fractional radii.
+    func testTheCircleRegionIsThePy4DSTEMCircleMask() {
         for radius: Float in [0, 1, 2, 2.5, 3, 4.7, 5, 6, 7.07, 12] {
             let mask = VirtualDetector.makeMask(
                 shape: DetectorShape.realSpaceRegion(shape: .circle, radius: radius, scanX: 30, scanY: 30),
                 qy: 64, qx: 64)
             for y in 0..<64 { for x in 0..<64 {
                 let d2 = Double((x - 30) * (x - 30) + (y - 30) * (y - 30))
-                let inside = d2 <= Double(radius) * Double(radius)
+                let inside = d2 < Double(radius) * Double(radius)
                 XCTAssertEqual(mask[y * 64 + x] != 0, inside, "R \(radius), pixel (\(x), \(y)), d² \(d2)")
             } }
         }
-        let counts = ([0, 1, 5] as [Float]).map { radius in
+    }
+
+    /// Pinned from py4DSTEM 0.14.19 (git f050d207) in the reference venv:
+    /// `DataCube.make_detector((64, 64), "circle", ((30, 30), R))` holds 1, 21, 69, 69, 149, 437 pixels for R 1, 2.5,
+    /// 4.7, 5, 7.07, 12, and at R 5 its rows 30 to 35 hold 9, 9, 9, 7, 5, 0.
+    func testTheCircleRegionMatchesThePy4DSTEMPin() {
+        let radii: [Float] = [1, 2.5, 4.7, 5, 7.07, 12]
+        let counts = radii.map { radius in
             VirtualDetector.makeMask(
                 shape: DetectorShape.realSpaceRegion(shape: .circle, radius: radius, scanX: 30, scanY: 30),
                 qy: 64, qx: 64).filter { $0 != 0 }.count
         }
-        XCTAssertEqual(counts, [1, 5, 81], "R 0 is the selected pixel, R 1 its four neighbours too, R 5 the 81 inside the ring")
+        XCTAssertEqual(counts, [1, 21, 69, 69, 149, 437])
+        let mask = VirtualDetector.makeMask(
+            shape: DetectorShape.realSpaceRegion(shape: .circle, radius: 5, scanX: 30, scanY: 30),
+            qy: 64, qx: 64)
+        let rows = (0...5).map { k in (0..<64).filter { mask[(30 + k) * 64 + $0] != 0 }.count }
+        XCTAssertEqual(rows, [9, 9, 9, 7, 5, 0])
     }
 }
 
