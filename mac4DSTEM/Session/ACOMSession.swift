@@ -39,7 +39,8 @@ package final class ACOMSession {
             if before != after { invalidatePlan() }
         }
     }
-    /// A different scale changes the match, not the plan.
+    /// A different scale changes the match and the plan's k range (the detector's reach in Å⁻¹); `runACOM` rebuilds a plan
+    /// whose range no longer fits, so only the result is invalidated here.
     package var exploratoryScale: Double = 0.01 {
         didSet { if exploratoryScale != oldValue { invalidateResult() } }
     }
