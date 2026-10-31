@@ -1576,9 +1576,12 @@ final class AppState {
     /// residual and so cannot bring physical iDPC back — a remedy that does
     /// nothing where it is printed (Gate B, 2026-08-25).
     var idpcOriginFitRefusal: String? {
-        calibrationSession.calibration.originFitJudgement.map {
-            $0 + " Try another Origin fit (Constant / Plane / Parabola) and "
-                + "re-run Calibrate Origin."
+        let calibration = calibrationSession.calibration
+        return calibration.originFitJudgement.map {
+            // The window pull is a biased measurement, the same for every fit function and every re-run (2026-10-31).
+            calibration.originWindowPullIsAcceptable
+                ? $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate Origin."
+                : $0 + " Changing the Origin fit function or re-running Calibrate Origin gives the same origins."
         }
     }
 
