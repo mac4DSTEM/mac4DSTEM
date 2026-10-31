@@ -270,9 +270,7 @@ extension AppState {
     /// own pattern (CuboKit's virtual-image reducers).
     /// `static` and not private so `TileReadBudgetSiblingTests` can pin it.
     static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
-        let readHeight = view.readDetectorCrop?.height ?? view.source.qy
-        let readWidth = view.readDetectorCrop?.width ?? view.source.qx
-        let bytesPerScanRow = view.descriptor.rx * readHeight * readWidth * MemoryLayout<Float>.stride
+        let bytesPerScanRow = view.descriptor.rx * view.readBytesPerPattern
         let targetBytes = 16 * 1024 * 1024
         return max(1, min(view.descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
     }
@@ -295,7 +293,8 @@ extension AppState {
         let cancellation = quiet ? nil : beginCancellableOperation(
             "Virtual detector",
             status: SystemMonitor.scanProgressStatus(
-                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor
+                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor,
+                bytesPerPattern: fourD.view.readBytesPerPattern
             ),
             totalUnits: totalPatterns
         )
@@ -317,10 +316,10 @@ extension AppState {
                 return .cancelled
             }
             // The bottom workspace's Run tab "Streamed" row (ADR 034): the
-            // same float32 working-size arithmetic `SystemMonitor.scanProgressStatus`
-            // already does internally, exposed here because that function
-            // only returns the composed status string, not the byte count.
-            let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
+            // float32 bytes each position READS, pre-bin (`LoadView.readBytesPerPattern`;
+            // the binned descriptor's size understated it by bin²), the same
+            // number the status line beside it reports.
+            let bytesPerPattern = fourD.view.readBytesPerPattern
             let progressUpdate: (@Sendable (Double) -> Void)?
             if let token = cancellation {
                 progressUpdate = { @Sendable [weak self] fraction in
@@ -341,7 +340,7 @@ extension AppState {
                             progress: clipped,
                             status: SystemMonitor.scanProgressStatus(
                                 scanVerb, processed: processed,
-                                total: totalPatterns, descriptor: d
+                                total: totalPatterns, descriptor: d, bytesPerPattern: bytesPerPattern
                             )
                         )
                     }
