@@ -242,8 +242,37 @@ extension AppState {
             if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == .disks { return }
             guard let vectors = resultPresentation.braggVectors, let d = descriptor else { return }
             showBraggMap(vectors, descriptor: d)
-        default: break
+        case .virtualDetector:
+            presentVirtualImageForImaging()
         }
+    }
+
+    /// Imaging's own result is the virtual image. Entering the room with another room's map on screen (an ACOM
+    /// preview, a strain map) or with an empty pane shows the image the last run landed, republished as it
+    /// landed: the same pixels, provenance and lineage step, and no new stream of the cube. It is shown only
+    /// while it still describes what a run would compute now: the same dataset, the live aperture and shape,
+    /// the current scan sampling. Otherwise one run with the live aperture fills the room, the run an aperture
+    /// change starts; with no dataset (or a load or a run already under way) the foreign map just goes.
+    private func presentVirtualImageForImaging() {
+        if let kind = resultPresentation.product?.kind, kind.hasPrefix("virtual_") { return }
+        let calibration = calibrationSession.calibration
+        let sampling = ProductSampling(
+            row: calibration.rPixelSize, column: calibration.rPixelSize, units: calibration.rPixelUnits)
+        if let held = resultPresentation.heldVirtualImage,
+           held.epoch == datasetSession.epoch, datasetSession.fourD != nil,
+           held.aperture == aperture, held.shape == resultPresentation.virtualShape,
+           held.product.sampling == sampling {
+            resultPresentation.resultColormap = .viridis
+            resultPresentation.publish(held.product)
+            return
+        }
+        if resultPresentation.product != nil {
+            resultPresentation.replaceProduct(nil)
+            resultPresentation.bumpResultVersion()
+        }
+        guard datasetSession.fourD != nil, descriptor != nil, !datasetSession.isLoading,
+              !resultPresentation.vdInFlight, !promoteRunRefusesUserRuns else { return }
+        resultPresentation.imagingEntryRun = Task { await self.runVirtualDetector() }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -430,6 +459,10 @@ extension AppState {
             recordReplayStep(kind: "virtual_detector",
                               parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
                               replaying: replaying, stampsDisplayedProduct: true)
+            // Held after the stamp, so a re-show carries this run's lineage step as the saved map would.
+            if let landed = resultPresentation.product, landed.kind.hasPrefix("virtual_") {
+                resultPresentation.holdVirtualImage(.init(product: landed, epoch: epoch, aperture: ap, shape: shapeMode))
+            }
             return .published
         } catch {
             if cancellation?.isCancelled == true {

@@ -265,9 +265,9 @@ extension AnalysisMode {
     }
 
     /// The `SessionReplayRecord.Step.kind` this task's product is recorded
-    /// under (C4(b)) — nil for parallax (the `.ptychography` mode), which has
-    /// no recorder: a mode with no kind here is never judged stale, whatever
-    /// its retained product.
+    /// under (C4(b)). Every task records now; parallax is the `.ptychography`
+    /// mode. Optional so a task without a recorder can return nil: a mode with
+    /// no kind here is never judged stale, whatever its retained product.
     var replayKind: String? {
         switch self {
         case .virtualDetector: "virtual_detector"
@@ -278,7 +278,7 @@ extension AnalysisMode {
         case .diffractionGroups: "diffraction_groups"
         case .phaseMapping: "phase_mapping"
         case .singleslicePtychography: "ptychography"
-        case .ptychography: nil
+        case .ptychography: "parallax"
         }
     }
 
@@ -416,7 +416,7 @@ enum TaskProductState: Equatable, Sendable {
 /// recorded step's own output-only keys (strain's `resolved_g*`) never
 /// participate.
 enum StalenessVerdict: Equatable, Sendable {
-    /// No signature builder exists for this kind (parallax),
+    /// No signature builder exists for this kind,
     /// or the recorded step matches current settings on every key it names.
     case current
     /// The recorded step is missing keys current settings would record, or
@@ -496,14 +496,15 @@ enum ProductWorkflow {
         strainSignature: [String: String],
         acomSignature: [String: String]?,
         diskPeaksProvenance: [String: String]? = nil,
-        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil
+        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil,
+        parallaxSignature: [String: String]? = nil
     ) -> [String: String]? {
         let signature = settingsSignature(
             for: mode, virtualDetectorShape: virtualDetectorShape, aperture: aperture,
             dpcOriginReference: dpcOriginReference, diskKernel: diskKernel, diskParams: diskParams,
             learnedDetectorParameters: learnedDetectorParameters, strainSignature: strainSignature,
             acomSignature: acomSignature, diskPeaksProvenance: diskPeaksProvenance,
-            ptychographySettings: ptychographySettings)
+            ptychographySettings: ptychographySettings, parallaxSignature: parallaxSignature)
         // The replay contract names which recorded keys the staleness check
         // compares; a key outside it never takes part (`ReplayContractTests`
         // holds each builder below to exactly that set).
@@ -524,7 +525,8 @@ enum ProductWorkflow {
         strainSignature: [String: String],
         acomSignature: [String: String]?,
         diskPeaksProvenance: [String: String]?,
-        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil
+        ptychographySettings: ReplayStepPlan.PtychographyReplayPlan.Settings? = nil,
+        parallaxSignature: [String: String]? = nil
     ) -> [String: String]? {
         switch mode {
         case .virtualDetector:
@@ -563,7 +565,10 @@ enum ProductWorkflow {
                 ReplayStepPlan.PtychographyReplayPlan.currentSignature(settings: $0, probeRadiusPixels: aperture.outer)
             }
         case .ptychography:
-            return nil
+            // Parallax: the controls of each later stage whose product is held
+            // (`PhaseContrastProduct.parallaxCurrentSignature`); the calibration
+            // and the stage progress are not compared (`ReplayContract`).
+            return parallaxSignature
         case .phaseMapping:
             // `PhaseMappingProduct.isStale` compares the phase LIST and both
             // settings structs, which no `[String: String]` signature can
