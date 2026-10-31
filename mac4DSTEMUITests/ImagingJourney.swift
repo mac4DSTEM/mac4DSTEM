@@ -35,6 +35,23 @@ final class ImagingJourney: Journey {
         }
     }
 
+    /// The circular region: the positions inside the drawn ring summed into the diffraction pane.
+    func testCircleRegionShowsTheSummedPattern() {
+        step("launch with the demo") { launch(arguments: ["--demo-fixture"]) }
+        step("open Imaging") {
+            waitForLoadingToEnd()
+            wait(for: "workspace.image").click()
+            wait(for: "result.viewer", timeout: 30)
+        }
+        step("switch the direction to Region and pick a circle") {
+            labelled("Region").click()
+            labelled("Circle").click()
+        }
+        step("the diffraction pane shows the circle region sum") {
+            wait(for: "pattern.roiSumBadge", timeout: 30)
+        }
+    }
+
     /// Another room's map, then Imaging: the virtual image is back, not the map under the Imaging room.
     /// Strain stands in for an ACOM preview (the demo has no crystal to match); both left their map on screen.
     func testImagingAfterAStrainMapShowsTheVirtualImage() {

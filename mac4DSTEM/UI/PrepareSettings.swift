@@ -214,7 +214,7 @@ struct PrepareSettings: View {
             titleVisibility: .visible
         ) {
             Button("Clear Calibration", role: .destructive) {
-                appState.clearCalibration()
+                appState.clearCalibrationAndRecord()
             }
             Button("Cancel", role: .cancel) {}
         } message: {

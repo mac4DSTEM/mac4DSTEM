@@ -145,18 +145,21 @@ package enum ReplayFrameTransform: Equatable {
     /// Undo the load-time reduction. `CalibrationReReference.apply` shifts by
     /// the crop offset THEN bins, so the inverse un-bins then shifts back.
     case viewToSource(bin: Int, xOffset: Int, yOffset: Int)
-    /// Apply a further export-time bin. The exported reduced file has no
-    /// further crop, so there is no offset.
-    case viewToExport(bin: Int)
+    /// Apply an export-time detector crop, then bin — the order the writer
+    /// reduces the patterns in (`CalibratedDataCubeWriter.reducedTile`). The
+    /// offsets are the crop's first column (x) and row (y) in the view's
+    /// detector; zero for an uncropped export.
+    case viewToExport(bin: Int, xOffset: Int = 0, yOffset: Int = 0)
 
     /// A POSITION moves with the frame: un-bin about the pixel grid, then the
-    /// crop offset comes back (or forward: bin about the grid).
+    /// crop offset comes back (or forward: the crop offset goes, then bin
+    /// about the grid).
     package func positionX(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, let xOffset, _):
             FrameTransform.sourceCoordinate(value, bin: bin) + Float(xOffset)
-        case .viewToExport(let bin):
-            FrameTransform.binnedCoordinate(value, bin: bin)
+        case .viewToExport(let bin, let xOffset, _):
+            FrameTransform.binnedCoordinate(value - Float(xOffset), bin: bin)
         }
     }
 
@@ -164,8 +167,8 @@ package enum ReplayFrameTransform: Equatable {
         switch self {
         case .viewToSource(let bin, _, let yOffset):
             FrameTransform.sourceCoordinate(value, bin: bin) + Float(yOffset)
-        case .viewToExport(let bin):
-            FrameTransform.binnedCoordinate(value, bin: bin)
+        case .viewToExport(let bin, _, let yOffset):
+            FrameTransform.binnedCoordinate(value - Float(yOffset), bin: bin)
         }
     }
 
@@ -174,7 +177,7 @@ package enum ReplayFrameTransform: Equatable {
     package func length(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, _, _): value * Float(bin)
-        case .viewToExport(let bin): value / Float(bin)
+        case .viewToExport(let bin, _, _): value / Float(bin)
         }
     }
 
@@ -183,7 +186,7 @@ package enum ReplayFrameTransform: Equatable {
     package func perPixelScale(_ value: Double) -> Double {
         switch self {
         case .viewToSource(let bin, _, _): value / Double(bin)
-        case .viewToExport(let bin): value * Double(bin)
+        case .viewToExport(let bin, _, _): value * Double(bin)
         }
     }
 
@@ -193,7 +196,7 @@ package enum ReplayFrameTransform: Equatable {
     package func lengthInt(_ value: Int) -> Int? {
         switch self {
         case .viewToSource(let bin, _, _): value * bin
-        case .viewToExport(let bin): value.isMultiple(of: bin) ? value / bin : nil
+        case .viewToExport(let bin, _, _): value.isMultiple(of: bin) ? value / bin : nil
         }
     }
 }
@@ -284,13 +287,31 @@ package enum ReplayRecordFrameMap {
     /// a coherent pipeline or nothing, so ONE unmappable step drops the
     /// whole record — with the reason, so the export summary can
     /// say what was left out and why instead of the recipe silently missing.
-    package static func mapForExport(_ record: SessionReplayRecord, exportBin: Int)
+    /// `exportedWidth`/`exportedHeight` (the exported detector, in its own
+    /// pixels) refuse a position the crop leaves off the detector — an aperture
+    /// centre outside the file would replay against nothing (the writer refuses
+    /// the same for the origin). Nil skips the check.
+    package static func mapForExport(_ record: SessionReplayRecord, exportBin: Int,
+                                     cropXOffset: Int = 0, cropYOffset: Int = 0,
+                                     exportedWidth: Int? = nil, exportedHeight: Int? = nil)
         -> Result<SessionReplayRecord, ReplayRefusal> {
-        guard exportBin > 1 else { return .success(record) }
+        guard exportBin > 1 || cropXOffset != 0 || cropYOffset != 0 else { return .success(record) }
         var steps: [SessionReplayRecord.Step] = []
+        let transform = ReplayFrameTransform.viewToExport(bin: exportBin, xOffset: cropXOffset, yOffset: cropYOffset)
         for step in record.steps {
-            switch map(step, through: .viewToExport(bin: exportBin)) {
+            switch map(step, through: transform) {
             case .success(let mapped):
+                for (key, text) in mapped.parameters {
+                    let extent: Int? = switch role(kind: step.kind, key: key) {
+                    case .positionX: exportedWidth
+                    case .positionY: exportedHeight
+                    default: nil
+                    }
+                    guard let extent, let value = Float(text) else { continue }
+                    if value < -0.5 || value >= Float(extent) - 0.5 {
+                        return .failure(ReplayRefusal(reason: "the recorded \(ReplayPlanner.title(forKind: step.kind)) step's '\(key)' lands outside the exported detector (\(text) px on an axis of \(extent) px) — export a crop that contains it, or re-run the step on the exported file"))
+                    }
+                }
                 steps.append(mapped)
             case .failure(let refusal):
                 return .failure(ReplayRefusal(reason: "the recorded \(ReplayPlanner.title(forKind: step.kind)) step cannot be re-expressed in the exported file's detector frame: \(refusal.reason)"))
@@ -315,7 +336,11 @@ package enum ReplayRecordFrameMap {
         record: SessionReplayRecord?,
         recordedFrame: ReplayParameterFrame?,
         currentSpecification: LoadSpecification,
-        exportBin: Int
+        exportBin: Int,
+        cropXOffset: Int = 0,
+        cropYOffset: Int = 0,
+        exportedWidth: Int? = nil,
+        exportedHeight: Int? = nil
     ) -> (record: SessionReplayRecord?, omission: String?) {
         // An empty recipe has no detector-pixel parameters to mis-frame, so it
         // has nothing to omit and nothing to explain. `recordForSaving` is
@@ -330,7 +355,8 @@ package enum ReplayRecordFrameMap {
         guard (recordedFrame ?? .unknown) == currentFrame else {
             return (nil, "the recipe's detector-pixel parameters were recorded on a different detector frame than this view (a promoted or restored session) — re-run the analyses on this view to record an exportable recipe")
         }
-        switch mapForExport(record, exportBin: exportBin) {
+        switch mapForExport(record, exportBin: exportBin, cropXOffset: cropXOffset, cropYOffset: cropYOffset,
+                            exportedWidth: exportedWidth, exportedHeight: exportedHeight) {
         case .success(let mapped): return (mapped, nil)
         case .failure(let refusal): return (nil, refusal.reason)
         }
