@@ -1,5 +1,5 @@
 //
-//  MatrixDFTCorrelationRow9Tests.swift
+//  MatrixDFTCorrelationTests.swift
 //  Lane F-B row 9: the matrix-DFT
 //  upsampler's frequency wrap on an ODD axis. py4DSTEM's multicorr uses
 //  ifftshift(arange(N)) - floor(N/2) (References/py4DSTEM-dev/py4DSTEM/process/utils/
@@ -18,7 +18,7 @@ import struct CuboParallax.ParallaxSpectrum
 import enum CuboParallax.ParallaxAlignment
 @testable import mac4DSTEM
 
-final class MatrixDFTCorrelationRow9Tests: XCTestCase {
+final class MatrixDFTCorrelationTests: XCTestCase {
 
     /// numpy fftfreq(n) * n : [0 ... (n-1)/2, -(n/2) ... -1] (odd n: the middle bin is positive).
     private func numpyFrequency(_ k: Int, _ n: Int) -> Double {

@@ -211,6 +211,10 @@ package enum ReplayContract {
                 "rotation_rad": Key(.invariant, .notCompared, .read),
                 "transpose": Key(.invariant, .notCompared, .read),
                 "alignment_levels": Key(.invariant, .notCompared, .read),
+                // Where the alignment stopped: the bin is a detector length (×bin into the source, ÷bin into an
+                // export, where a fraction matches no level and a partial replay refuses); the pass count is not.
+                "alignment_bin": Key(.length, .notCompared, .read),
+                "alignment_bin_passes": Key(.invariant, .notCompared, .read),
                 "alignment_complete": Key(.invariant, .notCompared, .read),
                 "aberration_fit": Key(.invariant, .notCompared, .read),
                 // KDE: the factor and sigma are in scan pixels, not detector pixels.

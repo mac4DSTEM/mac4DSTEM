@@ -66,8 +66,9 @@ final class LearnedDetectionSessionTests: XCTestCase {
         let params = session.replayParameters(for: .learned)
         XCTAssertEqual(params["detector_class"], "learned")
         XCTAssertEqual(params["learned_threshold"], "0.55")
-        // Not yet loaded in this test: empty, never omitted or fabricated.
-        XCTAssertEqual(params["learned_model_sha256"], "")
+        // Not yet loaded in this test: the bundled package's own hash, read from its files; never omitted or fabricated.
+        XCTAssertEqual(params["learned_model_sha256"], LearnedDetectionSession.bundledAssetSHA256 ?? "")
+        XCTAssertNotNil(LearnedDetectionSession.bundledAssetSHA256, "the test host carries the bundled model")
     }
 
     // MARK: syntheticProbe

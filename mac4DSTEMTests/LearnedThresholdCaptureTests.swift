@@ -1,5 +1,5 @@
 //
-//  FCRow27LearnedThresholdCaptureTests.swift
+//  LearnedThresholdCaptureTests.swift
 //  Cloud review row 27 (Gate D): the learned run used the threshold captured before
 //  the detach, but its recorded step read the live threshold afterwards.
 //
@@ -10,7 +10,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 @MainActor
-final class FCRow27LearnedThresholdCaptureTests: XCTestCase {
+final class LearnedThresholdCaptureTests: XCTestCase {
 
     /// Mutation it catches: the step recorded from the live `threshold` (0.9, typed
     /// during the run) instead of the one the run used (0.5).

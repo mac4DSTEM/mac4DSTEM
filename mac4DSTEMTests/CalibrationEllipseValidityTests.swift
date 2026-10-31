@@ -1,5 +1,5 @@
 //
-//  CalibrationEllipseRow29Tests.swift
+//  CalibrationEllipseValidityTests.swift
 //  Lane F-B row 29: `hasEllipse` accepted
 //  b <= 0 and a < 0 while the readiness row required a > 0 && b > 0, so a file with such an
 //  ellipse had e = b/a <= 0 applied to every Bragg vector while the row read "No
@@ -11,7 +11,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-final class CalibrationEllipseRow29Tests: XCTestCase {
+final class CalibrationEllipseValidityTests: XCTestCase {
 
     private func calibration(a: Double, b: Double) -> Calibration {
         var c = Calibration()

@@ -22,7 +22,8 @@ final class ParallaxReplayTests: XCTestCase {
         transpose: false)
 
     private var fullPlan: Plan {
-        Plan(calibration: calibration, alignmentLevels: 3, alignmentComplete: true, fitsAberrations: true,
+        Plan(calibration: calibration, alignmentLevels: 3, alignmentComplete: true,
+             alignmentStop: .init(bin: 1, passes: 2), fitsAberrations: true,
              subpixel: .init(upsampleFactor: 2.5, kdeSigmaPixels: 0.25, lowpass: true, lanczosOrder: 3,
                              positionCorrectionIterations: 4, positionCorrectionCheckerboard: true),
              correction: .init(qLowpassInvAngstrom: 1.5, qHighpassInvAngstrom: 0.05),
@@ -59,7 +60,7 @@ final class ParallaxReplayTests: XCTestCase {
     func testTheRecordedStepParsesBackToWhatRan() throws {
         XCTAssertEqual(try plan(from: fullPlan.recordedParameters), fullPlan)
         let preprocessedOnly = Plan(calibration: calibration, alignmentLevels: 0, alignmentComplete: false,
-                                    fitsAberrations: false, subpixel: nil, correction: nil, depth: nil)
+                                    alignmentStop: nil, fitsAberrations: false, subpixel: nil, correction: nil, depth: nil)
         XCTAssertEqual(try plan(from: preprocessedOnly.recordedParameters), preprocessedOnly)
         XCTAssertNil(preprocessedOnly.recordedParameters["kde_sigma_px"], "a stage not reached writes no keys")
     }
@@ -81,18 +82,21 @@ final class ParallaxReplayTests: XCTestCase {
 
         var fitWithoutAlignment = fullPlan
         fitWithoutAlignment.alignmentLevels = 0
+        fitWithoutAlignment.alignmentStop = nil
         fitWithoutAlignment.alignmentComplete = false
         fitWithoutAlignment.subpixel = nil
         XCTAssertNotNil(refusal(fitWithoutAlignment.recordedParameters))
     }
 
     /// A rehearsal on a ×2-binned, cropped detector: the Q sampling halves,
-    /// every other key (scan pixels, Å, Å⁻¹, counts) stays.
+    /// the stopping bin doubles, every other key (scan pixels, Å, Å⁻¹, counts)
+    /// stays.
     func testADetectorReReferenceHalvesTheQSamplingAndKeepsTheRest() throws {
         let mapped = try ReplayRecordFrameMap.map(step(fullPlan.recordedParameters),
                                                   through: .viewToSource(bin: 2, xOffset: 3, yOffset: 5)).get()
         var expected = fullPlan
         expected.calibration.reciprocalSamplingInvAngstrom = 0.0125 / 2
+        expected.alignmentStop?.bin = 2
         XCTAssertEqual(try plan(from: mapped.parameters), expected)
     }
 
@@ -119,7 +123,7 @@ final class ParallaxReplayTests: XCTestCase {
         let fresh = PhaseContrastProduct()
         let before = fresh.parallaxDepthSettings
         fresh.apply(Plan(calibration: calibration, alignmentLevels: 1, alignmentComplete: false,
-                         fitsAberrations: false, subpixel: nil, correction: nil, depth: nil))
+                         alignmentStop: .init(bin: 4, passes: 1), fitsAberrations: false, subpixel: nil, correction: nil, depth: nil))
         XCTAssertEqual(fresh.parallaxDepthSettings, before)
         XCTAssertEqual(fresh.parallaxCurrentSignature, [:], "no later stage held: nothing to compare")
     }

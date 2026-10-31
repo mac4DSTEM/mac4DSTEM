@@ -1,9 +1,11 @@
 # CI — the aggregate claim, made mechanical (v2 S21, the archived notes §8).
 #
-# WHAT RUNS on every push and pull request — the jobs below, each a gate a public
-# checkout can reproduce. `scientific` (up to three hours, not a required check)
-# runs on push and workflow_dispatch only, never on a pull request, so a PR waits
-# only for the required checks; dispatch CI on a branch to run it before merging.
+# WHAT RUNS on every push to main, tag and pull request — the jobs below, each a
+# gate a public checkout can reproduce. `scientific` (up to three hours on the one
+# Mac runner, not a required check) runs nightly (cron 02:00 UTC, alone) and on
+# workflow_dispatch only: never on a push, a tag or a pull request, so no push
+# queues the runner behind it. Dispatch CI on a branch to run it before merging,
+# and on main before a tag.
 # `kit boundary` is a plain grep and runs on Linux, off the macOS runner queue.
 #   * `tools/run-tests.sh scientific`  — every harness in that script's
 #     `scientific` array (the array is the roster; no count is stated here so
@@ -77,11 +79,15 @@ on:
     tags: ['*']
   pull_request:
   workflow_dispatch:
+  # Nightly: `scientific` alone (every other job skips the schedule event).
+  schedule:
+    - cron: "0 2 * * *"
 
 concurrency:
-  group: ci-${{ github.ref }}
-  # Superseded branch/PR runs cancel; main runs always complete — on main each
-  # commit's finished run IS the record (and an S17-intermittent observation).
+  # The nightly run has its own group, so it never queues behind, or holds up, a main push run.
+  group: ci-${{ github.event_name == 'schedule' && 'nightly-' || '' }}${{ github.ref }}
+  # Superseded branch/PR runs cancel; main runs (push and nightly) always complete — on
+  # main each commit's finished run IS the record (and an S17-intermittent observation).
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
@@ -91,6 +97,8 @@ env:
 jobs:
   unit:
     name: unit (XCTest)
+    # Every job but `scientific` skips the nightly schedule: their triggers stay push to main, tags, PRs and dispatch.
+    if: github.event_name != 'schedule'
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -111,8 +119,8 @@ jobs:
 
   scientific:
     name: scientific (py4DSTEM parity)
-    # Off pull requests: the macOS runners are the CI bottleneck and this is the slowest, non-required job.
-    if: github.event_name != 'pull_request'
+    # Nightly and by hand only: the one Mac runner is the CI bottleneck and this is the slowest, non-required job.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
     runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 180
@@ -166,6 +174,7 @@ jobs:
 
   inventory:
     name: inventory (repo review)
+    if: github.event_name != 'schedule'
     # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
     runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 10
@@ -184,6 +193,7 @@ jobs:
 
   core:
     name: core (DSTEMCore + DSTEMSession package build)
+    if: github.event_name != 'schedule'
     # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
     runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 30
@@ -198,6 +208,7 @@ jobs:
 
   kit-boundary:
     name: kit boundary (no numerics frameworks in the app)
+    if: github.event_name != 'schedule'
     # Plain bash, grep and awk: Linux runs it (checked with mawk), off the macOS queue.
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -209,6 +220,7 @@ jobs:
 
   lint:
     name: Lint (shared SwiftLint and SwiftFormat config)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -219,6 +231,7 @@ jobs:
 
   private-refs:
     name: No private references
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

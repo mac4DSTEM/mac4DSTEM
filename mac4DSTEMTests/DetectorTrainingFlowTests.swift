@@ -197,7 +197,34 @@ final class DetectorTrainingFlowTests: XCTestCase {
         bundled = session.replayParameters(for: .learned)
         XCTAssertNil(bundled["learned_model_origin"])
         XCTAssertNil(bundled["learned_model_parent_sha256"])
-        XCTAssertEqual(bundled["learned_model_sha256"], "", "the bundled model's identity is not known until it loads")
+        XCTAssertEqual(bundled["learned_model_sha256"], try? LearnedDiskDetector.sha256(ofAsset: XCTUnwrap(LearnedDiskDetector.bundledAssetURL())),
+                       "the bundled model's identity is read from its files, as a stored model's is from its record")
+    }
+
+    /// The disks' staleness signature asks `replayParameters(for:)` with no run model. Before the bundled model
+    /// had loaded it read an empty hash, so learned disks restored from a session file, or a recipe recorded on
+    /// the bundled model, read stale on `learned_model_sha256` until something loaded the model. The bundled
+    /// package's hash is known from its files: the signature names it before the model loads, and a fine-tuned
+    /// model's comes from its record; the run's own model still wins at record time.
+    @MainActor
+    func testTheSignatureNamesTheBundledModelBeforeItLoads() throws {
+        let bundledURL = try XCTUnwrap(LearnedDiskDetector.bundledAssetURL(), "the test host carries the bundled model")
+        let bundledSHA = try LearnedDiskDetector.sha256(ofAsset: bundledURL)
+        let session = LearnedDetectionSession()
+        XCTAssertNil(session.assetSHA256, "nothing has loaded")
+        XCTAssertEqual(session.replayParameters(for: .learned)["learned_model_sha256"], bundledSHA)
+
+        // A recorded learned step on the bundled model is current against that signature.
+        var recorded = ["detector_class": "learned", "learned_threshold": String(session.threshold)]
+        recorded["learned_model_sha256"] = bundledSHA
+        XCTAssertEqual(session.replayParameters(for: .learned), recorded)
+
+        // A fine-tuned model with a known hash names its own, not the bundled one.
+        session.selectModel(.init(packageURL: URL(fileURLWithPath: "/tmp/x.mlpackage"), sha256: "abcd1234"))
+        XCTAssertEqual(session.replayParameters(for: .learned)["learned_model_sha256"], "abcd1234")
+        // One with no known hash names none, rather than borrowing the bundled one.
+        session.selectModel(.init(packageURL: URL(fileURLWithPath: "/tmp/y.mlpackage")))
+        XCTAssertEqual(session.replayParameters(for: .learned)["learned_model_sha256"], "")
     }
 
     @MainActor

@@ -1,5 +1,5 @@
 //
-//  LearnedDiskDetectorGateBTests.swift
+//  LearnedDiskDetectorRefineAndWindowTests.swift
 //  The Gate B refuter's assertions for step 4 slice 1 (2026-09-07), adopted after they were re-broken,
 //  ported to the 256-px Core ML package (C7, 2026-09-08): the committed fixture test could not see any
 //  of this. R1/R2 exercise `refine` alone (the fixture never drops a candidate by spacing and never reaches
@@ -15,7 +15,7 @@ import DSTEMCore
 @testable import mac4DSTEM
 @testable import ShellMetal
 
-final class LearnedDiskDetectorGateBTests: XCTestCase {
+final class LearnedDiskDetectorRefineAndWindowTests: XCTestCase {
 
     private func unitParams() -> DiskDetectionParams {
         var p = DiskDetectionParams()

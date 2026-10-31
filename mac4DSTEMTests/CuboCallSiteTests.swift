@@ -11,7 +11,7 @@ import DSTEMSession
 ///
 /// Every expectation is computed here, in Double, from the definition and the planted pixels, on a NON-SQUARE detector
 /// (6 rows x 9 columns) and a non-square scan (5 rows x 4 columns) so that a swapped axis cannot cancel.
-final class CuboSwitchTests: XCTestCase {
+final class CuboCallSiteTests: XCTestCase {
 
     private static let ry = 5, rx = 4, qy = 6, qx = 9
 
@@ -21,13 +21,13 @@ final class CuboSwitchTests: XCTestCase {
     private actor PlantedCube: FourDDataSource {
         static let descriptor = DatasetDescriptor(
             filePath: "/tmp/cubo-switch.h5", datasetPath: "/data",
-            shape: [CuboSwitchTests.ry, CuboSwitchTests.rx, CuboSwitchTests.qy, CuboSwitchTests.qx],
+            shape: [CuboCallSiteTests.ry, CuboCallSiteTests.rx, CuboCallSiteTests.qy, CuboCallSiteTests.qx],
             dtypeDescription: "float32", chunkShape: nil)
         let cube: [Float]
         init() {
             var all: [Float] = []
-            for r in 0..<CuboSwitchTests.ry { for c in 0..<CuboSwitchTests.rx {
-                for y in 0..<CuboSwitchTests.qy { for x in 0..<CuboSwitchTests.qx {
+            for r in 0..<CuboCallSiteTests.ry { for c in 0..<CuboCallSiteTests.rx {
+                for y in 0..<CuboCallSiteTests.qy { for x in 0..<CuboCallSiteTests.qx {
                     if r == 0 && c == 0 { all.append(0); continue }
                     var v = Float((r * 7 + c * 3 + y * 5 + x * 2 + (y * x) % 5) % 11) * 0.5
                     if r == 1 && c == 2 && y == 3 && x == 4 { v = -40 }
@@ -37,7 +37,7 @@ final class CuboSwitchTests: XCTestCase {
             cube = all
         }
         func value(_ r: Int, _ c: Int, _ y: Int, _ x: Int) -> Double {
-            Double(cube[((r * CuboSwitchTests.rx + c) * CuboSwitchTests.qy + y) * CuboSwitchTests.qx + x])
+            Double(cube[((r * CuboCallSiteTests.rx + c) * CuboCallSiteTests.qy + y) * CuboCallSiteTests.qx + x])
         }
         func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
         nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }

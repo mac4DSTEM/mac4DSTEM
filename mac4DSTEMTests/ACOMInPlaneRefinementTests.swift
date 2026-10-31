@@ -8,7 +8,7 @@ import DSTEMSession
 import DiffractoCore
 @testable import mac4DSTEM
 
-final class ACOMDiffractoKit09Tests: XCTestCase {
+final class ACOMInPlaneRefinementTests: XCTestCase {
 
     /// Gold library small enough for Debug; planted patterns are template spots rotated by an in-plane angle that is NOT a multiple of
     /// the bin (2 pi / 64 = 5.6 degrees), so the unrefined angle is off by up to half a bin and the vertex refinement is not.

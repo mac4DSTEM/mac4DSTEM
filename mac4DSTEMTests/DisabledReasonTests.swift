@@ -1,5 +1,5 @@
 //
-//  DisabledReasonDrive14Tests.swift
+//  DisabledReasonTests.swift
 //  Drive 14 (2026-10-13): Save to Session, Export Labels…, Align Next Level and Fit Aberrations dimmed with no reason.
 //  Each reason is nil EXACTLY when the button's old `.disabled` condition was false, over every input combination, so
 //  the buttons dim in the same states as before and only gain a reason.
@@ -8,7 +8,7 @@
 import XCTest
 @testable import mac4DSTEM
 
-final class DisabledReasonDrive14Tests: XCTestCase {
+final class DisabledReasonTests: XCTestCase {
     private let bools = [false, true]
 
     /// Mutation: drop the loading check - red (the loading-only state would read enabled).
