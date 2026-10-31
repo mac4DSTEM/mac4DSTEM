@@ -130,11 +130,8 @@ private struct DPCSettingsSection: View {
                     InspectorValueRow("Output", "Projected phase (rad)")
                     InspectorValueRow(
                         "Sampling",
-                        String(
-                            format: "%.4g Å · Q %.4g Å⁻¹/px",
-                            physical.rowSamplingAngstrom,
-                            physical.reciprocalAngstromPerDetectorPixel
-                        )
+                        "\(Num.sig(Double(physical.rowSamplingAngstrom), 4)) Å · "
+                            + "Q \(Num.sig(Double(physical.reciprocalAngstromPerDetectorPixel), 4)) Å⁻¹/px"
                     )
                     InspectorValueRow("Boundary", "Symmetric zero pad · 2×")
                 } else {
@@ -785,10 +782,7 @@ private struct ParallaxAlignmentDetails: View {
             InspectorValueRow("C1", String(format: "%.1f Å", locale: .autoupdatingCurrent, fit.c1Angstrom))
             InspectorValueRow(
                 "C12a / C12b",
-                String(
-                    format: "%.1f / %.1f Å",
-                    fit.c12aAngstrom, fit.c12bAngstrom
-                )
+                "\(Num.fixed(Double(fit.c12aAngstrom), 1)) / \(Num.fixed(Double(fit.c12bAngstrom), 1)) Å"
             )
             // No shift-fit residual row (review b4, 2026-10-02): zero by construction on every dataset (lane R4, the status line's
             // comment in AppState+PhaseContrast.fitParallaxAberrations), a number that cannot move.
@@ -833,11 +827,7 @@ private struct ParallaxFitDetails: View {
         if let subpixel = appState.phaseContrast.parallaxSubpixel {
             InspectorValueRow(
                 "KDE reconstruction",
-                String(
-                    format: "×%.2f · %.4f Å/px",
-                    subpixel.upsampleFactor,
-                    subpixel.outputSamplingAngstrom
-                )
+                "×\(Num.fixed(Double(subpixel.upsampleFactor), 2)) · \(Num.fixed(Double(subpixel.outputSamplingAngstrom), 4)) Å/px"
             )
             InspectorValueRow(
                 "KDE output",

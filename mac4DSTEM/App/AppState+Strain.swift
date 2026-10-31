@@ -84,13 +84,10 @@ extension AppState {
             var detail: String
             switch cause {
             case .starvedInput(let medianPeaks, let emptyPercent):
-                detail = String(
-                    format: "Only %.1f peaks per pattern were detected (%d%% of positions "
-                        + "had none). Indexing a lattice needs the direct beam plus two "
-                        + "more reflections, so lower the detection thresholds in Bragg "
-                        + "disks and detect again.",
-                    medianPeaks, emptyPercent
-                )
+                detail = "Only \(Num.fixed(Double(medianPeaks), 1)) peaks per pattern were detected (\(emptyPercent)% of positions "
+                    + "had none). Indexing a lattice needs the direct beam plus two "
+                    + "more reflections, so lower the detection thresholds in Bragg "
+                    + "disks and detect again."
             case .illConditionedBasis:
                 detail = strain.basisMode == .manual
                     ? "The manual basis is ill-conditioned, or too few peaks index to it. "
@@ -102,12 +99,8 @@ extension AppState {
                            ? "Pick an unstrained region as the reference instead."
                            : "Try a different reference region, or set g₁ and g₂ manually.")
                 if let summary = completedDiskSummary, summary.positionCount > 0 {
-                    detail += String(
-                        format: " (Detected input: median %.1f peaks per pattern, "
-                            + "%d%% of positions empty.)",
-                        summary.medianPeakCount,
-                        summary.zeroPeakPositionCount * 100 / summary.positionCount
-                    )
+                    detail += " (Detected input: median \(Num.fixed(Double(summary.medianPeakCount), 1)) peaks per pattern, "
+                        + "\(summary.zeroPeakPositionCount * 100 / summary.positionCount)% of positions empty.)"
                 }
             }
             if let kitRefusal { detail += " (CuboStrain refused: \(kitRefusal).)" }
@@ -143,13 +136,11 @@ extension AppState {
         recordReplayStep(kind: "strain", parameters: strainParameters, replaying: replaying)
         resultPresentation.resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
-        statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
-                            map.indexedFraction * 100,
-                            map.diagnostics.basisSupportFraction * 100,
-                            map.diagnostics.basisResidualPixels,
-                            map.diagnostics.basisConditionNumber,
-                            map.referencePositionCount,
-                            map.diagnostics.referenceCandidateCount)
+        statusText = "Strain ✓  \(Num.fixed(Double(map.indexedFraction) * 100, 0))% indexed"
+            + " · \(Num.fixed(Double(map.diagnostics.basisSupportFraction) * 100, 0))% basis support"
+            + " · RMS \(Num.sig(Double(map.diagnostics.basisResidualPixels), 3)) px"
+            + " · κ \(Num.fixed(Double(map.diagnostics.basisConditionNumber), 2))"
+            + " · \(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount) ref"
         return .published
     }
 }
