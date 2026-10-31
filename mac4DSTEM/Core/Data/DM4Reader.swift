@@ -19,7 +19,7 @@ import SpectroCore
 /// open-items "DM4 on a disconnected volume").
 ///
 /// MEASURED on a RAM disk (HFS+, `hdiutil detach -force`, macOS 27.0.1; probe
-/// and logs in archived `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/`): a path
+/// and logs in archived the archived notes): a path
 /// probe is the wrong tool. `statfs(path)` fails after the yank, but passes again with
 /// the SAME `f_fsid`, `st_dev` and `st_ino` once a volume of that name is back
 /// with the file copied to the same path, while the old mapping is still dead
@@ -65,7 +65,7 @@ package nonisolated struct MappingLiveness: Sendable {
         /// for `fcntl(F_GETFD)` keeps every unit test green and still dies with
         /// a SIGBUS after a forced unmount; only a force-ejected RAM disk shows
         /// it. After ANY change to this class, re-run
-        /// archived `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/drive.sh`.
+        /// archived the archived notes.
         var answers: Bool {
             var info = stat()
             return fstat(descriptor, &info) == 0

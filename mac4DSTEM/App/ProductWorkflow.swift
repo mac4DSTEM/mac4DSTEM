@@ -123,10 +123,16 @@ nonisolated enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable, Wo
         }
     }
 
+    /// Whether this room works on a spectrum image: Spectroscopy has nothing to show without one, and nothing in the
+    /// room opens one, so ⌘6 into it with a 4D cube alone landed in an empty room (macTEM's `RoomAvailability` rule).
+    var needsSpectrumImage: Bool { self == .spectroscopy }
+
     /// Whether the window can enter this room with what it holds. Without any
     /// document no room is available — the Go to items were disabled then
-    /// before Spectroscopy existed, and stay so; with a 4D cube every room is.
+    /// before Spectroscopy existed, and stay so; with a 4D cube every room is
+    /// except Spectroscopy, which needs a spectrum image.
     func isAvailable(hasFourDCube: Bool, hasSpectrumImage: Bool) -> Bool {
+        if needsSpectrumImage && !hasSpectrumImage { return false }
         if hasFourDCube { return true }
         return hasSpectrumImage && !needsFourDCube
     }

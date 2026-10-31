@@ -1,7 +1,7 @@
 //
 //  LineageGraphView.swift
 //  Role: The run graph in the bottom Lineage pane (ADR 047, R9 / phase L3;
-//        mock: archived docs/archive/v4/lineage-graph-mock-2026-09-30.html). Layered
+//        mock: the archived notes). Layered
 //        left to right; one `Button` per run; edges on a `Canvas` beneath them;
 //        the selected run's record in a trailing column INSIDE the pane. SwiftUI
 //        only. Presentation only — where things go is `LineageGraphLayout`, the

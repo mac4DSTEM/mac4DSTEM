@@ -1,6 +1,6 @@
 //
 //  AppState+DiffractionGroups.swift
-//  Role: archived docs/ai-ml/README.md §6's orchestration — run the classical
+//  Role: the archived notes §6's orchestration — run the classical
 //        PCA + k-means baseline (`DiffractionEmbedding.compute`) over the
 //        streamed cube and publish its group map, then let the user ask for
 //        a similarity map against the currently selected scan position.
@@ -53,7 +53,7 @@ extension AppState {
             // Off the main actor: `DiffractionEmbedding.compute` is `@concurrent`. A plain `nonisolated async`
             // callee runs on its CALLER's executor under SE-0461, so awaiting it from this `@MainActor` method
             // would run the whole embedding on the main thread and starve the progress hop above (measured
-            // 698/698 main-thread samples; Gate D archived `docs/archive/v3/ai-gateD-2026-09-06/gateD-A2.md`). The
+            // 698/698 main-thread samples; Gate D archived the archived notes). The
             // callee carries the attribute now, so no caller has to remember a `Task.detached`.
             let computed = try await DiffractionEmbedding.compute(
                 data: fourD, descriptor: descriptor, settings: settings,

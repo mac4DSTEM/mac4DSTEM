@@ -4,7 +4,7 @@
 //        calibration from a known crystal, orientation-plan generation, the
 //        match run, and the one publish site for every ACOM display mode.
 //        The 15(ish) `acom*` properties these functions read live in
-//        `Session/ACOMSession.swift` (see archived docs/archive/v4/appstate-seams-plan.md,
+//        `Session/ACOMSession.swift` (see the archived notes,
 //        seam 2) — call sites here use the owner prefix
 //        (`acomSession.modelSelectionIssue`, `.scanSelection(...)`,
 //        `.effectiveBackend`, `.effectiveReliabilityThreshold`,

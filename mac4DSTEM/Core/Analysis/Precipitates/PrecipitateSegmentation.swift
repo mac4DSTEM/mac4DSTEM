@@ -1,6 +1,6 @@
 //
 //  PrecipitateSegmentation.swift
-//  Role: Step 3 of the precipitate chain (archived docs/ai-ml/precipitates.md §2) —
+//  Role: Step 3 of the precipitate chain (the archived notes §2) —
 //        splits a classified scan map into 8-connected precipitate objects
 //        per class (`classObjects`). Since ImagoKit 0.7.0 (suite task 39) the labelling, every
 //        measurement (area, centroid, extents, perimeter, equivalent diameter, solidity, Feret) and the

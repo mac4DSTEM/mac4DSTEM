@@ -4,7 +4,6 @@
 //        products and their run controls. Held by AppState as
 //        `let phaseContrast = PhaseContrastProduct()`, no forwarding
 //        properties; views read `phaseContrast.…`.
-//        (archived docs/archive/v4/appstate-seams-plan.md, seam 1)
 //
 //  Every property stays a plain `package var` (not `private(set)`), unlike
 //  `StrainProduct`'s `private(set)` + publish-method encapsulation:

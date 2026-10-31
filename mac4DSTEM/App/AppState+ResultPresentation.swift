@@ -213,9 +213,10 @@ extension AppState {
         case .strain, .acom, .dpc, .ptychography, .singleslicePtychography:
             // Polish lane J (owner card S5 a): the same rule for the other rooms. A product of
             // another room is replaced by this room's own result through the room's own show
-            // function (no compute, no new state), or by nothing.
-            guard let kind = resultPresentation.product?.kind,
-                  AnalysisMode.owning(productKind: kind) != mode else { return }
+            // function (no compute, no new state), or by nothing. An EMPTY pane is re-shown the same way: an
+            // Orientation visit with no orientation map clears the strain map, and coming back to Strain left
+            // "No Result Yet" over a computed map while the guard asked only about another room's product.
+            if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == mode { return }
             switch mode {
             case .strain:
                 if strain.map != nil { applyStrainDisplay() }
@@ -241,8 +242,37 @@ extension AppState {
             if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == .disks { return }
             guard let vectors = resultPresentation.braggVectors, let d = descriptor else { return }
             showBraggMap(vectors, descriptor: d)
-        default: break
+        case .virtualDetector:
+            presentVirtualImageForImaging()
         }
+    }
+
+    /// Imaging's own result is the virtual image. Entering the room with another room's map on screen (an ACOM
+    /// preview, a strain map) or with an empty pane shows the image the last run landed, republished as it
+    /// landed: the same pixels, provenance and lineage step, and no new stream of the cube. It is shown only
+    /// while it still describes what a run would compute now: the same dataset, the live aperture and shape,
+    /// the current scan sampling. Otherwise one run with the live aperture fills the room, the run an aperture
+    /// change starts; with no dataset (or a load or a run already under way) the foreign map just goes.
+    private func presentVirtualImageForImaging() {
+        if let kind = resultPresentation.product?.kind, kind.hasPrefix("virtual_") { return }
+        let calibration = calibrationSession.calibration
+        let sampling = ProductSampling(
+            row: calibration.rPixelSize, column: calibration.rPixelSize, units: calibration.rPixelUnits)
+        if let held = resultPresentation.heldVirtualImage,
+           held.epoch == datasetSession.epoch, datasetSession.fourD != nil,
+           held.aperture == aperture, held.shape == resultPresentation.virtualShape,
+           held.product.sampling == sampling {
+            resultPresentation.resultColormap = .viridis
+            resultPresentation.publish(held.product)
+            return
+        }
+        if resultPresentation.product != nil {
+            resultPresentation.replaceProduct(nil)
+            resultPresentation.bumpResultVersion()
+        }
+        guard datasetSession.fourD != nil, descriptor != nil, !datasetSession.isLoading,
+              !resultPresentation.vdInFlight, !promoteRunRefusesUserRuns else { return }
+        resultPresentation.imagingEntryRun = Task { await self.runVirtualDetector() }
     }
 
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
@@ -270,9 +300,7 @@ extension AppState {
     /// own pattern (CuboKit's virtual-image reducers).
     /// `static` and not private so `TileReadBudgetSiblingTests` can pin it.
     static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
-        let readHeight = view.readDetectorCrop?.height ?? view.source.qy
-        let readWidth = view.readDetectorCrop?.width ?? view.source.qx
-        let bytesPerScanRow = view.descriptor.rx * readHeight * readWidth * MemoryLayout<Float>.stride
+        let bytesPerScanRow = view.descriptor.rx * view.readBytesPerPattern
         let targetBytes = 16 * 1024 * 1024
         return max(1, min(view.descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
     }
@@ -295,7 +323,8 @@ extension AppState {
         let cancellation = quiet ? nil : beginCancellableOperation(
             "Virtual detector",
             status: SystemMonitor.scanProgressStatus(
-                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor
+                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor,
+                bytesPerPattern: fourD.view.readBytesPerPattern
             ),
             totalUnits: totalPatterns
         )
@@ -317,10 +346,10 @@ extension AppState {
                 return .cancelled
             }
             // The bottom workspace's Run tab "Streamed" row (ADR 034): the
-            // same float32 working-size arithmetic `SystemMonitor.scanProgressStatus`
-            // already does internally, exposed here because that function
-            // only returns the composed status string, not the byte count.
-            let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
+            // float32 bytes each position READS, pre-bin (`LoadView.readBytesPerPattern`;
+            // the binned descriptor's size understated it by bin²), the same
+            // number the status line beside it reports.
+            let bytesPerPattern = fourD.view.readBytesPerPattern
             let progressUpdate: (@Sendable (Double) -> Void)?
             if let token = cancellation {
                 progressUpdate = { @Sendable [weak self] fraction in
@@ -341,7 +370,7 @@ extension AppState {
                             progress: clipped,
                             status: SystemMonitor.scanProgressStatus(
                                 scanVerb, processed: processed,
-                                total: totalPatterns, descriptor: d
+                                total: totalPatterns, descriptor: d, bytesPerPattern: bytesPerPattern
                             )
                         )
                     }
@@ -430,6 +459,10 @@ extension AppState {
             recordReplayStep(kind: "virtual_detector",
                               parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
                               replaying: replaying, stampsDisplayedProduct: true)
+            // Held after the stamp, so a re-show carries this run's lineage step as the saved map would.
+            if let landed = resultPresentation.product, landed.kind.hasPrefix("virtual_") {
+                resultPresentation.holdVirtualImage(.init(product: landed, epoch: epoch, aperture: ap, shape: shapeMode))
+            }
             return .published
         } catch {
             if cancellation?.isCancelled == true {

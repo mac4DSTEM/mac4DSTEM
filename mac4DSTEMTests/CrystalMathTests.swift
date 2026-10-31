@@ -6,7 +6,7 @@ import DSTEMSession
 
 /// Coverage for the shared `axisDelta` free function (`Core/Crystal/Crystal.swift`),
 /// consolidated 2026-09-17 from byte-identical bodies in `CrystalModel.swift` and
-/// `CIFImport.swift` (audit archived `docs/archive/audit-2026-09-16/REPORT.md` §3.2 row 8).
+/// `CIFImport.swift` (audit archived the archived notes §3.2 row 8).
 /// Neither file had a test that exercised its minimum-image wraparound before this:
 /// a mutation deleting the `d > 0.5` correction survived both harnesses that compile
 /// the file (`cif-symmetry-test`, `acom-orientation-test`) untouched.

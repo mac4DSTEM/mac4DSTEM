@@ -1,6 +1,6 @@
 //
 //  DiffractionGroupsSettings.swift
-//  Role: the classical diffraction-grouping panel (archived docs/ai-ml/README.md §6) —
+//  Role: the classical diffraction-grouping panel (the archived notes §6) —
 //        run controls for `DiffractionEmbedding`'s PCA + k-means baseline,
 //        and a readout of what the last run found. An `InspectorSection`
 //        card, matching `ImagingSettings`'/`MapSettings`' style (one kit for
