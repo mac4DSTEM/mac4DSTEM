@@ -123,8 +123,7 @@ struct PhaseMappingSections: View {
                         multiple: appState.phaseMapping.matching.chanceMatchMultiple)
                     InspectorRow("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]", emphasized: rank == 0) {
                         HStack(spacing: 6) {
-                            Text(String(format: "%.0f %% · %.4f Å⁻¹",
-                                        100 * fit.explainedFraction, fit.meanDistance))
+                            Text("\(Num.fixed(100 * Double(fit.explainedFraction), 0)) % · \(Num.fixed(Double(fit.meanDistance), 4)) Å⁻¹")
                                 .monospacedDigit()
                                 .foregroundStyle(rank == 0 ? .primary : .secondary)
                             // The caveat's colour sits on its symbol; the words stay primary text (HIG, Color).
@@ -140,17 +139,16 @@ struct PhaseMappingSections: View {
                 if staleRanking == nil, let top = product.zoneAxisFits.first,
                    !top.isAboveChance(
                        multiple: appState.phaseMapping.matching.chanceMatchMultiple) {
-                    InspectorWarning(String(format: "No axis beats chance here. A reference set "
-                                + "this dense could match up to about %.1f %% of vectors "
+                    InspectorWarning("No axis beats chance here. A reference set "
+                                + "this dense could match up to about \(Num.fixed(100 * Double(top.chanceFraction), 1)) % of vectors "
                                 + "pointing nowhere in particular, and the best axis "
-                                + "explains %.1f %%. Treat the ranking as undecided.",
-                                100 * top.chanceFraction, 100 * top.explainedFraction))
+                                + "explains \(Num.fixed(100 * Double(top.explainedFraction), 1)) %. Treat the ranking as undecided.")
                 } else if staleRanking == nil, let top = product.zoneAxisFits.first, !top.isAboveSweep {
-                    InspectorWarning(String(format: "No axis stands out here. The best explains "
-                                + "%.0f %% and the median axis %.0f %%; on a real crystal "
+                    InspectorWarning("No axis stands out here. The best explains "
+                                + "\(Num.fixed(100 * Double(top.explainedFraction), 0)) % and the median axis "
+                                + "\(Num.fixed(100 * Double(top.sweepMedianFraction), 0)) %; on a real crystal "
                                 + "a wrong axis explains that much through shared "
-                                + "reflections. Treat the ranking as undecided.",
-                                100 * top.explainedFraction, 100 * top.sweepMedianFraction))
+                                + "reflections. Treat the ranking as undecided.")
                 }
             }
             InspectorActionRow {
@@ -259,10 +257,9 @@ struct PhaseMappingSections: View {
             if product.matching.classificationRule == .search,
                let resolution = appState.phaseVectorResolution {
                 InspectorRow("On this detector") {
-                    Text(String(format: "%.2f · %.2f · %.2f px",
-                                resolution.pairRadiusPixels,
-                                resolution.matrixRemovalPixels,
-                                resolution.notIndexedAbovePixels))
+                    Text("\(Num.fixed(Double(resolution.pairRadiusPixels), 2)) · "
+                         + "\(Num.fixed(Double(resolution.matrixRemovalPixels), 2)) · "
+                         + "\(Num.fixed(Double(resolution.notIndexedAbovePixels), 2)) px")
                         .monospacedDigit()
                         .foregroundStyle(.secondary)   // the advice below carries the warning, on its symbol
                         .labelsHidden()
@@ -396,8 +393,7 @@ struct PhaseMappingSections: View {
             InspectorValueRow("Orientations", "\(run.libraryEntryCount)")
             if run.matrixInPlaneDegrees.isFinite {
                 InspectorValueRow("Matrix in-plane",
-                                   String(format: "%.0f° (mod symmetry)",
-                                          run.matrixInPlaneDegrees))
+                                   "\(Num.fixed(Double(run.matrixInPlaneDegrees), 0))° (mod symmetry)")
             }
             if !run.qScaleIsPhysical {
                 InspectorWarning("The Å⁻¹ scale is exploratory, not calibrated — every "
