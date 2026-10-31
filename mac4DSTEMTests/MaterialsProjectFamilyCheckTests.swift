@@ -1,5 +1,5 @@
 //
-//  MaterialsProjectImportRow6Tests.swift
+//  MaterialsProjectFamilyCheckTests.swift
 //  Lane F-B row 6: the Materials Project
 //  importer classified the family from the cell metric alone; the CIF importer's
 //  `verifyFamily` (the atom-position check) never ran on MP data.
@@ -10,7 +10,7 @@ import DiffractoCore
 import DSTEMCore
 @testable import mac4DSTEM
 
-final class MaterialsProjectImportRow6Tests: XCTestCase {
+final class MaterialsProjectFamilyCheckTests: XCTestCase {
 
     private func document(
         lattice a: Double, c: Double, gamma: Double, sites: [[Double]], symbol: String, number: Int

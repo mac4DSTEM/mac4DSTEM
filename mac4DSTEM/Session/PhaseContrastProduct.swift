@@ -151,6 +151,7 @@ package final class PhaseContrastProduct {
             calibration: .init(preprocess.calibration),
             alignmentLevels: parallaxAlignment?.completedBins.count ?? 0,
             alignmentComplete: parallaxAlignment?.isComplete ?? false,
+            alignmentStop: parallaxAlignment.flatMap { .init(completedBins: $0.completedBins) },
             fitsAberrations: parallaxHigherOrderFit != nil,
             subpixel: parallaxSubpixel == nil ? nil : parallaxSubpixelControls,
             correction: parallaxCorrection.map {

@@ -129,7 +129,14 @@ extension AppState {
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
         case .ptychography, .singleslicePtychography:
-            switch phaseContrast.parallaxResultProduct {
+            // The two rooms share one remembered product. Each reads only its own family, so an empty room is
+            // titled for what it makes, not for the other room's last product ("Parallax aligned BF" over an
+            // empty ptychography pane). The fallbacks are the ones `presentProductForEnteredMode` shows.
+            let remembered = phaseContrast.parallaxResultProduct
+            let own: ParallaxResultProduct = navigation.analysisMode == .singleslicePtychography
+                ? (remembered.isIterative ? remembered : .iterativePhase)
+                : (remembered.isIterative ? .preprocess : remembered)
+            switch own {
             case .correctedPhase:
                 return ("parallax_corrected_phase", "Parallax corrected phase",
                         "arbitrary_phase")

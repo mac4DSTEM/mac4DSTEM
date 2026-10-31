@@ -10,7 +10,7 @@ import DSTEMSession
 /// ten times the physical Q every phase-map tolerance reads — left the phase
 /// map "current" and the lineage's `q_units` wrong.
 @MainActor
-final class QUnitsRow2LineageTests: XCTestCase {
+final class QUnitsLineageTests: XCTestCase {
 
     private func activeQNode(_ state: AppState) -> SessionLineage.Node? {
         state.replay.lineage.activeNodes().first { $0.kind == "calibration_q" }

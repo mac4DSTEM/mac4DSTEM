@@ -1,5 +1,5 @@
 //
-//  FCRow8VirtualDetectorProvenanceTests.swift
+//  VirtualDetectorProvenanceTests.swift
 //  Cloud review row 8 (Gate D): the virtual-detector product took its provenance
 //  from the product ON SCREEN, so Strain -> Imaging -> BF carried the strain keys.
 //
@@ -10,7 +10,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 @MainActor
-final class FCRow8VirtualDetectorProvenanceTests: XCTestCase {
+final class VirtualDetectorProvenanceTests: XCTestCase {
 
     /// Mutation it catches: the virtual image's provenance merged from
     /// `currentResultPersistenceMetadata` (the displayed product's) instead of the

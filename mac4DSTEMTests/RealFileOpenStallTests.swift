@@ -1,5 +1,5 @@
 //
-//  TB1StallProbeTests.swift
+//  RealFileOpenStallTests.swift
 //  Gate D probes for the two TB1 findings of 2026-08-25 (sitting 1 + 2):
 //  the configurator previews that never draw (status frozen at
 //  "Sampling a preview · row 33 of 34") and the open that never returns
@@ -13,7 +13,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 @MainActor
-final class TB1StallProbeTests: XCTestCase {
+final class RealFileOpenStallTests: XCTestCase {
 
     private let datasetDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .deletingLastPathComponent().appendingPathComponent("References/training_dataset")

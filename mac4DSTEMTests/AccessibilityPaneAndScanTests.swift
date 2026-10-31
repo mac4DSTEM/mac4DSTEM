@@ -5,7 +5,7 @@ import SwiftUI
 
 /// The accessibility fixes the drive and Apple's documentation confirmed (2026-10-07, lane X).
 @MainActor
-final class AccessibilityDriveFixesTests: XCTestCase {
+final class AccessibilityPaneAndScanTests: XCTestCase {
 
     /// X2: the scan preview's spoken value is the position without the visible caption's "click" clause, and the steppers' names
     /// carry the pane they belong to.
