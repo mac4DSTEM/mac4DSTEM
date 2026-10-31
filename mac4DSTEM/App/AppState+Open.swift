@@ -569,6 +569,11 @@ extension AppState {
                 calibrationSession.provenance.probe = .importedFile
             }
             if calibrationSession.calibration.hasEllipse { calibrationSession.provenance.ellipse = .importedFile }
+            // Row 29: a file ellipse the reader refused is said by name, not left as an empty Ellipse row.
+            if let note = pc.ellipseRefusalNote {
+                activityLog.record(note)
+                statusText = note
+            }
             // AXIS SWAP (single documented conversion point — see
             // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
             // patterns (qx, qy) with qx as the first/row axis, which is this
@@ -1189,6 +1194,11 @@ extension AppState {
                     ? (savedEllipseIsFitAnyway(saved) ? .fitAnyway : .sessionSidecar)
                     : .mixed)
                 : nil
+        }
+        // Row 29: a saved ellipse the reader refused is said by name.
+        if let note = saved.ellipseRefusalNote {
+            activityLog.record(note)
+            statusText = note
         }
         if restoredMaps, mapped.origin != nil {
             calibrationSession.calibration.origin = mapped.origin
