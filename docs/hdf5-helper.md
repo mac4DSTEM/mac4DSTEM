@@ -25,10 +25,14 @@ the next message after it dies.
 | Instances | one per app, shared by every window | one per file is possible |
 | Kill on hang | its own watchdog, plus `kill` from the app | `kill` of a child pid |
 
-Every window shares one helper. A file that hangs it therefore costs every open HDF5 file its handle. That is accepted:
-- the client opens again on the next call;
+Every window shares one helper. A file that hangs it therefore costs every open HDF5 file its handle, and a read in
+flight for another window fails with the same error. That is accepted:
+- from slice 2 the client keeps `handle -> URL` and reopens once, transparently, after a restart;
 - a hang is rare;
 - separate processes per file would need the helper tool, which would mean writing our own transport and handling the sandbox inheritance ourselves.
+
+Handles are random, so a handle kept from a helper that crashed can never name a file the restarted helper opened
+since; it is refused as unknown.
 
 ### Messages
 
@@ -37,7 +41,9 @@ The protocol is `HDF5HelperXPC` (in `Core/Data/HDF5HelperProtocol.swift`):
 - `open(url, seconds) -> handle | sentence`
 - `describePrimaryDataset(handle, seconds) -> JSON | sentence`. This is the datacube `H5Reader` would choose, plus its shape, dtype, chunks and stored rank.
 - `close(handle)`
+- `injectFault(kind, seconds) -> honoured`. Tests only: a Debug helper process crashes (`_exit`) or hangs. A Release helper, or the service running in process, answers false and the tests skip. Xcode builds packages under the `Develop` configuration as release, so the owner's Develop build has no live fault injection.
 - Later slices add `metadata(handle)` (calibration, voltage, probe candidates) and `readSlab(handle, view, region, seconds)`.
+- A helper that cannot be reached at all (missing, or refused by code signing) is a packaging fault. It is reported as such, not as a damaged file.
 
 Every reply carries either a value or the reader's own error sentence. Structured values cross as JSON of small Codable
 structs, so the helper and the app can never disagree on a type's layout. A handle that the helper does not hold, for
@@ -46,19 +52,24 @@ example after a restart, is refused with "Open the file again."
 ### Frames: shared memory, not messages
 
 Frames can be large. A 4D tile is commonly tens of MB, and XPC copies every message. For slab reads:
-1. The app creates an unlinked temporary file in its container, sizes it, and maps it.
-2. It passes the helper its `FileHandle` once per open; the helper maps the same file.
-3. A slab read writes float32 values into the shared region. The reply carries only the byte count and a generation number.
+1. The app allocates anonymous shared memory (`xpc_shmem`, passed with `NSXPCCoder.encodeXPCObject`). An unlinked file would have its dirty pages written back to disk.
+2. Each request gets its own region, or a slot in a ring keyed by a generation number, so two reads on one handle never overwrite each other.
+3. The helper writes float32 values into the region. The reply carries only the byte count and the generation.
 
-This keeps one copy, the one libhdf5 makes anyway. `IOSurface` is the alternative if a mapped file shows up in a
+This keeps one copy, the one libhdf5 makes anyway. `IOSurface` is the alternative if shared memory shows up in a
 profile. Chunked messages are rejected: they would copy each frame twice and add round trips.
 
 ### Timeouts and hangs
 
-Each call carries the seconds the helper allows it. The helper runs it under a watchdog that calls `_exit(70)` when
-time runs out, because a libhdf5 call cannot be cancelled. The client waits two seconds longer than that. It then
-answers `timedOut` itself, sends `SIGKILL` to the helper, and drops the connection. The next call reaches a fresh
-process.
+Each call carries the seconds the helper allows it. The helper runs every libhdf5 call on one serial queue, in arrival
+order. The watchdog starts when a call's turn comes, so time spent waiting behind another window's long read never
+counts against it. Past the limit the watchdog calls `_exit(70)`, because a libhdf5 call cannot be cancelled. The
+watchdog is disarmed before the reply is sent, so it never ends a helper that has already answered.
+
+The client waits two seconds longer than the helper's limit, plus the queue ahead of the call from slice 3 on. It then
+answers `timedOut` itself, sends `SIGKILL` to the helper's pid, and drops the connection. **The watchdog is the real
+line.** A sandboxed app may be refused the signal (EPERM, logged). Then the next connection reaches the same stuck
+process until the app quits. The signed build checks this (below).
 
 Measured in slice 1:
 - the watchdog ends a hung helper in 1.0 s at a 1 s limit;
@@ -74,6 +85,8 @@ The helper is sandboxed with no extra entitlements (`HDF5Helper/HDF5Helper.entit
 app passes to it:
 - **Plan:** the file is passed as a `URL` over the connection, and the sandbox extension the app holds goes with the security-scoped URL.
 - **Fallback:** if a signed build shows that the extension does not go with the URL, the app passes an open `FileHandle` and the helper opens `/dev/fd/<n>`.
+- From slice 2 the helper calls `startAccessingSecurityScopedResource()` on the URL it receives.
+- External links and virtual datasets name sibling files that no extension covers, and the `/dev/fd` fallback breaks their relative paths. A file that needs them is refused with a sentence until a test fixture with an external link says otherwise.
 
 Unit tests run unsigned, so no sandbox applies there. Checking this needs a signed build, which only the owner can make
 (below).
@@ -106,5 +119,5 @@ release.
 
 ## What the owner must do
 
-- **Slice 2: a signed build.** Run a signed Develop build with `defaults write com.mac4dstem.mac4DSTEM HDF5ReadsInHelper -bool YES` and open one real `.h5`. This settles whether the sandbox extension goes with the URL.
+- **Slice 2: a signed build.** Run a signed Develop build with `defaults write com.mac4dstem.mac4DSTEM HDF5ReadsInHelper -bool YES` and open one real `.h5`. This settles two things: whether the sandbox extension goes with the URL, and whether the sandboxed app may signal its helper.
 - **Release packaging.** The release script signs the nested `XPCServices/HDF5Helper.xpc` with the same identity as the app. Check that the helper's own copies of the libhdf5 frameworks pass the release checks; until slice 5, the checks look at `Contents/Frameworks` only.
