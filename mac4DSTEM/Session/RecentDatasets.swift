@@ -4,7 +4,7 @@
 //        the persisted store behind it, and the location labels that tell
 //        same-named entries apart.
 //
-//  WHY THIS IS ITS OWN TYPE (archived docs/archive/development-process-2026-08-31.md §7):
+//  WHY THIS IS ITS OWN TYPE (the archived notes §7):
 //  the list is real state with real transitions (remember, remove, bookmark
 //  refresh, the cap at eight), it is persisted as a unit, and the labels
 //  derive from it alone.

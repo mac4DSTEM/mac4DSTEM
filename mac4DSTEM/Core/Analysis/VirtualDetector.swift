@@ -312,7 +312,7 @@ package nonisolated enum VirtualDetector {
     /// caller's `maximumTileRows`, else the smaller of the app's memory budget and the kit's 64 MiB), each position is
     /// summed in Double, and the result is converted to the app's Float image here, at the display edge. The CPU path:
     /// the reference definition, the same bits at every tiling and on every Mac, measured faster than the Metal
-    /// dispatch it replaced on the owner's cubes (docs/archive/v5/cubokit-switch-results-2026-10-15.md).
+    /// dispatch it replaced on the owner's cubes.
     package static func tiledImage(
         data: FourDArray,
         descriptor: DatasetDescriptor,
@@ -398,7 +398,7 @@ package nonisolated enum VirtualDetector {
 
     /// Tiled max and mean diffraction patterns through `VirtualDiffraction.meanAndMax`. The Metal path: its kernels are
     /// compensated and agree with the CPU reference to 2.4e-13, and on the study cube it is within 1.5 x the time of the
-    /// kernel it replaced where the CPU path is not (docs/archive/v5/cubokit-switch-results-2026-10-15.md, P4). A
+    /// kernel it replaced where the CPU path is not. A
     /// machine without a Metal device runs the CPU path.
     package static func tiledDPStatistics(
         data: FourDArray,

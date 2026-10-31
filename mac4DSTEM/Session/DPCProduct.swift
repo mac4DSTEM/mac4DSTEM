@@ -3,7 +3,6 @@
 //  Role: the one owner of the DPC display choice (`dpcDisplay`). Held by
 //        AppState as `let dpc = DPCProduct()`, no forwarding properties;
 //        views read `dpc.…` via `appState.dpc`.
-//        (archived docs/archive/v4/appstate-seams-plan.md, seam 4)
 //
 //  `DPCDisplayMode` lives here beside its owner: `Session/` is its own
 //  SwiftPM target (`DSTEMSession`, `Package.swift`) that `tools/run-tests.sh

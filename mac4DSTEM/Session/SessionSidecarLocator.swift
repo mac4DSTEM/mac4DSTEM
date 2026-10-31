@@ -4,7 +4,7 @@
 //        read it?" — the derived sibling path, the security-scoped bookmark
 //        that grants access to it, and the scoped URL currently held open.
 //
-//  This is the `AppState` seam for that question (archived docs/archive/development-process-2026-08-31.md §7).
+//  This is the `AppState` seam for that question (the archived notes §7).
 //
 //  `sessionSidecarURL` is still public and callable, so a new call site can
 //  still bypass this type — what this type guarantees is only that every
