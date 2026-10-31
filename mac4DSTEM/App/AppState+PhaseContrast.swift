@@ -739,14 +739,20 @@ extension AppState {
         var outcome = await prepareParallaxPreview(replaying: true)
         guard outcome == .published else { return outcome }
         // A complete alignment replays to the end of THIS view's schedule (a
-        // binned detector has a different one); otherwise the recorded count.
-        var levels = 0
-        while plan.alignmentComplete
-                ? phaseContrast.parallaxAlignment?.isComplete != true
-                : levels < plan.alignmentLevels {
+        // binned detector has a different one); a partial one up to the level
+        // of this schedule at the recorded physical bin (`replayLevelCount`),
+        // never to a bare count, or refuses.
+        let schedule = phaseContrast.parallaxPreprocess.map {
+            ParallaxAligner.defaultBinSchedule(detectorIndices: $0.detectorIndices)
+        } ?? []
+        guard let levels = plan.replayLevelCount(schedule: schedule) else {
+            let reason = plan.alignmentStopRefusal(schedule: schedule)
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
+        }
+        while (phaseContrast.parallaxAlignment?.completedBins.count ?? 0) < levels {
             outcome = await alignParallaxNextLevel(replaying: true)
             guard outcome == .published else { return outcome }
-            levels += 1
         }
         if plan.fitsAberrations {
             outcome = fitParallaxAberrations(replaying: true)
