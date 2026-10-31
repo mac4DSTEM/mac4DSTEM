@@ -144,17 +144,15 @@ extension AppState {
         // An orientation map stays and reads stale, as after a typed Q (`setManualQPixelSize`).
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
-        var status = String(
-            format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %@",
-            estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
-            Self.positionCountText(estimate.sampleCount)
-        )
+        var status = "Q calibration ✓  \(Num.fixed(Double(estimate.invAngstromPerPixel), 6)) Å⁻¹/px"
+            + " · first shell \(Num.fixed(Double(estimate.observedRadiusPixels), 2)) px"
+            + " · \(Self.positionCountText(estimate.sampleCount))"
         if let assigned = estimate.assignment { status += " · assigned to \(assigned.label)" }
         switch estimate.shellCheck {
         case .notSelfChecked:
             status += " · shell ratio unchecked"
         case .measured(let observed, let expected, _):
-            status += String(format: " · shell ratio %.3f vs %.3f predicted", locale: .autoupdatingCurrent, observed, expected)
+            status += " · shell ratio \(Num.fixed(Double(observed), 3)) vs \(Num.fixed(Double(expected), 3)) predicted"
         }
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)
@@ -376,12 +374,9 @@ extension AppState {
         acomSession.regionSelectionActive = false
         promoteIPFZDisplayIfDefault(for: map)
         applyACOMDisplay()
-        statusText = String(
-            format: "ACOM %@ ✓  %@ · %@ · %@ positions · %.1f s",
-            scope.resultQualifier, map.matchingBackend.rawValue,
-            runSemantics.scale.provenance.displayName,
-            workCount.formatted(), elapsed
-        )
+        statusText = "ACOM \(scope.resultQualifier) ✓  \(map.matchingBackend.rawValue)"
+            + " · \(runSemantics.scale.provenance.displayName)"
+            + " · \(workCount.formatted()) positions · \(Num.fixed(Double(elapsed), 1)) s"
         // A landed preview's natural next step is the full map, so the scope
         // — and with it the header's primary action — advances to it (R17,
         // owner decision). The segmented control shows the change, and the

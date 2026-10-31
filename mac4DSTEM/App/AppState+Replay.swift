@@ -199,9 +199,9 @@ extension AppState {
     func replayScaleRefusal(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
         let sessionScale = acomScaleSemantics.invAngstromPerPixel
         guard !acomPlan.agrees(withScaleInForce: sessionScale) else { return nil }
-        return String(
-            format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
-            acomPlan.scaleInvAngstromPerPixel, sessionScale)
+        return "the recipe matched at \(Num.sig(Double(acomPlan.scaleInvAngstromPerPixel), 6)) Å⁻¹/px "
+            + "but this session's scale is \(Num.sig(Double(sessionScale), 6)) Å⁻¹/px — matching at a different scale "
+            + "gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand"
     }
 
     /// Select the recorded phase model by id (never a fallback crystal), or
@@ -285,7 +285,28 @@ extension AppState {
             if let reason = replayRefusal(for: .singleslicePtychography) { return .refused(reason) }
             if let reason = replayPtychographyCalibrationRefusal(ptychographyPlan) { return .refused(reason) }
             return .ran(await runSingleslicePtychography(replaying: true))
+
+        case .parallax(let parallaxPlan):
+            phaseContrast.apply(parallaxPlan)
+            if let reason = replayRefusal(for: .ptychography) { return .refused(reason) }
+            if let reason = replayParallaxCalibrationRefusal(parallaxPlan) { return .refused(reason) }
+            return .ran(await runParallaxReplay(parallaxPlan))
         }
+    }
+
+    /// Why the session's calibration, resolved as the parallax preprocess
+    /// resolves it, is not the one the recorded run used; nil when it is.
+    /// Writes nothing.
+    func replayParallaxCalibrationRefusal(_ plan: ReplayStepPlan.ParallaxReplayPlan) -> String? {
+        let resolved: ParallaxPhysicalCalibration
+        do {
+            resolved = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibrationSession.calibration, apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY, acceleratingVoltageKV: calibrationSession.acceleratingVoltage)
+        } catch {
+            return "this session's calibration cannot be resolved for parallax — \(error.localizedDescription)"
+        }
+        return plan.calibrationRefusal(against: resolved)
     }
 
     /// Why the session's calibration, resolved as the run resolves it, is not

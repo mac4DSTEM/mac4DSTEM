@@ -1088,7 +1088,8 @@ final class AppState {
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature,
             diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance,
-            ptychographySettings: ptychography.replaySettings)
+            ptychographySettings: ptychography.replaySettings,
+            parallaxSignature: phaseContrast.parallaxCurrentSignature)
     }
 
     // The result-value cache moved to `resultPresentation` with the result
@@ -1407,15 +1408,15 @@ final class AppState {
             } else if navigation.analysisMode == .singleslicePtychography {
                 outcome = await runSingleslicePtychography()   // v2.5 step 7a: its own task
             } else if phaseContrast.parallaxPreprocess == nil {
-                await prepareParallaxPreview()
+                outcome = await prepareParallaxPreview()
             } else if phaseContrast.parallaxAlignment?.isComplete != true {
-                await alignParallaxNextLevel()
+                outcome = await alignParallaxNextLevel()
             } else if phaseContrast.parallaxHigherOrderFit == nil {
-                fitParallaxAberrations()
+                outcome = fitParallaxAberrations()
             } else if phaseContrast.parallaxCorrection == nil {
-                await correctParallaxPhase()
+                outcome = await correctParallaxPhase()
             } else if !parallaxStage4IsComplete(phaseContrast) {
-                await upsampleParallaxBF()
+                outcome = await upsampleParallaxBF()
             }
         case .spectroscopy:
             // Quantify: fit the selected region and record the step (ADR 054 item 8); the fit is live after this.

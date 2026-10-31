@@ -234,6 +234,17 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     /// ellipse or Q scale they read. Not disk detection: its peaks are raw
     /// detector positions (calibration is applied downstream, on demand), and
     /// the probe kernel it takes from the origin fit is in its own signature.
+    /// The `method` (origin) or `source` (ellipse, Q) of the node Prepare's
+    /// Clear Calibration records for a calibration it took away.
+    package static let clearedCalibrationValue = "cleared"
+
+    /// Whether `node` is a Clear Calibration node: the calibration is absent.
+    package static func isClearedCalibration(_ node: Node) -> Bool {
+        node.kind.hasPrefix("calibration_")
+            && (node.parameters["method"] == clearedCalibrationValue
+                || node.parameters["source"] == clearedCalibrationValue)
+    }
+
     package static let calibrationJudgedKinds: Set<String> = ["strain", "acom", "phase_mapping", "dpc"]
 
     /// One calibration kind a run's policy lists: the node the run used (nil:
@@ -476,7 +487,10 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                   !member.kind.hasPrefix("calibration_"), member.kind != "export" else { continue }
             for dependency in Self.inputPolicy[member.kind] ?? [] {
                 for otherID in inNodeOrder {
+                    // A cleared calibration applies nothing, so it cannot be
+                    // what the next Run would silently use.
                     guard let other = node(id: otherID), other.kind == dependency.kind,
+                          !Self.isClearedCalibration(other),
                           (index[otherID] ?? 0) > (index[memberID] ?? 0),
                           !memberInputs.contains(where: { $0.step == otherID }) else { continue }
                     return .failure(.appliedSince(step: memberID, held: otherID, kind: other.kind))
@@ -622,6 +636,7 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         if kind == "diffraction_groups" { return "diffraction_groups" }
         if kind == "bragg_vector_map" { return "disk_detection" }
         if kind.hasPrefix("ptychography_") { return "ptychography" }
+        if kind.hasPrefix("parallax_") { return "parallax" }
         return nil
     }
 
