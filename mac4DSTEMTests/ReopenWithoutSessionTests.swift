@@ -225,40 +225,78 @@ final class ReopenWithoutSessionTests: XCTestCase {
         XCTAssertEqual(text.full, refusal, "the hover carries every word of the refusal")
     }
 
-    // The three tests below pin where the SIDEBAR CALLS the wording (the pure functions above cannot see the view):
-    // the refuter's survivors X1, X2 and X6 left every test green because each defect sat at the call site.
-    // Whitespace is collapsed so a re-wrapped call still reads; the pinned text is the call itself.
+    // The tests below pin the warning the SIDEBAR DRAWS (`SessionSidebarWording.warning`; the view only draws the
+    // value): the refuter's survivors X1, X2 and X6 left every wording test green because each defect sat at the
+    // call site, which is now this one function.
 
-    private func collapsingWhitespace(_ text: String) -> String {
-        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    /// Gates that refuse a save: a crop saved with a strain map, the whole file loaded.
+    private func refusingGates() -> SessionGates {
+        let gates = SessionGates()
+        let recorded = crop()
+        gates.sessionView = {
+            SessionGates.SessionView(recorded: recorded, loaded: .fullExtent,
+                                     savedResults: [.init(kind: "strain", name: "Strain map")])
+        }
+        return gates
     }
 
-    /// Mutation X1: `warning()`'s `.help` gets `detail` (the short line) instead of `fullDetail` -> red. The hover is
-    /// where the whole refusal lives (owner card Q4 d); with the short line there it is shown nowhere.
+    private func differentViewWarning(_ gates: SessionGates) throws -> SessionSidebarWarning {
+        try XCTUnwrap(SessionSidebarWording.warning(
+            unreadableReason: nil, gates: gates, recorded: crop(), loaded: .fullExtent))
+    }
+
+    /// Mutation X1: the hover built from the short line instead of the whole text -> red. The hover is where the
+    /// whole refusal lives (owner card Q4 d); with the short line there it is shown nowhere.
     func testTheWarningHoverIsGivenTheFullDetail() throws {
-        let sidebar = collapsingWhitespace(try source("mac4DSTEM/UI/WorkspaceSidebar.swift"))
-        XCTAssertTrue(
-            sidebar.contains(".help(SessionSidebarWording.warningHelp(headline: headline, detail: fullDetail))"),
-            "the hover is the headline and the FULL detail")
+        let gates = refusingGates()
+        let refusal = try XCTUnwrap(gates.sidecarRewriteRefusal(), "precondition: saving is refused")
+        let warning = try differentViewWarning(gates)
+        XCTAssertEqual(warning.help, SessionSidebarWording.warningHelp(
+            headline: SessionSidebarWording.differentViewHeadline, detail: refusal))
+        XCTAssertFalse(warning.help.contains(warning.shown), "the hover is the whole refusal, not the short line")
     }
 
     /// Mutation X2: the different-view branch passes `refusal: nil` -> red. The remedy line would never show, and the
     /// two-views line would show while saving is refused.
     func testTheDifferentViewWarningAsksTheGatesForTheRefusal() throws {
-        let sidebar = collapsingWhitespace(try source("mac4DSTEM/UI/WorkspaceSidebar.swift"))
-        XCTAssertTrue(sidebar.contains("refusal: appState.gates.sidecarRewriteRefusal(),"),
-                      "the refusal comes from the gates, not nil")
+        let refused = try differentViewWarning(refusingGates())
+        XCTAssertEqual(refused.shown, "Saving is off here. Reopen the dataset, or remove the saved result in Results.")
+
+        let open = try differentViewWarning(SessionGates())   // no saved result on another view: saving allowed
+        XCTAssertTrue(open.shown.hasPrefix("Session: ") && open.shown.hasSuffix(" · loaded: whole file"), open.shown)
     }
 
-    /// Mutation X6: the different-view branch shows `text.full` as the detail -> red. The raw 310-character refusal
-    /// would be back under the headline, cut at three lines — the P5a defect itself.
+    /// Mutation X6: the different-view branch shows the whole refusal as the detail -> red. The raw 310-character
+    /// refusal would be back under the headline, cut at three lines — the P5a defect itself.
     func testTheDifferentViewWarningShowsTheShortLineAndHoversTheWholeText() throws {
-        let sidebar = collapsingWhitespace(try source("mac4DSTEM/UI/WorkspaceSidebar.swift"))
-        XCTAssertTrue(
-            sidebar.contains("warning(SessionSidebarWording.differentViewHeadline, "
-                             + "detail: text.shown, fullDetail: text.full, "
-                             + "identifier: \"sidebar.session.provenanceMismatch\")"),
-            "the line shown is the short one; the whole text goes to the hover")
+        let warning = try differentViewWarning(refusingGates())
+        XCTAssertEqual(warning.kind, .differentView)
+        XCTAssertEqual(warning.headline, SessionSidebarWording.differentViewHeadline)
+        XCTAssertEqual(warning.identifier, "sidebar.session.provenanceMismatch")
+        XCTAssertLessThan(warning.shown.count, 120, warning.shown)
+    }
+
+    /// The order of the three warnings, and none when the session and the loaded view agree.
+    /// Mutation: the does-not-fit branch checked before the unreadable one, or a warning for agreeing views -> red.
+    func testTheSidebarShowsOneWarningInOrderAndNoneWhenTheViewsAgree() throws {
+        let gates = SessionGates()
+        XCTAssertNil(SessionSidebarWording.warning(unreadableReason: nil, gates: gates,
+                                                   recorded: crop(), loaded: crop()))
+        XCTAssertNil(SessionSidebarWording.warning(unreadableReason: nil, gates: gates,
+                                                   recorded: nil, loaded: .fullExtent))
+
+        gates.noteSidecarRestoreFailed(.doesNotFit, message: "The saved session describes a region this file does not have.")
+        let doesNotFit = try XCTUnwrap(SessionSidebarWording.warning(
+            unreadableReason: nil, gates: gates, recorded: nil, loaded: .fullExtent))
+        XCTAssertEqual(doesNotFit.kind, .doesNotFit)
+        XCTAssertEqual(doesNotFit.identifier, "sidebar.session.doesNotFit")
+
+        let unreadable = try XCTUnwrap(SessionSidebarWording.warning(
+            unreadableReason: "Could not restore cube.mac4dstem.h5: bad object header", gates: gates,
+            recorded: nil, loaded: .fullExtent))
+        XCTAssertEqual(unreadable.kind, .unreadable, "an unreadable sidecar is named before a region that does not fit")
+        XCTAssertEqual(unreadable.identifier, "sidebar.session.unreadable")
+        XCTAssertEqual(unreadable.shown, "Could not restore cube.mac4dstem.h5: bad object header")
     }
 
     /// Mutation: the no-refusal branch shows the short remedy line too -> red (saving is not off there).
@@ -297,12 +335,19 @@ final class ReopenWithoutSessionTests: XCTestCase {
         XCTAssertFalse(help.contains("Info tab"))
     }
 
-    /// Mutation: the sentence is back in the sidebar source -> red. Info's "Session provenance" holds the two views
-    /// and a note, never the refusal or its remedy, so the pointer was false for all three warnings.
-    func testNoViewPointsAtTheInfoTabForAnExplanationItDoesNotHold() throws {
-        for file in try swiftFiles(under: "mac4DSTEM/UI") {
-            let text = try String(contentsOf: file, encoding: .utf8)
-            XCTAssertFalse(text.contains("The Info tab carries the full explanation"), file.lastPathComponent)
+    /// Mutation: a warning's hover points at the Info tab again -> red. Info's "Session provenance" holds the two
+    /// views and a note, never the refusal or its remedy, so the pointer was false for all three warnings.
+    func testNoWarningPointsAtTheInfoTabForAnExplanationItDoesNotHold() throws {
+        let gates = refusingGates()
+        var warnings = [try differentViewWarning(gates)]
+        warnings.append(try XCTUnwrap(SessionSidebarWording.warning(
+            unreadableReason: "Could not restore cube.mac4dstem.h5", gates: gates, recorded: nil, loaded: .fullExtent)))
+        gates.noteSidecarRestoreFailed(.doesNotFit, message: "The saved session describes a region this file does not have.")
+        warnings.append(try XCTUnwrap(SessionSidebarWording.warning(
+            unreadableReason: nil, gates: gates, recorded: nil, loaded: .fullExtent)))
+        XCTAssertEqual(warnings.map(\.kind), [.differentView, .unreadable, .doesNotFit])
+        for warning in warnings {
+            XCTAssertFalse(warning.help.contains("Info tab"), warning.help)
         }
     }
 
