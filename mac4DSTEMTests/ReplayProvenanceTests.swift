@@ -1,5 +1,5 @@
 //
-//  FC2ReplayProvenanceTests.swift
+//  ReplayProvenanceTests.swift
 //  Lane FC2 (Gate D, F-C items 1 and 3):
 //  (1) a virtual-detector run published while another mode is current took that
 //      mode's provenance (source_product=bragg_vector_map under .disks);
@@ -12,7 +12,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 @MainActor
-final class FC2ReplayProvenanceTests: XCTestCase {
+final class ReplayProvenanceTests: XCTestCase {
 
     private final class Gate { var entered = false; var released = false }
 

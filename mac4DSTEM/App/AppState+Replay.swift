@@ -290,6 +290,7 @@ extension AppState {
             phaseContrast.apply(parallaxPlan)
             if let reason = replayRefusal(for: .ptychography) { return .refused(reason) }
             if let reason = replayParallaxCalibrationRefusal(parallaxPlan) { return .refused(reason) }
+            if let reason = parallaxPlan.alignmentStopUnreachable { return .refused(reason) }
             return .ran(await runParallaxReplay(parallaxPlan))
         }
     }

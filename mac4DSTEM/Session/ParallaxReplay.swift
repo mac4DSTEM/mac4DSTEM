@@ -21,6 +21,10 @@
 //  - the number of alignment levels completed, and whether the schedule was
 //    complete. A promote that bins the detector changes the schedule, so a
 //    complete alignment replays to the end of the new schedule, not to a count.
+//    The step also records the bin the alignment stopped at (detector pixels,
+//    re-referenced with the frame) and the passes made there, and a partial
+//    alignment replays the new schedule up to the same physical bin, or refuses
+//    (`replayLevelCount`).
 //  - whether the aberration fit ran (it has no settings).
 //  - the controls of KDE upsampling, phase correction and depth sectioning,
 //    each group written only when that stage's product is held. These are the
@@ -149,11 +153,38 @@ extension ReplayStepPlan {
             }
         }
 
+        /// Where the alignment stopped: the last completed bin, in the step's
+        /// detector pixels, and how many passes it made at that bin (the finest
+        /// bin repeats). A level count alone is not enough: the schedule comes
+        /// from the bright-field diameter in detector pixels, so a detector bin
+        /// can shift it by a level and adds a finest level. The bin is a length
+        /// (`ReplayContract`): ×bin into the source, ÷bin into an export, where
+        /// a fraction is kept and simply matches no level of a schedule.
+        package struct AlignmentStop: Equatable {
+            package var bin: Double
+            package var passes: Int
+
+            // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
+            package nonisolated init(bin: Double, passes: Int) {
+                self.bin = bin
+                self.passes = passes
+            }
+
+            /// Nil when no level completed.
+            package nonisolated init?(completedBins: [Int]) {
+                guard let last = completedBins.last else { return nil }
+                self.init(bin: Double(last), passes: completedBins.filter { $0 == last }.count)
+            }
+        }
+
         package var calibration: Calibration
-        /// Alignment levels completed (0: preprocessed only).
+        /// Alignment levels completed (0: preprocessed only). A consistency check on the record (the stop's passes,
+        /// a later stage needs a level), not what a partial replay runs to: that is `alignmentStop`.
         package var alignmentLevels: Int
         /// The whole bin schedule was aligned.
         package var alignmentComplete: Bool
+        /// Where the alignment stopped; nil exactly when no level completed.
+        package var alignmentStop: AlignmentStop?
         package var fitsAberrations: Bool
         package var subpixel: Subpixel?
         package var correction: Correction?
@@ -161,14 +192,56 @@ extension ReplayStepPlan {
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(calibration: Calibration, alignmentLevels: Int, alignmentComplete: Bool,
+                                 alignmentStop: AlignmentStop?,
                                  fitsAberrations: Bool, subpixel: Subpixel?, correction: Correction?, depth: Depth?) {
             self.calibration = calibration
             self.alignmentLevels = alignmentLevels
             self.alignmentComplete = alignmentComplete
+            self.alignmentStop = alignmentStop
             self.fitsAberrations = fitsAberrations
             self.subpixel = subpixel
             self.correction = correction
             self.depth = depth
+        }
+
+        /// How many levels of `schedule` (this view's, detector pixels) the
+        /// replay aligns: all of it for a complete alignment, none for none,
+        /// and for a partial one the first prefix that ends at the recorded
+        /// stopping bin with the recorded number of passes there. A coarser
+        /// leading level this schedule has and the rehearsal's had not is
+        /// aligned too (it only refines the start). Nil when the schedule never
+        /// reaches the stopping bin that way: no level has the same physical bin.
+        package func replayLevelCount(schedule: [Int]) -> Int? {
+            if alignmentComplete { return schedule.count }
+            guard alignmentLevels > 0 else { return 0 }
+            guard let alignmentStop else { return nil }
+            var passes = 0
+            for (index, bin) in schedule.enumerated() where Double(bin) == alignmentStop.bin {
+                passes += 1
+                if passes == alignmentStop.passes { return index + 1 }
+            }
+            return nil
+        }
+
+        /// Why a partial alignment cannot replay on any schedule, before anything runs: a bin schedule holds whole
+        /// detector pixels, so a stop that is not one (an export binned past it) matches no level. Nil otherwise;
+        /// the schedule-dependent check is `replayLevelCount`.
+        package var alignmentStopUnreachable: String? {
+            guard !alignmentComplete, alignmentLevels > 0, let alignmentStop else { return nil }
+            guard alignmentStop.bin < 1 || alignmentStop.bin.rounded() != alignmentStop.bin else { return nil }
+            return alignmentStopRefusal(schedule: [])
+        }
+
+        /// The refusal for `replayLevelCount` nil, naming the stop and this view's schedule.
+        package func alignmentStopRefusal(schedule: [Int]) -> String {
+            let stop = alignmentStop.map {
+                String(format: "bin %g px after %d pass%@", $0.bin, $0.passes, $0.passes == 1 ? "" : "es")
+            } ?? "an unrecorded bin"
+            if schedule.isEmpty {
+                return "the recipe stopped its parallax alignment at \(stop), which is not a whole detector pixel in this view, so no bin schedule reaches it — align parallax by hand"
+            }
+            let bins = schedule.map(String.init).joined(separator: ", ")
+            return "the recipe stopped its parallax alignment at \(stop), which this view's bin schedule (\(bins)) does not reach the same way — align parallax by hand"
         }
 
         /// Every key the stages write: what the plan holds, as the step
@@ -185,6 +258,10 @@ extension ReplayStepPlan {
                 "alignment_complete": String(alignmentComplete),
                 "aberration_fit": String(fitsAberrations),
             ]
+            if let alignmentStop {
+                p["alignment_bin"] = String(alignmentStop.bin)
+                p["alignment_bin_passes"] = String(alignmentStop.passes)
+            }
             p.merge(Self.currentSignature(subpixel: subpixel, correction: correction, depth: depth)) { _, new in new }
             return p
         }
@@ -302,10 +379,22 @@ extension ReplayPlanner {
             depth = Plan.Depth(startAngstrom: start, endAngstrom: end, planeCount: count, useFullFit: fullFit,
                                informationLimitInvAngstrom: limit, informationPower: power)
         }
+        // Where the alignment stopped: both keys exactly when a level completed.
+        var alignmentStop: Plan.AlignmentStop?
+        if levels > 0 {
+            guard let bin = double("alignment_bin"), bin > 0 else { return refused("alignment_bin") }
+            guard let passes = int("alignment_bin_passes"), (1...levels).contains(passes) else {
+                return refused("alignment_bin_passes")
+            }
+            alignmentStop = Plan.AlignmentStop(bin: bin, passes: passes)
+        } else if p["alignment_bin"] != nil || p["alignment_bin_passes"] != nil {
+            return inconsistent("a stopping bin for an alignment with no level")
+        }
         return .success(.parallax(Plan(
             calibration: .init(scanSamplingAngstrom: scanSampling, reciprocalSamplingInvAngstrom: reciprocal,
                                energyEV: energy, rotationRad: rotation, transpose: transpose),
-            alignmentLevels: levels, alignmentComplete: complete, fitsAberrations: fit,
+            alignmentLevels: levels, alignmentComplete: complete, alignmentStop: alignmentStop,
+            fitsAberrations: fit,
             subpixel: subpixel, correction: correction, depth: depth)))
     }
 }

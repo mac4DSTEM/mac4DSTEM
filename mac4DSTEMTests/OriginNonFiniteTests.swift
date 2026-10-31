@@ -1,5 +1,5 @@
 //
-//  OriginNonFiniteRow24Tests.swift
+//  OriginNonFiniteTests.swift
 //  Lane F-B row 24: neither origin path
 //  sanitised non-finite pixels (detection does since D019, DiskDetector.fillNonFinite).
 //  Fixture: a flat disk, one NaN inside it; the origin must equal the clean run's. Since CuboKit 0.7.0 the per-position
@@ -13,7 +13,7 @@ import CuboVirtual
 import DSTEMCore
 @testable import mac4DSTEM
 
-final class OriginNonFiniteRow24Tests: XCTestCase {
+final class OriginNonFiniteTests: XCTestCase {
 
     private let size = 40
     private let centre = (x: 19.3, y: 20.6), radius = 6.0
