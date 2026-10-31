@@ -196,6 +196,12 @@ nonisolated extension BraggVectorEMDWriter {
         try setText(minimumReaderAttribute, String(minimumReaderSchema(for: loadSpecification)))
         // Which source this session belongs to: additive, so the minimum-reader marker above does not move with it.
         if let json = source?.jsonString ?? preservedSourceJSON { try setText(sourceAttribute, json) }
+        // The origin gate's window pull, beside the origin maps it describes (the calibration group itself is the kit's
+        // EMD layout). Written from this save's calibration only: maps without it are unknown, and a stale value from the
+        // file being replaced must not describe a different fit.
+        if let pull = calibration.originMaps?.windowPullBoundPixels, pull.isFinite, pull >= 0 {
+            try setText(SessionSidecarFormat.originWindowPullAttribute, String(pull))
+        }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
         let recordJSON = replayRecord.flatMap { $0.isEmpty ? nil : $0.jsonString }

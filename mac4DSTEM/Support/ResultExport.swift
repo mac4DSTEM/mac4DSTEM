@@ -1373,6 +1373,7 @@ extension AppState {
                 measuredQX: maps.measuredY?.map(Double.init),
                 measuredQY: maps.measuredX?.map(Double.init)
             )
+            snapshot.originMaps?.windowPullBoundPixels = maps.windowPullBoundPixels.map(Double.init)
         }
         if let mean = calibrationSession.calibration.meanOrigin {
             snapshot.qx0Mean = Double(mean.y)

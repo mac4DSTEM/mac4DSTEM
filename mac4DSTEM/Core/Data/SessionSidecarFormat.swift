@@ -75,6 +75,12 @@ package nonisolated enum SessionSidecarFormat {
     /// `scan.dm4` and `scan.h5` beside each other share one `scan.mac4dstem.h5`; the stamp says which of them wrote it.
     /// Additive and safe to ignore, so the minimum-reader marker does not move with it (the schema-7 precedent above).
     package static let sourceAttribute = "mac4dstem_source"
+
+    /// Root attribute carrying the origin fit's window pull bound in detector pixels, as text
+    /// (`OriginMaps.windowPullBoundPixels`, the origin gate's bias test, 2026-10-31). Written only beside origin maps
+    /// that carry it. Additive and safe to ignore: a file without it reads as unknown, which the gate does not refuse,
+    /// so the minimum-reader marker does not move with it (the schema-7 precedent above).
+    package static let originWindowPullAttribute = "mac4dstem_origin_window_pull_px"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)
