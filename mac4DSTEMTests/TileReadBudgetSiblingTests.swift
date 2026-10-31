@@ -107,7 +107,7 @@ final class TileReadBudgetSiblingTests: XCTestCase {
     /// bit-identical at bin 1, 2 and 4.
     /// C1 (2026-10-15): the images are CuboKit's CPU path, whose per-position sums do not depend on the tiling; the
     /// per-tile mutation this test named (in the retired `VirtualDetector.tiled`) no longer has a home, and
-    /// `CuboSwitchTests` pins that the adapter serves the right rows in any read order.
+    /// `CuboCallSiteTests` pins that the adapter serves the right rows in any read order.
     func testVirtualImageIsBitIdenticalForAnyTileGrouping() async throws {
         for bin in [1, 2, 4] {
             let v = try demoView(bin: bin)

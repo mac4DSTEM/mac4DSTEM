@@ -1,5 +1,5 @@
 //
-//  FCRow25VirtualDetectorOrderingTests.swift
+//  VirtualDetectorOrderingTests.swift
 //  Cloud review row 25 (Gate D): a quiet (live-drag) virtual-detector run for
 //  aperture A that lands AFTER the commit run for aperture B overwrote B's image
 //  and recorded aperture A as the last recipe step.
@@ -11,7 +11,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 @MainActor
-final class FCRow25VirtualDetectorOrderingTests: XCTestCase {
+final class VirtualDetectorOrderingTests: XCTestCase {
 
     private final class Gate { var entered = false; var released = false }
 
