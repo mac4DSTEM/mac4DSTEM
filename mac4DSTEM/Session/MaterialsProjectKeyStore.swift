@@ -1,9 +1,8 @@
 //
 //  MaterialsProjectKeyStore.swift
 //  Where the Materials Project API key lives between launches. Keychain,
-//  not `UserDefaults` (archived docs/v3-features.md#materials-project). A protocol
-//  in front of it so the tests can swap in an in-memory store (in the test
-//  target) without touching the Keychain.
+//  not `UserDefaults`. A protocol in front of it so the tests can swap in an
+//  in-memory store (in the test target) without touching the Keychain.
 //
 //  Deliberately no `kSecUseDataProtectionKeychain`: this app is not signed
 //  into the data-protection keychain elsewhere, and adding it here would make

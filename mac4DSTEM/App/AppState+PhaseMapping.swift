@@ -570,9 +570,8 @@ extension AppState {
     func scalePhaseMatchingToDetector() {
         guard let resolution = phaseVectorResolution else { return }
         phaseMapping.matching = resolution.scaledToDetector(phaseMapping.matching)
-        statusText = String(format: "Phase matching scaled to this detector: "
-                            + "pair radius %.4f Å⁻¹, one detector pixel",
-                            phaseMapping.matching.pairRadiusInvAngstrom)
+        statusText = "Phase matching scaled to this detector: "
+            + "pair radius \(Num.fixed(Double(phaseMapping.matching.pairRadiusInvAngstrom), 4)) Å⁻¹, one detector pixel"
     }
 
     /// Ask the DATA which beam direction the matrix is on, and set it.
@@ -676,8 +675,8 @@ extension AppState {
         guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
             return .failed("No zone axis stands out for \(slot.model.displayName): the best, "
                            + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
-                           + String(format: "explains %.0f %% where the median axis explains %.0f %%",
-                                    100 * winner.explainedFraction, 100 * winner.sweepMedianFraction)
+                           + "explains \(Num.fixed(100 * Double(winner.explainedFraction), 0)) % "
+                           + "where the median axis explains \(Num.fixed(100 * Double(winner.sweepMedianFraction), 0)) %"
                            + " — the matrix axis is not changed. The ranking is in the Phases panel.")
         }
         phaseMapping.phases[matrixIndex].u = winner.zoneAxis.x
@@ -686,8 +685,8 @@ extension AppState {
 
         statusText = "\(slot.model.displayName) best fits "
             + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
-            + String(format: "explaining %.0f %% of the measured vectors at %.4f Å⁻¹",
-                     100 * winner.explainedFraction, winner.meanDistance)
+            + "explaining \(Num.fixed(100 * Double(winner.explainedFraction), 0)) % of the measured vectors "
+            + "at \(Num.fixed(Double(winner.meanDistance), 4)) Å⁻¹"
         return .published
     }
 

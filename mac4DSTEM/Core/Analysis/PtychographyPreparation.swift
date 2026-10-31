@@ -16,7 +16,7 @@ package nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
 }
 
 /// The aberrations the initial probe is built with (lane R1, 2026-09-30). All in Å, py4DSTEM's own conventions, verified against
-/// the vendored py4DSTEM (References/py4DSTEM-dev) and recorded in archived docs/archive/v4/ (R1):
+/// the vendored py4DSTEM (References/py4DSTEM-dev) and recorded in the archived notes (R1):
 ///
 ///  - `defocusAngstrom` is py4DSTEM's `defocus` argument: `ComplexProbe` stores C10 = -defocus (process/phase/utils.py
 ///    `ComplexProbe.set_parameters`, `elif symbol == "defocus": ... = -value`; the same in phase_base_class.py

@@ -312,10 +312,7 @@ private struct DiskDetectionRows: View {
         if let kernel = appState.probeKernel {
             InspectorValueRow(
                 "Kernel",
-                String(
-                    format: "%@ · %@ · %.1f px", kernel.source.rawValue,
-                    kernel.mode.rawValue.lowercased(), kernel.probeRadius
-                )
+                "\(kernel.source.rawValue) · \(kernel.mode.rawValue.lowercased()) · \(Num.fixed(Double(kernel.probeRadius), 1)) px"
             )
         }
     }
@@ -466,12 +463,8 @@ private struct DiskDetectionRows: View {
                 }
                 InspectorValueRow(
                     "Per pattern",
-                    String(
-                        format: "median %.1f · range %d–%d",
-                        summary.medianPeakCount,
-                        summary.minimumPeakCount,
-                        summary.maximumPeakCount
-                    )
+                    "median \(Num.fixed(Double(summary.medianPeakCount), 1)) · "
+                        + "range \(summary.minimumPeakCount)–\(summary.maximumPeakCount)"
                 )
             }
         }
@@ -938,30 +931,20 @@ private struct StrainSection: View {
                     InspectorValueRow(
                         map.diagnostics.automaticBasis
                             ? "Basis consensus" : "Basis support",
-                        String(
-                            format: "%.0f%% · %d/%d peaks",
-                            map.diagnostics.basisSupportFraction * 100,
-                            map.diagnostics.basisSupportCount,
-                            map.diagnostics.basisObservationCount
-                        )
+                        "\(Num.fixed(Double(map.diagnostics.basisSupportFraction) * 100, 0))% · "
+                            + "\(map.diagnostics.basisSupportCount)/\(map.diagnostics.basisObservationCount) peaks"
                     )
                     .accessibilityIdentifier("strain.diagnostics.basisSupport")
                     InspectorValueRow(
                         "Basis fit",
-                        String(
-                            format: "RMS %.3g px · κ %.2f",
-                            map.diagnostics.basisResidualPixels,
-                            map.diagnostics.basisConditionNumber
-                        )
+                        "RMS \(Num.sig(Double(map.diagnostics.basisResidualPixels), 3)) px · "
+                            + "κ \(Num.fixed(Double(map.diagnostics.basisConditionNumber), 2))"
                     )
                     .accessibilityIdentifier("strain.diagnostics.basisFit")
                     InspectorValueRow(
                         "Local fits",
-                        String(
-                            format: "%.0f%% indexed · median RMS %.3g px",
-                            map.indexedFraction * 100,
-                            map.diagnostics.localResidualMedianPixels
-                        )
+                        "\(Num.fixed(Double(map.indexedFraction) * 100, 0))% indexed · "
+                            + "median RMS \(Num.sig(Double(map.diagnostics.localResidualMedianPixels), 3)) px"
                     )
                     .accessibilityIdentifier("strain.diagnostics.localFits")
                     InspectorValueRow(
@@ -982,8 +965,7 @@ private struct StrainSection: View {
         case .starvedInput(let medianPeaks, let emptyPercent):
             Group {
                 InspectorWarning(
-                    String(format: "Too few peaks: median %.1f per pattern, %d%% empty",
-                           medianPeaks, emptyPercent)
+                    "Too few peaks: median \(Num.fixed(Double(medianPeaks), 1)) per pattern, \(emptyPercent)% empty"
                 )
                 InspectorNote("Indexing needs the direct beam plus two more reflections. "
                      + "Lower the detection thresholds, not the reference.")
@@ -1250,7 +1232,7 @@ private struct ACOMSections: View {
             // The app's only measured figure for how well it orients, so a
             // user reads it before trusting a zone axis to the degree.
             // Planted aluminium patterns, measured 2026-09-15 with the since
-            // retired `tools/acom-groundtruth` (restore: archived docs/archive/v4/
+            // retired `tools/acom-groundtruth` (restore: the archived notes
             // tools-retired-2026-09-23.md); no other phase has been measured.
             // Static on purpose: a number with its date and scope, not a promise.
             InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")

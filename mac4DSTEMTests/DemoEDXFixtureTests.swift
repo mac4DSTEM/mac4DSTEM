@@ -6,7 +6,7 @@ import SpectroCore
 
 /// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (archived `tools/demo-edx/`). The fixture is the TINY variant
 /// (6 x 4 scan, 16 x 16 detector, 512 channels at 20 eV, a perturbed energy axis, two 30 %-dead rows; 123 kB) written by `sim_edx.py --tiny` in the GMS
-/// multi-object layout of archived `docs/archive/v5/4d-edx-file-structure-2026-10-05.md` §4a, next to its truth file.
+/// multi-object layout of archived the archived notes §4a, next to its truth file.
 /// The truth carries the SHA-256 of every array as WRITTEN (C order of the logical shape), so these tests compare
 /// what our readers return to what the generator wrote, and the scan is not square (6 != 4) so an axis swap shows.
 /// Every layout detail the file asserts is a GUESS until a real GMS 4D + EDS file exists (truth `guesses`).

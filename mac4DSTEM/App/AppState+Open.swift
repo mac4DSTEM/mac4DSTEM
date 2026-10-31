@@ -206,7 +206,7 @@ extension AppState {
 
     /// The reader for a URL, by extension. Extracted so the configured open and
     /// the direct open cannot drift apart on which formats they accept.
-    /// Widened from `private` (seam 3, archived docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 3, the archived notes):
     /// `App/AppState+DiskDetection.swift`'s `generateVacuumProbeKernel` calls
     /// it from outside this file.
     /// `@concurrent`: construction is file I/O (HDF5's `dlopen`, `HDF5Serial.acquire` — which waits behind another

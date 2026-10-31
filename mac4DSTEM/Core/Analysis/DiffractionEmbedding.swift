@@ -1,6 +1,6 @@
 //
 //  DiffractionEmbedding.swift
-//  Role: the classical v1 baseline archived docs/ai-ml/README.md §6 calls for before
+//  Role: the classical v1 baseline the archived notes §6 calls for before
 //        any learned encoder — PCA on box-binned diffraction patterns, then
 //        k-means on the resulting coordinates. Streams the cube exactly like
 //        VirtualDetector/TiledDiskDetection: bounded scan-row tiles via
@@ -12,7 +12,7 @@
 //  sum-of-outer-products accumulator and `symmetricEigenTop` on 2026-10-21 (CuboKit 0.6.0).
 //  The hand-written subspace iteration used until 2026-09-06 was WRONG (its convergence test
 //  broke after one iteration, so components past the first came back 20-36 % low); diagnosis:
-//  archived docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md.
+//  the archived notes.
 //
 //  DEVIATION (py4DSTEM parity, PCA): py4DSTEM's classification featurisation
 //  — References/py4DSTEM-dev/py4DSTEM/process/classification/featurization.py
