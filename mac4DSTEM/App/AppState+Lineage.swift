@@ -316,7 +316,10 @@ extension AppState {
         case .dpc: replay.record.steps.contains { $0.kind == "dpc" }
         case .diffractionGroups: diffractionGroups.result != nil
         case .phaseMapping: phaseMapping.map != nil
-        case .ptychography, .singleslicePtychography: false
+        // Parallax holds its run from the preprocess on (every later stage stands on it); single-slice ptychography holds
+        // its reconstruction. Both record a step and carry a signature, so the row judges them like any other task.
+        case .ptychography: phaseContrast.parallaxPreprocess != nil
+        case .singleslicePtychography: phaseContrast.singleslicePtychography != nil
         }
     }
 
@@ -631,7 +634,7 @@ extension AppState {
             case .acom(let acomPlan):
                 if let reason = replayMaterialRefusal(acomPlan) { return failure(reason) }
                 return .success(.acom(acomPlan))
-            case .dpc, .ptychography:
+            case .dpc, .ptychography, .parallax:
                 return .success(nil)
             }
         case "calibration_ellipse":

@@ -195,29 +195,44 @@ extension ReplayStepPlan {
         /// calibration, resolved the way the run resolves it), nil when it
         /// agrees with what the recorded run used. Writes nothing.
         package func calibrationRefusal(against resolved: ParallaxPhysicalCalibration) -> String? {
-            func relativeAgrees(_ live: Double, _ recorded: Double, _ tolerance: Double) -> Bool {
-                abs(live - recorded) <= max(1e-300, abs(recorded) * tolerance)
-            }
             let c = calibration
-            if !relativeAgrees(resolved.scanSamplingAngstrom, c.scanSamplingAngstrom, Self.typedRelativeTolerance) {
-                return String(format: "the recipe reconstructed at an R sampling of %.6g Å/px but this session's is %.6g Å/px — set the R pixel size the rehearsal used, then run ptychography by hand",
-                              c.scanSamplingAngstrom, resolved.scanSamplingAngstrom)
-            }
-            if !relativeAgrees(resolved.reciprocalSamplingInvAngstrom, c.reciprocalSamplingInvAngstrom, Self.reciprocalRelativeTolerance) {
-                return String(format: "the recipe reconstructed at a Q sampling of %.6g Å⁻¹/px but this session's is %.6g Å⁻¹/px — recalibrate Q to the rehearsal's value, then run ptychography by hand",
-                              c.reciprocalSamplingInvAngstrom, resolved.reciprocalSamplingInvAngstrom)
-            }
-            if !relativeAgrees(resolved.energyEV, c.energyEV, Self.typedRelativeTolerance) {
-                return String(format: "the recipe reconstructed at %.6g kV but this session's accelerating voltage is %.6g kV — set the rehearsal's voltage, then run ptychography by hand",
-                              c.energyEV / 1_000, resolved.energyEV / 1_000)
-            }
-            if abs(resolved.rotationRad - c.rotationRad) > Self.rotationToleranceRad || resolved.transpose != c.transpose {
-                return "the recipe reconstructed with a different R–Q rotation or transpose than this session holds — set the rehearsal's rotation, then run ptychography by hand"
-            }
+            if let reason = Self.samplingRefusal(
+                scanSamplingAngstrom: c.scanSamplingAngstrom, reciprocalSamplingInvAngstrom: c.reciprocalSamplingInvAngstrom,
+                energyEV: c.energyEV, rotationRad: c.rotationRad, transpose: c.transpose,
+                resolved: resolved, task: "ptychography") { return reason }
             if abs(resolved.originQX - c.originQX) > Self.originTolerancePixels
                 || abs(resolved.originQY - c.originQY) > Self.originTolerancePixels {
                 return String(format: "the recipe reconstructed about the diffraction origin (x %.4g, y %.4g) px but this session's origin is (x %.4g, y %.4g) px — the rehearsal's per-position origin fit does not carry across a promote, so calibrate the origin on the promoted view, then run ptychography by hand",
                               c.originQY, c.originQX, resolved.originQY, resolved.originQX)
+            }
+            return nil
+        }
+
+        /// The R and Q sampling, the voltage and the R–Q rotation/transpose a
+        /// run recorded against `resolved`: the part of the check single-slice
+        /// ptychography and parallax share (parallax never reads the origin).
+        /// `task` names the task to run by hand in the refusal.
+        package static func samplingRefusal(
+            scanSamplingAngstrom: Double, reciprocalSamplingInvAngstrom: Double, energyEV: Double,
+            rotationRad: Double, transpose: Bool, resolved: ParallaxPhysicalCalibration, task: String
+        ) -> String? {
+            func relativeAgrees(_ live: Double, _ recorded: Double, _ tolerance: Double) -> Bool {
+                abs(live - recorded) <= max(1e-300, abs(recorded) * tolerance)
+            }
+            if !relativeAgrees(resolved.scanSamplingAngstrom, scanSamplingAngstrom, typedRelativeTolerance) {
+                return String(format: "the recipe reconstructed at an R sampling of %.6g Å/px but this session's is %.6g Å/px — set the R pixel size the rehearsal used, then run %@ by hand",
+                              scanSamplingAngstrom, resolved.scanSamplingAngstrom, task)
+            }
+            if !relativeAgrees(resolved.reciprocalSamplingInvAngstrom, reciprocalSamplingInvAngstrom, reciprocalRelativeTolerance) {
+                return String(format: "the recipe reconstructed at a Q sampling of %.6g Å⁻¹/px but this session's is %.6g Å⁻¹/px — recalibrate Q to the rehearsal's value, then run %@ by hand",
+                              reciprocalSamplingInvAngstrom, resolved.reciprocalSamplingInvAngstrom, task)
+            }
+            if !relativeAgrees(resolved.energyEV, energyEV, typedRelativeTolerance) {
+                return String(format: "the recipe reconstructed at %.6g kV but this session's accelerating voltage is %.6g kV — set the rehearsal's voltage, then run %@ by hand",
+                              energyEV / 1_000, resolved.energyEV / 1_000, task)
+            }
+            if abs(resolved.rotationRad - rotationRad) > rotationToleranceRad || resolved.transpose != transpose {
+                return "the recipe reconstructed with a different R–Q rotation or transpose than this session holds — set the rehearsal's rotation, then run \(task) by hand"
             }
             return nil
         }

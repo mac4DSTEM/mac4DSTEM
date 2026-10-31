@@ -195,6 +195,43 @@ package enum ReplayContract {
                 "transpose": Key(.invariant, .notCompared, .read),
             ],
             parse: ReplayPlanner.parsePtychography),
+        Entry(
+            kind: "parallax", title: "Parallax",
+            // `ParallaxReplayPlan.recordedParameters`, rewritten after every
+            // stage. The calibration the preprocess resolved is read and
+            // checked, not compared (as ptychography's); the stage progress is
+            // read and not compared (it is what ran, not a setting); the later
+            // stages' controls are compared and put back, each group written
+            // only while its product is held.
+            keys: [
+                // A scan crop keeps the scan sampling; there is no scan bin.
+                "scan_sampling_angstrom": Key(.invariant, .notCompared, .read),
+                "reciprocal_sampling_inv_angstrom_per_pixel": Key(.perPixelScale, .notCompared, .read),
+                "energy_ev": Key(.invariant, .notCompared, .read),
+                "rotation_rad": Key(.invariant, .notCompared, .read),
+                "transpose": Key(.invariant, .notCompared, .read),
+                "alignment_levels": Key(.invariant, .notCompared, .read),
+                "alignment_complete": Key(.invariant, .notCompared, .read),
+                "aberration_fit": Key(.invariant, .notCompared, .read),
+                // KDE: the factor and sigma are in scan pixels, not detector pixels.
+                "kde_upsample_factor": Key(.invariant, .compared, .read),
+                "kde_sigma_px": Key(.invariant, .compared, .read),
+                "kde_lowpass": Key(.invariant, .compared, .read),
+                "kde_lanczos_order": Key(.invariant, .compared, .read),
+                "position_correction_iterations": Key(.invariant, .compared, .read),
+                "position_correction_checkerboard": Key(.invariant, .compared, .read),
+                // Phase correction, Å⁻¹.
+                "q_lowpass_inv_angstrom": Key(.invariant, .compared, .read),
+                "q_highpass_inv_angstrom": Key(.invariant, .compared, .read),
+                // Depth sectioning, Å and Å⁻¹.
+                "depth_start_angstrom": Key(.invariant, .compared, .read),
+                "depth_end_angstrom": Key(.invariant, .compared, .read),
+                "depth_plane_count": Key(.invariant, .compared, .read),
+                "depth_use_full_fit": Key(.invariant, .compared, .read),
+                "depth_information_limit_inv_angstrom": Key(.invariant, .compared, .read),
+                "depth_information_power": Key(.invariant, .compared, .read),
+            ],
+            parse: ReplayPlanner.parseParallax),
     ]
 
     /// The row for a recorded kind; nil for a kind this build does not record.

@@ -362,6 +362,8 @@ package enum ReplayStepPlan: Equatable {
     case acom(ACOMReplayPlan)
     /// Single-slice ptychography (`PtychographyReplay.swift`).
     case ptychography(PtychographyReplayPlan)
+    /// Parallax, every stage the rehearsal reached (`ParallaxReplay.swift`).
+    case parallax(ParallaxReplayPlan)
 
     /// The recorded detector class for a `diskDetection` step, and, for
     /// `.learned`, the threshold and model identity it ran against.
@@ -564,6 +566,8 @@ package enum ReplayStepPlan: Equatable {
         // Ptychography reads the probe radius, the origin and the Q sampling,
         // all in detector pixels.
         case .virtualDetector, .diskDetection, .acom, .ptychography: true
+        // Parallax reads the Q sampling, per detector pixel.
+        case .parallax: true
         case .dpc: false
         case .strain(let plan): plan.manualBasis != nil
         }
