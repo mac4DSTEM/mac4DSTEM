@@ -181,6 +181,13 @@ package struct ACOMRunSemantics: Sendable, Equatable {
             "q_scale_provenance": scale.provenance.rawValue,
             "interpretation": scale.interpretation,
             "dataset_validation": "not_independently_validated",
+            // The frame and convention of the Euler angles (`ACOMEulerFrame`). Absent on a product written before
+            // 2026-10-31: those angles are in the matcher's frame, and `ACOMEulerFrame.py4DSTEM(fromMatcher:)` converts them.
+            ACOMEulerFrame.provenanceKey: ACOMEulerFrame.py4DSTEMMarker,
+            "euler_convention": ACOMEulerFrame.conventionText,
+            "euler_lab_frame": ACOMEulerFrame.labFrameText,
+            "euler_orix": ACOMEulerFrame.orixText,
+            "scan_axes": ACOMEulerFrame.scanAxesText,
         ]) { _, current in current }
         return result
     }

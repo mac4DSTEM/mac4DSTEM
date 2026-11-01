@@ -92,7 +92,11 @@ unfittable positions as explicit no-data.
 `CrystalModel` from the Materials Project (by mp-id) or an imported CIF; the
 built-in library (cubic presets, HCP magnesium, 2H-WS₂, custom cubic) remains
 as a replay resolver only. CPU and Metal backends with parity gating,
-reliability, IPF-Z maps, Bunge Euler output. Physical matching requires
+reliability, IPF-Z maps, Euler output in py4DSTEM's frame and convention
+(`ACOMEulerFrame`: lab x along the detector rows, SciPy z-x-z of the
+orientation matrix's transpose; read as Bunge in reverse order; products
+from before 2026-10-31 carry no `euler_frame` key and hold the matcher's
+frame, x along the columns). Physical matching requires
 calibrated Q sampling; otherwise **Exploratory**. Point-group coverage is
 cubic and hexagonal only, by decision: CIFs outside them are refused.
 **Parallax and ptychography.** Staged parallax (calibrated virtual-BF

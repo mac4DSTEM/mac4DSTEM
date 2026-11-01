@@ -39,7 +39,8 @@ final class OrientationPlanRefusalMessageTests: XCTestCase {
         await state.openDemoFixture()
         state.acomSession.customStructure = .fcc
         state.acomSession.customZ = 13
-        state.acomSession.customLatticeA = 150
+        // 300 A: the demo's plan reaches 0.63 A^-1 (its detector edge), where a 150 A cell has only about 3.5e6 reflections.
+        state.acomSession.customLatticeA = 300
         state.acomSession.modelSelection = .customCubic
         await state.generateOrientationPlan()
         XCTAssertTrue(state.statusText.contains("Could not generate an orientation plan."), state.statusText)
