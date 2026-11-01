@@ -3,7 +3,7 @@
 //  Role: the precipitate objects as ellipse glyphs for the scan-grid panes (design rooms-2026-10-21 §3): one ellipse per object
 //        from the object table's own rows (centroid, end-to-end length and width, orientation), no contour tracing. A snapshot
 //        value: Equatable, built once per classification run and minimum size, drawn by every pane through its own transform.
-//        Nothing here is a measurement beyond what the table already reports; `validation: none` rides with the table.
+//        Nothing here is a measurement beyond what the table already reports; the method rides with the table.
 //
 
 import Foundation

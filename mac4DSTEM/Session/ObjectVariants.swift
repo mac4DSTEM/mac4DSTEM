@@ -6,7 +6,7 @@
 //        pixels vote for. Pure: no SwiftUI, no AppState; the kit does the rotation algebra, this file votes and says why not.
 //
 //  What it is not: ACOM orientations are the second source behind the same seam and are not built (`VariantSettings.source`).
-//  UNVALIDATED (`validation: "none"`): the phase map is, and the variant set is planted truth, not a measured set.
+//  Checked against planted truth only: the variant set is planted, not a measured set.
 //
 //  Conventions (read from the kit, tested in ObjectVariantsTests): an entry's orientation is
 //  `ZoneAxisFrame.matrix(detectorBasis(zoneAxis), inPlaneAngle)` of its zone axis in the crystal's own Cartesian frame (columns = the

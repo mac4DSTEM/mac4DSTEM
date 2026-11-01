@@ -25,7 +25,7 @@ final class EDSFourDLinkTests: XCTestCase {
     }
 
     private func pool(_ name: String, key: String, nx: Int = 32, ny: Int = 32, kind: String = "phase") -> EDXPoolRegion {
-        EDXPoolRegion(kind: kind, name: name, mask: (0..<(nx * ny)).map { $0 % nx < nx / 2 }, key: key, validation: "none")
+        EDXPoolRegion(kind: kind, name: name, mask: (0..<(nx * ny)).map { $0 % nx < nx / 2 }, key: key)
     }
 
     /// A pool is its own mask (half the scan here), its name and kind, and a cache key that carries its content key.
@@ -44,11 +44,11 @@ final class EDSFourDLinkTests: XCTestCase {
     /// Mutation: the key without the generation - a rebuilt phase map keeps a stale spectrum - red.
     func testTheCatalogueBecomesPoolsKeyedByIdAndGeneration() {
         let catalogue = PoolCatalogue(pools: [SpectrumPool(id: 1000, kind: .phase, name: "A", sourceGeneration: 7, pixelCount: 2,
-                                                           mask: [true, true, false], validation: "none")])
+                                                           mask: [true, true, false])])
         let pools = AppState.edsPools(catalogue)
         XCTAssertEqual(pools.map(\.key), ["1000@7"])
         XCTAssertEqual(pools.first?.kind, "phase")
-        XCTAssertEqual(pools.first?.validation, "none")
+        XCTAssertNil(pools.first?.validation, "a pool carries no validation word")
     }
 
     /// A selected pool that changed or vanished falls back to the whole map (never a fit on a stale mask, H8); an unchanged one stays.
@@ -96,7 +96,9 @@ final class EDSFourDLinkTests: XCTestCase {
         // The result line is the fit's at% as it stands after the unlisted-line check (empty when the check withholds it, as the old room wrote).
         let expected = AppState.edsResultParameters(try XCTUnwrap(state.edx.fit))["result_at"]
         XCTAssertEqual(step.parameters["result_at"], expected)
-        XCTAssertEqual(step.parameters["validation"], "none")
+        XCTAssertNil(step.parameters["validation"])
+        XCTAssertEqual(step.parameters["method_reference"], AppState.edsMethodLine(try XCTUnwrap(state.edx.fit).method))
+        XCTAssertTrue(step.parameters["method_reference"]?.hasPrefix("Cliff-Lorimer, k-factors computed") == true)
         var recorded = step.parameters
         recorded["method"] = recorded["method_json"]
         XCTAssertNotNil(QuantificationStep(parameters: recorded), "the recorded method JSON reads back")

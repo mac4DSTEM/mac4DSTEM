@@ -156,15 +156,6 @@ struct PrecipitateObjectsWindow: View {
 
     private var summary: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label {
-                Text("Unvalidated — objects from a phase map that has not been scored "
-                     + "against a ground truth in this app.")
-                    .foregroundStyle(.secondary)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
-            }
-            .font(.callout)
-
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 4) {
                 GridRow {
                     Text("Phase")

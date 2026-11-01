@@ -50,8 +50,8 @@ the reason. The rest is computed by the suite's Swift packages, each checked aga
 [SpectroKit](https://github.com/mac4DSTEM/SpectroKit) (EDS),
 [FormatoKit](https://github.com/mac4DSTEM/FormatoKit) (file readers),
 [ImagoKit](https://github.com/mac4DSTEM/ImagoKit) (FFT and image maths) and
-[MacEMUI](https://github.com/mac4DSTEM/MacEMUI) (the window and controls both apps share). A result that has not yet
-been compared with a dataset of known truth says `validation: none` next to it.
+[MacEMUI](https://github.com/mac4DSTEM/MacEMUI) (the window and controls both apps share). Every export names the method a
+result came from and its reference.
 
 Which function is checked against what, and to which tolerance, is in [`docs/parity.md`](docs/parity.md); speed
 measurements are in [`docs/performance.md`](docs/performance.md).

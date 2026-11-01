@@ -92,15 +92,18 @@ final class PrecipitateObjectReportTests: XCTestCase {
 
     /// (4) The CSV carries the provenance, one header, one line per object,
     /// and leaves physical columns empty without a scale. Break-first: the
-    /// provenance loop removed drops `# validation: none`, so this must go red.
+    /// provenance loop removed drops `# method: vector_matching`, so this must go red.
     func testCSVCarriesProvenanceAndOneLinePerObject() {
         let report = PrecipitateObjectReport.make(
             objects: fixture().objects, phaseNames: names, matrixPhaseIndex: 0,
             pixelSize: nil, pixelUnit: nil, minimumAreaPx: 2,
-            provenance: [("validation", "none"), ("method", "vector_matching")])
+            provenance: [("method", "vector_matching"),
+                         ("method_citation", "Thronsen et al., Ultramicroscopy 255 (2024) 113861")])
         let lines = report.csv().split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init).filter { !$0.isEmpty }
-        XCTAssertTrue(lines.contains("# validation: none"))
+        XCTAssertTrue(lines.contains("# method: vector_matching"))
+        XCTAssertTrue(lines.contains("# method_citation: Thronsen et al., Ultramicroscopy 255 (2024) 113861"))
+        XCTAssertFalse(lines.contains { $0.contains("validation") }, "no validation line")
         let header = lines.firstIndex { $0.hasPrefix("id,phase,counted") }
         XCTAssertNotNil(header)
         let data = lines.filter { !$0.hasPrefix("#") && !$0.hasPrefix("id,") }

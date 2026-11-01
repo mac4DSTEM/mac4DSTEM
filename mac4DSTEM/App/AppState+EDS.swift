@@ -67,7 +67,8 @@ extension AppState {
     }
 
     /// The fit's numbers as step keys, as the old room wrote them: `result_at` / `result_wt` ("Al 97.6 ± 0.5 · Si 1.5 ± 0.3", elements
-    /// with a number only), `result_unit` and `validation` ("none": the fit is unvalidated).
+    /// with a number only), `result_unit` and `method_reference` (`edsMethodLine`: the method and where its k-factors came from; `method` is
+    /// the step's own key, the method hash).
     nonisolated static func edsResultParameters(_ fit: PooledQuantification) -> [String: String] {
         func line(_ value: (PooledQuantification.Row) -> (Double?, Double?)) -> String {
             fit.rows.compactMap { r -> String? in
@@ -76,7 +77,20 @@ extension AppState {
             }.joined(separator: " \u{00B7} ")
         }
         return ["result_at": line { ($0.atomicPercent, $0.atomicSigma) }, "result_wt": line { ($0.weightPercent, $0.weightSigma) },
-                "result_unit": "at%", "validation": "none"]
+                "result_unit": "at%", "method_reference": edsMethodLine(fit.method)]
+    }
+
+    /// The quantification method and its k-factor reference in one line, as an export states it:
+    /// "Cliff-Lorimer, k-factors computed (Bote-Salvat 2008 ...)" or "Cliff-Lorimer, k-factors typed, <their source>".
+    nonisolated static func edsMethodLine(_ method: QuantificationMethod) -> String {
+        let k: String
+        switch method.kFactorSource {
+        case .computed:
+            k = "computed (Bote-Salvat 2008 ionisation cross sections, Krause 1979 fluorescence yields, NIST EPQ SDD efficiency)"
+        case .typed:
+            k = method.kSource.isEmpty ? "typed" : "typed, \(method.kSource)"
+        }
+        return "Cliff-Lorimer, k-factors \(k)"
     }
 }
 
@@ -87,7 +101,7 @@ extension AppState {
     /// image's grid and a key that changes when the pool's content can (its id and the product generation it was built from).
     nonisolated static func edsPools(_ catalogue: PoolCatalogue) -> [EDXPoolRegion] {
         catalogue.pools.map { EDXPoolRegion(kind: $0.kind.rawValue, name: $0.name, mask: $0.mask,
-                                            key: "\($0.id)@\($0.sourceGeneration)", validation: $0.validation) }
+                                            key: "\($0.id)@\($0.sourceGeneration)") }
     }
 }
 

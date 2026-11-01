@@ -208,18 +208,19 @@ final class ImportAndNetworkMessageTests: XCTestCase {
         XCTAssertTrue(RealSpacePane.pendingInstruction(for: .ptychography).contains("parallax"))
     }
 
-    // MARK: - b2: an unvalidated product says so on the face of the exported PNG
+    // MARK: - b2: the exported caption carries no validation badge
 
     private func scalar() -> ProductPayload {
         .scalar(FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3]))
     }
 
-    /// Mutation: delete the `validation == "none"` append in publicationCaption -> red.
-    func testTheCaptionBurnsUnvalidatedForAValidationNoneProduct() {
+    /// A product is not badged on the face of the export, even one carrying a `validation` key from an older session.
+    /// Red before the caption lost its UNVALIDATED part.
+    func testTheCaptionDoesNotBadgeAValidationNoneProduct() {
         let state = AppState()
         state.publishProduct(kind: "phase_map", displayName: "Phase map", valueUnits: "phase_index", payload: scalar(),
-                             extraProvenance: ["validation": "none"])
-        XCTAssertTrue(state.publicationCaption.localizedCaseInsensitiveContains("unvalidated"), state.publicationCaption)
+                             extraProvenance: ["validation": "none", "method": "vector_matching"])
+        XCTAssertFalse(state.publicationCaption.localizedCaseInsensitiveContains("validat"), state.publicationCaption)
     }
 
     /// A product with no such key carries no noise. Mutation: append unconditionally -> red.

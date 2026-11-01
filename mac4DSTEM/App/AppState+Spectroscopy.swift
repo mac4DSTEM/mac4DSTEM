@@ -234,8 +234,6 @@ struct QuantificationRow: Identifiable, Equatable {
     let method: String
     /// "Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%", or why there is none.
     let result: String
-    /// The badge: the fit's own validation is "none", or the pool is a phase / Not indexed pool (the phase map is unvalidated).
-    let unvalidated: Bool
     /// The step's readable keys (not the method JSON or the registration record).
     let parameters: [Entry]
 }
@@ -268,14 +266,15 @@ enum QuantificationRows {
         if let at = p["result_at"], !at.isEmpty { result = "\(at) \(unit)" }
         else if p["result_at"] != nil { result = "no at% computed" }
         else { result = "no result recorded in this step" }
-        let hidden: Set<String> = ["method_json", "registration", "result_at", "result_wt", "result_unit"]
+        // `validation` is hidden too: a step recorded before `method_reference` replaced it still carries it.
+        let hidden: Set<String> = ["method_json", "registration", "result_at", "result_wt", "result_unit", "validation"]
         let shown = p.filter { !hidden.contains($0.key) }.sorted { $0.key < $1.key }.map { QuantificationRow.Entry(key: $0.key, value: $0.value) }
         var entries = shown
         if let wt = p["result_wt"], !wt.isEmpty { entries.insert(.init(key: "result_wt%", value: wt), at: 0) }
         return QuantificationRow(
             id: node.id, title: regionLabel(kind: kind, name: p["region_name"] ?? "Whole map"),
             method: method.isEmpty ? "method not recorded" : method.joined(separator: " \u{00B7} "), result: result,
-            unvalidated: p["validation"] == "none" || kind == "phase" || kind == "notIndexed", parameters: entries)
+            parameters: entries)
     }
 }
 
