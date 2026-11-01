@@ -522,7 +522,7 @@ extension AppState {
             var provenance = semantics.provenance
             provenance.merge([
                 "bundle": "orientation", "display_domain": "scan",
-                "euler_convention": "Bunge extrinsic zxz, radians",
+                // The Euler frame and convention keys come with `semantics.provenance` (`ACOMEulerFrame`).
                 "symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
                 "template_count": String(map.templateCount),

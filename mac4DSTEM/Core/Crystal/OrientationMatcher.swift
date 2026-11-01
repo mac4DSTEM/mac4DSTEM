@@ -85,7 +85,9 @@ package enum OrientationMatching {
             width: bragg.scanWidth, height: bragg.scanHeight,
             matchingBackend: backend == .metal ? .metal : .cpu, symmetry: plan.symmetry, templateCount: plan.count
         )
-        map.results = scan.results
+        // The kit's angles are in the matcher's detector frame (x along the columns); the map reports py4DSTEM's
+        // (x along the rows, `ACOMEulerFrame`), so its Euler angles, readout and export compare with py4DSTEM's.
+        map.results = scan.results.map { ACOMEulerFrame.py4DSTEM(fromMatcher: $0, symmetry: plan.symmetry) }
         return map
     }
 }
