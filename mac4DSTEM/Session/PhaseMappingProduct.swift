@@ -349,9 +349,10 @@ package final class PhaseMappingProduct {
                      matrixEntryIndex: Int, matrixInPlaneDegrees: Double,
                      worstChanceMatchPercent: Double, invAngstromPerPixel: Double,
                      qScaleIsPhysical: Bool, peakCount: Int,
-                     calibration: CalibrationStamp) {
+                     calibration: CalibrationStamp, libraryKMaxInvAngstrom: Double? = nil) {
             self.phaseSignature = phaseSignature
             self.reference = reference
+            self.libraryKMaxInvAngstrom = libraryKMaxInvAngstrom ?? reference.kMaxInvAngstrom
             self.matching = matching
             self.libraryEntryCount = libraryEntryCount
             self.matrixEntryIndex = matrixEntryIndex
@@ -364,7 +365,11 @@ package final class PhaseMappingProduct {
         }
 
         package var phaseSignature: String
+        /// The reference settings as the panel held them; `isStale` compares these with the live ones.
         package var reference: PhaseReferenceSettings
+        /// The k range (Å⁻¹) the library was built to: the detector's reach from the reference origin, at most
+        /// `reference.kMaxInvAngstrom` (`AppState.phaseLibraryKMax`).
+        package var libraryKMaxInvAngstrom: Double
         package var matching: PhaseVectorSettings
         package var libraryEntryCount: Int
         package var matrixEntryIndex: Int
