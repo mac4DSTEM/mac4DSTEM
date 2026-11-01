@@ -120,6 +120,79 @@ package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     ]
 }
 
+/// The lab frame of the Euler angles an ACOM map reports: py4DSTEM's (f050d207).
+///
+/// py4DSTEM's orientation matrix G (lab to crystal: its columns are the lab axes in crystal coordinates) has lab x along
+/// the detector's first axis, the rows (py4DSTEM qx, `crystal_ACOM.py` `qphi = arctan2(qy, qx)`), y along the columns
+/// (qy) and z = x cross y. The kit's matcher measures azimuths in the app's detector frame, x along the columns and y along
+/// the rows, so its matrix is in a frame with x and y swapped and z reversed (still right-handed): G_py4DSTEM =
+/// G_matcher * F, F the half turn about the in-plane diagonal. Measured on the public Al-Mg-Si demo against py4DSTEM's
+/// `match_single_pattern` on the same peaks: 50.3 deg apart on grain C [111] (median, after the crystal's symmetry) without
+/// F, 0.30 deg with it; no other relabelling of the axes comes within 9 deg.
+///
+/// The angles are SciPy `Rotation.from_matrix(G.T).as_euler("zxz")` of that G (`EulerAngles`), what py4DSTEM's
+/// `orientation_map_to_orix_CrystalMap` computes; in Bunge's notation (orix's default `from_euler`, lab to crystal) the
+/// same orientation is (phi2, Phi, phi1), the triple reversed.
+package nonisolated enum ACOMEulerFrame: Equatable {
+    /// Angles in py4DSTEM's frame (every map since 2026-10-31).
+    case py4DSTEM
+    /// A product written before 2026-10-31 (no `provenanceKey`): the matcher's frame; `py4DSTEM(fromMatcher:)` converts it.
+    case matcherBefore20261031
+    /// A value this build does not know.
+    case unknown
+
+    /// The provenance key naming the frame, and its value.
+    package static let provenanceKey = "euler_frame"
+    package static let py4DSTEMMarker = "py4DSTEM"
+
+    /// What the three angles are, for the products' and the bundle's metadata.
+    package static let conventionText =
+        "radians; SciPy Rotation.from_matrix(G.T).as_euler('zxz') of the py4DSTEM orientation matrix G (lab to crystal), as py4DSTEM computes; in Bunge (lab to crystal, orix from_euler default) the orientation is (phi2, Phi, phi1)"
+    package static let labFrameText =
+        "py4DSTEM detector frame: x along the detector rows (qx), y along the columns (qy), z = x cross y; no R-Q rotation applied"
+    /// py4DSTEM's own orix export (`orientation_map_to_orix_CrystalMap`) passes the triple to `from_euler(..., "crystal2lab")`,
+    /// which is not G but diag(1, -1, 1) G diag(1, -1, 1), a half turn about y on the crystal side and on the lab side (orix
+    /// 0.15.0 and SciPy 1.18.1, 500 random G, 9e-16; the Bunge reading (phi2, Phi, phi1) is G to the same 9e-16).
+    package static let orixText =
+        "orix Rotation.from_euler([phi2, Phi, phi1]) is G; Rotation.from_euler([phi1, Phi, phi2], direction='crystal2lab') reproduces py4DSTEM's orientation_map_to_orix_CrystalMap, which is not G"
+    package static let scanAxesText =
+        "maps are scan rows by scan columns: py4DSTEM Rx by Ry; in py4DSTEM's orix export (transpose_xy) orix x is the scan row"
+
+    /// The frame of a product's angles from its provenance.
+    package static func frame(ofProvenance provenance: [String: String]) -> ACOMEulerFrame {
+        switch provenance[provenanceKey] {
+        case nil: return .matcherBefore20261031
+        case py4DSTEMMarker?: return .py4DSTEM
+        default: return .unknown
+        }
+    }
+
+    /// F: py4DSTEM lab coordinates to the matcher's (x and y swapped, z reversed; its own inverse, determinant 1).
+    package static let py4DSTEMFromMatcher = simd_double3x3(rows: [
+        SIMD3(0, 1, 0), SIMD3(1, 0, 0), SIMD3(0, 0, -1),
+    ])
+
+    /// The matcher's angles in py4DSTEM's frame: G * F, reduced to the symmetry's fundamental zone again (the
+    /// representative with the smallest rotation angle, the kit's rule), with that representative's rotation angle.
+    package static func py4DSTEM(fromMatcher euler: EulerAngles, symmetry: ACOMCrystalSymmetry)
+        -> (euler: EulerAngles, disorientationRad: Float) {
+        let reduced = symmetry.reduce(euler.py4DSTEMOrientationMatrix * py4DSTEMFromMatcher)
+        return (EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix), reduced.disorientationRad)
+    }
+
+    /// A matched result with its angles and FZ angle in py4DSTEM's frame; template, in-plane angle, mirror flag and scores
+    /// stay the matcher's (they describe the template match on the detector, and the overlays draw from them). An
+    /// unmatched result is returned as it is.
+    package static func py4DSTEM(fromMatcher result: OrientationResult, symmetry: ACOMCrystalSymmetry) -> OrientationResult {
+        guard result.templateIndex >= 0 else { return result }
+        var out = result
+        let converted = py4DSTEM(fromMatcher: result.euler, symmetry: symmetry)
+        out.euler = converted.euler
+        out.symmetryDisorientationRad = converted.disorientationRad
+        return out
+    }
+}
+
 package nonisolated struct OrientationMap {
     package let width: Int
     package let height: Int

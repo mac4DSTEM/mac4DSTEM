@@ -576,6 +576,27 @@ nonisolated extension BraggVectorEMDWriter {
                 measuredQX: measuredPair ? measuredQX?.values : nil,
                 measuredQY: measuredPair ? measuredQY?.values : nil
             )
+            // Absent on a session saved before 2026-10-31, or unreadable: unknown, which the origin gate does not refuse.
+            if let text = (try? file.stringAttribute(SessionSidecarFormat.originWindowPullAttribute, at: rootPath)) ?? nil,
+               let pull = Double(text), pull.isFinite, pull >= 0 {
+                calibration.originMaps?.windowPullBoundPixels = pull
+            }
+            // The beam-stop test, the same way: absent or unreadable is unknown.
+            switch (try? file.stringAttribute(SessionSidecarFormat.originBeamStopAttribute, at: rootPath)) ?? nil {
+            case "true": calibration.originMaps?.beamStopCoversBeam = true
+            case "false": calibration.originMaps?.beamStopCoversBeam = false
+            default: break
+            }
+            if let text = (try? file.stringAttribute(SessionSidecarFormat.originFriedelFallbackAttribute, at: rootPath)) ?? nil,
+               let fallback = Double(text), fallback.isFinite, fallback >= 0 {
+                calibration.originMaps?.friedelFallbackResidualPixels = fallback
+            }
+            // The method the maps were measured with, the same way ("friedel" faces the 1 px residual limit).
+            switch (try? file.stringAttribute(SessionSidecarFormat.originMethodAttribute, at: rootPath)) ?? nil {
+            case "friedel": calibration.originMaps?.measuredByFriedel = true
+            case "centreOfMass": calibration.originMaps?.measuredByFriedel = false
+            default: break
+            }
         }
         let hasValue = calibration.rSize != nil || calibration.rUnits != nil
             || calibration.qSize != nil || calibration.qUnits != nil

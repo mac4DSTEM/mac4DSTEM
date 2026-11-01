@@ -394,6 +394,14 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
                 + "\(CalibrationUnitConversion.displayNumber(Double(bound), digits: 3, locale: locale))\u{00A0}px"
                 + " (the window is mostly background; not for quantitative use)"
         }
+        if !calibration.originBeamStopIsAcceptable {
+            originDetail += " · Beam\u{00A0}stop over the direct beam"
+                + (calibration.friedelFallbackIsTrusted
+                    ? " (use Origin method Friedel)" : " (set the origin by hand; not for quantitative use)")
+        }
+        if calibration.originResidualIsAcceptable, !calibration.originFriedelResidualIsAcceptable {
+            originDetail += " · Friedel fit over the 1\u{00A0}px limit (not for quantitative use)"
+        }
 
         let validEllipse = calibration.hasEllipse
         let ellipseDetail: String
@@ -564,9 +572,31 @@ package nonisolated struct OriginMaps: Sendable {
     /// detector pixels (`OriginCalibration.windowPull`). The gate reads it:
     /// see `originFitIsSane`. `nil` when the maps did not come from this
     /// app's centre-of-mass run (an imported py4DSTEM map, a Friedel run, a
-    /// reopened session: the session file does not carry it yet): unknown,
-    /// never refused.
+    /// session saved before the session file carried it): unknown, never
+    /// refused.
     package var windowPullBoundPixels: Float?
+
+    /// Whether a beam stop covers the direct beam, read on the mean pattern by
+    /// a centre-of-mass run (`OriginCalibration.beamStop`). `true` refuses
+    /// these maps: their origins are the centre of what surrounds the stop.
+    /// `nil` when not read (an imported map, a Friedel run, a session file):
+    /// unknown, never refused.
+    package var beamStopCoversBeam: Bool?
+
+    /// When a centre-of-mass run found a beam stop it also tried the Friedel
+    /// origin (`OriginMethod.friedel`) on the same cube: this is that fit's
+    /// RMS residual over every scan position, in detector pixels. `nil` when
+    /// it was not tried or could not be measured. The refusal offers the
+    /// Friedel method only when it is at most
+    /// `Calibration.friedelFallbackResidualLimitPixels`.
+    package var friedelFallbackResidualPixels: Float?
+
+    /// How the per-position origins were measured (`OriginCalibration.tiledRun`'s
+    /// `originMethod`). A Friedel run faces the same 1 px residual limit as the
+    /// fallback (`Calibration.originFriedelResidualIsAcceptable`). `nil` when not
+    /// known (an imported map, a session saved before 2026-10-31): judged by
+    /// the probe-radius residual alone.
+    package var measuredByFriedel: Bool?
 
     /// RMS of measured minus fitted origins, over EVERY scan position.
     package var rmsResidual: Float? {
@@ -596,8 +626,11 @@ package nonisolated struct OriginMaps: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil, originValidity: [Bool]? = nil, windowPullBoundPixels: Float? = nil) {
+    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil, originValidity: [Bool]? = nil, windowPullBoundPixels: Float? = nil, beamStopCoversBeam: Bool? = nil, friedelFallbackResidualPixels: Float? = nil, measuredByFriedel: Bool? = nil) {
         self.windowPullBoundPixels = windowPullBoundPixels
+        self.measuredByFriedel = measuredByFriedel
+        self.beamStopCoversBeam = beamStopCoversBeam
+        self.friedelFallbackResidualPixels = friedelFallbackResidualPixels
         self.width = width
         self.height = height
         self.measuredX = measuredX
@@ -769,10 +802,53 @@ package nonisolated struct Calibration: Sendable {
         return residual.isFinite && residual <= probeRadius
     }
 
-    /// Both tests: the residual (scatter, `originResidualIsAcceptable`) and,
-    /// since 2026-10-31, the window pull (bias, `originWindowPullIsAcceptable`).
+    /// The beam-stop test: false when a centre-of-mass run found a stop over
+    /// the direct beam (`OriginMaps.beamStopCoversBeam`). Under a stop there
+    /// is no beam to take the centre of mass of; the refine lands on the
+    /// centre of the bright rim, which the stop's arm pulls away from the arm,
+    /// the same way at every position, so the residual stays small, and the
+    /// window pull reads the rim as beam. Unknown passes.
+    package var originBeamStopIsAcceptable: Bool {
+        origin?.beamStopCoversBeam != true
+    }
+
+    /// The most the Friedel fallback's RMS residual may be for the refusal to
+    /// offer the Friedel method, in detector pixels, and the most a Friedel
+    /// run's own RMS residual may be for its origin to be trusted
+    /// (`originFriedelResidualIsAcceptable`). Above about 2 px of
+    /// origin error the direct beam can pass for the innermost reflection
+    /// (`KnownCrystalQCalibration`'s 2 px floor), and the residual is the
+    /// per-position scatter, so the limit sits at half that. Pixels of the
+    /// frame the analysis runs in, as the window pull: a binned view's disks
+    /// and its 2 px floor are binned pixels too, so a 1.5 px fit refused at
+    /// bin 1 reads 0.75 px at bin 2 and passes there.
+    package static let friedelFallbackResidualLimitPixels: Float = 1
+
+    /// A Friedel run (`OriginMaps.measuredByFriedel`) is judged by the same
+    /// 1 px limit the refusal applies to the fallback, not only by the probe
+    /// radius: under a beam stop the probe radius is the radius of what is
+    /// left round the stop (often several pixels), so a Friedel fit scattered
+    /// 3 px passed the residual test and an origin offered by name could
+    /// not have been. Unknown method, or no measured arrays, passes.
+    package var originFriedelResidualIsAcceptable: Bool {
+        guard origin?.measuredByFriedel == true, let residual = origin?.rmsResidual else { return true }
+        return residual.isFinite && residual <= Self.friedelFallbackResidualLimitPixels
+    }
+
+    /// Whether the Friedel fallback a centre-of-mass run tried under a beam
+    /// stop fits the scan well enough to offer (unknown is not offered).
+    package var friedelFallbackIsTrusted: Bool {
+        guard let residual = origin?.friedelFallbackResidualPixels, residual.isFinite else { return false }
+        return residual <= Self.friedelFallbackResidualLimitPixels
+    }
+
+    /// All four tests: the residual (scatter, `originResidualIsAcceptable`),
+    /// since 2026-10-31 the window pull (bias, `originWindowPullIsAcceptable`),
+    /// the beam stop (`originBeamStopIsAcceptable`) and, for a Friedel run,
+    /// the 1 px residual limit (`originFriedelResidualIsAcceptable`).
     package var originFitIsSane: Bool {
-        originResidualIsAcceptable && originWindowPullIsAcceptable
+        originResidualIsAcceptable && originWindowPullIsAcceptable && originBeamStopIsAcceptable
+            && originFriedelResidualIsAcceptable
     }
 
     /// The residual `originFitIsSane` actually judged, so a caller quoting a
@@ -904,12 +980,23 @@ package nonisolated struct Calibration: Sendable {
     /// move this residual, so appending it to the iDPC refusal printed a
     /// remedy that provably does nothing there (Gate B, 2026-08-25). // v2 S7
     package var originFitJudgement: String? {
+        if !originBeamStopIsAcceptable {
+            return "A beam stop covers the direct beam: the centre-of-mass origin is the centre of what surrounds "
+                + "the stop, not of the beam — Bragg vectors are re-centred on this origin, so a value measured "
+                + "from them could be wrong."
+        }
         if !originWindowPullIsAcceptable, let bound = origin?.windowPullBoundPixels {
             return String(
                 format: "The origin window holds too little of the direct beam: background could have pulled each "
                     + "measured origin by up to %.3g px, more than the %.3g px allowed — Bragg vectors are "
                     + "re-centred on this origin, so a value measured from them could be wrong.",
                 Double(bound), Double(Self.originWindowPullLimitPixels))
+        }
+        if originResidualIsAcceptable, !originFriedelResidualIsAcceptable, let residual = judgedOriginResidual {
+            return String(
+                format: "Friedel origin fit RMS %.3g px exceeds the %.3g px allowed for the Friedel method — Bragg "
+                    + "vectors are re-centred on this origin, so a value measured from them could be wrong.",
+                Double(residual), Double(Self.friedelFallbackResidualLimitPixels))
         }
         guard !originResidualIsAcceptable, let residual = judgedOriginResidual else { return nil }
         let excluded = origin?.excludedFraction
@@ -944,6 +1031,9 @@ package nonisolated struct Calibration: Sendable {
     /// trim removed, and the residual is still too large).
     package var originFitRefusal: String? {
         guard let judgement = originFitJudgement else { return nil }
+        if !originBeamStopIsAcceptable {
+            return judgement + " " + beamStopRemedy()
+        }
         if !originWindowPullIsAcceptable {
             // A biased measurement, not outliers: trimming and the fit function cannot move it. On the noisy cubes the
             // cause is the window's size: it is sized from the maximum pattern, which noise widens (15 px for a 4 px
@@ -951,6 +1041,9 @@ package nonisolated struct Calibration: Sendable {
             return judgement
                 + " Changing the Origin fit function cannot help: every function fits the same pulled origins."
                 + " Enter the reciprocal pixel size manually to proceed — that bypasses this fit."
+        }
+        if originResidualIsAcceptable, !originFriedelResidualIsAcceptable {
+            return judgement + " " + Self.friedelRunRemedy(manualQ: true)
         }
         // The diagnosis says only what was OBSERVED. The first version drew an
         // inference from an excluded fraction of zero — "the origin measurement
@@ -982,6 +1075,35 @@ package nonisolated struct Calibration: Sendable {
             + " Changing the Origin fit function (Constant / Plane / Parabola) is unlikely to"
             + " help: the three differ by only a few percent of a residual this far above the"
             + " probe radius."
+    }
+
+    /// What can clear a beam-stop refusal: the fit function and a re-run cannot, they fit the same rim centres. The
+    /// Friedel method is offered only when the run's own try of it fitted the scan (`friedelFallbackIsTrusted`);
+    /// otherwise a manual origin, and a manual Q where the surface measures Q (`manualQ`; iDPC passes false, a scale
+    /// cannot bring its origin back).
+    package func beamStopRemedy(manualQ: Bool = true) -> String {
+        let manual = "Drag the aperture centre onto the beam centre (a manual origin)"
+            + (manualQ ? ", or enter the reciprocal pixel size manually" : "")
+            + "; changing the Origin fit function or re-running Calibrate Origin gives the same origins."
+        if friedelFallbackIsTrusted, let residual = origin?.friedelFallbackResidualPixels {
+            return String(format: "The Friedel origin, which reads the centre from the symmetry of the pattern around "
+                + "the stop, fits this scan to %.2g px RMS: set Origin method to Friedel (beamstop-tolerant) and "
+                + "re-run Calibrate Origin.", Double(residual))
+        }
+        if let residual = origin?.friedelFallbackResidualPixels, residual.isFinite {
+            return String(format: "The Friedel origin does not fit this scan either (%.3g px RMS, more than the "
+                + "%.3g px allowed). ", Double(residual), Double(Self.friedelFallbackResidualLimitPixels)) + manual
+        }
+        return manual
+    }
+
+    /// What can clear a Friedel run refused by the 1 px limit: the centre of mass where no beam stop covers the beam
+    /// (a centre-of-mass run reads the stop itself and is refused under one), or a manual origin; a manual Q where the
+    /// surface measures Q (`manualQ`; iDPC passes false).
+    package static func friedelRunRemedy(manualQ: Bool) -> String {
+        "Where no beam stop covers the direct beam, set Origin method to Centre of mass and re-run Calibrate Origin; "
+            + "otherwise drag the aperture centre onto the beam centre (a manual origin)"
+            + (manualQ ? ", or enter the reciprocal pixel size manually." : ".")
     }
 
     package var hasFittedOrigin: Bool { origin != nil }
@@ -1082,7 +1204,11 @@ extension PixelOriginMaps {
             measuredX: measuredQY?.map(Float.init),
             measuredY: measuredQX?.map(Float.init),
             fittedX: fittedQY.map(Float.init),
-            fittedY: fittedQX.map(Float.init)
+            fittedY: fittedQX.map(Float.init),
+            windowPullBoundPixels: windowPullBoundPixels.flatMap { $0.isFinite && $0 >= 0 ? Float($0) : nil },
+            beamStopCoversBeam: beamStopCoversBeam,
+            friedelFallbackResidualPixels: friedelFallbackResidualPixels.flatMap { $0.isFinite && $0 >= 0 ? Float($0) : nil },
+            measuredByFriedel: measuredByFriedel
         )
     }
 }

@@ -85,6 +85,23 @@ package nonisolated enum SessionSidecarFormat {
     /// minimum-reader marker moves with it: an older reader refuses the disks, or, where a later disk step is recorded
     /// beside them, reads the file exactly as it read the same file written before this marker existed.
     package static let disksWithoutRecipeAttribute = "mac4dstem_disks_without_recipe"
+
+    /// Root attribute carrying the origin fit's window pull bound in detector pixels, as text
+    /// (`OriginMaps.windowPullBoundPixels`, the origin gate's bias test, 2026-10-31). Written only beside origin maps
+    /// that carry it. Additive and safe to ignore: a file without it reads as unknown, which the gate does not refuse,
+    /// so the minimum-reader marker does not move with it (the schema-7 precedent above).
+    package static let originWindowPullAttribute = "mac4dstem_origin_window_pull_px"
+
+    /// Root attributes carrying the origin gate's beam-stop test beside the same maps, as text: "true" or "false"
+    /// (`OriginMaps.beamStopCoversBeam`), and the Friedel fallback's RMS residual in detector pixels
+    /// (`OriginMaps.friedelFallbackResidualPixels`). Additive, as the window pull: absent reads as unknown.
+    package static let originBeamStopAttribute = "mac4dstem_origin_beam_stop"
+    package static let originFriedelFallbackAttribute = "mac4dstem_origin_friedel_fallback_rms_px"
+
+    /// Root attribute naming how the same maps' origins were measured, as text: the `OriginMethod` raw value
+    /// ("centreOfMass" or "friedel"; `OriginMaps.measuredByFriedel`). A Friedel run faces the 1 px residual limit.
+    /// Additive: absent reads as unknown.
+    package static let originMethodAttribute = "mac4dstem_origin_method"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)

@@ -43,6 +43,41 @@ package nonisolated struct OrientationPlan {
         self.symmetry = symmetry
     }
 
+    /// The radius (Å⁻¹) of the plan's outermost ring: the k range it was built for.
+    package nonisolated var kMax: Double { library.geometry.radialScale * Double(library.geometry.nRadial) }
+
+    // MARK: k range
+
+    /// The k range (Å⁻¹) of a plan when the detector reaches further.
+    package nonisolated static let maximumKMax = 1.2
+
+    /// The k range of a plan for one detector: the distance from the reference origin to the nearest detector edge (pixel
+    /// centres), in Å⁻¹, at most `maximumKMax`. Falls back to `maximumKMax` when the origin is off the detector or the
+    /// scale is not a positive number.
+    ///
+    /// Why the detector decides it (DiffractoKit#65, measured 2026-10-31 on the public Al-Mg-Si demo, 128 px at
+    /// 0.012 Å⁻¹/px, so 0.762 Å⁻¹ to the edge): a template ring the detector cannot record makes the exact zone-axis
+    /// template lose to a template tilted by a few degrees, whose excitation envelope has already dimmed the outer
+    /// reflections the pattern lacks. With the app's 200 beam directions, at 1.2 Å⁻¹ the beam direction came out 5.0° off
+    /// [001] and 6.5° off [011] on every matrix position of the two grains; at the detector's reach 0.0° and 1.9° (one
+    /// sampling step), the same anywhere from 0.702 to 0.762 Å⁻¹, and on synthetic zone-axis patterns cut at the
+    /// detector edge 0.0° at every excitation width from 0.01 to 0.03 (600 directions).
+    ///
+    /// Not subtracted: the disk detector's edge boundary (no peak within it is reported). It would put the demo at
+    /// 0.702 Å⁻¹, a hair above the Al 220 shell (0.698), and a range just below a strong shell drops it from the
+    /// templates: below 0.70 the [111] grain, which shows only 220 spots, is lost.
+    ///
+    /// `maximum` is the range when the detector reaches further, and the fallback: `maximumKMax` for a plan, the user's
+    /// Max |q| for the phase-mapping reference library (`AppState.phaseLibraryKMax`).
+    package nonisolated static func kMax(originX: Double, originY: Double, detectorColumns: Int, detectorRows: Int,
+                                         invAngstromPerPixel: Double, maximum: Double = maximumKMax) -> Double {
+        let reachPixels = min(originX, originY, Double(detectorColumns - 1) - originX, Double(detectorRows - 1) - originY)
+        guard reachPixels.isFinite, reachPixels > 0, invAngstromPerPixel.isFinite, invAngstromPerPixel > 0 else {
+            return maximum
+        }
+        return min(maximum, reachPixels * invAngstromPerPixel)
+    }
+
     // MARK: Generation
 
     /// Build a plan for `crystal`. `zoneAxisCount` sets the sampling density; `sgWidth`/`sgMax` are the excitation-error
@@ -110,7 +145,7 @@ package nonisolated struct OrientationPlan {
             switch error {
             case .reflectionList(.cellTooLargeOrInvalid(let estimate)) where estimate.isFinite:
                 return String(format: "This cell is too large for the plan's k range (up to %g Å⁻¹): it holds about %.3g reflections, "
-                              + "more than the %d a plan is built from. The range is fixed, so use a smaller cell for this phase.",
+                              + "more than the %d a plan is built from. The range is the detector's reach, so use a smaller cell for this phase.",
                               kMax, estimate, ReflectionList.maximumReflections)
             case .reflectionList(.cellTooLargeOrInvalid):
                 return "This phase's cell is not a valid finite lattice, so no reflections and no plan can be built from it."

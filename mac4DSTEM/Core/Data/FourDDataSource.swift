@@ -51,6 +51,16 @@ package nonisolated struct PixelOriginMaps: Sendable {
     package var fittedQY: [Double]
     package var measuredQX: [Double]? = nil
     package var measuredQY: [Double]? = nil
+    /// `OriginMaps.windowPullBoundPixels`, carried by this app's session sidecar
+    /// (`SessionSidecarFormat.originWindowPullAttribute`); nil from py4DSTEM files
+    /// and from sessions saved before 2026-10-31 (unknown).
+    package var windowPullBoundPixels: Double? = nil
+    /// `OriginMaps.beamStopCoversBeam` and `friedelFallbackResidualPixels`, carried the same way
+    /// (`SessionSidecarFormat.originBeamStopAttribute`, `originFriedelFallbackAttribute`); nil when absent (unknown).
+    package var beamStopCoversBeam: Bool? = nil
+    package var friedelFallbackResidualPixels: Double? = nil
+    /// `OriginMaps.measuredByFriedel` (`SessionSidecarFormat.originMethodAttribute`); nil when absent (unknown).
+    package var measuredByFriedel: Bool? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
