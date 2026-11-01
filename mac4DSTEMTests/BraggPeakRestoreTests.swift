@@ -172,6 +172,51 @@ final class BraggPeakGridRoundTripTests: XCTestCase {
         XCTAssertEqual(grid.vectors.totalPeakCount, written.totalPeakCount)
         XCTAssertEqual(grid.vectors.detectionProvenance, provenance)
     }
+
+    private let cropA = LoadSpecification(scanCrop: AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4))
+    private let cropB = LoadSpecification(scanCrop: AxisCrop(yOffset: 2, xOffset: 2, height: 4, width: 4))
+
+    /// Vectors saved from a view carry it, and keep it through a save from
+    /// another view. Mutation it catches: the stamp dropped on the copy, or
+    /// rewritten to the new save's view.
+    func testAGridKeepsTheViewItWasDetectedOnThroughASaveFromAnother() throws {
+        let written = PeakRestoreFixture.vectors(scanWidth: 4, scanHeight: 4, provenance: [:])
+        let url = try temporaryURL()
+        try BraggVectorEMDWriter.write(
+            vectors: written, qWidth: 24, qHeight: 24, calibration: PixelCalibration(), to: url,
+            loadSpecification: cropA)
+        XCTAssertEqual(try BraggVectorEMDWriter.loadPeakGrid(from: url)?.view, cropA)
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: 24, qHeight: 24, to: url, loadSpecification: cropB)
+        XCTAssertEqual(try BraggVectorEMDWriter.loadPeakGrid(from: url)?.view, cropA)
+        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: url).viewRecord, .recorded(cropB))
+    }
+
+    /// A grid written before the stamp takes, on its first carry, the view
+    /// the file it came from records; a schema-5 file that records none is
+    /// the whole file (the restore reads it so). Mutation it catches: an
+    /// unstamped grid stamped with the NEW save's view (the relabel this
+    /// exists to stop).
+    func testAnUnstampedGridTakesTheViewOfTheFileItIsCarriedFrom() throws {
+        let written = PeakRestoreFixture.vectors(scanWidth: 4, scanHeight: 4, provenance: [:])
+        let url = try temporaryURL()
+        try BraggVectorEMDWriter.write(
+            vectors: written, qWidth: 24, qHeight: 24, calibration: PixelCalibration(), to: url)
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: 24, qHeight: 24, to: url, loadSpecification: cropA)
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: 24, qHeight: 24, to: url, loadSpecification: cropB)
+        // write() recorded no view, so the file said "whole file" (schema 7) at the first carry.
+        XCTAssertEqual(try BraggVectorEMDWriter.loadPeakGrid(from: url)?.view, .fullExtent)
+
+        let legacy = try temporaryURL()
+        try BraggVectorEMDWriter.write(
+            vectors: written, qWidth: 24, qHeight: 24, calibration: PixelCalibration(), to: legacy)
+        try SidecarPatcher.write(.variableString("5"), named: SessionSidecarFormat.schemaAttribute, into: legacy)
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: 24, qHeight: 24, to: legacy, loadSpecification: cropB)
+        XCTAssertEqual(try BraggVectorEMDWriter.loadPeakGrid(from: legacy)?.view, .fullExtent)
+    }
 }
 
 // MARK: - Provenance ↔ recorded step
@@ -294,7 +339,8 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         stepParameters: [String: String]?? = nil,
         provenance: [String: String]? = nil,
         runParams: DiskDetectionParams = PeakRestoreFixture.params(),
-        detector: [String: String] = [:]
+        detector: [String: String] = [:],
+        relabelledAs: LoadSpecification? = nil
     ) async throws -> Opened {
         let suite = "mac4dstem.tests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -322,7 +368,7 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
             )
             try BraggVectorEMDWriter.write(
                 vectors: try XCTUnwrap(vectors), qWidth: d.qx + gridDetectorDelta, qHeight: d.qy,
-                calibration: PixelCalibration(), to: sidecar
+                calibration: PixelCalibration(), to: sidecar, loadSpecification: recorded
             )
         }
         let step: [String: String]?
@@ -337,6 +383,14 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
             PixelCalibration(), qWidth: d.qx, qHeight: d.qy, to: sidecar,
             loadSpecification: recorded, replayRecord: record
         )
+        if let relabelledAs {
+            // A later save from another view that carries no vectors (Save
+            // Calibration): the sidecar now records that view, the grid rides along.
+            try BraggVectorEMDWriter.mergeCalibration(
+                PixelCalibration(), qWidth: d.qx, qHeight: d.qy, to: sidecar,
+                loadSpecification: relabelledAs, replayRecord: record
+            )
+        }
 
         let state = AppState(sessionSidecar: locator)
         let load = state.beginDatasetLoading("Reopening source…")
@@ -399,6 +453,34 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         XCTAssertNil(opened.state.resultPresentation.braggVectors)
         XCTAssertTrue(opened.state.statusText.contains("different view"),
                       "Status was: \(opened.state.statusText)")
+    }
+
+    /// Disks detected on crop A, the sidecar then saved from a same-size crop
+    /// B without new disks: the file records B, the grid is still A's. Reopened
+    /// at B, every shape matches. Mutation it catches: the grid judged by the
+    /// sidecar's view alone (A's disks drawn at B's positions).
+    func testDisksCarriedThroughASaveFromASameSizeCropAreNotRestoredThere() async throws {
+        let opened = try await open(loaded: cropB, recorded: cropA, relabelledAs: cropB)
+        XCTAssertNil(opened.state.resultPresentation.braggVectors, "Status was: \(opened.state.statusText)")
+        XCTAssertTrue(opened.state.statusText.contains("different view"),
+                      "Status was: \(opened.state.statusText)")
+    }
+
+    /// A stamped grid carried through a re-save from its own view still
+    /// restores there. Mutation it catches: a carried grid refused everywhere.
+    func testAStampedGridCarriedThroughASaveFromItsOwnViewStillRestores() async throws {
+        let opened = try await open(loaded: cropA, recorded: cropA, relabelledAs: cropA)
+        XCTAssertNotNil(opened.state.resultPresentation.braggVectors, "Status was: \(opened.state.statusText)")
+    }
+
+    /// The limit, written down: grid A in a file now recording B, reopened at
+    /// A, is still refused by the sidecar view before the grid is read (as it
+    /// was before the stamp). Reading it back there would need the recipe to
+    /// vouch for A as well.
+    func testAGridCarriedThroughASaveFromAnotherViewIsNotRestoredOnItsOwnEither() async throws {
+        let opened = try await open(loaded: cropA, recorded: cropA, relabelledAs: cropB)
+        XCTAssertNil(opened.state.resultPresentation.braggVectors)
+        XCTAssertTrue(opened.state.statusText.contains("different view"), "Status was: \(opened.state.statusText)")
     }
 
     func testAMissingDiskDetectionStepLeavesThePeaksNil() async throws {
@@ -569,7 +651,8 @@ final class BraggPeakSeedsControlsOnOpenTests: XCTestCase {
                 scanWidth: d.rx, scanHeight: d.ry,
                 provenance: try PeakRestoreFixture.provenance(
                     qy: d.qy, qx: d.qx, params: runParams, detector: detector)),
-            qWidth: d.qx, qHeight: d.qy, calibration: PixelCalibration(), to: sidecar
+            qWidth: d.qx, qHeight: d.qy, calibration: PixelCalibration(), to: sidecar,
+            loadSpecification: recorded
         )
         let stepParameters = try step ?? PeakRestoreFixture.stepParameters(
             qy: d.qy, qx: d.qx, params: runParams, detector: detector)
