@@ -499,14 +499,6 @@ struct ProductInfoSections: View {
                     mono: true
                 )
                 InspectorValueRow("Valid", Self.validityLabel(product))
-                if Self.isUnvalidated(product) {
-                    // The same orange note the Settings tab shows under a
-                    // phase map, on the Info tab of any product whose own
-                    // provenance says `validation: none` (owner, 2026-09-18:
-                    // unvalidated stays labelled wherever it is read).
-                    InspectorWarning(Self.unvalidatedNote)
-                        .accessibilityIdentifier("inspector.product.unvalidated")
-                }
             }
             .accessibilityIdentifier("inspector.product")
 
@@ -537,20 +529,6 @@ struct ProductInfoSections: View {
             }
         }
     }
-
-    /// A product self-reports `validation: "none"` in its provenance when the
-    /// method has not been scored against an external truth.
-    static func isUnvalidated(provenance: [String: String]) -> Bool {
-        provenance["validation"] == "none"
-    }
-
-    private static func isUnvalidated(_ product: DisplayedProduct) -> Bool {
-        isUnvalidated(provenance: product.provenance)
-    }
-
-    static let unvalidatedNote = "Unvalidated — this method has not been scored against an "
-        + "external ground truth in this app. Read the product; do not quote a "
-        + "number from it."
 
     static func frameLabel(_ domain: ProductDomain) -> String {
         switch domain {

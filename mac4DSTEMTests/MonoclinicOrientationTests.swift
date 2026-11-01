@@ -352,12 +352,11 @@ final class MonoclinicOrientationTests: XCTestCase {
         XCTAssertEqual(try CIFModelImport.crystalModel(from: cif, fileBaseName: "p1").symmetry, .identity)
     }
 
-    // MARK: - Unvalidated stays labelled
+    // MARK: - The validation key in provenance
 
-    /// A monoclinic map self-reports `validation: "none"` and the note, through the run's provenance
-    /// into the inspector badge predicate and the export caption; cubic and hexagonal products do not.
-    /// Mutation (drop the keys in `CrystalModel.provenance`): red.
-    func testMonoclinicProductIsBadgedUnvalidatedAndCubicIsNot() throws {
+    /// A monoclinic map self-reports `validation: "none"` and the note through the run's provenance;
+    /// cubic and hexagonal products do not. Mutation (drop the keys in `CrystalModel.provenance`): red.
+    func testMonoclinicProductCarriesValidationNoneAndCubicDoesNot() throws {
         let model = try betaDoublePrimeModel()
         XCTAssertEqual(model.provenance["validation"], "none")
         XCTAssertEqual(model.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
@@ -365,11 +364,10 @@ final class MonoclinicOrientationTests: XCTestCase {
             materialModelID: model.id, materialDescription: model.displayName,
             scale: ACOMScaleSemantics(invAngstromPerPixel: 0.01, provenance: .manual),
             materialProvenance: model.provenance)
-        XCTAssertTrue(ProductInfoSections.isUnvalidated(provenance: semantics.provenance))
+        XCTAssertEqual(semantics.provenance["validation"], "none")
         XCTAssertEqual(semantics.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
         for other in CrystalModelLibrary.models {
             XCTAssertNil(other.provenance["validation"], "\(other.displayName) is not an unvalidated product")
-            XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: other.provenance))
         }
     }
 

@@ -58,14 +58,6 @@ struct PrecipitateObjectsSection: View {
         @Bindable var classification = classification
         @Bindable var appState = appState
 
-        Label {
-            Text("From the unvalidated phase map above.")
-                .foregroundStyle(.secondary)
-        } icon: {
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
-        }
-        .font(.caption)
-
         ForEach(report.summaries) { summary in
             InspectorDataRow(summary.phaseName) {
                 VStack(alignment: .trailing, spacing: 1) {

@@ -257,13 +257,6 @@ extension AppState {
             product.domain.rawValue + " space",
             product.quantitativeStatus.rawValue,
         ]
-        // Review b2: an unvalidated method says so ON THE FACE, not only in the
-        // PNG's JSON chunk — the caption is the one carrier that survives a
-        // screenshot. The predicate is `validation == "none"`, the same one
-        // the inspector's badge reads (kept here: Support/ cannot import UI).
-        if product.provenance["validation"] == "none" {
-            parts.append("UNVALIDATED (validation=none)")
-        }
         if let step = product.sampling.column ?? product.sampling.row {
             parts.append(String(format: "%.5g %@/px", step, product.sampling.units.map { CalibrationUnitConversion.displayLabel($0) } ?? "px"))
         }

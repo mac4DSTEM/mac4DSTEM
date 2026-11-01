@@ -164,8 +164,7 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// Vector-matched phase mapping (Thronsen et al. 2024, CC BY 4.0 — the
     /// method, from the paper). Sits beside grouping rather than replacing it:
     /// grouping finds structure without being told what to look for, this
-    /// answers a question the user asks with a CIF. UNVALIDATED, and the panel
-    /// says so — archived `docs/v3-features.md#vector-matching` step 3.
+    /// answers a question the user asks with a CIF.
     case phaseMapping = "Phase mapping"
 
     var id: String { rawValue }
@@ -747,12 +746,8 @@ enum ProductWorkflow {
     ) -> [String] {
         switch mode {
         case .virtualDetector, .ptychography, .singleslicePtychography,
-             .diffractionGroups:
+             .diffractionGroups, .phaseMapping:
             return []
-        case .phaseMapping:
-            return ["Unvalidated: this method has not been scored against an "
-                    + "external ground truth here. Read the map; do not quote a "
-                    + "phase fraction from it."]
         case .disks:
             return readiness.wantsLearnedDetector
                 ? ["Candidates come from the neural net; the classical refinement still measures each one."]

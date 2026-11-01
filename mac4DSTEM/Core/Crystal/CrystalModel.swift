@@ -134,8 +134,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     package var supportsOrientationMapping: Bool { symmetry != .identity }
 
     /// A monoclinic orientation map has no beta'' truth set behind it (suite ROADMAP item 5): it
-    /// self-reports `validation: "none"`, which the inspector note, the exported caption and the
-    /// provenance already read (owner, 2026-09-18: unvalidated stays labelled).
+    /// self-reports `validation: "none"` and this note in its provenance.
     package static let monoclinicValidationNote = "monoclinic orientation — no β″ truth set"
 
     /// Why orientation mapping is unavailable, or nil when it is available.

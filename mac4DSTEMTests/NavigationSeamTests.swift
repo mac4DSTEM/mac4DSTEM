@@ -174,15 +174,6 @@ final class NavigationSeamTests: XCTestCase {
         XCTAssertEqual(unbounded.height, 500)
     }
 
-    /// Info's "Unvalidated" note follows the product's own provenance key.
-    /// Red if the key is ignored (always false) or the value not compared.
-    func testInfoTabFlagsOnlyProductsThatSelfReportNoValidation() {
-        XCTAssertTrue(ProductInfoSections.isUnvalidated(provenance: ["validation": "none"]))
-        XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: ["validation": "py4DSTEM"]))
-        XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: [:]))
-        XCTAssertTrue(ProductInfoSections.unvalidatedNote.hasPrefix("Unvalidated"))
-    }
-
     /// The renamed inspector-tab key carries a saved choice over exactly once
     /// and never overwrites a value already under the new key.
     func testInspectorTabKeyMigratesOnceAndNeverOverwrites() throws {

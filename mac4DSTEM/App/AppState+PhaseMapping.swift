@@ -245,7 +245,6 @@ extension AppState {
             .joined(separator: ", ")
         statusText = "Phase map: \(indexed.isEmpty ? "no candidate phase found" : indexed)"
             + ", matrix \(map.count(of: .matrix)), not indexed \(map.count(of: .notIndexed))"
-            + " — unvalidated"
         return .published
     }
 

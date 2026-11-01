@@ -201,16 +201,13 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertTrue(state.productWorkflowReadiness.hasPhysicalACOMScale)
     }
 
-    /// The task states that it is unvalidated wherever guidance is shown.
-    /// Not decoration: this method has never been scored against an external
-    /// ground truth in this app (archived `docs/v3-features.md#vector-matching` step 3), and
-    /// a phase fraction read off the map is not a measurement until it has.
-    func testPhaseMappingGuidanceSaysItIsUnvalidated() {
+    /// Results carry no unvalidated badge, so phase mapping shows no such guidance.
+    /// Red before the guidance lost its "Unvalidated:" line.
+    func testPhaseMappingGuidanceDoesNotBadgeItAsUnvalidated() {
         let guidance = ProductWorkflow.guidance(
             for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
-        XCTAssertFalse(guidance.isEmpty)
-        XCTAssertTrue(guidance.contains { $0.lowercased().contains("unvalidated") },
-                      "guidance is \(guidance)")
+        XCTAssertFalse(guidance.contains { $0.lowercased().contains("unvalidated") },
+                       "guidance is \(guidance)")
     }
 
     /// Grouping needs the cube and nothing else — no origin, no R–Q rotation,

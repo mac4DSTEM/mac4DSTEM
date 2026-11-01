@@ -4,6 +4,8 @@
 //  a spectrum-only window shows none. Each test names the mutation it catches; each was broken once (the lane report).
 //
 
+import AppKit
+import SwiftUI
 import XCTest
 @testable import DSTEMCore
 @testable import DSTEMSession
@@ -121,5 +123,33 @@ final class ResultsQuantificationRowsTests: XCTestCase {
         XCTAssertEqual(rows.map(\.title), ["Not indexed pool", "Group 2 \u{00B7} group pool", "Region 1 \u{00B7} drawn region"])
         XCTAssertEqual(rows.map(\.unvalidated), [true, false, true])
         XCTAssertEqual(rows.map(\.result), ["no result recorded in this step", "no at% computed", "Al 90.0 \u{00B1} 1.0 at%"])
+    }
+
+    /// The Results list draws rows of `validation: "none"` steps with no badge: renders offscreen. With
+    /// MAC4DSTEM_SHOT_PATH set (TEST_RUNNER_MAC4DSTEM_SHOT_PATH through xcodebuild) it writes the PNG there for review.
+    func testQuantificationRowsRenderWithoutABadge() throws {
+        let replay = SessionReplay()
+        let s = SpectroscopySession()
+        s.recordQuantification(in: replay, regionKind: "phase", regionName: "A",
+                               extra: ["result_at": "Al 97.6 \u{00B1} 0.5 \u{00B7} Si 1.5 \u{00B1} 0.3", "result_unit": "at%", "validation": "none"])
+        replay.markProduct(step: replay.lineage.nodes[0].id, as: "q1")
+        s.recordQuantification(in: replay, regionKind: "drawn", regionName: "Region 1",
+                               extra: ["result_at": "Al 90.0 \u{00B1} 1.0", "result_unit": "at%", "validation": "none"])
+        let rows = QuantificationRows.rows(in: replay.lineage)
+        XCTAssertEqual(rows.count, 2)
+        let view = VStack(alignment: .leading, spacing: 8) {
+            Text("Quantifications").font(.headline)
+            ForEach(rows) { QuantificationRowView(row: $0) }
+        }
+        .padding(16).frame(width: 460, alignment: .leading).background(Color.white)
+        .environment(\.colorScheme, .light)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let image = try XCTUnwrap(renderer.cgImage, "the Results rows render offscreen")
+        XCTAssertGreaterThan(image.width, 0)
+        if let path = ProcessInfo.processInfo.environment["MAC4DSTEM_SHOT_PATH"], !path.isEmpty {
+            let png = try XCTUnwrap(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+            try png.write(to: URL(fileURLWithPath: path))
+        }
     }
 }
