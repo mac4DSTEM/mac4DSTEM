@@ -81,6 +81,12 @@ package nonisolated enum SessionSidecarFormat {
     /// that carry it. Additive and safe to ignore: a file without it reads as unknown, which the gate does not refuse,
     /// so the minimum-reader marker does not move with it (the schema-7 precedent above).
     package static let originWindowPullAttribute = "mac4dstem_origin_window_pull_px"
+
+    /// Root attributes carrying the origin gate's beam-stop test beside the same maps, as text: "true" or "false"
+    /// (`OriginMaps.beamStopCoversBeam`), and the Friedel fallback's RMS residual in detector pixels
+    /// (`OriginMaps.friedelFallbackResidualPixels`). Additive, as the window pull: absent reads as unknown.
+    package static let originBeamStopAttribute = "mac4dstem_origin_beam_stop"
+    package static let originFriedelFallbackAttribute = "mac4dstem_origin_friedel_fallback_rms_px"
     // (The min-reader VALUE for a given specification is computed by
     //  `BraggVectorEMDWriter.minimumReaderSchema(for:)` — this file stays
     //  constants-only so harnesses can compile it without `LoadSpecification`.)

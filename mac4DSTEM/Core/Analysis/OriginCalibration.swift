@@ -347,18 +347,8 @@ package nonisolated enum OriginCalibration {
                 progress: originProgress
             )
         case .friedel:
-            // Auto-generate the beamstop mask from the mean DP (py4DSTEM
-            // get_beamstop_mask; true = beamstop) and invert it for
-            // get_origin_friedel (which wants true in the pattern). The kit refuses a NaN mean pattern; the
-            // app's neighbour-median fill is applied first, as it is to every pattern.
-            var meanDP = statistics.meanDP
-            if meanDP.contains(where: { !$0.isFinite }) {
-                _ = BraggDetector.fillNonFinite(&meanDP, rows: d.qy, columns: d.qx)
-            }
-            let patternMask = try BeamstopMask.make(from: DetectorImage(
-                detectorRows: d.qy, detectorColumns: d.qx, values: meanDP.map(Double.init), path: .cpu)).map { !$0 }
             measured = try await friedelMeasuredOrigins(
-                data: data, descriptor: d, mask: patternMask,
+                data: data, descriptor: d, mask: friedelPatternMask(meanDP: statistics.meanDP, descriptor: d),
                 maximumTileRows: maximumTileRows, cancellation: cancellation,
                 progress: originProgress
             )
@@ -394,6 +384,20 @@ package nonisolated enum OriginCalibration {
             pull = windowPull(meanDP: statistics.meanDP, qy: d.qy, qx: d.qx, centre: centre,
                               windowRadius: originWindowRadius(probeRadius: radius, radiusScale: rscale))?.boundPixels
         }
+        // A beam stop over the direct beam: the centre-of-mass maps are refused (`Calibration.originBeamStopIsAcceptable`)
+        // and the Friedel origin is tried on the same cube, so the refusal can say whether that method fits this scan.
+        // Its own failure (a mask with no pattern left, say) leaves the fallback unknown, which is not offered.
+        var stopCoversBeam: Bool?
+        var fallbackResidual: Float?
+        if originMethod == .centreOfMass, let stop = beamStop(meanDP: statistics.meanDP, qy: d.qy, qx: d.qx) {
+            stopCoversBeam = stop.detected
+            if stop.detected {
+                fallbackResidual = try? await friedelFallbackResidual(
+                    data: data, descriptor: d, meanDP: statistics.meanDP, fitFunction: fitFunction,
+                    maximumTileRows: maximumTileRows, cancellation: cancellation)
+            }
+        }
+        guard cancellation?.isCancelled != true else { return nil }
         progress?(1)
         // The calibration's probe radius: py4DSTEM's `DataCube.get_probe_size` default is the MEAN pattern (`radius` above is
         // `get_origin`'s working radius, the origin window's). nil when the mean pattern has no measurable probe.
@@ -407,10 +411,101 @@ package nonisolated enum OriginCalibration {
                        excludedFraction: fitted.excludedFraction,
                        robustResidual: fitted.keptResidual,
                        originValidity: fitted.kept,
-                       windowPullBoundPixels: pull),
+                       windowPullBoundPixels: pull,
+                       beamStopCoversBeam: stopCoversBeam,
+                       friedelFallbackResidualPixels: fallbackResidual),
             statistics.maxDP, statistics.meanDP,
             sensitivity
         )
+    }
+
+    // MARK: - Beam stop (2026-10-31)
+
+    /// What the mean pattern says about a beam stop over the direct beam: a dark disk at the pattern's centre of mass
+    /// with bright surroundings. Under a stop the centre-of-mass refine measures the centre of whatever is left around
+    /// the stop (the halo, cut by the stop's arm), not the beam, and the window pull cannot see it: the window holds no
+    /// beam at all, only the bright rim, which the pull counts as beam.
+    package struct BeamStop: Sendable, Equatable {
+        /// The mean pattern's centre of mass (detector column, row), where the rings are read about.
+        package var centreX: Float
+        package var centreY: Float
+        /// Mean intensity within 2 px of the centre over the mean of the brightest 1 px ring about it: about 1 for a
+        /// direct beam (the centre is the brightest ring), near 0 under a stop.
+        package var centreContrast: Float
+        /// The dark disk's radius: the first 1 px ring, going out, whose mean reaches `rimFraction` of the brightest
+        /// ring's, in detector pixels (its inner edge). 0 for a direct beam. A tenth, not the centre's quarter: the
+        /// brightest ring can be a ring of Bragg disks well outside the stop, brighter than the halo at the stop's
+        /// edge (on the planted cube the halo there is about a quarter of it, and a quarter put the rim at 12 px, past
+        /// the 7.5 px stop).
+        package var darkRadius: Int
+        /// The surroundings close round the dark disk: the fraction of 16 sectors of the rim (the rings `darkRadius`
+        /// to `darkRadius + 2`) whose mean is at least half the rim's. All but the arm under a stop; two bright regions
+        /// either side of a dark middle read about half or less.
+        package var coverage: Float
+
+        package static let contrastLimit: Float = 0.25
+        package static let rimFraction: Float = 0.1
+        package static let minimumDarkRadius = 2
+        package static let minimumCoverage: Float = 0.6
+
+        /// A dark centre at least 2 px in radius, closed round by a bright rim.
+        package var detected: Bool {
+            centreContrast < Self.contrastLimit && darkRadius >= Self.minimumDarkRadius && coverage >= Self.minimumCoverage
+        }
+    }
+
+    /// Reads `BeamStop` on the mean pattern (non-finite pixels filled by the neighbour median, negative ones count as 0). The rings are 1 px bins of the
+    /// distance from the centre of mass, out to the nearest detector edge so every ring is whole. nil when there is no
+    /// positive intensity or the centre is within 4 px of an edge.
+    package nonisolated static func beamStop(meanDP: [Float], qy: Int, qx: Int) -> BeamStop? {
+        guard meanDP.count == qy * qx, qy > 0, qx > 0 else { return nil }
+        // A non-finite pixel is filled by its neighbours first, as for every pattern the app measures: a saturated core
+        // flagged NaN would otherwise read as a dark centre inside a bright rim, a stop that is not there. The fill is one
+        // pass of 8-neighbours, so a NaN core wider than about 1 px keeps its middle at 0 and can still read as a stop.
+        var filled = meanDP
+        if filled.contains(where: { !$0.isFinite }) {
+            _ = BraggDetector.fillNonFinite(&filled, rows: qy, columns: qx)
+        }
+        let v = filled.map { $0.isFinite ? Double(max($0, 0)) : 0 }
+        var total = 0.0, sx = 0.0, sy = 0.0
+        for y in 0..<qy { for x in 0..<qx {
+            let w = v[y * qx + x]
+            total += w; sx += w * Double(x); sy += w * Double(y)
+        } }
+        guard total > 0 else { return nil }
+        let cx = sx / total, cy = sy / total
+        let reach = Int(min(min(cx, Double(qx - 1) - cx), min(cy, Double(qy - 1) - cy)).rounded(.down))
+        guard reach >= 4 else { return nil }
+        var ringSum = [Double](repeating: 0, count: reach), ringCount = ringSum
+        var inner = 0.0, innerCount = 0.0
+        for y in 0..<qy { for x in 0..<qx {
+            let r = hypot(Double(x) - cx, Double(y) - cy)
+            if r < 2 { inner += v[y * qx + x]; innerCount += 1 }
+            let bin = Int(r)
+            if bin < reach { ringSum[bin] += v[y * qx + x]; ringCount[bin] += 1 }
+        } }
+        let profile = (0..<reach).map { ringCount[$0] > 0 ? ringSum[$0] / ringCount[$0] : 0 }
+        let ringMean = profile.max() ?? 0
+        guard ringMean > 0, innerCount > 0 else { return nil }
+        let dark = profile.firstIndex { $0 >= Double(BeamStop.rimFraction) * ringMean } ?? 0
+        let sectors = 16
+        var sectorSum = [Double](repeating: 0, count: sectors), sectorCount = sectorSum
+        var annulus = 0.0, annulusCount = 0.0
+        for y in 0..<qy { for x in 0..<qx {
+            let dx = Double(x) - cx, dy = Double(y) - cy
+            let bin = Int(hypot(dx, dy))
+            guard bin >= dark, bin <= min(dark + 2, reach - 1) else { continue }   // whole rings only
+            let angle = atan2(dy, dx) + Double.pi   // 0 ... 2 pi
+            let s = min(sectors - 1, Int(angle / (2 * Double.pi) * Double(sectors)))
+            sectorSum[s] += v[y * qx + x]; sectorCount[s] += 1
+            annulus += v[y * qx + x]; annulusCount += 1
+        } }
+        let annulusMean = annulus / max(annulusCount, 1)
+        var bright = 0
+        for s in 0..<sectors where sectorCount[s] > 0 && sectorSum[s] / sectorCount[s] >= 0.5 * annulusMean { bright += 1 }
+        return BeamStop(centreX: Float(cx), centreY: Float(cy),
+                        centreContrast: Float((inner / innerCount) / ringMean), darkRadius: dark,
+                        coverage: Float(bright) / Float(sectors))
     }
 
     // MARK: - Window pull (the origin gate's bias test, 2026-10-31)
@@ -523,6 +618,35 @@ package nonisolated enum OriginCalibration {
                 of: source, radius: Double(probeRadius), shippedScale: Double(shippedScale), path: .cpu)
         }
         return value.map { Float($0) }
+    }
+
+    /// The Friedel path's mask: the beamstop mask auto-generated from the mean pattern (py4DSTEM get_beamstop_mask with
+    /// its defaults; true = beamstop), inverted for get_origin_friedel (which wants true in the pattern). The kit refuses
+    /// a NaN mean pattern; the app's neighbour-median fill is applied first, as it is to every pattern.
+    private nonisolated static func friedelPatternMask(meanDP: [Float], descriptor d: DatasetDescriptor) throws -> [Bool] {
+        var meanDP = meanDP
+        if meanDP.contains(where: { !$0.isFinite }) {
+            _ = BraggDetector.fillNonFinite(&meanDP, rows: d.qy, columns: d.qx)
+        }
+        return try BeamstopMask.make(from: DetectorImage(
+            detectorRows: d.qy, detectorColumns: d.qx, values: meanDP.map(Double.init), path: .cpu)).map { !$0 }
+    }
+
+    /// The Friedel origin tried as a fallback when a centre-of-mass run finds a beam stop: the same measurement and fit
+    /// as `originMethod: .friedel`, returning only the fit's RMS residual over every scan position (detector pixels),
+    /// the number the refusal decides on. A second pass over the cube, CPU, paid only when a stop is found.
+    package nonisolated static func friedelFallbackResidual(
+        data: FourDArray, descriptor d: DatasetDescriptor, meanDP: [Float], fitFunction: OriginFitFunction,
+        maximumTileRows: Int?, cancellation: AnalysisCancellationToken?
+    ) async throws -> Float? {
+        let measured = try await friedelMeasuredOrigins(
+            data: data, descriptor: d, mask: friedelPatternMask(meanDP: meanDP, descriptor: d),
+            maximumTileRows: maximumTileRows, cancellation: cancellation, progress: nil)
+        let count = d.ry * d.rx
+        guard measured.count == 2 * count else { return nil }
+        let x = (0..<count).map { measured[2 * $0] }, y = (0..<count).map { measured[2 * $0 + 1] }
+        let fit = fitOriginTrimmed(measuredX: x, measuredY: y, width: d.rx, height: d.ry, fitFunction: fitFunction)
+        return fit.fullScanResidual.isFinite ? fit.fullScanResidual : nil
     }
 
     /// Per-position origins by Friedel self-correlation (py4DSTEM

@@ -1374,6 +1374,8 @@ extension AppState {
                 measuredQY: maps.measuredX?.map(Double.init)
             )
             snapshot.originMaps?.windowPullBoundPixels = maps.windowPullBoundPixels.map(Double.init)
+            snapshot.originMaps?.beamStopCoversBeam = maps.beamStopCoversBeam
+            snapshot.originMaps?.friedelFallbackResidualPixels = maps.friedelFallbackResidualPixels.map(Double.init)
         }
         if let mean = calibrationSession.calibration.meanOrigin {
             snapshot.qx0Mean = Double(mean.y)

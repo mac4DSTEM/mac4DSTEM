@@ -1578,8 +1578,10 @@ final class AppState {
     var idpcOriginFitRefusal: String? {
         let calibration = calibrationSession.calibration
         return calibration.originFitJudgement.map {
+            // Under a beam stop the remedy is the Friedel method or a manual origin, never a re-fit.
+            if !calibration.originBeamStopIsAcceptable { return $0 + " " + calibration.beamStopRemedy(manualQ: false) }
             // The window pull is a biased measurement, the same for every fit function and every re-run (2026-10-31).
-            calibration.originWindowPullIsAcceptable
+            return calibration.originWindowPullIsAcceptable
                 ? $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate Origin."
                 : $0 + " Changing the Origin fit function or re-running Calibrate Origin gives the same origins."
         }
