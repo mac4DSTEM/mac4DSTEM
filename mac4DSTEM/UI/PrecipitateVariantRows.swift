@@ -117,7 +117,7 @@ struct PrecipitateVariantRows: View {
         }
         InspectorNote(VariantGroupText.totals(groups)).accessibilityIdentifier("precipitates.variants.totals")
         if let summary = report.variantSummary {
-            Text("validation: none").font(.caption).foregroundStyle(.secondary).help(summary)
+            Text(summary).font(.caption).foregroundStyle(.secondary)
         }
     }
 

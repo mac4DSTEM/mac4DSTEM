@@ -180,7 +180,7 @@ package struct ACOMRunSemantics: Sendable, Equatable {
             "q_inv_angstrom_per_pixel": String(scale.invAngstromPerPixel),
             "q_scale_provenance": scale.provenance.rawValue,
             "interpretation": scale.interpretation,
-            "dataset_validation": "not_independently_validated",
+            "method_citation": "Ophus et al., Microsc. Microanal. 28 (2022) 390 (py4DSTEM ACOM)",
             // The frame and convention of the Euler angles (`ACOMEulerFrame`). Absent on a product written before
             // 2026-10-31: those angles are in the matcher's frame, and `ACOMEulerFrame.py4DSTEM(fromMatcher:)` converts them.
             ACOMEulerFrame.provenanceKey: ACOMEulerFrame.py4DSTEMMarker,

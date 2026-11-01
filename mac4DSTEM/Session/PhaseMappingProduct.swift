@@ -10,12 +10,10 @@
 //  implemented from the published description; their repository has no licence
 //  and is not used. The matcher is DiffractoKit's `DiffractoOrientation/PhaseVectorMatching.swift`.
 //
-//  UNVALIDATED (provenance only; the UI shows no badge). Step 3 of archived `docs/v3-features.md#vector-matching`
-//  — scoring this against their published ground truth — has not run, so
-//  `quantitativeStatus` below is `exploratory` and the result carries
-//  `validation: "none"` into every export. That is a decision, not an
-//  oversight: the feature is useful for looking, and a density taken off it is
-//  not a measurement until the acceptance test passes.
+//  Step 3 of archived `docs/v3-features.md#vector-matching` — scoring this
+//  against their published ground truth — has not run, so
+//  `quantitativeStatus` below is `exploratory`; every export names the method
+//  and its citation (`method`, `method_citation`).
 //
 
 import Foundation

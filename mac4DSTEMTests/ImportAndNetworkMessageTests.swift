@@ -214,14 +214,13 @@ final class ImportAndNetworkMessageTests: XCTestCase {
         .scalar(FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3]))
     }
 
-    /// A `validation: "none"` product is not badged on the face of the export; the key stays in provenance.
+    /// A product is not badged on the face of the export, even one carrying a `validation` key from an older session.
     /// Red before the caption lost its UNVALIDATED part.
     func testTheCaptionDoesNotBadgeAValidationNoneProduct() {
         let state = AppState()
         state.publishProduct(kind: "phase_map", displayName: "Phase map", valueUnits: "phase_index", payload: scalar(),
-                             extraProvenance: ["validation": "none"])
-        XCTAssertFalse(state.publicationCaption.localizedCaseInsensitiveContains("unvalidated"), state.publicationCaption)
-        XCTAssertEqual(state.displayedProduct?.provenance["validation"], "none")
+                             extraProvenance: ["validation": "none", "method": "vector_matching"])
+        XCTAssertFalse(state.publicationCaption.localizedCaseInsensitiveContains("validat"), state.publicationCaption)
     }
 
     /// A product with no such key carries no noise. Mutation: append unconditionally -> red.

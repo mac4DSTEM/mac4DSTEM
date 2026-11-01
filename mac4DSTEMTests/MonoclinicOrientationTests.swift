@@ -352,22 +352,23 @@ final class MonoclinicOrientationTests: XCTestCase {
         XCTAssertEqual(try CIFModelImport.crystalModel(from: cif, fileBaseName: "p1").symmetry, .identity)
     }
 
-    // MARK: - The validation key in provenance
+    // MARK: - The method in provenance
 
-    /// A monoclinic map self-reports `validation: "none"` and the note through the run's provenance;
-    /// cubic and hexagonal products do not. Mutation (drop the keys in `CrystalModel.provenance`): red.
-    func testMonoclinicProductCarriesValidationNoneAndCubicDoesNot() throws {
+    /// A monoclinic map names its orientation reduction through the run's provenance, and no product carries a
+    /// validation key; the ACOM run names its method citation. Mutation (drop the key in `CrystalModel.provenance`): red.
+    func testMonoclinicProductNamesItsReductionAndNoProductCarriesValidation() throws {
         let model = try betaDoublePrimeModel()
-        XCTAssertEqual(model.provenance["validation"], "none")
-        XCTAssertEqual(model.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
+        XCTAssertEqual(model.provenance["orientation_reduction"], CrystalModel.monoclinicReductionMethod)
         let semantics = ACOMRunSemantics(
             materialModelID: model.id, materialDescription: model.displayName,
             scale: ACOMScaleSemantics(invAngstromPerPixel: 0.01, provenance: .manual),
             materialProvenance: model.provenance)
-        XCTAssertEqual(semantics.provenance["validation"], "none")
-        XCTAssertEqual(semantics.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
+        XCTAssertEqual(semantics.provenance["orientation_reduction"], CrystalModel.monoclinicReductionMethod)
+        XCTAssertTrue(semantics.provenance["method_citation"]?.contains("Ophus") == true)
+        XCTAssertFalse(semantics.provenance.keys.contains { $0.contains("validation") }, "\(semantics.provenance.keys.sorted())")
         for other in CrystalModelLibrary.models {
-            XCTAssertNil(other.provenance["validation"], "\(other.displayName) is not an unvalidated product")
+            XCTAssertFalse(other.provenance.keys.contains { $0.contains("validation") }, other.displayName)
+            XCTAssertNil(other.provenance["orientation_reduction"], other.displayName)
         }
     }
 

@@ -30,7 +30,7 @@ struct PrecipitateThicknessRows: View {
             OptionalNumericField(title: "Thickness", value: thickness, format: .number, unit: "nm", prompt: "—") { thickness = $0; commit() }
                 .accessibilityIdentifier("precipitates.nv.thickness")
         }
-        .help("The specimen thickness behind N_V, in nm. Typed by you: the EELS route is not validated.")
+        .help("The specimen thickness behind N_V, in nm, typed by you.")
         InspectorRow("Thickness ±") {
             OptionalNumericField(title: "Thickness sigma", value: sigma, format: .number, unit: "nm", prompt: "0") { sigma = $0; commit() }
                 .accessibilityIdentifier("precipitates.nv.sigma")
@@ -91,7 +91,7 @@ struct PrecipitateThicknessRows: View {
                 .help("Areal density over the thickness: N_A / t. Assumes the objects span the foil; σ is the thickness's alone.")
                 .accessibilityIdentifier("precipitates.nv.row.\(s.label)")
             }
-            Text("Assumes objects span the foil. validation: \(report.numberDensityValidation ?? "none")")
+            Text("Assumes objects span the foil.")
                 .font(.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("precipitates.nv.assumption")
         }

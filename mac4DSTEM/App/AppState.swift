@@ -285,8 +285,7 @@ final class AppState {
     /// classification route this owner was originally scoped for
     /// (archived `docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
     /// would be a second producer, not a replacement. Neither producer nor
-    /// this owner makes a validation claim of its own — the phase map's
-    /// `validation: "none"` badge covers what is read off it. Views read
+    /// this owner adds a method of its own beyond the phase map's. Views read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
     /// The specimen thickness behind the precipitate counts (typed, with its source); recorded on the objects run's lineage node

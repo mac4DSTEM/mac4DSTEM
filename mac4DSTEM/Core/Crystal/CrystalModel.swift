@@ -133,9 +133,8 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     /// refuse the structure at import and defeat the purpose.
     package var supportsOrientationMapping: Bool { symmetry != .identity }
 
-    /// A monoclinic orientation map has no beta'' truth set behind it (suite ROADMAP item 5): it
-    /// self-reports `validation: "none"` and this note in its provenance.
-    package static let monoclinicValidationNote = "monoclinic orientation — no β″ truth set"
+    /// The orientation reduction a monoclinic map uses, named in its provenance (`orientation_reduction`).
+    package static let monoclinicReductionMethod = "monoclinic, b unique: Laue group 2/m (2-fold or mirror along b)"
 
     /// Why orientation mapping is unavailable, or nil when it is available.
     /// `ACOMSession.modelSelectionIssue` surfaces this so ACOM refuses with a
@@ -183,8 +182,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
             result["space_group_number"] = String(spaceGroupNumber)
         }
         if symmetry == .monoclinic {
-            result["validation"] = "none"
-            result["validation_note"] = Self.monoclinicValidationNote
+            result["orientation_reduction"] = Self.monoclinicReductionMethod
         }
         for (key, value) in extraProvenance {
             result[key] = value

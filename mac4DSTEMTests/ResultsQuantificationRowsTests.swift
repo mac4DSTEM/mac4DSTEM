@@ -69,8 +69,9 @@ final class ResultsQuantificationRowsTests: XCTestCase {
         await state.runPrimaryWorkspaceTask()
     }
 
-    /// A phase pool quantified in a 4D window is one row: named, with the fit's at% and wt% strings, the badge, the method.
-    /// Mutations: `quantificationRows` returning [] - red; the pool's kind not recorded - red; `unvalidated` always false - red.
+    /// A phase pool quantified in a 4D window is one row: named, with the fit's at% and wt% strings and the method line, no
+    /// validation key. Mutations: `quantificationRows` returning [] - red; the pool's kind not recorded - red; the method line
+    /// dropped or a validation key written - red.
     func testAQuantifiedPhasePoolIsOneRowWithTheFitsStrings() async throws {
         let state = try await window(withCube: true)
         XCTAssertTrue(state.quantificationRows.isEmpty, "nothing quantified yet")
@@ -83,7 +84,10 @@ final class ResultsQuantificationRowsTests: XCTestCase {
         let row = try XCTUnwrap(rows.first)
         XCTAssertEqual(row.title, "A \u{00B7} phase pool")
         XCTAssertEqual(row.result, (expected["result_at"] ?? "").isEmpty ? "no at% computed" : (expected["result_at"]! + " at%"))
-        XCTAssertTrue(row.unvalidated)
+        XCTAssertNil(row.parameters.first { $0.key == "validation" }, "no validation key")
+        XCTAssertFalse(row.parameters.contains { $0.value.localizedCaseInsensitiveContains("validat") })
+        let methodLine = try XCTUnwrap(row.parameters.first { $0.key == "method_reference" }?.value)
+        XCTAssertTrue(methodLine.hasPrefix("Cliff-Lorimer, k-factors computed (Bote-Salvat 2008"), methodLine)
         XCTAssertNil(row.parameters.first { $0.key == "method_json" }, "the method JSON is not a readable key")
         XCTAssertEqual(row.parameters.first { $0.key == "region_kind" }?.value, "phase")
         XCTAssertNotNil(state.replay.lineage.nodes.last?.parameters["registration"], "a pool's step records the registration it went through")
@@ -109,9 +113,9 @@ final class ResultsQuantificationRowsTests: XCTestCase {
         XCTAssertTrue(state.quantificationRows.isEmpty)
     }
 
-    /// The region kinds are named, newest step first, and the badge follows the pool or the fit's validation.
-    /// Mutations: `reversed()` removed - red (order); "drawn" label changed - red; "group" counted as unvalidated - red.
-    func testRegionKindsAreNamedNewestFirstWithTheirBadges() throws {
+    /// The region kinds are named, newest step first; a step recorded before `method_reference` replaced `validation` shows
+    /// no validation entry. Mutations: `reversed()` removed - red (order); "drawn" label changed - red; "validation" not hidden - red.
+    func testRegionKindsAreNamedNewestFirstWithoutAValidationEntry() throws {
         let replay = SessionReplay()
         let s = SpectroscopySession()
         s.recordQuantification(in: replay, regionKind: "drawn", regionName: "Region 1", extra: ["result_at": "Al 90.0 \u{00B1} 1.0", "result_unit": "at%", "validation": "none"])
@@ -121,22 +125,27 @@ final class ResultsQuantificationRowsTests: XCTestCase {
         s.recordQuantification(in: replay, regionKind: "notIndexed", regionName: "Not indexed")
         let rows = QuantificationRows.rows(in: replay.lineage)
         XCTAssertEqual(rows.map(\.title), ["Not indexed pool", "Group 2 \u{00B7} group pool", "Region 1 \u{00B7} drawn region"])
-        XCTAssertEqual(rows.map(\.unvalidated), [true, false, true])
+        XCTAssertFalse(rows.contains { $0.parameters.contains { $0.key == "validation" } }, "an older step's validation key is not shown")
         XCTAssertEqual(rows.map(\.result), ["no result recorded in this step", "no at% computed", "Al 90.0 \u{00B1} 1.0 at%"])
     }
 
-    /// The Results list draws rows of `validation: "none"` steps with no badge: renders offscreen. With
-    /// MAC4DSTEM_SHOT_PATH set (TEST_RUNNER_MAC4DSTEM_SHOT_PATH through xcodebuild) it writes the PNG there for review.
-    func testQuantificationRowsRenderWithoutABadge() throws {
+    /// The Results list draws its rows with the method line and no validation text (one row is an older step that still
+    /// carries `validation`): renders offscreen. With MAC4DSTEM_SHOT_PATH set (TEST_RUNNER_MAC4DSTEM_SHOT_PATH through
+    /// xcodebuild) it writes the PNG there for review.
+    func testQuantificationRowsRenderWithoutValidationText() throws {
         let replay = SessionReplay()
         let s = SpectroscopySession()
+        let methodLine = AppState.edsMethodLine(s.method)
         s.recordQuantification(in: replay, regionKind: "phase", regionName: "A",
-                               extra: ["result_at": "Al 97.6 \u{00B1} 0.5 \u{00B7} Si 1.5 \u{00B1} 0.3", "result_unit": "at%", "validation": "none"])
+                               extra: ["result_at": "Al 97.6 \u{00B1} 0.5 \u{00B7} Si 1.5 \u{00B1} 0.3", "result_unit": "at%",
+                                       "method_reference": methodLine])
         replay.markProduct(step: replay.lineage.nodes[0].id, as: "q1")
         s.recordQuantification(in: replay, regionKind: "drawn", regionName: "Region 1",
                                extra: ["result_at": "Al 90.0 \u{00B1} 1.0", "result_unit": "at%", "validation": "none"])
         let rows = QuantificationRows.rows(in: replay.lineage)
         XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows.last?.parameters.first { $0.key == "method_reference" }?.value, methodLine)
+        XCTAssertFalse(rows.contains { r in r.parameters.contains { $0.key.contains("validation") || $0.value.contains("validation") } })
         let view = VStack(alignment: .leading, spacing: 8) {
             Text("Quantifications").font(.headline)
             ForEach(rows) { QuantificationRowView(row: $0) }
