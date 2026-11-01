@@ -37,23 +37,24 @@ let package = Package(
         .library(name: "DSTEMQuickLook", targets: ["DSTEMQuickLook"]),
     ],
     // Standalone EDX (fit, quantification, the spectrum image) lives in SpectroKit since S4 (ADR 064); the file readers
-    // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two pins move
+    // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two move
     // TOGETHER and never apart: a process that linked an older SpectroKit's HDF5Serial beside FormatoKit's would have
     // two locks around one libhdf5 that is not thread-safe. SpectroKit 0.7.0 takes FormatoKit 0.4.0..<0.6.0;
     // since 0.4.0 FormatoKit ships libhdf5 as three dynamic-framework XCFrameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that Xcode
-    // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
+    // embeds in Contents/Frameworks and signs with the app's identity. Version ranges up to the next major; the two Package.resolved files
+    // (this package's and the Xcode workspace's) hold the versions built, and a package update moves them.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.12.0"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.11.0"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", from: "0.13.2"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", from: "0.12.1"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
-        // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
-        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.10.0"),
-        .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.9.0"),
+        // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15.
+        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", from: "0.11.0"),
+        .package(url: "https://github.com/mac4DSTEM/CuboKit", from: "0.10.0"),
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (GPL-3.0 from 0.1.1; the app's copy was its origin,
-        // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
-        .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.8.0"),
+        // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1. Only DSTEMCore uses it.
+        .package(url: "https://github.com/mac4DSTEM/ImagoKit", from: "0.9.1"),
         // The window shell, controls and Metal image view both apps share (suite task 8). DSTEMCore takes ShellMetal only, for MetalEngine and ColormapKind.
-        .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.4.0"),
+        .package(url: "https://github.com/mac4DSTEM/MacEMUI", from: "0.5.0"),
     ],
     targets: [
         .target(
