@@ -34,10 +34,13 @@
 		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
 		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
 		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
+		300000000000000000000412 /* ShellEDXModel in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000411 /* ShellEDXModel */; };
 		500000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000301 /* DSTEMQuickLook */; };
 		500000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000303 /* FormatoPeek */; };
 		600000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000301 /* DSTEMQuickLook */; };
 		600000000000000000000304 /* FormatoPeek in Frameworks */ = {isa = PBXBuildFile; productRef = 600000000000000000000303 /* FormatoPeek */; };
+		700000000000000000000151 /* HDF5Helper.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = 700000000000000000000120 /* HDF5Helper.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		700000000000000000000302 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 700000000000000000000301 /* DSTEMCore */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
@@ -74,6 +77,13 @@
 			remoteGlobalIDString = 600000000000000100000000;
 			remoteInfo = QuickLookPreview;
 		};
+		700000000000000160000000 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 700000000000000100000000;
+			remoteInfo = HDF5Helper;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -87,6 +97,15 @@
 			);
 			name = "Embed Foundation Extensions";
 		};
+		000000000000000001600000 /* Embed XPC Services */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				700000000000000000000151 /* HDF5Helper.xpc in Embed XPC Services */,
+			);
+			name = "Embed XPC Services";
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -95,6 +114,7 @@
 		400000000000000000000120 /* mac4DSTEMUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = mac4DSTEMUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		500000000000000000000120 /* QuickLookThumbnail.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookThumbnail.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		600000000000000000000120 /* QuickLookPreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuickLookPreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		700000000000000000000120 /* HDF5Helper.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = HDF5Helper.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68E4EE52FF9C43F00135C51 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000001 /* DiskDetector */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DiskDetector; path = mac4DSTEM/Resources/DiskDetector; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
@@ -111,7 +131,6 @@
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
 				Core/Analysis/FitOverlays.swift,
-				Core/Analysis/MapProfile.swift,
 				Core/Analysis/OrientationResult.swift,
 				Core/Analysis/OriginCalibration.swift,
 				Core/Analysis/ParallaxAberrationCorrection.swift,
@@ -120,14 +139,11 @@
 				Core/Analysis/ParallaxDepthSectioning.swift,
 				Core/Analysis/ParallaxPreprocessing.swift,
 				Core/Analysis/ParallaxSubpixelReconstruction.swift,
-				Core/Analysis/Precipitates/PrecipitateReflections.swift,
 				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
-				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
 				Core/Analysis/ProbeKernel.swift,
 				Core/Analysis/ProbeRingHint.swift,
 				Core/Analysis/PtychographyPreparation.swift,
 				Core/Analysis/QCalibration.swift,
-				Core/Analysis/RegionMapTable.swift,
 				Core/Analysis/RotationCalibration.swift,
 				Core/Analysis/SingleslicePtychography.swift,
 				Core/Analysis/StrainFrame.swift,
@@ -135,8 +151,6 @@
 				Core/Analysis/TiledDiskDetection.swift,
 				Core/Analysis/VirtualDetector.swift,
 				Core/Compute/AnalysisCancellationToken.swift,
-				Core/Compute/MetalEngine.swift,
-				"Core/Compute/MTLTexture+Float.swift",
 				Core/Crystal/CIFModelImport.swift,
 				Core/Crystal/Crystal.swift,
 				Core/Crystal/CrystalModel.swift,
@@ -163,6 +177,9 @@
 				Core/Data/FourDDataSource.swift,
 				Core/Data/GMSFourDRegistration.swift,
 				Core/Data/H5Reader.swift,
+				Core/Data/HDF5HelperClient.swift,
+				Core/Data/HDF5HelperProtocol.swift,
+				Core/Data/HDF5HelperService.swift,
 				Core/Data/LoadConfiguration.swift,
 				Core/Data/LoadSpecification.swift,
 				Core/Data/ResidentCube.swift,
@@ -210,6 +227,7 @@
 				Session/ObjectVariants.swift,
 				Session/OpenDatasetRegistry.swift,
 				Session/OperationCenter.swift,
+				Session/ParallaxReplay.swift,
 				Session/PhaseContrastProduct.swift,
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
@@ -217,9 +235,11 @@
 				Session/PrecipitateClassificationProduct.swift,
 				Session/PrecipitateObjectReport.swift,
 				Session/PromotionRun.swift,
+				Session/PtychographyReplay.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
 				Session/ReplaceUndo.swift,
+				Session/ReplayContract.swift,
 				Session/ReplayPlan.swift,
 				Session/ReplayRun.swift,
 				Session/ResultPresentation.swift,
@@ -258,6 +278,14 @@
 			);
 			target = 100000000000000100000000 /* mac4DSTEMTests */;
 		};
+		700000000000000000000001 /* Exceptions for "HDF5Helper" folder in "HDF5Helper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				HDF5Helper.entitlements,
+				Info.plist,
+			);
+			target = 700000000000000100000000 /* HDF5Helper */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -292,6 +320,14 @@
 			path = QuickLook/Preview;
 			sourceTree = "<group>";
 		};
+		700000000000000000000010 /* HDF5Helper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				700000000000000000000001 /* Exceptions for "HDF5Helper" folder in "HDF5Helper" target */,
+			);
+			path = HDF5Helper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -318,6 +354,7 @@
 				300000000000000000000406 /* ShellInspector in Frameworks */,
 				300000000000000000000408 /* ShellLayout in Frameworks */,
 				300000000000000000000410 /* ShellSpectroscopy in Frameworks */,
+				300000000000000000000412 /* ShellEDXModel in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -349,6 +386,12 @@
 				600000000000000000000304 /* FormatoPeek in Frameworks */,
 			);
 		};
+		700000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				700000000000000000000302 /* DSTEMCore in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -360,6 +403,7 @@
 				400000000000000000000010 /* mac4DSTEMUITests */,
 				500000000000000000000010 /* QuickLook/Thumbnail */,
 				600000000000000000000010 /* QuickLook/Preview */,
+				700000000000000000000010 /* HDF5Helper */,
 				000000000000000000000020 /* Products */,
 				F68E4EE52FF9C43F00135C51 /* README.md */,
 				F6A1D0DE0001000000000001 /* DiskDetector */,
@@ -377,6 +421,7 @@
 				400000000000000000000120 /* mac4DSTEMUITests.xctest */,
 				500000000000000000000120 /* QuickLookThumbnail.appex */,
 				600000000000000000000120 /* QuickLookPreview.appex */,
+				700000000000000000000120 /* HDF5Helper.xpc */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -392,12 +437,14 @@
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
 				000000000000000001500000 /* Embed Foundation Extensions */,
+				000000000000000001600000 /* Embed XPC Services */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				500000000000000170000000 /* PBXTargetDependency */,
 				600000000000000170000000 /* PBXTargetDependency */,
+				700000000000000170000000 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* mac4DSTEM */,
@@ -429,8 +476,9 @@
 				300000000000000000000405 /* ShellInspector */,
 				300000000000000000000407 /* ShellLayout */,
 				30000000000000000000040F /* ShellSpectroscopy */,
+				300000000000000000000411 /* ShellEDXModel */,
 			);
-			productName = MyApp;
+			productName = mac4DSTEM;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -520,6 +568,27 @@
 			productReference = 600000000000000000000120 /* QuickLookPreview.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		700000000000000100000000 /* HDF5Helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 700000000000000110000000 /* Build configuration list for PBXNativeTarget "HDF5Helper" */;
+			buildPhases = (
+				700000000000000120000000 /* Sources */,
+				700000000000000130000000 /* Frameworks */,
+				700000000000000140000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				700000000000000000000010 /* HDF5Helper */,
+			);
+			name = HDF5Helper;
+			packageProductDependencies = (
+				700000000000000000000301 /* DSTEMCore */,
+			);
+			productName = HDF5Helper;
+			productReference = 700000000000000000000120 /* HDF5Helper.xpc */;
+			productType = "com.apple.product-type.xpc-service";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -571,6 +640,7 @@
 				400000000000000100000000 /* mac4DSTEMUITests */,
 				500000000000000100000000 /* QuickLookThumbnail */,
 				600000000000000100000000 /* QuickLookPreview */,
+				700000000000000100000000 /* HDF5Helper */,
 			);
 		};
 /* End PBXProject section */
@@ -606,6 +676,11 @@
 			files = (
 			);
 		};
+		700000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -634,6 +709,11 @@
 			files = (
 			);
 		};
+		700000000000000120000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -656,6 +736,11 @@
 			isa = PBXTargetDependency;
 			target = 600000000000000100000000 /* QuickLookPreview */;
 			targetProxy = 600000000000000160000000 /* PBXContainerItemProxy */;
+		};
+		700000000000000170000000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 700000000000000100000000 /* HDF5Helper */;
+			targetProxy = 700000000000000160000000 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1315,6 +1400,99 @@
 			};
 			name = Develop;
 		};
+		700000000000000111000000 /* Debug configuration for PBXNativeTarget "HDF5Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HDF5Helper/HDF5Helper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HDF5Helper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HDF5Helper;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Paul Lobpreis.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 5.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_PACKAGE_NAME = mac4dstem;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		700000000000000112000000 /* Release configuration for PBXNativeTarget "HDF5Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HDF5Helper/HDF5Helper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HDF5Helper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HDF5Helper;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Paul Lobpreis.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 5.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_PACKAGE_NAME = mac4dstem;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		700000000000000113000000 /* Develop configuration for PBXNativeTarget "HDF5Helper" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HDF5Helper/HDF5Helper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HDF5Helper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = HDF5Helper;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Paul Lobpreis.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 5.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_PACKAGE_NAME = mac4dstem;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Develop;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1369,6 +1547,15 @@
 				600000000000000111000000 /* Debug configuration for PBXNativeTarget "QuickLookPreview" */,
 				600000000000000113000000 /* Develop configuration for PBXNativeTarget "QuickLookPreview" */,
 				600000000000000112000000 /* Release configuration for PBXNativeTarget "QuickLookPreview" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		700000000000000110000000 /* Build configuration list for PBXNativeTarget "HDF5Helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				700000000000000111000000 /* Debug configuration for PBXNativeTarget "HDF5Helper" */,
+				700000000000000113000000 /* Develop configuration for PBXNativeTarget "HDF5Helper" */,
+				700000000000000112000000 /* Release configuration for PBXNativeTarget "HDF5Helper" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -1427,7 +1614,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = exactVersion;
-				version = 0.3.2;
+				version = 0.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1555,6 +1742,11 @@
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellSpectroscopy;
 		};
+		300000000000000000000411 /* ShellEDXModel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
+			productName = ShellEDXModel;
+		};
 		500000000000000000000301 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000002 /* XCLocalSwiftPackageReference "." */;
@@ -1574,6 +1766,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoPeek;
+		};
+		700000000000000000000301 /* DSTEMCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DSTEMCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

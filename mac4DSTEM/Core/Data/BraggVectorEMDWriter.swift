@@ -27,6 +27,12 @@ package nonisolated enum BraggVectorEMDWriter {
     static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
     static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
     static let lineageAttribute = SessionSidecarFormat.lineageAttribute
+    static let sourceAttribute = SessionSidecarFormat.sourceAttribute
+    /// On the `braggvectors` group: the view (`LoadSpecification`, JSON, the whole file included) the stored disks were
+    /// detected on. The root's specification says which view the LAST save came from; a grid carried through a save from
+    /// another view keeps its own here, so a reopen never draws one crop's disks at another same-size crop's positions.
+    /// Additive and safe to ignore: absent, the root's view stands for the grid (every file written before it).
+    static let peaksViewAttribute = "mac4dstem_peaks_view"
     /// Why the last write left the lineage out, or nil when it wrote it (or had
     /// none). Written inside `writeFile` and read by `takeLineageOmission`,
     /// both under `HDF5Serial` — the lock every sidecar write already holds.
@@ -41,7 +47,7 @@ package nonisolated enum BraggVectorEMDWriter {
         }
     }
     /// The hand-clicked disk-centre labels (C7 session 4, 2026-09-08), as the
-    /// same JSON `../_archive/mac4DSTEM/tools/disk-detector/label_centres.py` writes — one
+    /// same JSON archived `tools/disk-detector/label_centres.py` writes — one
     /// attribute on the session root, beside calibration. Additive content,
     /// like the replay record: absent on a file that predates it, and a
     /// calibration save with nothing new to say about labels must carry the
@@ -84,9 +90,13 @@ package nonisolated enum BraggVectorEMDWriter {
         /// exists to prevent — and a mangled recipe reads as "no recipe".
         /// // v2 S7
         case malformedAttribute(name: String)
+        /// The sidecar belongs to another source file (`SessionSourceStamp.check`); the sentence names both.
+        case belongsToAnotherSource(String)
 
         package var errorDescription: String? {
             switch self {
+            case .belongsToAnotherSource(let sentence):
+                return sentence
             case .cancelled:
                 return "The sidecar operation was cancelled."
             case .hotPixelFilterNeedsFinitePixels:
@@ -222,6 +232,7 @@ package nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         calibration: PixelCalibration,
         to destination: URL,
+        loadSpecification: LoadSpecification? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -230,6 +241,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: vectors, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: nil, to: destination,
+                    loadSpecification: loadSpecification,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -265,6 +277,7 @@ package nonisolated enum BraggVectorEMDWriter {
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        source: SessionSourceStamp? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -290,7 +303,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: vectors, map: map, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
-                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -303,6 +316,7 @@ package nonisolated enum BraggVectorEMDWriter {
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        source: SessionSourceStamp? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -321,7 +335,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: vectors, map: nil, rgbaMap: map,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
-                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -334,6 +348,7 @@ package nonisolated enum BraggVectorEMDWriter {
         to destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        source: SessionSourceStamp? = nil,
         // C7 session 4: nil PRESERVES whatever the sidecar already holds
         // under `diskCentreLabelsAttribute` (this writer rebuilds the file on
         // every rewrite, so "say nothing" must mean "carry it forward," the
@@ -357,7 +372,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: nil, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
-                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     diskCentreLabelsJSON: diskCentreLabelsJSON,
                     supportedSchema: supportedSchema,
                     cancellation: cancellation, progress: progress)
@@ -373,6 +388,7 @@ package nonisolated enum BraggVectorEMDWriter {
         from destination: URL,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        source: SessionSourceStamp? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -387,7 +403,7 @@ package nonisolated enum BraggVectorEMDWriter {
             vectors: nil, map: nil, rgbaMap: nil,
             qWidth: qWidth, qHeight: qHeight, calibration: calibration,
             preserving: destination, to: destination, removingKind: kind,
-            loadSpecification: loadSpecification, replayRecord: replayRecord,
+            loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
             cancellation: cancellation, progress: progress
         )
     }
@@ -446,6 +462,7 @@ package nonisolated enum BraggVectorEMDWriter {
         removingKind: String? = nil,
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
+        source: SessionSourceStamp? = nil,
         diskCentreLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
         cancellation: AnalysisCancellationToken?,
@@ -460,7 +477,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     into: session, vectors: vectors, map: map, rgbaMap: rgbaMap,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, removingKind: removingKind,
-                    loadSpecification: loadSpecification, replayRecord: replayRecord,
+                    loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     diskCentreLabelsJSON: diskCentreLabelsJSON, supportedSchema: supportedSchema,
                     cancellation: cancellation, progress: progress
                 )

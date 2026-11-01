@@ -154,6 +154,9 @@ struct WorkspaceSidebar: View {
             }
         }
         .help(state.staleReason ?? "\(mode.productTitle) — \(mode.productSubtitle)")
+        // One element for the row that CONTAINS its children: without it the row's identifier below is pushed down onto every
+        // child and the stale glyph's own `task.<Task>.stale` is lost (a journey could not find it, 2026-10-30).
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
@@ -165,35 +168,12 @@ struct WorkspaceSidebar: View {
         ).count
     }
 
-    /// The state of this task's retained product — the same rule the
-    /// inspector's "Computed this session" rows apply, so the two surfaces
-    /// cannot give different verdicts on staleness: any task's own recipe
-    /// step, compared to what current settings would record (C4(b)).
+    /// The state of this task's retained product, or of a map of this task
+    /// restored from the session file (`AppState.taskProductState(for:)`). For
+    /// an in-memory product it is the rule the inspector's "In memory" rows
+    /// apply, so those two surfaces cannot disagree on its staleness.
     private func taskProductState(_ mode: AnalysisMode) -> TaskProductState {
-        ProductWorkflow.productState(
-            for: mode, hasProduct: taskHasProduct(mode),
-            recordedStep: appState.recordedReplayStep(for: mode),
-            currentSignature: appState.currentReplaySignature(for: mode))
-    }
-
-    /// Whether this task has produced its product in this session — only for
-    /// the tasks with an unambiguous retained product. Staleness is judged by
-    /// `taskProductState`, on top of this. Virtual imaging and DPC share the
-    /// single scalar result slot, so "has produced" is read from the recipe
-    /// record — it survives the slot being replaced and resets with the dataset.
-    private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
-        switch mode {
-        case .disks: appState.resultPresentation.braggVectors != nil
-        case .strain: appState.strain.map != nil
-        case .acom: appState.acomSession.hasOrientationMap
-        case .virtualDetector:
-            appState.replay.record.steps.contains { $0.kind == "virtual_detector" }
-        case .dpc:
-            appState.replay.record.steps.contains { $0.kind == "dpc" }
-        case .diffractionGroups: appState.diffractionGroups.result != nil
-        case .phaseMapping: appState.phaseMapping.map != nil
-        case .ptychography, .singleslicePtychography: false
-        }
+        appState.taskProductState(for: mode)
     }
 
     /// Readiness is folded into the label rather than left on the glyph: an
@@ -287,47 +267,31 @@ struct SessionSection: View {
     /// refusal is on hover — the Info tab does not carry it.
     @ViewBuilder
     private var warnings: some View {
-        if let reason = appState.sessionSidecar.unreadableReason {
-            let text = SessionSidebarWording.unreadableDetail(reason: reason)
-            warning(SessionSidebarWording.unreadableHeadline,
-                    detail: text.shown, fullDetail: text.full,
-                    identifier: "sidebar.session.unreadable")
-            // The way out, where the warning is (2026-09-30): the sandbox grant the app lacks for a sibling it
-            // never saved from this Mac. One open panel at the file, then the dataset reopens with its session.
-            Button(SessionSidebarWording.allowAccessTitle) { appState.allowAccessToSessionSidecar() }
-                .controlSize(.small)
-                .disabled(appState.isBusy)
-                .help("Choose the session file beside this dataset so mac4DSTEM may read it; the dataset then reopens with its session.")
-                .accessibilityIdentifier("sidebar.session.allowAccess")
-        } else if let failure = appState.gates.sidecarRestoreFailure,
-                  failure.kind == .doesNotFit {
-            warning(SessionSidebarWording.doesNotFitHeadline,
-                    detail: failure.message,
-                    fullDetail: failure.message,
-                    identifier: "sidebar.session.doesNotFit")
-        } else if let recorded = appState.sessionLoadSpecification,
-                  recorded != appState.loadedView.specification {
-            // When saving is refused because of it (owner card D3 a), the refusal is on hover and the line shown
-            // is its remedy (owner card Q4 d) — the disabled Save controls themselves carry no reason (review
-            // lane I refuter, 2026-10-02). In this branch the refusal is the carried-view one: a failed restore
-            // leaves `sessionLoadSpecification` nil, or is the branch above.
-            let text = SessionSidebarWording.differentViewDetail(
-                refusal: appState.gates.sidecarRewriteRefusal(),
-                saved: recorded.provenanceSummary ?? "whole file",
-                loaded: appState.loadedView.specification.provenanceSummary ?? "whole file")
-            warning(SessionSidebarWording.differentViewHeadline,
-                    detail: text.shown, fullDetail: text.full,
-                    identifier: "sidebar.session.provenanceMismatch")
+        if let shown = SessionSidebarWording.warning(
+            unreadableReason: appState.sessionSidecar.unreadableReason,
+            gates: appState.gates,
+            recorded: appState.sessionLoadSpecification,
+            loaded: appState.loadedView.specification) {
+            warning(shown)
+            if shown.kind == .unreadable {
+                // The way out, where the warning is (2026-09-30): the sandbox grant the app lacks for a sibling it
+                // never saved from this Mac. One open panel at the file, then the dataset reopens with its session.
+                Button(SessionSidebarWording.allowAccessTitle) { appState.allowAccessToSessionSidecar() }
+                    .controlSize(.small)
+                    .disabled(appState.isBusy)
+                    .help("Choose the session file beside this dataset so mac4DSTEM may read it; the dataset then reopens with its session.")
+                    .accessibilityIdentifier("sidebar.session.allowAccess")
+            }
         }
     }
 
-    /// `detail` is the one short line shown; `fullDetail` is the whole text, on hover with the headline.
-    /// The headline is uncapped (it wraps, at most 64 characters — `SessionSidebarWording`); the detail keeps
-    /// three caption lines so the row cannot grow past them.
-    private func warning(
-        _ headline: String, detail: String, fullDetail: String, identifier: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    /// `shown.shown` is the one short line under the headline; `shown.help` is the hover (the headline and the
+    /// whole text). The headline is uncapped (it wraps, at most 64 characters — `SessionSidebarWording`); the
+    /// detail keeps three caption lines so the row cannot grow past them.
+    private func warning(_ shown: SessionSidebarWarning) -> some View {
+        let headline = shown.headline
+        let detail = shown.shown
+        return VStack(alignment: .leading, spacing: 2) {
             // Colour on the symbol only (HIG, Color); the headline stays primary text.
             Label {
                 Text(headline)
@@ -340,9 +304,9 @@ struct SessionSection: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
         }
-        .help(SessionSidebarWording.warningHelp(headline: headline, detail: fullDetail))
+        .help(shown.help)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(identifier)
+        .accessibilityIdentifier(shown.identifier)
     }
 
     /// What the sidecar holds — on the left, so the user sees what came
@@ -496,9 +460,62 @@ struct SessionSection: View {
 
 }
 
+/// One of the Session section's three warnings, as the sidebar draws it: the headline, the short line under it,
+/// the hover and the accessibility identifier. `SessionSidebarWording.warning` decides it; the view only draws it.
+struct SessionSidebarWarning: Equatable {
+    enum Kind: Equatable { case unreadable, doesNotFit, differentView }
+    let kind: Kind
+    let headline: String
+    /// The one short line under the headline.
+    let shown: String
+    /// The hover: the headline and the WHOLE text, never the short line alone.
+    let help: String
+    let identifier: String
+
+    init(kind: Kind, headline: String, shown: String, full: String, identifier: String) {
+        self.kind = kind
+        self.headline = headline
+        self.shown = shown
+        self.help = SessionSidebarWording.warningHelp(headline: headline, detail: full)
+        self.identifier = identifier
+    }
+}
+
 /// The Session section's sentences that depend on state, as pure functions
 /// (a view describes UI only).
 enum SessionSidebarWording {
+    /// The warning the Session section shows, or nil when the saved session and the loaded data agree. In order:
+    /// a sidecar that could not be read; a recorded view this file does not have; a session saved on another view
+    /// than the loaded one. In the last case the refusal is asked of `gates` (the carried-view one: a failed
+    /// restore leaves `recorded` nil, or is the branch before it); with saving refused the line shown is its
+    /// remedy and the refusal is the hover (owner card D3 a, Q4 d).
+    @MainActor
+    static func warning(
+        unreadableReason: String?, gates: SessionGates, recorded: LoadSpecification?, loaded: LoadSpecification
+    ) -> SessionSidebarWarning? {
+        if let reason = unreadableReason {
+            let text = unreadableDetail(reason: reason)
+            return SessionSidebarWarning(kind: .unreadable, headline: unreadableHeadline,
+                                         shown: text.shown, full: text.full,
+                                         identifier: "sidebar.session.unreadable")
+        }
+        if let failure = gates.sidecarRestoreFailure, failure.kind == .doesNotFit {
+            return SessionSidebarWarning(kind: .doesNotFit, headline: doesNotFitHeadline,
+                                         shown: failure.message, full: failure.message,
+                                         identifier: "sidebar.session.doesNotFit")
+        }
+        if let recorded, recorded != loaded {
+            let text = differentViewDetail(
+                refusal: gates.sidecarRewriteRefusal(),
+                saved: recorded.provenanceSummary ?? "whole file",
+                loaded: loaded.provenanceSummary ?? "whole file")
+            return SessionSidebarWarning(kind: .differentView, headline: differentViewHeadline,
+                                         shown: text.shown, full: text.full,
+                                         identifier: "sidebar.session.provenanceMismatch")
+        }
+        return nil
+    }
+
     // The three warning headlines. At most 64 characters each: they wrap, uncapped, at the narrowest sidebar
     // (a 64-character one needs four lines there; the old three-line cap cut it at "different view of thi…").
     static let unreadableHeadline = "A saved session beside this dataset could not be read."

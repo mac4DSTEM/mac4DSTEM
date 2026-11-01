@@ -34,8 +34,10 @@ extension AppState {
     /// it: a 4D room in a spectrum-only window. Narrower than
     /// `!isWorkspaceAvailable` on purpose — with no document at all the
     /// sidebar's rooms stay selectable, as they were before the seventh room.
+    /// With a 4D cube and no spectrum image, Spectroscopy is withheld: it would open empty.
     func isWorkspaceWithheld(_ area: WorkspaceArea) -> Bool {
-        isSpectrumOnly && area.needsFourDCube
+        (isSpectrumOnly && area.needsFourDCube)
+            || (hasDataset && !hasSpectrumImage && area.needsSpectrumImage)
     }
 
     /// Opening a 4D file while this window holds only a spectrum image opens a
@@ -105,9 +107,7 @@ extension AppState {
             let catalogue = await Task.detached(priority: .userInitiated) { PoolCatalogue.build(inputs) }.value
             guard let self, !Task.isCancelled, self.spectroscopy.poolRequest == request else { return }
             self.refreshPrecipitateJoins()   // the registration may have changed with the pools
-            let change = self.spectroscopy.applyPools(catalogue)
-            self.edx.applyPools(Self.edsPools(catalogue))
-            if let sentence = change.selectionSentence { self.statusText = sentence }
+            self.edx.applyPools(Self.edsPools(catalogue))   // the EDS room owns the pools and the fallback of a vanished one
         }
     }
 
@@ -222,8 +222,8 @@ extension AppState {
 // MARK: Quantify rows in Results (owner card P4 b, ADR 061 §3)
 
 /// What a recorded Quantify step shows in the Results room of a 4D window: one row per step, read from the step's own
-/// parameters (nothing is recomputed). The result strings are the room's table cells (`ResultFormat.fitCells`), written into the
-/// step when the run lands (`SpectroscopyRoomController.resultParameters`), so a step recorded before this wrote none says so.
+/// parameters (nothing is recomputed). The result strings are written into the step when the run lands
+/// (`AppState.edsResultParameters`), so a step recorded before this wrote none says so.
 struct QuantificationRow: Identifiable, Equatable {
     struct Entry: Equatable { let key: String; let value: String }
     /// The lineage node's id.
@@ -321,3 +321,4 @@ enum DemoSpectrumImageSource {
     }
 }
 #endif
+import ShellEDXModel

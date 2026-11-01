@@ -5,7 +5,7 @@
 //        one-click probe radius. Pure; nothing here sets a default (owner,
 //        2026-10-01, card "Kernel", option c).
 //
-//  The rules are S21's (../_archive/mac4DSTEM/docs/archive/v4/s21-detection-defaults-proposal-
+//  The rules are S21's (the archived notes
 //  2026-09-30.patch, results ...-results-2026-09-30.md), returned with the dip
 //  value it already computed. `probeSize` reads such a probe at its first
 //  shoulder (bullseye: 6.84 px where the ring ends at 11); the trench kernel

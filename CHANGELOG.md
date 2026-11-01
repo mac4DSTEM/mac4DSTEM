@@ -1,5 +1,8 @@
 # Changelog
 
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App versions are tagged with a `v`
+(`v5.0.1`); release-please writes each new entry above the older ones from the merged pull requests' titles.
+
 ## Unreleased
 
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
@@ -25,122 +28,60 @@ the same room macTEM 1.0 ships, joined to the 4D scan.
   a step in the session's lineage and a row in Results. Auto ID refines the energy axis before it proposes, as macTEM does.
 - **What changes for you.** The room's controls sit where macTEM's do (the control placement standard). The at%/wt% unit menu is
   gone (both columns show); the Profile and Table tabs are now the profile inset and the pins table; pins are not limited to three.
-  Steps recorded by earlier v5 development builds still read in Results and restore their method.
+  Steps recorded by earlier v5 development builds still read in Results.
 
-- 2026-10-23 Auto ID refines the energy axis before it proposes, as macTEM 1.0 does: two strong K lines at least 3 keV apart anchor one fit that refines the offset, gain and detector width, and the proposal runs again on that axis (a note says so). On the three Velox files it now picks Mg, Al and Si (and O, Cu, Mn, Zr) on 1339 and 1840 and Si, Ni, Ge and Pt (and O, Cu, Zr) on 1456. A find by an L or M line whose confirmation line lies outside the range is listed as uncorroborated, never added.
+### Added
 
-- 2026-10-23 The bullseye label fixture names its cube relative to the repository (`References/training_dataset/...`) instead of a home-directory path; the test reads the value back and is unchanged.
+- **Precipitate objects** on ImagoKit: the object table and CSV carry axis major length, perimeter, equivalent diameter
+  and solidity, and a Composition column (each element's mean at% and wt% under the object) and a Strain column (mean
+  rr, cc, rc and rotation, with their spread). "Objects on panes" draws each object as an ellipse glyph over the scan
+  panes and the EDS map tiles; hovering names the object.
+- **Number density N_V** per phase in /µm³ with its σ, from the edge-corrected areal density and a typed thickness
+  (its source can be read from macTEM's EELS method JSON). `validation: none`.
+- **Variant map and per-variant counts**: count the variants of a phase in an orientation relationship to the matrix
+  (β″ in Al by default; θ′ in Al and T1 in Al as presets), with the plates grouped by their plate normal in the legend,
+  the object table, the CSV and the glyph colours.
+- **ACOM**: a "Mirrored match" map and a `mirrored` quality plane on every ACOM product, and an opt-in "Refine in-plane
+  angle" switch.
+- **Quick Look** for 4D-STEM HDF5 files: Finder thumbnails and the spacebar preview of `.h5` and `.hdf5` files.
+- **Opening by content**: a file goes where its content says, not its extension. An `.msa` spectrum or a Velox file of
+  single EDS spectra opens in the EDS room as a one-pixel spectrum image; a TIFF, an MRC or an unrecognised file is
+  refused with a sentence naming it.
 
-- 2026-10-23 Pinned to SpectroKit 0.12.0 and MacEMUI 0.3.0 (MacEMUI off its local path; every kit now on an exact released tag). Auto ID is SpectroKit's identification loop (0.11.0): a peak on an empty background, an L or M line whose K or L line cannot be checked, and a line that gains the fit less than 100 are now possible finds, not picks. No quantification number changes; the golden and E1 fixtures are re-recorded for the new labels and proposals (own commit).
+### Changed
 
-- 2026-10-22 Two more orientation-relationship presets for the variant map, from Thronsen 2024: θ′ in Al (plates on {001}, (001) ∥ (001) and [100] ∥ [100]; 3 variants) and T1 in Al (plates on {111}, (0001) ∥ (111) and [10-10] ∥ [1-10]; 4 variants). Plates are grouped by their plate normal: the legend, the object table, the CSV and the glyph colours use the preset's names ([100] [010] [001], or [111] [-111] [1-11] [11-1] with a fourth hue for T1), and the family along the beam says face-on instead of end-on. beta'' in Al stays the default and its output does not change. validation: none; unverified on screen (the engine, report and CSV are unit-tested on planted plates).
+- The window shell (image view, zoom and pan, number fields, scale bar, colorbar, histogram, inspector, toolbar,
+  sidebar) is the MacEMUI package macTEM uses, so the two apps look and behave alike.
+- Numbers follow the Mac's locale on screen everywhere (colorbar ranges, histogram readouts, the inspector and the
+  status line), as the scale bars already did; recorded values in sidecars and exports stay locale-free.
+- Selected-area diffraction runs on CuboKit's Metal path (relative 1e-5 of the old kernel; the same pane and the same
+  numbers to display precision).
+- The status bar keeps its message longer than its other columns when the window is narrow; Imaging's region shapes
+  have word labels (Point, Rectangle, Circle) and the section is titled "Region to diffraction".
 
-- 2026-10-22 The Spectroscopy room is rebuilt on MacEMUI's corrected design (MacEMUI on its local path `../MacEMUI` until 0.3.0 is tagged). The maps sit over the spectrum on a divider you drag, the spectrum and the results table side by side below it; the header strip and the banners over the maps are gone. The colour mix is the large tile on the left (regions are drawn there only), the HAADF and one map per element are fitted into the rest, every tile with its name, a scale bar that opens the map's display popover, a colour scale and the pointer's value while hovered; zoom (wheel, pinch) and pan are shared by all tiles, a double click resets. A click on a map puts it in or out of the colour mix (a ring marks it); the HAADF is a grey layer under the mix and is out by default. The inspector order is Maps, Tools, Elements, Region, Spectrum, Quantification, Fitting, Export: Maps is one control (int, net, wt%, at% after Quantify) with a Filter row, Tools is the five region tools (Select, Rectangle, Ellipse, Polygon, Line; Ctrl-Cmd-0 to 4) over the regions list, the periodic table is MacEMUI's. The maps are filtered by default for display only (a 3 x 3 average, tiles say "filtered"; Filter turns it off or picks the Gaussian); the numbers, the readouts and the exports are unfiltered. The Tile size row and solo tiles are gone. Unverified on screen.
+### Fixed
 
-- 2026-10-22 Re-pinned to the new kit tags (CuboKit 0.9.0, ImagoKit 0.8.0, SpectroKit 0.10.0, FormatoKit 0.11.0, DiffractoKit 0.10.0) and three app-side interims deleted. The known-crystal Q calibration's ring-sequence assignment is DiffractoKit's `LinearScale.assign` (the same logic, moved: the refusal sentences are now the kit's). The strain fit no longer divides intensities by the largest at 1e9 and above: CuboKit 0.9.0 rescales them itself. The median and mean needle length of the precipitate summaries are ImagoKit's `ObjectStatistics.feretSummary`; no number moves.
+- Known-crystal Q calibration no longer assumes the first visible ring is the crystal's first shell: on Al [001] the
+  first ring is {200}, and the scale came out 13 % low. The first three rings now decide which shell the first is.
+- Re-calibrate Origin no longer overwrites a file's probe radius. The stored probe radius is measured on the mean
+  pattern, as py4DSTEM's `get_probe_size` does, and only when no file, session or typed value states one.
 
-- 2026-10-22 Variant map and per-variant counts (task 40): the Precipitates section has a Count variants switch with the phase that has the orientation relationship to the matrix, the relationship (beta'' in Al, Andersen 1998), an angle tolerance (empty: half the library's in-plane step) and an agreement floor (0.5), and a Colour by menu (Phase, Direction, Variant). Each object takes the variant most of its pixels vote for (the phase map's winning orientation per position, named by DiffractoKit's variant set: twelve variants, four per needle direction); an object whose pixels disagree, tie, sit away from every variant or have no orientation is Unassigned with the reason, never forced into one. The legend counts counted objects and their areal density per needle direction ([100], [010], [001]; the one along the beam says end-on), per variant, and unassigned, with the arithmetic line; the object table gains Direction and Variant columns and the CSV the variant columns and group lines. The glyphs on the panes colour by direction (three colour-blind-safe hues) or variant (four shades per hue). The settings are recorded on the objects run (variant_* keys in the sidecar); validation: none. Unverified on screen: no drive yet (the screen was in use); the engine, the report, the CSV and the colours are unit-tested on planted needles (twelve variants, four per direction, exact).
+### Migration
 
-- 2026-10-22 The EDX room's Table tab holds the fitted composition per region: after Quantify the same method is fitted on every drawn region and on the whole map (SpectroKit's per-region result), and the tab lists each as one row with an element per column, in the Results table's unit (at% or wt%) with its sigma, "n.d." for a line held at zero, and the net counts when no at% could be computed (one element, no k). Each row is the Results table's own number for that region; the badge is the fit's validation (none). The map means stay beneath it, as "Map means". Stopping Quantify clears the table.
+Where a kit's arithmetic replaced the app's own, some numbers can move at rounding level or by a stated amount:
 
-- 2026-10-22 The EDX room's lower block has tabs: Spectrum (as before), Profile and Table. A line tool (Ctrl-Cmd-4, the fourth chip in the header) draws a line on the ColorMix; the Profile tab plots each mixed element map along it in the map's own unit, over the distance in the scan's unit (ImagoCore's `LineProfile`, scikit-image's `profile_line`, linear order); the header names the line and its length. Lines are listed in the Regions section with the regions (colour, name, show / hide, delete). The Table tab lists the whole map and every drawn region with the mean of each mixed element map under it and the spread of its pixels (ImagoCore's labelled statistics), with the pixel count: the maps' means, not the pooled fit's composition (the Results table is that). Unverified on screen: dragging a line (the launch preset draws one) and the Table tab's look (its rows and pixel counts are asserted by the journey; the screenshot of it was covered by another window).
-
-- 2026-10-22 The EDX room holds several regions (MacEMUI's region set): a drag on empty map starts a new region, a drag inside one moves it, a handle resizes it. A Regions section in the inspector lists them with a colour (the first is the live purple, then a colour-blind-safe palette), an editable name, show / hide and delete; a click selects. The other shown regions are outlined on the ColorMix in their own colours and their spectra are drawn under the selected one's with the Pins layer. Delete removes the selected drawn region. Pin still freezes a copy of any selected region, a pool included. Unverified on screen: the typed-extent field and the Delete key with several regions; the drag was unit-tested, not driven (XCUITest's synthetic drag does not reach the drawing tool). The Tile size row is a menu (MacEMUI's segmented picker is wider than the narrowest inspector column).
-
-- 2026-10-22 The EDX room's element maps use MacEMUI's tile grid (`ShellSpectroscopy`): a Tile size row in the Elements section (Small, Medium, Large) reflows the tiles beside the ColorMix, a double click on a tile shows it alone in that area (again to return), and the pointer's value shows on the tile as a chip in the map's own unit ("Mg 36.2 at%", "Si 41 238 net counts"). Picking a tile into the ColorMix is still one click. MacEMUI is pinned at 0.2.0. Unverified on screen: built and unit-tested, no drive yet.
-
-- 2026-10-22 The window shell is the shared MacEMUI package (suite task 8): the Metal image view, zoom and pan, number fields, scale bar, colorbar, histogram, inspector rows, layout rules, menu relay, activity log, system monitor, window skeleton, toolbar, sidebar and inspector frames now come from `../MacEMUI` (exact tag 0.1.0 at closeout); the app keeps its rooms, sheets and content. Behaviour is unchanged except the histogram footer: 4 significant digits and Reset Range on its own line. Unverified on screen in the app: the UI journeys did not run; the footer was seen in a hosted window of the package.
-- 2026-10-22 Quick Look for 4D-STEM HDF5 files (task 47c): Finder thumbnails and the spacebar preview of `.h5` and `.hdf5` files, from two app extensions (QuickLookThumbnail, QuickLookPreview) inside the app. The thumbnail is the file's stored virtual image if it has one, otherwise one diffraction pattern at the centre scan position in log scale (never the mean pattern); the preview is a card with that image on the left and the format, scan and detector size, steps, and data type on the right. Both read one frame through FormatoKit's `Peek` (0.10.0), so a 1 GB file previews in about 0.2 s and 14 MB. The app now declares the HDF5 content type (`org.hdfgroup.hdf5`, extensions h5 and hdf5), because Quick Look matches on content type. macTEM owns dm3, dm4, mrc, tif and emd; MIB and EMPAD have no stored image and get no preview. Unverified on screen: the extensions build, embed, sign and the card renders in the unit tests (screenshot for Paul's taste check), but `qlmanage` could not be driven from this session; run the two commands in docs/open-items.md on the Mac. FormatoKit is on its local path until 0.10.0 is tagged (delete at FormatoKit 0.10.0).
-
-- 2026-10-22 Composition and strain per precipitate object (task 42): the object table and CSV gain a Composition column (each element's mean at% and wt% under the object) and a Strain column (mean rr, cc, rc in rows and columns, rotation in degrees, and the spread across the pixels). The composition is the mean of the Spectroscopy room's per-pixel maps over the EDX pixels under the object, through the session's registration; pixels whose fit failed or were masked are left out and counted ("5 px, 1 failed or masked"); an object under 4 EDX pixels has none and says so. Strain comes from the Crystal Maps strain map in the frame it shows; only fitted positions enter. The means are ImagoKit's labelled statistics. It is a mean of per-pixel values from badged maps, not the pooled fit's composition with a sigma (Pool by Class remains that). Without quantified maps or strain the section says what to do instead. Unverified on screen: the UI journeys could not run; a drive is owed.
-
-- 2026-10-22 Number density N_V (task 41): the Precipitates section has Thickness, Thickness ± (nm) and Source rows (typed; "Read EELS method JSON…" fills the source words, never the number), and under them N_V per phase in /µm³ with its σ, ImagoKit's `numberDensity` of the phase's edge-corrected areal density over the thickness, badged `validation: none` and "assumes objects span the foil". Typing a usable thickness records a new objects run; an unusable one only says so. The object CSV carries the same N_V in each class line and an N_V header line. No scan scale or no thickness: no N_V. The EELS t/λ map as a thickness source comes with SpectroKit's EELS model (task 16).
-
-- 2026-10-22 Precipitate objects on ImagoKit 0.7.0 (task 39): the objects, their measurements and the edge-corrected density are the kit's (`Segmentation.label`, `regionProperties`, `ObjectStatistics.arealDensity`); the object table and the CSV gain axis major length, perimeter, equivalent diameter and solidity. **The needle length is now the Feret diameter** (the largest caliper distance, scikit-image's `feret_diameter_max`) instead of the extent along the principal axis plus 1 px: it is the same on axis-aligned objects up to the diagonal of a block (a 3 x 2 block reads 3.16, was 3) and shorter by up to 0.3 px on a five-step diagonal; counts, areas, centroids, widths and densities do not move. The median and mean lengths in the class summaries follow it. The unwired reflection finder is gone.
-
-- 2026-10-22 The EDX room, aligned with macTEM's (design 2026-10-22, D1 to D4): the region tool and the map mode are chips in a header row above the maps (they were in the inspector), the results table sits beside the spectrum with a width you drag (it was the inspector's Results section; the inspector holds settings only), "Quantified" is plain text in the header, and the three divider positions come back as you left them; Auto ID's reasons are the Found row's tooltip instead of a Details disclosure; Reveal in Finder is File > Show in Finder (the toolbar's folder icon is gone); the sidebar menu reads Show / Hide Sidebar; Ctrl-Cmd-1 to 3 pick the rectangle, ellipse and polygon tools. The bottom bar is as it was. Unverified on screen: the UI journeys could not run (the Mac was in use); a Spectroscopy drive is owed.
-
-- 2026-10-22 Known-crystal Q calibration no longer assumes the first ring is the crystal's first shell. On Al [001] the first visible ring is {200} ({111} is not in the zone), and the scale used to come out 13 % low; the first three rings now decide which of the first four shells the first ring is, the Q row and the status line say "assigned to {200}", and a ring sequence that fits no shell, or two shells equally, is refused with the sentence naming why (nothing is written). The demo cube read against gold used to produce a scale 22 % off and is now refused as ambiguous: calibrate it against a crystal whose rings it shows. Planted truth only (no Python reference), badged as before.
-
-- 2026-10-22 One decimal mark per screen: colorbar ranges, histogram readouts and the inspector's and status line's numbers follow the Mac's locale like the scale bars and the Prepare rows already did (a de_DE Mac showed "0,2 Å⁻¹" beside "0.88 / 1.16e+04"). Recorded values (provenance, sidecar, exports) keep their locale-free spelling. The unit-test run is pinned to en_US.
-
-- 2026-10-22 The status bar keeps its message ("Strain ✓ 89%…") longer than the "Last run" and machine columns when the window is narrow; Imaging's Region shape picker has word labels (Point, Rectangle, Circle), the rectangle's size reads "Half-width", and the section is titled "Region to diffraction"; a Q or R pixel scale that is in force from the file or a session shows its editor behind "Override", open when the scale is missing or your own.
-
-- 2026-10-21 Selected-area diffraction (the CBED pane for a region of the scan) runs on CuboKit's Metal path (`VirtualDiffraction.pattern(path: .metal)`, compensated sums, relative 1e-5 of the old kernel); the app's own kernel and shader are deleted. Same pane, same numbers to display precision; a Mac without Metal runs the kit's CPU path. Unverified on screen beyond the UI journeys.
-
-- 2026-10-21 Fixture move: the cif-symmetry harness case `two_column_symop_loop` no longer declares `F m -3 m` (it listed 4 of the group's 192 operations; DiffractoKit 0.9.0 refuses a symbol-only group with a short list on purpose, pymatgen applies the listed operations as given). It still pins the two-column loop shape. This was the red `scientific (py4DSTEM parity)` job.
-
-- 2026-10-21 ACOM (DiffractoKit 0.9): a "Mirrored match" map (1 where the best match is the mirror image) and a `mirrored` quality plane on every ACOM product, so the in-plane angle can be read with it; an opt-in "Refine in-plane angle" switch (off by default, CPU scan only, recorded in the recipe only when on) that places the angle at the vertex of the correlation parabola; on 40 planted off-grid patterns the refined angle is closer than the 64-bin one. `minimumMatrixEvidence` is named in the phase provenance when a run uses it (hidden, 0). Orientation numbers with the switch off do not move. Unverified on screen.
-
-- 2026-10-21 A Velox `.emd` that holds only single EDS spectra opens in the Spectroscopy room as a one-pixel spectrum image (first spectrum; the kit maps no live or real time for the v4 file yet, an open item). Unverified on screen.
-
-- 2026-10-21 Precipitates: the glyphs also draw on the Spectroscopy map tiles (element tiles and the ColorMix) when the spectrum image is registered by identity to the 4D scan and the grids agree, and a scan-pane hover names the object ("#12 β″ 23 nm"). Unverified on screen.
-
-- 2026-10-21 Open routes by content (FormatoKit `FormatoLoader.sniff`) instead of by extension; a TIFF, an MRC or an unrecognised file is refused with a sentence naming it (before: an HDF5 error). An `.msa` spectrum opens in the Spectroscopy room as a one-pixel spectrum image, and the Export section writes the shown spectrum as `.msa` ("Spectrum MSA…"). Unverified on screen. Not covered: a Velox "DevelopersKit" fixture (none on this machine) and Velox single spectra in the room.
-
-- 2026-10-21 Precipitates: a Thickness row (typed t ± σ with its source, or macTEM's EELS method JSON read as the source; N_V shown off until its estimator is registered). It rides on the objects run's lineage node, so the sidecar carries it, and the objects CSV header names it. validation: none. Unverified on screen.
-
-- 2026-10-21 Re-pin SpectroKit 0.8.2 (additive: the pooled fit's k, line energies and take-off angle are public). The wt% / at% maps now use the pooled fit's own k (computed or typed) and the absorption correction when a thickness is typed and the file states its detector geometry (one weighted take-off angle; the tile footer names it, and says why when it is off). No migration. The unit tests still import SpectroKit `@testable` (the proposer, unlisted-line and window internals are `package`; filed in `docs/open-items.md`).
-
-- 2026-10-21 Spectroscopy › Export: "Composition by Class…" (Pool by Class): one pooled fit per phase pool with the room's method, written as a CSV (class, pixels pooled, element, wt%, at%, σ, method hash; `validation: none`). Needs a phase map on a scan registered to the spectrum image. Unverified on screen.
-
-- 2026-10-21 Precipitates: "Objects on panes" draws every object as an ellipse glyph (phase colour; counted only, labels, table-selected outlined) over the scan panes (virtual image, phase map). Off by default; unverified on screen. The same glyphs on the EDX map tiles and the hover readout come next.
-
-- 2026-10-21 Fixture move: the known-wrong demo Q scale in `QCalibrationOriginGateTests` is 0.024440 Å⁻¹/px again (was 0.021001 under the max-pattern radius), because the stored probe radius is the mean pattern's.
-
-- 2026-10-21 Re-calibrate Origin no longer overwrites a file's probe radius (the demo's 4.5 px was replaced by 9.56 px, the max pattern's estimate). The stored probe radius is now measured on the MEAN pattern, as py4DSTEM's `DataCube.get_probe_size` does, and only when no file, session or typed value (or vacuum-probe kernel) stands; the origin window keeps py4DSTEM's max-pattern radius (`get_origin`). A radius measured by Re-calibrate Origin on a file without one therefore moves from the max pattern's to the mean pattern's value (demo: 9.56 to 6.93 px). The lineage node records `origin_window_radius_px` and `probe_radius_mean_px`.
-
-- 2026-10-21 Spectroscopy: wt% and at% map modes (offered after Quantify, typed k) from `EDXQuantification.quantifyMaps`; per-pixel, no σ, a failed pixel (e.g. negative net) drawn 0 and counted on the tile, badge `validation: none`. Runs without absorption correction and refuses computed k with a sentence until the kit exposes them. Not on screen yet (unverified).
-
-- 2026-10-21 Patch re-pin: SpectroKit 0.8.1, FormatoKit 0.9.1, DiffractoKit 0.9.1, CuboKit 0.8.1, ImagoKit 0.6.1 (no source change, no public API change). Visible: `peak_local_max` accepts ±inf; CIF import is faster with identical results; kit test pins loosened to the Python tolerances. No migration.
-
-- 2026-10-21 Re-pin onto the audited kits: SpectroKit 0.8.0, FormatoKit 0.9.0, DiffractoKit 0.9.0, CuboKit 0.8.0, ImagoKit 0.6.0 (no feature, no numerics). Migration (visible): a CIF that names its group by Hermann-Mauguin symbol alone and lists an incomplete operation set is now refused (`incompleteSymmetryOperationsForSymbol`; it imported before). Source change: `sameScanAs4DCube` is `sameScanAsCube`; the unit tests name `DSTEMCore.Calibration` because CuboCore now exports a `Calibration` too. The spectro goldens carry the renamed field.
-
-- 2026-10-21 PCA projection onto CuboKit 0.7.1 (`PCA.project`; `DiffractionEmbedding.project` deleted; same vDSP calls, unit suite unchanged).
-
-- 2026-10-21 Final kit switch (pins CuboKit 0.7.0, FormatoKit 0.8.0, DiffractoKit 0.8.1, ImagoKit 0.5.0; SpectroKit 0.7.1 stays). Core/ 23,172 -> 20,551 lines. Ptychography runs on CuboPtycho's Float32 engine (`PtychographyReconstructor`, was `SingleslicePtychography`, falling back to the kit's Double path where vDSP does not take the detector size; object and probe within 3e-7 of the old engine, agreed tolerance 1e-4). Parallax alignment shifts with `ParallaxFourierShifter` and estimates with `correlationShift`; `MatrixDFTCorrelation` is deleted; `ParallaxPreprocessor.run` calls the streamed `ParallaxPreprocessing.prepare(source:)` (stacks bit-identical on the demo cube). Per-position origins are `OriginMeasurement.measure(.iteratedWindow, .metal)` (the app's Metal kernel and shader deleted; 7.6e-6 px against the old kernel) and the window sensitivity is the kit's. The classical full-scan Bragg detection is `BraggDisks.detectAll(failurePolicy: .recordEmpty)` (peaks bit-identical; progress now ticks per scan tile). The strain fit, indexing and tensor rotation are CuboStrain's (`StrainMapper` adapts them to the app's Float map; strain within 2.3e-7), the known-crystal Q scale is `LinearScale.estimate` and the orientation-map read-outs are `OrientationMapAnalysis` (bit for bit).
-  - Migration (visible): the alignment moved from Float to Double correlation, so group shifts at the finest levels can move by up to 0.17 px on noisy near-aligned stacks (against planted truth the new code is closer, 0.038 px against 0.053 px); `ParallaxGoldenTests` now compares within 5e-5 of each array's range (was bit for bit; measured worst 1.6e-5). A non-finite Bragg peak is refused by the sidecar writer. A sidecar's `version_major/minor` are int64. The odd compound dataset in the reader baseline now reports `datasetOpenFailed`.
-  - Kept in the app: the learned detector (training and refine, ADR 071), lineage and marks records, the `small_datacube` rank-3 reshape, header-less MIB, selected-area diffraction (the kit's virtual diffraction is CPU-only), the Float façades and settings.
-- 2026-10-21 HDF5 I/O onto FormatoKit 0.8.0, the app's own HDF5 code is gone. `H5Reader` lists links with `HDF5Reader.walk`, reads patterns through one `HDF5SlabReader` per dataset (file and dataset held open) and an h5py bool attribute through `attribute`; `HDF5LegacyProbe`, `HDF5LibraryCandidates`, `HDF5WriteLibrary` and `HDF5WritePrimitives` are deleted. The sidecar (`SessionSidecarWriting`), the scientific bundle and the preprocess datacube export are written with `HDF5NewFile.write`, `HDF5WriteSession` (`writeEMD*`, `writeBraggVectors(.appImageXY)`, `copyObject`) and `EMDDatacubeWriter`; the reduction, hot-pixel step, calibration re-reference and every `mac4dstem_*` attribute stay here. Core/ 24,026 -> about 22,750 lines. Checked against the former writer over h5py: every object, attribute, dtype, shape, chunk and value equal except `version_major`, `version_minor` and `_target_paths/length`, now int64 (were int32). A peak that is not finite is refused (it was written); the peak-grid progress is one step.
-
-- 2026-10-21 Switches onto the pinned kits, no re-pin. `fitOriginTrimmed` is CuboKit 0.6.0's `OriginFit.fitTrimmed` (Double inside the kit; the app's Float copy of the trim loop, `fit2D` and `fitOrigin` are gone). The preset crystals are DiffractoKit's `CrystalPresets` (`Crystal.gold` etc. are `CrystalPresets.gold`; `Crystal.CubicStructure` is `CrystalPresets.CubicFamily`, `.sc` is `.simpleCubic`). The Metal ACOM backend is `ACOMMatcher.matchAll(backend: .metal)`: `MetalACOMMatcher`, the app's selection and preview expansion and `ACOMMatching.metal` are gone. The Metal virtual-image, mean/max and centre-of-mass one-shots (`MetalEngine.virtualDetector`, `virtualImage`, `dpStatistics`, `centerOfMass`, `VirtualDetector.run/image/diffraction`, the resident-cube `OriginCalibration.run`) and their four shaders are gone; those paths already ran on CuboKit's reducers. Core/ 24,026 -> 23,172 lines, four shaders and the ACOM shader removed. Migration: the Metal ACOM digests recorded on the app's own matcher moved (the kit's kernels differ in Float rounding; Metal now equals the CPU reference to 1e-5 in score with the same template on the synthetic scans, CPU digests unchanged), so those freeze tests compare against the CPU instead; the trimmed origin fit and the ACOM Metal scores are the kit's (within the kit's written tolerances, `docs/parity.md` P31 for ACOM).
-
-- 2026-10-21 Clean slate: dead code from the kit switches removed, docs and ADRs brought to the pinned kits, open-items triaged into kit asks / app work / drop, ROADMAP rewritten. Core/ 24,027 -> 24,026 lines; app Swift 75,795 -> 75,727 lines (little was left: the switches had already removed the rest).
-
-- Session 5 kit/app separation: pins SpectroKit 0.7.1, FormatoKit 0.7.0, DiffractoKit 0.7.1, CuboKit 0.6.0, ImagoKit 0.4.0; Core/ 26,227 -> 24,027 lines. Every copy that has a kit equivalent is deleted except what `docs/open-items.md` ("Kit asks") lists with its marker. Disk detection is CuboBragg `BraggDetector` (`.single` where the kit allows it; serial 5.4 -> 1.4 ms and 8 workers 1.26 -> 0.24 ms per 256x256 pattern, positions within 2.5e-5 px of the kit's Double definition, 4.6e-5 px from the former code). A kit error in a pattern is now a visible failure (diagnostics, scan summary warning), not an empty pattern. Parallax aberration correction, depth sectioning and position correction are the kit's (bit-identical on the pinned synthetic stack, fixture `pre-switch-outputs.json`); the ptychography probe is the kit's (up to 1.2e-7 from the Float build, one ulp). ACOM (cancel, progress, `result(scores:)`, `matchAll`) and the Materials Project import are DiffractoKit's (bit-pattern freeze tests). DM4 (and DM3), HDF5 chunk shape, float16, bool datasets, MIB and EMPAD reads are FormatoKit's, exact on every baseline file.
-  - Migration (visible changes): embedding PCA components take the kit's sign (largest entry positive), so a saved embedding's maps and colours can flip against earlier runs; a disordered site in a centred primitive Materials Project cell lists its atoms species-major, which changes `revisionID` and `contentFingerprint` of that model only (an older restored model reads as different); multicorr with an upsample factor of 2 or less runs the parabolic refinement; a raw-only EMPAD file named `scan_xN_yN.raw` opens; a single-pattern HDF5 read is about 0.5 ms (was 0.05 ms; tile and row reads equal) until FormatoKit keeps the file open.
-- Switches onto CuboKit 0.4.0 / DiffractoKit 0.5.0 (calibration re-reference geometry is `FrameTransform`; k-means is `KMeans.fitSeeded`; the non-finite feature path is `DiffractionFeatures.binnedVector`; cell standardisation is `CellStandardisation.standardise`). Moved or changed: (1) patterns holding NaN/Inf take the kit's row-wise cell sums, so finite cells of an -Inf-only pattern differ from the old loop by Float32 rounding (test now 1e-5 relative, NaN exact); finite patterns keep the vDSP path and are unchanged. (2) `DiffractionEmbedding.kMeans` now throws `invalidDataset` on non-finite coordinates (it returned a filler assignment); `compute` already refuses such data, so the app is unaffected. (3) Two new refusals in `CalibrationReReference.apply`, both named on the origin: a scan crop that does not fit the origin map's stored values, and fitted x/y maps of different lengths (neither occurs in files the app reads). (4) The Materials Project "already conventional" test reads the lattice matrix rows where it read the wire a, b, c, α, β, γ (equal for real payloads); a centred cell holding a site with no species or an unknown element is returned as served and refused by `crystalModel` per site, where it used to be transformed first. Refusal wording of standardisation comes from the kit. No other number moves.
-- Parallax runs on CuboKit 0.4.0's CuboParallax: the aberration fit (`fitLowOrder`, `fitHigherOrder`, `gradientSamples`), the CTF correction (`highpass: .apply`), depth sectioning (`.fullFit` / `.defocusOnly`, one kit call per plane) and the KDE deposition and factor heuristic (`kernelDensity`, `upsampleLimits`); the alignment levels, preprocessing and the position-correction loop stay. No harness number or tolerance changed (parallax-aberration, -depth, -subpixel and -alignment pass against the py4DSTEM references). Differences from before: the stages compute in Double inside the kit, so their memory refusals count Double planes (the correction needs about 2.9x the bytes per padded pixel, 116 against 40; depth counts three Double planes per bright-field image and seven working planes; the KDE counts six Double output planes and the Double image stack) and a job that fit just under the budget can now be refused; a cancel lands before a kit call or between depth planes, not inside a plane or a KDE deposition; where sin(chi) is within rounding of zero the transfer sign is now taken from the Double phase, so it can differ from the old Float result at those few frequencies.
-- Switches onto CuboKit 0.4.0 (CuboStrain, CuboPhase) and SpectroKit 0.7.0 (registration). No test tolerance changed.
-  - Strain: the automatic basis (`chooseBasisConsensus`), the intensity-once local fit (`fitIntensityOnce`) and the MAD reference (`referenceMAD`) are CuboStrain's, Float32 as before; `compute`, the robust local fit, diagnostics and result types stay. A peak with a non-finite coordinate is left out before the kit sees it (the old search ignored it too); a NaN or infinite intensity skips that position's local fit (the kit refuses it) where the old normal equations ran on it; local-fit weights are divided by their largest when it exceeds 1, so a weight of 1e10 or more still indexes (the fit depends only on ratios). A kit refusal is kept: `StrainFitDiagnostics.refusedLocalFitCount` / `firstLocalFitRefusal`, and the "could not publish strain" message names a basis or reference refusal. `MAC4DSTEM_STRAIN_DEBUG` is removed with the inline search it printed from (the scheme entry is deleted). The basis search no longer checks cancellation inside the kit call (before and after only).
-  - iDPC is CuboPhase's `IDPC.integrate` / `integratePhysical`, computed in Double instead of Float32 (rounding-level differences; `idpc-test` and `DPCProductTests` pass at their existing tolerances). `IDPCBoundary` (`.zeroPadded(factor: 2)`) and the kit's `IDPCPhysicalCalibration` (Double) replace the app's types; `integrateIDPC` loses `paddingFactor:`. `DPC.IDPCError` loses `dimensionOverflow` and `fftUnavailable` (every kit refusal arrives as `invalidInput`). A CoM field with a non-finite value is now refused instead of integrated.
-  - Registration: `MaskTransport`, `TransportedLabels`, `MaskTransportReport`, `PoolBuilder`, `PooledSpectrum` and `GridRegistration` are SpectroCore's; `RegistrationRecordM2` stays (persistence) with an adapter. The kit throws where the app trapped (a label outside the class range, a mask on the wrong grid, an unknown class); `MaskTransport.region` and `PoolBuilder.pool(image:mask:...)` now throw. The singular-registration message is the kit's ("The registration is singular."), shown as a pool note.
-  - `tools/lib/sources.manifest`: `kit_module` passes the module maps of the C targets the requested kit targets depend on (`-Xcc -fmodule-map-file=...`, as `spectrokit_module` does), so a harness can import CuboStrain or CuboEmbedding.
-- Orientation maps and ACOM onto DiffractoKit 0.5.0 (two commits): `EulerAngles`, `ZoneAxisFrame`, `OrientationResult`, the cubic/hexagonal/monoclinic reduction, folding, samplers and `.native` IPF keys are `DiffractoOrientation`'s (`CrystalOrientationSymmetry`); the template library, the CPU matcher and its scan loop are `ACOMTemplateLibrary`, `ACOMMatcher.matchAll` and `ACOMScanSelection`. The app keeps `ACOMCrystalSymmetry` (a thin facade), `OrientationMap`, `OrientationPlan` (the kit library plus the model's symmetry), the Metal backend and the refusal messages. No pinned number moved (Metal output digest, KitSwitchFreeze digests, acom harness scores unchanged). Migration of behaviour: the kit validates the template settings, so a plan with invalid settings (for example a non-positive intensity power or sgWidth) is now nil where the app computed garbage; a non-positive beam wavelength now gives a flat Ewald sphere (it was an uncurved sphere before too, in effect); `.identity` has no plan (the UI already blocked it via `supportsOrientationMapping`); a cancellation token is honoured before and after a plan build, not inside it. `tools/harnesses/acom-convention-test/check_mutations.py` now mutates the kit sources in a scratch copy.
-
-- The ring-probe hint (`ProbeRingHint.outerEdge`) is CuboKit 0.4.0's `CuboBragg.ProbeRingHint.outerEdge(of:)`; the app keeps its Float `Result` (the kit returns an `Int` radius bin and a Double dip, converted exactly). No number moves. Its offer threshold now compares against a max-based probe radius (see the probe-radius entry below).
-- The probe radius of an origin calibration, and so the kernel radius and detector-adapted defaults of the disk detection that follows, is measured on the MAX pattern, py4DSTEM's `dp_max` default (`OriginCalibration.ProbeRadiusSource.maxPattern`; owner decision 2026-10-19). The mean-pattern radius the app used since 2026-09-01 stays as `.meanPattern`, with its DEVIATION note. The radius itself is `ProbeSize.estimate` (CuboKit, bit for bit with py4DSTEM's `get_probe_size`) on the max pattern; the kit's `OriginMeasurement` takes the same default. Moved fixtures, on purpose: `QCalibrationOriginGateTests` demo scale 0.024472 -> 0.021001 Å⁻¹/px (shell ratio 1.370); `OriginWindowSensitivityTests` fixture radii 6.5 -> 8.141 px (ringed) and 3.0 -> 3.785 px (compact); `ProbeSizeTests` now pins max as the default and mean as the option. Checked against py4DSTEM 0.14.19 `get_probe_size` on the max patterns of these fixtures (pinned venv): ringed 8.141409 vs 8.141408, compact 3.784992 vs 3.784992, demo 9.564626 vs 9.564626 (differences below 6e-7 px). Origin runs record the source in the lineage as `probe_radius_source` ("max" or "mean"); a manual or restored node with no fit behind it records "unknown", and a recording without the key predates the change (mean-era); `CalibrationSession.probeRadiusSource` selects the source (the mean option has no UI). Replay does not re-run origin calibration, so nothing is refused. Nothing else moves a number (the GPU measurement is unchanged).
-- `H5Reader` reads through FormatoKit 0.5.0's `HDF5Reader` (the app's own libhdf5 symbol wrapper, link collector and typed readers deleted; 1146 -> 862 lines). Sidecar recognition, discovery, probe candidates, `DatasetDescriptor`, the calibration order and `H5Error` stay. Values are the same Float conversions (HDF5's native-float read became a Swift cast per stored type, rounding to nearest even). Kept as one marked shim, `HDF5LegacyProbe`, to delete when FormatoKit has them: the chunk shape of a dataset and h5py's bool-enum `QR_flip` (HDF5Reader refuses `enum`; HDF5Datacube refuses a file with a non-uniform dim vector, which the app accepts). Differences from the former reader: a float16 dataset or attribute of rank 2 or more is refused (read before), a non-UTF-8 string is refused (read with replacement characters before), and a link walk costs one file open per group and link. No pinned number moves.
-- Spectro golden `velox-tiny.txt` gains four lines (`stageXMeters`, `stageYMeters`, `stageZMeters`, `instrumentClass = nil`): FormatoKit 0.3.1 and later add four optional `VeloxMetadata` fields, additive; no number moves. Updated on purpose.
-- SpectroKit 0.6.0 -> 0.6.1 and FormatoKit 0.3.0 -> 0.4.0 (exact). libhdf5 is now FormatoKit's frameworks FormatoLibHDF5, FormatoLibSZ and FormatoLibAEC, embedded by Xcode in `Contents/Frameworks` and signed with the app's identity (the `FormatoKit_FormatoHDF5.bundle` resource folder of ad-hoc dylibs is gone); the harnesses point `MAC4DSTEM_HDF5_PATH` at the framework (`tools/lib/hdf5-dir.sh`). No number moves.
-- SpectroKit 0.4.0 -> 0.6.0 and FormatoKit 0.0.3 -> 0.3.0, re-pinned together (exact). Nothing in either kit moves a number the app reads; SpectroCore 0.5.3+ now exports `MaskTransport`, `PoolBuilder` and `TransportedLabels`, so for a time the two files that imported both modules had to name the app's own (`DSTEMCore.`); those copies are deleted (see the registration switch above). SpectroKit 0.5.0 changed the CSV export's default title to the neutral "Spectroscopy quantification"; the app passes its own ("mac4DSTEM Spectroscopy quantification"), so exports and the golden hashes are unchanged. NOTICE: the redistributed libhdf5, libaec and libsz are FormatoKit's 0.2.1 rebuild (minos 15.0; new hashes and sizes), not the 2026-08-25 Homebrew builds.
-- Reader switches onto the pinned kits (readers, hot-pixel filter, sidecar reads). Exact where it is data, written tolerance nowhere: no number moves.
-  - `H5Reader` reads through FormatoKit 0.5.0's `HDF5Reader` for discovery, attributes and strings (the app's own libhdf5 symbol wrapper, link collector and typed readers deleted; 1146 -> about 900 lines): one libhdf5 loader in the process, and the writer and the shim below use the kit's candidate list (`FORMATO_HDF5_PATH` first, then the host's Frameworks, then the bundled framework); `MAC4DSTEM_HDF5_PATH` is no longer read by the app. Pixel slabs are read as before: one file handle held for the reader's life, `H5Dread` into `H5T_NATIVE_FLOAT` (the kit's per-call open measured 1.5-6x slower per pattern and 1.45x the peak memory on Au_sim.h5; with the handle: 0.011 s against 0.010 s for 300 patterns, 122 MB against 120 MB). Marked shims (`HDF5LegacyProbe`, `HDF5SlabFile`, "delete at FormatoKit 0.6.0"): that slab read, the chunk shape, py4DSTEM's bool-enum `QR_flip`, and float16 datasets (slabs, scalars, dim vectors and origin maps all read through libhdf5's conversion; tested). float16 attributes (scalar or one-dimensional) are read by the kit (tested). Behaviour changes, all for hostile or odd files: a string attribute or dataset that is not UTF-8 is refused (it was repaired); a one-element attribute of rank 2 or more, and an unsigned 64-bit attribute above Int64.max, now read as absent (they were read); a variable-length string dataset is capped at 4 MiB (it was unbounded; fixed-length strings keep the 4095-byte cap); the link walk of discovery and probes costs one file open per group and link and walks the links as `H5Lvisit2` did: in name order, a group entered the first time any hard link reaches it (object identity, so an alias or a cycle is listed and not entered again, and the listed path is the first in that order), a soft or external link listed and not followed (tested: a cube four `data` groups deep, a hard-link cycle, an alias that sorts first).
-  - `MIBReader` reads through `FormatoMIB.MIBReader(.appScanXY)` and `EMPADReader` through `FormatoEMPAD` when its XML names the scan the way RosettaSciIO reads it. Kept in the app, marked "delete at FormatoKit 0.6.0": the former frame reads for a MIB the kit refuses (a header size other than 384 or 768, no width and height in the header, a detector that disagrees with its assembly; tested with a 512-byte header; the kit's reason is written to the activity log), and for EMPAD the XML with `scan_resolution_x/y` (the app's precedence over the kit's `pix_x/pix_y`, so a file with both is never transposed), a raw file the kit would resolve differently, and the raw-only square-scan fallback. The kit reads only an XML the app's parse cannot take; its disk watch is opened before it maps the file. The kit maps the files, so both readers run `MappingLiveness` before every read (`VendorRawError.volumeGone`). An EMPAD pixel calibration is still not imported.
-  - The hot-pixel filter is CuboCore's `HotPixelFilter.mask` and `replacing` (the app's 96-line copy deleted); the Double-accumulated mean stays (the kit's `filter()` accumulates in Float32). The kit refuses a non-finite mean, threshold or pixel where the app computed with it: `WriterError.hotPixelFilterNeedsFinitePixels` says "Switch the hot-pixel filter off or crop away non-finite pixels" (tested with a NaN source). Replacing the pixels of 1024 patterns of 256x256 took 0.09-0.10 s against 0.035-0.054 s (each pattern is copied once); against the I/O of an export it is negligible.
-  - Session sidecars are READ through `HDF5Reader` and, for the peak grid, `BraggVectorsEMD.read(.appImageXY)`. The refusals keep their wording. Restoring the stored peaks is stricter (FormatoKit's `BraggVectorsEMD.read`): the scan shape `Rshape` must be present and agree with the grid, and a non-scalar calibration entry refuses the grid (the session load refuses such a file by name anyway); a hostile `Qshape` (NaN, infinity, a huge number) is refused by name, tested. A refused open still says why, but in the system's words: "Permission denied", "Operation not permitted", libhdf5's "file signature not found" (the raw `errno = N` line of the HDF5 stack is gone; sidecar-error-detail-test checks the words). `BraggVectorEMDWriter.swift` (3191 lines) is split by concern (no behaviour change). The sidecar writes and `write(vectors:)` stay on the app's HDF5 binding (kit asks in `docs/open-items.md`).
-  - Not switched: `DM4Reader` (FormatoDM's `DM4Datacube` was 7.6x slower on a float32 whole-scan tile, refuses DM3 and a declared data length of 0, and always maps non-local volumes); asks in `docs/open-items.md`.
-- CI: the kit-module builds in `tools/lib/sources.manifest` use the swiftbuild backend explicitly (the runner's Swift 6.3.3 defaulted to the native one, which has no `out/Products/Release`), and the inventory job resolves the pins so the libhdf5 hash check runs.
-- Kits re-pinned: SpectroKit 0.7.0, FormatoKit 0.5.0, DiffractoKit 0.5.0, CuboKit 0.4.0, ImagoKit 0.2.0 (the phase-2 switches follow). No number moves (unit 2404 / 0, scientific 0, inventory 0). `tools/lib/sources.manifest` keys kit objects by file name so two kit builds of the same ImagoKit modules do not link twice.
-- Friedel origins and the beamstop mask are CuboKit 0.2.0's `FriedelOrigin` and `BeamstopMask` (the app's copies deleted), computed in Double instead of Float32. Measured on the friedel-origin-test fixture: clean origin (15.28615, 17.62265) -> (15.286150, 17.622649), masked (15.278842, 17.603392) -> (15.278841, 17.603392); the distance to py4DSTEM's origin fell from 1e-6 px to 2e-15 px; the beamstop mask stays pixel-identical (453 of 1024). No test tolerance changed. The kit refuses a beamstop mask with no pattern pixel (the app used to return an origin from noise). The app still fills non-finite pixels by their neighbour median before the kit sees them.
-- `BeamstopMask.make` (CuboKit 0.2.0) refuses what the app's copy let through: a NaN pattern, a threshold index equal to N, and a cleaned mask with no pixel outside the pattern. The Friedel `tiledRun` therefore throws where it used to return a mask. The review-row-24 Friedel test moved with the switch and now runs the whole `tiledRun` path, asserting 0.05 px on the fitted origin (it asserted 1e-4 on `FriedelOrigin.origin`); a new test with a bar beamstop fails if the mask inversion (`!`) in `tiledRun` is dropped.
-- The probe kernels are built by CuboKit's `CuboVirtual.ProbeKernel` (shift, normalisation, sine² trench, flat Fourier shift; Double) behind the app's `ProbeKernel` container, provenance and FFT, which stay. The app keeps the logistic disk of the synthetic kernel (pixel-centred; the kit's `SyntheticProbe` is half-pixel-centred for an odd detector side and changes sim_Au's candidate counts) and the cosine-shoulder mask of the measured sigmoid kernel (a recorded DEVIATION from py4DSTEM). Measured, Float -> Double rounding only (peak counts unchanged): disk-correlation-parity 128 x 128 intensity checksum 154.04683841811493 -> 154.0466591604054, correlation-maximum checksum 17.510809689760208 -> 17.510791689157486, position checksum 687538.0650752505 -> 687538.0648854703; 250 x 250 intensity 22.070654947310686 -> 22.070630181580782, correlation maximum 8.75485235452652 -> 8.75484350323677, position 144000.3197709527 -> 144000.31993879913 (baselines re-pinned on purpose: the old kernel normalised by a Float sum). No other pinned number moved.
-- The least squares under `OriginCalibration.fitOrigin` / `fitOriginTrimmed` is CuboKit's `OriginFit.fit` (Householder QR in Double) in place of the app's normal equations; the trim (median + 3 MAD rounds), `TrimmedFit` and the Metal measurement stay. Two edge behaviours follow the kit: a non-finite included measurement is left out of the fit instead of turning every fitted value NaN, and a large enough but collinear included set is projected where the app averaged (a scan one position wide or fewer included positions than model terms still gives the included mean). No pinned number moved.
-- ACOM's 1D FFT is ImagoKit 0.1.1's `ImagoFFT.FFT1D` (the app's copy deleted); ImagoKit re-pinned 0.1.0 -> 0.1.1 (now GPL-3.0). No number moves.
+- Embedding PCA components take the kit's sign (largest entry positive), so a saved embedding's maps and colours can
+  flip against earlier runs.
+- Parallax alignment moved from Float to Double correlation: group shifts at the finest levels can move by up to 0.17 px
+  on noisy, nearly aligned stacks (closer to planted truth: 0.038 px against 0.053 px).
+- iDPC, Friedel origins and the beamstop mask are computed in Double instead of Float32 (rounding-level differences).
+- A CIF that names its group by Hermann-Mauguin symbol alone and lists an incomplete operation set is refused.
+- The hot-pixel filter and the beamstop mask refuse a non-finite pattern with a sentence where they used to compute
+  with it.
 
 ## v4.5.0 — 2026-10-05
 
-**Requires macOS 27 on Apple Silicon**, as v4.0.0. Cut 2026-10-02 as 4.1.0 and never published; released as v4.5.0 as it stands (owner, 2026-10-05, ADR 052). This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
+**Requires macOS 27 on Apple Silicon**, as v4.0.0. Cut 2026-10-02 as 4.1.0 and never published; released as v4.5.0 as it stands (owner, 2026-10-05). This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
 
 ### Workspaces and data
 
@@ -170,9 +111,9 @@ the same room macTEM 1.0 ships, joined to the 4D scan.
 
 ### Science changes (numbers can move)
 
-- **Default disk-detection floor 0.5 % → 0.15 %**, a documented deviation from py4DSTEM (ADR 041).
-- **R–Q rotation is shown and written in py4DSTEM's convention** (ADR 040). Exports made before 2026-09-28 say the sign is unrecorded.
-- **Areal precipitate density is edge-corrected** (Miles–Lantuéjoul, ADR 045). The map is unvalidated.
+- **Default disk-detection floor 0.5 % → 0.15 %**, a documented deviation from py4DSTEM.
+- **R–Q rotation is shown and written in py4DSTEM's convention**. Exports made before 2026-09-28 say the sign is unrecorded.
+- **Areal precipitate density is edge-corrected** (Miles–Lantuéjoul). The map is unvalidated.
 - Parallax: the bin schedule repeats the finest bin; the aligned-BF vignette is fixed; the stack mean is summed in Double. Ptychography re-centres on the fitted origin, clamps |O| ≤ 1 by default, and loses its difference map and "Take higher-order terms".
 - Strain: a circle ROI is centred; empty positions are out of the median; non-finite pixels are filled; central-beam-only positions no longer enter the strain basis.
 - Learned detector above 256 px: seam margins and one dose scale. Odd-N DFT upsampling wrap fixed. Bin-2 aperture default.
@@ -192,8 +133,8 @@ the same room macTEM 1.0 ships, joined to the 4D scan.
 
 ### Found by the pre-release review (2026-10-02)
 
-A whole-app review before this release (six independent reviewers, each finding checked by a second model;
-`../_archive/mac4DSTEM/docs/archive/v4/prerelease-review-2026-10-02/`) found these, all fixed with a test that fails without the fix:
+A whole-app review before this release (six independent reviewers, each finding checked by a second model)
+found these, all fixed with a test that fails without the fix:
 
 - **Your data.** The dataset itself could be chosen as the destination of a first session save, Change Session
   Sidecar… or Export Bundle and be replaced; it is now refused. A session file that HDF5 could not open (for example
@@ -218,8 +159,7 @@ A whole-app review before this release (six independent reviewers, each finding 
 
 ### Polish before release (2026-10-04)
 
-Rough edges left after the review, each fixed with a test that fails without it and checked by a second model
-(`../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/`):
+Rough edges left after the review, each fixed with a test that fails without it and checked by a second model:
 
 - The status strip shows the app's memory (Activity Monitor's Memory column), not the pages of a memory-mapped cube
   (it read 23.1 GB for a 15.8 GiB cube). Open Dataset… and Preprocess Raw Data… work with no dataset window open — they
@@ -250,13 +190,13 @@ Rough edges left after the review, each fixed with a test that fails without it 
 
 ### Known limitations
 
-- **Phase mapping and everything derived from it are unvalidated.** The first scored run failed one metric (θ′ edge-on speckle 7, bar 5); the quantity ships, not a verdict (ADR 048).
+- **Phase mapping and everything derived from it are unvalidated.** The first scored run failed one metric (θ′ edge-on speckle 7, bar 5); the quantity ships, not a verdict.
 - Known-crystal Q reads the (200) ring as (111) on an Al [001] majority, 12.5–13.5 % low; the shell ratio is shown beside it.
 - ACOM's in-plane map mixes the mirrored +π convention; the export has no per-pixel flag.
 - A crash right after Compute Strain was seen once (a layout loop inside the toolbar) and not reproduced in 12,000 stress cycles; the cause is not established.
 - `scan.dm4` and `scan.h5` in one folder share one session file (named from the stem), so opening one can adopt the other's calibration (owner's decision for this release).
 - Unverified on screen: Train Model…. Room switches still have gaps: Imaging can keep showing another room's map (Go to Imaging can show the Bragg vector map), Strain or Orientation can read "No Result Yet" while their result is held, Imaging reads "No Result Yet" after another room cleared its image until an aperture edit, and the ptychography pane can be titled "Parallax aligned BF" before a run (seen 2026-10-04; deferred).
-- **Velox `.emd` files are not supported** (EDX is v5.0, ADR 052): the reader opens a Velox file as a meaningless one-row cube built from its HAADF image stack (reproduced at the reader on 9 of 10 public Velox test files, 2026-10-05, not driven in the app; a single-spectrum file is refused).
+- **Velox `.emd` files are not supported** (EDX is v5.0): the reader opens a Velox file as a meaningless one-row cube built from its HAADF image stack (reproduced at the reader on 9 of 10 public Velox test files, 2026-10-05, not driven in the app; a single-spectrum file is refused).
 - After a save that relabels a view, a reopen can restore stored Bragg disks from the earlier view at the new view's positions (same shape, other offset).
 - A 2H-WS₂-type reference shell on a [0001] zone can pick an invisible (0002) ring, a predicted 2.26× Q mis-scale with no warning.
 - Small: the ptychography seed line cuts at "defo…" (hover shows it); the ACOM Q read-out uses a decimal point beside comma fields; shrinking the window to its floor can collapse the sidebar for good.
@@ -266,7 +206,7 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - Quitting waits for a file read in flight: seconds from an internal SSD, longer from a slow external drive.
 - A disk disconnected at the very instant a DM4 read is in flight can still crash the app.
 - Macs without a Neural Engine cannot run the learned detector. The Neural Engine return was measured on one Mac (M5 Pro, macOS 27.0.1).
-- A Q edit still deletes the ACOM map instead of marking it stale, and Clear Calibration records no calibration node (open-items, 2026-09-30 register residuals).
+- A Q edit still deletes the ACOM map instead of marking it stale, and Clear Calibration records no calibration node.
 - Preprocess deviations from py4DSTEM: the bin sum order is not bit-identical with numpy's float32, and the hot-pixel filter's mean is Double where numpy's is float32.
 
 ## v4.0.0 — 2026-09-23
@@ -327,11 +267,10 @@ gates; "unverified on screen" means exactly that.
   no logic changed, 17 members widened from `private` for the move.
 - **AppState seams 1–4.** Phase contrast, ACOM, disk detection and DPC state
   moved to feature owners; their cross-owner orchestration moved to focused
-  extensions. AppState.swift 4699 → 3676; details and gates are retained in
-  `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
+  extensions. AppState.swift 4699 → 3676; All four were later owner-driven with seam 5.
 - **AppState seam 5: `ResultPresentation`.** Shared product/display state moved to one owner and cross-owner orchestration to `AppState+ResultPresentation.swift`; AppState.swift 3676 → 3240. Seven tests pin version bumps; unit 727/0/2 and rotation/strain-frame parity passed; the owner drove `sim_Au` normally.
 - **AppState seam 6: `DatasetSession`.** Reader/array, datasets, preview, loading state and stale-publish epoch moved to one owner and lifecycle orchestration to `AppState+DatasetSession.swift`; AppState.swift 3240 → 3054. Five tests pin ownership/epoch; unit 732/0/2 passed; the owner drove open → switch dataset → reopen ignoring sidecar normally.
-- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md` are now landed; not yet driven on screen.
+- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven AppState seams are now landed; not yet driven on screen.
 
 ### Known limitations
 
@@ -339,8 +278,8 @@ gates; "unverified on screen" means exactly that.
   in the app until they pass on a dataset with truth.
 - **Unverified on screen:** the Friedel origin method, the vacuum-scan probe,
   the Materials Project importer's first live fetch, light mode on a real cube.
-- **Deferred to the next cut (owner, 2026-09-22):** the release-readiness
-  Gate D items listed in `docs/status.md`.
+- **Deferred to the next cut (owner, 2026-09-22):** the remaining
+  release-readiness checks.
 - At the 915-pt minimum window width a long file name can push the toolbar's
   centre display out, and the toolbar's buttons then shift left.
 
@@ -362,9 +301,7 @@ section rather than left for a user to discover.
   **0.768 / 0.712** against the classical detector's **0.487 / 0.485** on the
   same set. Raising the threshold to 0.9 trades recall for precision —
   **0.667 / 0.840** — and the whole sweep is in the evidence. Speed on the same
-  cube is **1.44–1.64x** the classical path. Pre-registered before it was built,
-  verdict recorded in `docs/decisions.md`; the evidence is
-  `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`.
+  cube is **1.44–1.64x** the classical path. Pre-registered before it was built.
 - **No third-party model weights are distributed.** The model spec ships in the
   repository and its asset tree is hashed by the `unit` gate
   (`LearnedDiskDetectorTests.testCommittedAssetHashMatchesItsRecordAndTheFixture`),
@@ -465,8 +402,7 @@ section rather than left for a user to discover.
   screen. The default itself is unchanged: measured on six training cubes,
   moving the reference to the brightest disk floods noise (WS₂ 1 → 45 peaks
   per position where ~13 are disks; sim_Au and MgO saturate the 70-peak cap),
-  so the remedy stays a lower threshold per dataset
-  (`../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`).
+  so the remedy stays a lower threshold per dataset.
 - **The diffraction origin is measured where the beam is.** The per-pattern
   centre of mass took one pass in a window of 1.2 × the probe radius around a
   coarse block centre; on a small beam the window could not reach it and
@@ -474,7 +410,7 @@ section rather than left for a user to discover.
   63.74, which every radius, Q scale and strain number then carried). The
   window now recentres on its own estimate and is never smaller than the
   probe radius plus 1.5 px, so the beam's soft edge is inside it (Gate D
-  and Gate B, `../_archive/mac4DSTEM/docs/q-calibration-design.md` §9). How far an origin moves
+  and Gate B). How far an origin moves
   depends on where the beam sat in the coarse block grid, not on the disk
   size: across ten training cubes the mean origin shifts between 0.001 px
   and 0.77 px, single patterns by up to 1.3 px, and the new values track an
@@ -492,8 +428,7 @@ section rather than left for a user to discover.
   same spoke almost everywhere — a small origin offset makes one side of the
   ring read short — so the pixel size came out 2.1 % high on the WS₂ training
   set; the cluster mean cancels the offset for a symmetric set and agrees
-  with the file's second shell to 0.001 px (Gate D and B,
-  `../_archive/mac4DSTEM/docs/q-calibration-design.md` §8). The estimate reports how many peaks it
+  with the file's second shell to 0.001 px (Gate D and B). The estimate reports how many peaks it
   averaged. Known limit: on a single crystal whose Friedel pairs differ in
   radius the band can truncate the cluster (recorded).
 - **A recipe cannot replay against the wrong CIF.** Imported phase models are
@@ -528,8 +463,7 @@ section rather than left for a user to discover.
   py4DSTEM's reader loads the same file swapped, with pixel units (inline
   `DEVIATION`). **Whether the pattern's x and y are the right way round for
   this layout is not yet established** — the tags' x-first convention says
-  448 wide, the reader currently says 480 wide — and is a Gate D item in
-  `docs/open-items.md` awaiting the owner's GMS observation. A full-cube read
+  448 wide, the reader currently says 480 wide — and awaits a check against GMS. A full-cube read
   of that file went from 19 s to under a second (a blocked transpose replaced
   the pattern-at-a-time gather). A DM4 whose four axis units cannot name one
   real and one reciprocal pair opens in the legacy layout with NO pixel
@@ -551,8 +485,7 @@ section rather than left for a user to discover.
   rank-3 array still opens as one scan row, as before, and the v2.5.1 sidecar
   location guard stays. Gated by the new `tools/harnesses/datacube-discovery-test`
   harness (27 fixtures) and five unit tests. The unit gate passed with
-  463/0/1 and the scientific gate passed all 43 harnesses on 2026-09-05;
-  the closed item is recorded in `../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`.
+  463/0/1 and the scientific gate passed all 43 harnesses on 2026-09-05.
 - **A rank-3 EMD file's pixel sizes were read from the wrong axes.** For a
   file stored as (N, Qy, Qx) the reader took the detector spacing as the
   real-space pixel size and found no Q size; it now reads the scan axis and the
@@ -568,11 +501,11 @@ Stated here because a user should not have to find them.
   asking for 8.2 GB and 11.6 GB of working set against a 1.07 GB limit — the
   refusal is correct and names its remedy (crop or bin first), but whether
   those estimates are right has not been established, and no run on a machine
-  with more memory has happened. `docs/open-items.md`.
+  with more memory has happened.
 - **VoiceOver is not supported.** Resolving an accessibility label crashes the
   app (a stack overflow inside SwiftUI's own label resolution). It affects any
   client that reads the accessibility tree, including UI automation. Deferred
-  by the owner's decision of 2026-09-11, recorded in `docs/decisions.md`.
+  by the owner's decision of 2026-09-11.
 - **Session sidecars written before 2026-09-11 keep the quantitative badge they
   were saved with.** The origin verdict that badge should depend on was not
   recorded before then and cannot be reconstructed, so older results are left
@@ -586,8 +519,7 @@ Stated here because a user should not have to find them.
   `origin_reference_is_measured` in the Info panel or the exported keys before
   relying on the badge. A fix was written for 3.0.0 and **rejected by the
   project's own adversarial review** — it changed no behaviour — so it was
-  reverted rather than shipped looking like a fix
-  (`../_archive/mac4DSTEM/docs/archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
+  reverted rather than shipped looking like a fix.
 - **macOS 14–25 is compile-verified, never executed.** Every machine here runs
   26. The first report from an older system is the test.
 - **Opening a dataset by double-click is new and has not been driven on screen.**
@@ -634,8 +566,8 @@ release night.
   sidecar directly — easy to do, since it sorts next to the dataset in the open
   panel — could return a saved RGBA orientation map as though it were the data,
   with a four-pixel detector, instead of saying what the file is. It now names
-  the file and points at its dataset. The wider class behind this is recorded
-  in `docs/open-items.md` and is not yet fixed: discovery still accepts any
+  the file and points at its dataset. The wider class behind this is
+  not yet fixed: discovery still accepts any
   rank-3 array as a datacube.
 
 ### Verified by
@@ -722,7 +654,7 @@ full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was named
   claim it.** `tools/run-tests.sh all` ran on the release tree (2026-09-04,
   retained log) and **exited 1**: unit and 42 scientific harnesses green, then
   a failure in `real-data-acceptance` on a session-sidecar file — a defect that
-  predates this release and is recorded, undiagnosed, in `docs/open-items.md`.
+  predates this release and is not yet diagnosed.
   `tools/harnesses/package-test/run.sh` is sequenced after that step and did not run in
   that pass.
 - **What this release IS gated on**, both re-run on the final tree and each
@@ -751,8 +683,7 @@ full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was named
   SHA-256 `d55821a11dde44b6fc2d1337f43b5eb3ec2342fe6374d0dcc3f72d13ee234c75`.
 - Superseded and never released: builds from `df80e8e`, `b026cd7` and `749dbb2`
   (2026-09-03). The first was notarized but carried the AppKit UI retired the
-  next day in `d5786e2`. Their provenance is in `../_archive/mac4DSTEM/docs/archive/v2/`.
-  Known issues ship listed in `docs/open-items.md`.
+  next day in `d5786e2`. Known issues are listed under Known limitations.
 
 ## v1.0.0 — 2026-08-06
 
@@ -819,8 +750,7 @@ baseline exists. Every playthrough run to date used `--no-screenshots`, so the
 acceptance evidence for v1.0.0 is numeric only — the numbers the app reports
 through its own controls, not what it draws. Creating that baseline needs
 Screen Recording granted to the ad-hoc-signed test runner; it was deliberately
-deferred rather than faked, and it is the first entry in
-[`docs/open-items.md`](docs/open-items.md).
+deferred rather than faked.
 
 ### Fixed at the close of the phase (2026-08-06)
 
@@ -830,8 +760,7 @@ deferred rather than faked, and it is the first entry in
   export, reopen and the QC log. `calibrateQFromCrystal` now refuses on the same
   predicate the Prepare readiness row uses, so the badge, the app's behaviour
   and the parity records cannot disagree. The underlying estimator is *not*
-  fixed and is fragile to origin error well below that threshold — recorded in
-  [`../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md`](../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md) as a deliberate scope
+  fixed and is fragile to origin error well below that threshold — a deliberate scope
   decision, not an oversight.
 - **The Result colormap was unreachable from the Results workspace**, the one
   screen built for looking at results.
@@ -849,14 +778,4 @@ remain release-owner actions.
 ### Deliberately out of scope
 
 Cropping and partial/binned loading, multi-slice ptychography, and a WS₂ crystal
-model. See [`../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md`](../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md).
-
----
-
-## Working notes
-
-The v1.0 development phase's item-level record — 46 numbered findings, the
-design passes, and the QC-evaluation prompts — is archived under
-[`../_archive/mac4DSTEM/docs/archive/v1.0/`](../_archive/mac4DSTEM/docs/archive/v1.0/). It is history, not guidance; nothing
-in the current docs points into it. `docs/open-items.md` carries forward only
-what is still live.
+model.

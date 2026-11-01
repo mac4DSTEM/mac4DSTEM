@@ -1,7 +1,7 @@
 //
 //  LearnedDetection.swift
-//  Role: this file's seam (../_archive/mac4DSTEM/docs/registrations/learned-detector-preregistration-2026-09-07.md,
-//        ../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — the one owner
+//  Role: this file's seam (the archived notes,
+//        the archived notes §7) — the one owner
 //        of the learned-vs-classical detector option, the learned pick
 //        threshold, the probe image the learned path needs, the loaded
 //        `LearnedDiskDetector`, and the two runs a disagreement map
@@ -121,6 +121,17 @@ package final class LearnedDetectionSession {
 
     /// Called by `clear()`: the app layer drops what belongs to the dataset (a pending fine-tuning review).
     @ObservationIgnored package var onDatasetCleared: (() -> Void)?
+
+    /// The bundled package's tree hash, read once from its files (about 0.6 MB) and kept: the same number a
+    /// load computes (`LearnedDiskDetector.sha256(ofAsset:)`), known without loading. Nil when this build has
+    /// no bundled model or its files cannot be read.
+    package static var bundledAssetSHA256: String? {
+        if let cached = bundledAssetSHA256Cache { return cached }
+        let sha = LearnedDiskDetector.bundledAssetURL().flatMap { try? LearnedDiskDetector.sha256(ofAsset: $0) }
+        bundledAssetSHA256Cache = .some(sha)
+        return sha
+    }
+    private static var bundledAssetSHA256Cache: String??
 
     /// "bundled" or "fine-tuned": what `learned_model_origin` records.
     package var modelOrigin: String { activeModel?.origin ?? ActiveModel.originBundled }
@@ -279,7 +290,10 @@ package final class LearnedDetectionSession {
         var params = ["detector_class": detectorClass.provenanceID]
         if detectorClass == .learned {
             params["learned_threshold"] = String(used ?? threshold)
-            params["learned_model_sha256"] = model?.assetSHA256 ?? assetSHA256 ?? ""
+            // Before any model has loaded, the bundled one's identity is read from its files (as a stored model's
+            // comes from its record), so a signature asked then does not read learned disks stale on an empty hash.
+            params["learned_model_sha256"] = model?.assetSHA256 ?? assetSHA256
+                ?? (activeModel == nil ? Self.bundledAssetSHA256 : nil) ?? ""
             // Only a fine-tuned model adds keys: with the bundled model the
             // signature stays byte-identical to the one every session before
             // 2026-09-30 recorded, so those disks do not turn stale.

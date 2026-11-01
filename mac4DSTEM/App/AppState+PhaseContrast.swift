@@ -21,7 +21,6 @@ import struct CuboParallax.ParallaxAberrationTerm
 import enum CuboParallax.ParallaxAberrationFitMethod
 #endif
 
-
 extension AppState {
     /// The working limit every phase-contrast stage refuses above: half of RAM less the cube the user chose to keep in
     /// memory (`DatasetResidency.byteCount`, 0 when streamed) and less what earlier stages still hold
@@ -79,11 +78,18 @@ extension AppState {
     /// First parallax slice: build and preview py4DSTEM's normalized virtual-BF
     /// stack and incoherent BF initialization. No iterative reconstruction is
     /// performed or implied by this operation.
-    func prepareParallaxPreview() async {
+    ///
+    /// Every parallax stage returns the typed run verdict (`runVirtualDetector`'s
+    /// note) and, when it publishes, rewrites the task's one replay step from
+    /// what is held then (`recordParallaxStep`).
+    @discardableResult
+    func prepareParallaxPreview(replaying: Bool = false) async -> AnalysisRunOutcome {
         // The view the array actually reads, not a descriptor assembled beside
         // it: a crop and the shape it produces must travel together.
         guard let source = datasetSession.reader,
-              let fourD = datasetSession.fourD, let descriptor else { return }
+              let fourD = datasetSession.fourD, let descriptor else {
+            return .failed("Open a 4D dataset before parallax preprocessing.")
+        }
         let view = fourD.view
         let physical: ParallaxPhysicalCalibration
         do {
@@ -95,10 +101,15 @@ extension AppState {
             )
         } catch {
             presentPhaseContrastFailure(error)
-            return
+            return .failed(error.localizedDescription)
         }
 
         let epoch = datasetSession.epoch
+        // Refused before the release below: a refused run must not discard the parallax products it would replace.
+        guard !promoteRunRefusesUserRuns else {
+            statusText = "Parallax preprocessing not started — the promote run is replaying the recipe; wait for it, or cancel it first"
+            return .failed(statusText)
+        }
         let release = releaseParallaxProductsForPreview()
         let token = beginCancellableOperation(
             "Parallax preprocessing", status: "Preparing virtual-BF stack…",
@@ -120,8 +131,8 @@ extension AppState {
                 source: source, view: view, calibration: physical, options: preprocessOptions,
                 cancellation: token, progress: progressUpdate
             )
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.parallaxPreprocess = result
             phaseContrast.parallaxAlignment = nil
             showParallaxProduct(.preprocess)   // one publish site
@@ -137,42 +148,58 @@ extension AppState {
                 result.maximumProbeAngleMrad,
                 result.initialError
             )
+            recordParallaxStep(replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch ParallaxPreprocessor.PreprocessError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = release.releasedPreview
                 ? "Parallax preprocessing cancelled; the previous preview was released"
                 : "Parallax preprocessing cancelled"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
+    }
+
+    /// Rewrite parallax's one replay step from what the task holds now
+    /// (`PhaseContrastProduct.parallaxReplayPlan`): every stage calls this
+    /// after it publishes, so a re-run earlier stage drops the later ones its
+    /// cascade cleared. A replayed stage records nothing (`recordReplayStep`).
+    func recordParallaxStep(replaying: Bool, stampsDisplayedProduct: Bool) {
+        guard let plan = phaseContrast.parallaxReplayPlan else { return }
+        recordReplayStep(kind: "parallax", parameters: plan.recordedParameters,
+                         replaying: replaying, stampsDisplayedProduct: stampsDisplayedProduct)
     }
 
     /// Run the next source-locked coarse-to-fine bin with factor-8 matrix-DFT
     /// correlation. The last completed level remains published until the next
     /// one succeeds and passes the operation/dataset publication guards.
-    func alignParallaxNextLevel() async {
+    @discardableResult
+    func alignParallaxNextLevel(replaying: Bool = false) async -> AnalysisRunOutcome {
+        func refuse(_ error: Error) -> AnalysisRunOutcome {
+            presentComputeFailure(error)
+            return .failed(error.localizedDescription)
+        }
         guard let preprocessing = phaseContrast.parallaxPreprocess else {
-            presentComputeFailure(SimpleError("Prepare the parallax preview before alignment."))
-            return
+            return refuse(SimpleError("Prepare the parallax preview before alignment."))
         }
         let schedule = ParallaxAligner.defaultBinSchedule(
             detectorIndices: preprocessing.detectorIndices
         )
         guard !schedule.isEmpty else {
-            presentComputeFailure(SimpleError("The bright-field mask cannot form an alignment level."))
-            return
+            return refuse(SimpleError("The bright-field mask cannot form an alignment level."))
         }
         let completed = phaseContrast.parallaxAlignment?.completedBins ?? []
         guard completed.count < schedule.count else {
-            presentComputeFailure(ParallaxAligner.AlignmentError.alignmentComplete)
-            return
+            return refuse(ParallaxAligner.AlignmentError.alignmentComplete)
         }
         let bin = schedule[completed.count]
         guard phaseContrast.parallaxAlignment == nil
                 || Array(schedule.prefix(completed.count)) == completed else {
-            presentComputeFailure(SimpleError("Reset the stale parallax alignment before continuing."))
-            return
+            return refuse(SimpleError("Reset the stale parallax alignment before continuing."))
         }
         let groups = ParallaxAligner.groups(
             detectorIndices: preprocessing.detectorIndices, alignmentBin: bin
@@ -205,8 +232,8 @@ extension AppState {
                     cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.parallaxAlignment = result
             showParallaxProduct(.alignment)   // one publish site
             resultPresentation.resultGamma = 1
@@ -222,12 +249,17 @@ extension AppState {
                 result.currentError,
                 result.isComplete ? " · schedule complete" : ""
             )
+            recordParallaxStep(replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch ParallaxAligner.AlignmentError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error, heldBytes: alignmentHeldBytes)
+            return .failed(error.localizedDescription)
         }
     }
 
@@ -240,13 +272,24 @@ extension AppState {
         resultPresentation.displayRangeHi = 1
         resultPresentation.bumpResultVersion()
         statusText = "Parallax alignment reset to the preprocessed preview"
+        // The reset drops every stage after the preprocess (`PhaseContrastProduct`'s cascades) with no stage
+        // publishing after it: rewrite the step, or a promote would replay the alignment the user threw away.
+        recordParallaxStep(replaying: false, stampsDisplayedProduct: true)
     }
 
-    func fitParallaxAberrations() {
+    @discardableResult
+    func fitParallaxAberrations(replaying: Bool = false) -> AnalysisRunOutcome {
         guard let preprocessing = phaseContrast.parallaxPreprocess,
               let alignment = phaseContrast.parallaxAlignment else {
-            presentComputeFailure(SimpleError("Complete parallax preprocessing and alignment first."))
-            return
+            let reason = "Complete parallax preprocessing and alignment first."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
+        }
+        // Synchronous, so it takes no operation and `isBusy` does not hold it off between replayed steps;
+        // a fit now records, and mid-promote it would write the recipe and clear the replayed later stages.
+        guard !promoteRunRefusesUserRuns else {
+            statusText = "Aberration fit not started — the promote run is replaying the recipe; wait for it, or cancel it first"
+            return .failed(statusText)
         }
         let began = ContinuousClock.now
         do {
@@ -264,17 +307,27 @@ extension AppState {
                 result.terms.count,
                 RQRotationConvention.degreesText(result.lowOrder.rotationRad * 180 / .pi, decimals: 2)
             )
+            // The fit publishes no image. The parallax image on screen names the new step only while its
+            // stage is still held: a re-fit drops the correction and the depth sections, and a map of either
+            // left on screen must not be credited to a step that no longer carries that stage.
+            recordParallaxStep(replaying: replaying,
+                               stampsDisplayedProduct: availableParallaxProducts.contains(phaseContrast.parallaxResultProduct))
+            return .published
         } catch {
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 
-    func upsampleParallaxBF() async {
+    @discardableResult
+    func upsampleParallaxBF(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let preprocessing = phaseContrast.parallaxPreprocess,
               let alignment = phaseContrast.parallaxAlignment, alignment.isComplete else {
-            presentComputeFailure(SimpleError("Complete parallax alignment before KDE upsampling."))
-            return
+            let reason = "Complete parallax alignment before KDE upsampling."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
+        let controls = phaseContrast.parallaxSubpixelSettings
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax KDE", status: "Upsampling aligned virtual-BF images…",
@@ -284,15 +337,14 @@ extension AppState {
         do {
             var options = ParallaxSubpixelOptions()
             options.maxWorkingBytes = phaseContrastWorkingLimitBytes
-            options.upsampleFactor = phaseContrast.parallaxKDEUpsampleFactor > 0
-                ? phaseContrast.parallaxKDEUpsampleFactor : nil
-            options.kdeSigmaPixels = phaseContrast.parallaxKDESigmaPixels
-            options.lowpassFilter = phaseContrast.parallaxKDELowpass
-            options.lanczosOrder = phaseContrast.parallaxKDELanczosOrder > 0
-                ? phaseContrast.parallaxKDELanczosOrder : nil
-            options.positionCorrectionIterations = phaseContrast.parallaxPositionCorrectionIterations > 0
-                ? phaseContrast.parallaxPositionCorrectionIterations : nil
-            options.positionCorrectionCheckerboard = phaseContrast.parallaxPositionCorrectionCheckerboard
+            // From `controls`, read once above: the record says what this run was handed.
+            options.upsampleFactor = controls.upsampleFactor > 0 ? controls.upsampleFactor : nil
+            options.kdeSigmaPixels = controls.kdeSigmaPixels
+            options.lowpassFilter = controls.lowpass
+            options.lanczosOrder = controls.lanczosOrder > 0 ? controls.lanczosOrder : nil
+            options.positionCorrectionIterations = controls.positionCorrectionIterations > 0
+                ? controls.positionCorrectionIterations : nil
+            options.positionCorrectionCheckerboard = controls.positionCorrectionCheckerboard
             let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
@@ -307,9 +359,10 @@ extension AppState {
                     options: options, cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.parallaxSubpixel = result
+            phaseContrast.parallaxSubpixelControls = controls
             showParallaxProduct(.subpixel)   // one publish site
             resultPresentation.resultGamma = 1
             resultPresentation.displayRangeLo = 0
@@ -322,45 +375,54 @@ extension AppState {
                 result.positionCorrectionScores.isEmpty
                     ? "" : " · position corrected"
             )
+            recordParallaxStep(replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch ParallaxSubpixelReconstructor.ReconstructionError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Parallax KDE cancelled; aligned result retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 
-    func computeParallaxDepthSections() async {
+    @discardableResult
+    func computeParallaxDepthSections(replaying: Bool = false) async -> AnalysisRunOutcome {
+        func refuse(_ reason: String) -> AnalysisRunOutcome {
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
+        }
         guard let preprocessing = phaseContrast.parallaxPreprocess,
               let alignment = phaseContrast.parallaxAlignment,
               let fit = phaseContrast.parallaxHigherOrderFit else {
-            presentComputeFailure(SimpleError("Fit parallax aberrations before depth sectioning."))
-            return
+            return refuse("Fit parallax aberrations before depth sectioning.")
         }
-        guard phaseContrast.parallaxDepthPlaneCount > 0, phaseContrast.parallaxDepthPlaneCount <= 257,
-              phaseContrast.parallaxDepthStartAngstrom.isFinite,
-              phaseContrast.parallaxDepthEndAngstrom.isFinite else {
-            presentComputeFailure(SimpleError("Use 1–257 finite parallax depth planes."))
-            return
+        // Read once: the options below and the record are this one value.
+        let controls = phaseContrast.parallaxDepthSettings
+        guard controls.planeCount > 0, controls.planeCount <= 257,
+              controls.startAngstrom.isFinite, controls.endAngstrom.isFinite else {
+            return refuse("Use 1–257 finite parallax depth planes.")
         }
         let depths: [Double]
-        if phaseContrast.parallaxDepthPlaneCount == 1 {
-            depths = [phaseContrast.parallaxDepthStartAngstrom]
+        if controls.planeCount == 1 {
+            depths = [controls.startAngstrom]
         } else {
-            depths = (0..<phaseContrast.parallaxDepthPlaneCount).map { index in
-                phaseContrast.parallaxDepthStartAngstrom
-                    + (phaseContrast.parallaxDepthEndAngstrom - phaseContrast.parallaxDepthStartAngstrom)
-                    * Double(index) / Double(phaseContrast.parallaxDepthPlaneCount - 1)
+            depths = (0..<controls.planeCount).map { index in
+                controls.startAngstrom
+                    + (controls.endAngstrom - controls.startAngstrom)
+                    * Double(index) / Double(controls.planeCount - 1)
             }
         }
         var options = ParallaxDepthOptions()
         options.maxWorkingBytes = phaseContrastWorkingLimitBytes
         options.depthsAngstrom = depths
-        options.useFullFit = phaseContrast.parallaxDepthUseFullFit
-        options.informationLimitInvAngstrom = phaseContrast.parallaxDepthInformationLimit > 0
-            ? phaseContrast.parallaxDepthInformationLimit : nil
-        options.informationPower = phaseContrast.parallaxDepthInformationPower
+        options.useFullFit = controls.useFullFit
+        options.informationLimitInvAngstrom = controls.informationLimitInvAngstrom > 0
+            ? controls.informationLimitInvAngstrom : nil
+        options.informationPower = controls.informationPower
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax depth sectioning", status: "Computing depth planes…",
@@ -382,30 +444,42 @@ extension AppState {
                     options: options, cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.parallaxDepth = result
+            phaseContrast.parallaxDepthControls = controls
             phaseContrast.parallaxDepthSelectedIndex = depths.indices.min {
                 abs(depths[$0]) < abs(depths[$1])
             } ?? 0
             showParallaxProduct(.depth)
             statusText = "Parallax depth sectioning ✓  \(depths.count) planes"
+            recordParallaxStep(replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch ParallaxDepthSectioner.DepthError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Parallax depth sectioning cancelled; prior products retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 
-    func runSingleslicePtychography() async {
+    /// Returns the typed run verdict (`runVirtualDetector`'s note); a published
+    /// run records its replay step (`PtychographyReplayPlan.recordedParameters`)
+    /// from what it ran with: the options it handed the reconstructor, the
+    /// probe `prepare` received, the probe radius and the resolved calibration.
+    @discardableResult
+    func runSingleslicePtychography(replaying: Bool = false) async -> AnalysisRunOutcome {
         // As in `prepareParallaxPreview`: take the view from the array, so the
         // reader is told where the shape it is given sits in the file.
         guard let source = datasetSession.reader,
               let fourD = datasetSession.fourD, let descriptor else {
-            presentComputeFailure(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
-            return
+            let reason = "Open a 4D dataset before ptychographic reconstruction."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         let view = fourD.view
         let physical: ParallaxPhysicalCalibration
@@ -417,8 +491,9 @@ extension AppState {
             )
         } catch {
             presentPhaseContrastFailure(error)
-            return
+            return .failed(error.localizedDescription)
         }
+        let probeRadiusPixels = aperture.outer
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
@@ -440,7 +515,7 @@ extension AppState {
             prepareOptions.maxResidentBytes = phaseContrastWorkingLimitBytes
             let input = try await PtychographyPreparer.prepare(
                 source: source, view: view, calibration: physical,
-                probeRadiusPixels: aperture.outer, aberrations: aberrations, options: prepareOptions,
+                probeRadiusPixels: probeRadiusPixels, aberrations: aberrations, options: prepareOptions,
                 cancellation: token, progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
@@ -469,8 +544,8 @@ extension AppState {
                     progress: reconstructProgress
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
             // What the run started from is read back from the RESULT (the input `prepare` built), not from the settings, so a
@@ -480,12 +555,24 @@ extension AppState {
                 result.probeAberrations.defocusAngstrom,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
+            // Recipe step, after the publish (as DPC): the product on screen is this run's. The probe's higher-order terms are
+            // not carried: no control fills them (`PtychographySettings.setProbe`), so they are empty on every run.
+            recordReplayStep(
+                kind: "ptychography",
+                parameters: ReplayStepPlan.PtychographyReplayPlan.recordedParameters(
+                    settings: .init(options: result.options, probe: result.probeAberrations),
+                    probeRadiusPixels: probeRadiusPixels, calibration: physical),
+                replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch PtychographyReconstructor.ReconstructionError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Single-slice ptychography cancelled; prior result retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
     }
 
@@ -591,12 +678,14 @@ extension AppState {
         showParallaxProduct(.depth)
     }
 
-    func correctParallaxPhase() async {
+    @discardableResult
+    func correctParallaxPhase(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let preprocessing = phaseContrast.parallaxPreprocess,
               let alignment = phaseContrast.parallaxAlignment,
               let fit = phaseContrast.parallaxHigherOrderFit else {
-            presentComputeFailure(SimpleError("Fit parallax aberrations before phase correction."))
-            return
+            let reason = "Fit parallax aberrations before phase correction."
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
@@ -617,8 +706,8 @@ extension AppState {
                     fit: fit, options: options, cancellation: token
                 )
             }.value
-            guard isCurrentOperation(token), datasetSession.epoch == epoch,
-                  !token.isCancelled else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token), !token.isCancelled else { return .cancelled }
             phaseContrast.parallaxCorrection = result
             showParallaxProduct(.correctedPhase)   // one publish site
             resultPresentation.resultGamma = 1
@@ -626,13 +715,62 @@ extension AppState {
             resultPresentation.displayRangeHi = 1
             resultPresentation.bumpResultVersion()
             statusText = "Parallax phase correction ✓  full fitted CTF · DC removed"
+            // The filters are recorded from the result, which carries them as run.
+            recordParallaxStep(replaying: replaying, stampsDisplayedProduct: true)
+            return .published
         } catch ParallaxAberrationCorrector.CorrectionError.cancelled {
-            guard isCurrentOperation(token) else { return }
+            guard isCurrentOperation(token) else { return .cancelled }
             statusText = "Parallax phase correction cancelled; fit retained"
+            return .cancelled
         } catch {
-            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
+            guard isCurrentOperation(token) else { return .cancelled }
             presentPhaseContrastFailure(error)
+            return .failed(error.localizedDescription)
         }
+    }
+
+    /// The replay of a recorded parallax step: every stage the rehearsal
+    /// reached, in order, through the same entry points the user's clicks run,
+    /// each with `replaying: true`. The first stage that does not publish
+    /// stops the run with its verdict. The controls are already back
+    /// (`PhaseContrastProduct.apply`).
+    func runParallaxReplay(_ plan: ReplayStepPlan.ParallaxReplayPlan) async -> AnalysisRunOutcome {
+        var outcome = await prepareParallaxPreview(replaying: true)
+        guard outcome == .published else { return outcome }
+        // A complete alignment replays to the end of THIS view's schedule (a
+        // binned detector has a different one); a partial one up to the level
+        // of this schedule at the recorded physical bin (`replayLevelCount`),
+        // never to a bare count, or refuses.
+        let schedule = phaseContrast.parallaxPreprocess.map {
+            ParallaxAligner.defaultBinSchedule(detectorIndices: $0.detectorIndices)
+        } ?? []
+        guard let levels = plan.replayLevelCount(schedule: schedule) else {
+            let reason = plan.alignmentStopRefusal(schedule: schedule)
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
+        }
+        while (phaseContrast.parallaxAlignment?.completedBins.count ?? 0) < levels {
+            outcome = await alignParallaxNextLevel(replaying: true)
+            guard outcome == .published else { return outcome }
+        }
+        if plan.fitsAberrations {
+            outcome = fitParallaxAberrations(replaying: true)
+            guard outcome == .published else { return outcome }
+        }
+        if plan.subpixel != nil {
+            outcome = await upsampleParallaxBF(replaying: true)
+            guard outcome == .published else { return outcome }
+        }
+        if plan.correction != nil {
+            outcome = await correctParallaxPhase(replaying: true)
+            guard outcome == .published else { return outcome }
+        }
+        if plan.depth != nil {
+            outcome = await computeParallaxDepthSections(replaying: true)
+            guard outcome == .published else { return outcome }
+        }
+        return .published
     }
 }
 

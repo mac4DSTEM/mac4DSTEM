@@ -1,6 +1,6 @@
 //
 //  SpectroGoldenTests.swift
-//  SpectroKit slot S0, gate G-golden (../_archive/mac4DSTEM/docs/archive/v5/spectrokit-slot-plan-2026-10-13.md §9): "no number moves". A baseline of
+//  SpectroKit slot S0, gate G-golden (the archived notes §9): "no number moves". A baseline of
 //  the Spectroscopy core's outputs, recorded at 71929a01 BEFORE the Velox reader's per-block HDF5 lock and the cancel/progress
 //  contract, and compared byte for byte afterwards. Every Double is its exact bit pattern (hex of `bitPattern`) with a readable
 //  %.17g beside it; large arrays are listed by count, a bit-exact sum and an FNV-1a hash of every element's bits. No tolerance anywhere (today's
@@ -23,6 +23,7 @@ import DSTEMSession
 @testable import FormatoEMD
 @testable import SpectroCore
 @testable import SpectroEDX
+import ShellEDXModel
 
 // MARK: - The dump
 
@@ -194,7 +195,7 @@ enum SpectroGolden {
                          unlisted: Bool = true) throws {
         let q = try PooledQuantifier.run(input, tables: tables)
         GoldenDump.dump("\(tag).quantification", q, into: &out)
-        out.append("\(tag).csv-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(q, regionName: input.regionName, title: EDXCompute.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
+        out.append("\(tag).csv-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(q, regionName: input.regionName, title: EDXRoomHost.mac4DSTEM.resultsTitle).utf8.map { UInt64($0) }), radix: 16))")
         GoldenDump.dump("\(tag).rangeSensitivity", FitRangeSensitivityCheck.run(input: input, quantification: q) as Any, into: &out)
         guard unlisted else { return }
         let proposal = try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: q)
@@ -204,7 +205,7 @@ enum SpectroGolden {
         let shown = UnlistedLineChecker.withholding(q, check)
         GoldenDump.dump("\(tag).withholding", [shown.rows.map(\.atomicPercent), shown.rows.map(\.net)] as [Any], into: &out)
         GoldenDump.dump("\(tag).withholding.caveat", shown.abundanceCaveat as Any, into: &out)
-        out.append("\(tag).csv-withholding-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(shown, regionName: input.regionName, title: EDXCompute.csvTitle).utf8.map { UInt64($0) }), radix: 16))")
+        out.append("\(tag).csv-withholding-fnv = \(String(GoldenDump.fnv(SpectroscopyExport.csv(shown, regionName: input.regionName, title: EDXRoomHost.mac4DSTEM.resultsTitle).utf8.map { UInt64($0) }), radix: 16))")
     }
 
     static func windows(_ tag: String, _ image: LoadedSpectrumImage, _ symbols: [String], into out: inout [String]) {
@@ -376,7 +377,7 @@ final class SpectroGoldenTests: XCTestCase {
     /// RECORDER: with `TEST_RUNNER_SPECTRO_GOLDEN_DIR` set, writes one file per scenario there. Skipped otherwise.
     func testRecordBaseline() async throws {
         try XCTSkipIf(recordDir == nil, "set TEST_RUNNER_SPECTRO_GOLDEN_DIR to record")
-        let dir = try XCTUnwrap(recordDir) 
+        let dir = try XCTUnwrap(recordDir)
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         for s in try await SpectroGolden.scenarios() { try s.text.write(toFile: dir + "/" + s.name + ".txt", atomically: true, encoding: .utf8) }
         try SpectroGolden.times.joined(separator: "\n").write(toFile: dir + "/times.log", atomically: true, encoding: .utf8)   // not part of the baseline

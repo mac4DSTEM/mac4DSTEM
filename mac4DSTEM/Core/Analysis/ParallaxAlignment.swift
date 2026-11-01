@@ -40,13 +40,10 @@ package nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init() {}
 
-    /// Nil selects the first (coarsest) value in py4DSTEM's default schedule.
-    package var alignmentBin: Int? = nil
     package var centeredAlignmentBins = false
     package var runningAverage = true
     /// Values above 2 use py4DSTEM's matrix-DFT subpixel refinement. The
-    /// compatibility `alignOneLevel` entry point retains integer peaks by
-    /// default; the interactive continuation path explicitly selects 8.
+    /// default keeps integer peaks; the interactive continuation path explicitly selects 8.
     package var upsampleFactor = 1
     /// Peak resident bytes: what the level reads (`ParallaxAligner.inputBytesCounted`) + output stack/masks + FFT work.
     package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
@@ -81,14 +78,6 @@ package nonisolated struct ParallaxAlignmentResult: Sendable {
     }
 
     package var isComplete: Bool { completedBins == alignmentSchedule }
-
-    package var nextAlignmentBin: Int? {
-        guard completedBins.count < alignmentSchedule.count,
-              Array(alignmentSchedule.prefix(completedBins.count)) == completedBins else {
-            return nil
-        }
-        return alignmentSchedule[completedBins.count]
-    }
 
     package var maximumShiftPixels: Float {
         totalShifts.reduce(0) { partial, shift in
@@ -162,8 +151,7 @@ package nonisolated enum ParallaxAligner {
     /// then the finest bin repeated `iterationsAtMinimumBin − 1` times
     /// (`parallax.py:1274-1281`; `num_iter_at_min_bin` defaults to 2 at :1141),
     /// e.g. [4, 2, 1, 1]. Until 2026-09-28 the repeat was missing, so every
-    /// "complete" alignment ran one refinement pass short
-    /// (`../_archive/mac4DSTEM/docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md`).
+    /// "complete" alignment ran one refinement pass short.
     /// DEVIATION: when no binning is possible (min ≥ max) py4DSTEM's
     /// `bin_vals[-1]` raises IndexError on the empty list; this returns
     /// `[minimum]` once, as before.
@@ -216,25 +204,6 @@ package nonisolated enum ParallaxAligner {
                 memberIndices: membership[$0]!
             )
         }
-    }
-
-    package static func alignOneLevel(
-        preprocessing: ParallaxPreprocessResult,
-        options: ParallaxAlignmentOptions = ParallaxAlignmentOptions(),
-        cancellation: AnalysisCancellationToken? = nil,
-        progress: (@Sendable (Double) -> Void)? = nil
-    ) throws -> ParallaxAlignmentResult {
-        let schedule = defaultBinSchedule(
-            detectorIndices: preprocessing.detectorIndices
-        )
-        guard let alignmentBin = options.alignmentBin ?? schedule.first else {
-            throw AlignmentError.invalidInput("no alignment bin is available")
-        }
-        return try alignLevel(
-            preprocessing: preprocessing, previous: nil,
-            alignmentBin: alignmentBin, schedule: schedule, options: options,
-            cancellation: cancellation, progress: progress
-        )
     }
 
     /// Continue the source-locked coarse-to-fine schedule from the last fully

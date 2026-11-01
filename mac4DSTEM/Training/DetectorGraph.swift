@@ -1,7 +1,7 @@
 //
 //  DetectorGraph.swift
 //  Role: the learned disk detector's UNet as an MPSGraph, forward and registered loss (a port of
-//        `../_archive/mac4DSTEM/tools/mpsgraph-training-spike`'s `Net`, which passed ADR 048's bar on 2026-09-30: the fp32 forward
+//        archived `tools/mpsgraph-training-spike`'s `Net`, which passed ADR 048's bar on 2026-09-30: the fp32 forward
 //        on the GPU within 0.00272 of the shipped Core ML heatmap, a loss curve equal to the MLX mirror's).
 //
 //  39 ops as the ADR counts them: 15 convolutions, 14 SiLUs, 3 max-pools, 3 nearest x2 upsamples,

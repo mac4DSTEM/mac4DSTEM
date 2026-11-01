@@ -1,7 +1,12 @@
-# CI — the aggregate claim, made mechanical (v2 S21, ../_archive/mac4DSTEM/docs/archive/v2/v2-release.md §8).
+# CI — the aggregate claim, made mechanical (v2 S21, the archived notes §8).
 #
-# WHAT RUNS on every push and pull request — three jobs, each a gate a public
-# checkout can reproduce:
+# WHAT RUNS on every push to main, tag and pull request — the jobs below, each a
+# gate a public checkout can reproduce. `scientific` (up to three hours on the one
+# Mac runner, not a required check) runs nightly (cron 02:00 UTC, alone) and on
+# workflow_dispatch only: never on a push, a tag or a pull request, so no push
+# queues the runner behind it. Dispatch CI on a branch to run it before merging,
+# and on main before a tag.
+# `kit boundary` is a plain grep and runs on Linux, off the macOS runner queue.
 #   * `tools/run-tests.sh scientific`  — every harness in that script's
 #     `scientific` array (the array is the roster; no count is stated here so
 #     this comment cannot go stale), one half of one harness excepted (below).
@@ -26,7 +31,7 @@
 # default, so an image update cannot change the toolchain on an unchanged tree.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
-# missing (../_archive/mac4DSTEM/docs/archive/v2/v2-release.md §3):
+# missing (the archived notes §3):
 #   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
 #     exist only on the release owner's machines.
 #   * The learned half of tiled-detection-memory-test (see above) — no
@@ -39,7 +44,7 @@
 #     gated nothing and needed gitignored data or hand-supplied input.
 #   * On-screen verification — done by hand with the built app. No runner can stand in for it; the
 #     scripted checklist this line used to name was retired 2026-09-03 and is
-#     archived at ../_archive/mac4DSTEM/docs/archive/v2/visual-acceptance-checklist-2026-09-03.md.
+#     archived as visual-acceptance-checklist-2026-09-03.md.
 #
 # INVENTORY: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
@@ -68,14 +73,21 @@
 name: CI
 
 on:
+  # main and tags only: a PR branch's pushes run once, through pull_request (macEM-suite#77).
   push:
+    branches: [main]
+    tags: ['*']
   pull_request:
   workflow_dispatch:
+  # Nightly: `scientific` alone (every other job skips the schedule event).
+  schedule:
+    - cron: "0 2 * * *"
 
 concurrency:
-  group: ci-${{ github.ref }}
-  # Superseded branch/PR runs cancel; main runs always complete — on main each
-  # commit's finished run IS the record (and an S17-intermittent observation).
+  # The nightly run has its own group, so it never queues behind, or holds up, a main push run.
+  group: ci-${{ github.event_name == 'schedule' && 'nightly-' || '' }}${{ github.ref }}
+  # Superseded branch/PR runs cancel; main runs (push and nightly) always complete — on
+  # main each commit's finished run IS the record (and an S17-intermittent observation).
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
@@ -85,10 +97,12 @@ env:
 jobs:
   unit:
     name: unit (XCTest)
+    # Every job but `scientific` skips the nightly schedule: their triggers stay push to main, tags, PRs and dispatch.
+    if: github.event_name != 'schedule'
     runs-on: macos-26
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           sw_vers
@@ -105,10 +119,13 @@ jobs:
 
   scientific:
     name: scientific (py4DSTEM parity)
-    runs-on: macos-26
+    # Nightly and by hand only: the one Mac runner is the CI bottleneck and this is the slowest, non-required job.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           sw_vers
@@ -120,11 +137,23 @@ jobs:
             sudo xcodebuild -downloadComponent MetalToolchain
           fi
           xcrun -sdk macosx metal --version
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
+        if: runner.environment == 'github-hosted'
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: tools/lib/py4dstem-ci-constraints.txt
+      # On the Mac runner setup-python would need sudo; uv puts a Python 3.12 venv (python, python3, pip) on PATH instead.
+      - uses: astral-sh/setup-uv@v6
+        if: runner.environment == 'self-hosted'
+      - name: Python 3.12 venv and the macOS SDK (Mac runner)
+        if: runner.environment == 'self-hosted'
+        # SDKROOT: with no SDK named, Xcode 26.6's xcrun on the macOS 27 Mac picks the Command Line Tools' 27.0 SDK,
+        # whose libSystem.tbd 26.6's linker cannot read; the harnesses' bare swiftc/clang calls then fail to link.
+        run: |
+          uv venv --seed --python 3.12 "$RUNNER_TEMP/py"
+          echo "$RUNNER_TEMP/py/bin" >> "$GITHUB_PATH"
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
       - name: Fetch the py4DSTEM source lock
         # Since 2026-09-03 the lock is fetched at a pinned upstream commit
         # (tools/lib/fetch-py4dstem.sh), not tracked in the tree.
@@ -145,10 +174,12 @@ jobs:
 
   inventory:
     name: inventory (repo review)
-    runs-on: macos-26
+    if: github.event_name != 'schedule'
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The C5 growth rule reads HEAD^ on a clean tree. The default depth
           # of 1 does not have it, and the read used to fall through to zero,
@@ -162,10 +193,12 @@ jobs:
 
   core:
     name: core (DSTEMCore + DSTEMSession package build)
-    runs-on: macos-26
+    if: github.event_name != 'schedule'
+    # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
+    runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Toolchain on record
         run: |
           xcode-select -p
@@ -175,10 +208,35 @@ jobs:
 
   kit-boundary:
     name: kit boundary (no numerics frameworks in the app)
-    runs-on: macos-26
+    if: github.event_name != 'schedule'
+    # Plain bash, grep and awk: Linux runs it (checked with mawk), off the macOS queue.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fail on Accelerate / Metal / vDSP outside the allowlist
         # Decision D15. Plain grep, no build; also part of `inventory`, kept as its own job so the red is named.
         run: tools/check-kit-boundary.sh
+
+  lint:
+    name: Lint (shared SwiftLint and SwiftFormat config)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SwiftLint
+        run: docker run --rm -v "$PWD:/work" -w /work --entrypoint swiftlint ghcr.io/realm/swiftlint:0.65.1 lint --strict --quiet
+      - name: SwiftFormat
+        run: docker run --rm -v "$PWD:/work" -w /work --entrypoint swiftformat ghcr.io/nicklockwood/swiftformat:0.64.4 --lint .
+
+  private-refs:
+    name: No private references
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan tracked files
+        run: |
+          if git grep -n -I -E '_archive|CLAUDE\.md|memcap|macEM-suite|setup-python-refs' -- ':!.gitignore' ':!.github/workflows/ci.yml'; then
+            echo "Private references above; this repo is public."; exit 1
+          fi

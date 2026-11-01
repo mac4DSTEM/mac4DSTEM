@@ -51,7 +51,6 @@ extension ScaleBar {
     }
 }
 
-
 // MARK: - Origin robust-trim wash
 
 /// The real-space wash for scan positions the origin fit's robust trim
@@ -219,12 +218,12 @@ struct PaneColormapChip<Chip: View>: View {
                             set: { appState.acomSession.reliabilityThreshold = Float($0) }),
                         in: 0...1
                     ) {
-                        Text(String(format: "Threshold, %.2f", effective))
+                        Text("Threshold, \(Num.fixed(Double(effective), 2))")
                     }
                     .accessibilityLabel("Reliability threshold")
                     .accessibilityIdentifier("pane.acom.reliabilityThreshold")
                     if let kept {
-                        Text(String(format: "%.0f %% of matched positions kept", kept * 100))
+                        Text("\(Num.fixed(Double(kept) * 100, 0)) % of matched positions kept")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if appState.acomSession.reliabilityThreshold != nil {
@@ -903,22 +902,17 @@ struct PatternFitOverlay: View {
         strain: FitOverlays.StrainOverlay?,
         template: FitOverlays.TemplateOverlay?,
         originPoint: (x: Float, y: Float)?,
-        ellipse: [FitOverlays.Marker]
+        ellipse: [FitOverlays.Marker],
+        locale: Locale = .autoupdatingCurrent
     ) -> String {
         if let strain {
             if let residual = strain.localResidualPixels {
-                return String(
-                    format: "● measured  ✕ local fit  ⇢ reference · residual %.3g px",
-                    residual
-                )
+                return "● measured  ✕ local fit  ⇢ reference · residual \(Num.sig(Double(residual), 3, locale: locale)) px"
             }
             return "● measured · no local fit at this position"
         }
         if let template {
-            return String(
-                format: "● measured  ✕ template · reliability %.2f",
-                template.reliability
-            )
+            return "● measured  ✕ template · reliability \(Num.fixed(Double(template.reliability), 2, locale: locale))"
         }
         var parts: [String] = []
         if originPoint != nil { parts.append("✚ fitted origin") }

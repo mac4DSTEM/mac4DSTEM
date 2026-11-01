@@ -745,7 +745,6 @@ final class MaterialsProjectImportTests: XCTestCase {
         }
     }
 
-
     // (a) Cubic Si mp-149 as MP actually serves it: the F-centred primitive
     // cell (a=b=c=3.8404, α=β=γ=60°), not the already-conventional fixture
     // `siliconJSON` above uses.

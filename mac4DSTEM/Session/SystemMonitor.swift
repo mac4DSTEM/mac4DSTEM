@@ -17,11 +17,6 @@ extension SystemMonitor {
 
     package static var gpuName: String { MetalEngine.shared.device.name }
 
-    /// Recommended max GPU working set, in MB.
-    package static var gpuWorkingSetMB: Double {
-        Double(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 1_048_576
-    }
-
     /// The GPU working-set limit as text, in the app's one byte style.
     package static var gpuWorkingSetText: String {
         byteString(Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize))
@@ -29,9 +24,11 @@ extension SystemMonitor {
 
     // Pure formatting; kept beside `byteString`.
     package nonisolated static func scanProgressStatus(
-        _ verb: String, processed: Int, total: Int, descriptor d: DatasetDescriptor
+        _ verb: String, processed: Int, total: Int, descriptor d: DatasetDescriptor, bytesPerPattern streamed: Int? = nil
     ) -> String {
-        let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
+        // `streamed`: what one position actually reads (`LoadView.readBytesPerPattern`, pre-bin); the descriptor's
+        // pattern size only when the caller has no view.
+        let bytesPerPattern = streamed ?? d.qy * d.qx * MemoryLayout<Float>.stride
         // Fixed grouping rather than the user's locale, because the byte string
         // beside it is itself unlocalized (`SystemMonitor.byteString` always
         // formats "3.96 GB" with a period decimal point). Locale grouping would

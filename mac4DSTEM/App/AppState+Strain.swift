@@ -84,13 +84,10 @@ extension AppState {
             var detail: String
             switch cause {
             case .starvedInput(let medianPeaks, let emptyPercent):
-                detail = String(
-                    format: "Only %.1f peaks per pattern were detected (%d%% of positions "
-                        + "had none). Indexing a lattice needs the direct beam plus two "
-                        + "more reflections, so lower the detection thresholds in Bragg "
-                        + "disks and detect again.",
-                    medianPeaks, emptyPercent
-                )
+                detail = "Only \(Num.fixed(Double(medianPeaks), 1)) peaks per pattern were detected (\(emptyPercent)% of positions "
+                    + "had none). Indexing a lattice needs the direct beam plus two "
+                    + "more reflections, so lower the detection thresholds in Bragg "
+                    + "disks and detect again."
             case .illConditionedBasis:
                 detail = strain.basisMode == .manual
                     ? "The manual basis is ill-conditioned, or too few peaks index to it. "
@@ -102,12 +99,8 @@ extension AppState {
                            ? "Pick an unstrained region as the reference instead."
                            : "Try a different reference region, or set g₁ and g₂ manually.")
                 if let summary = completedDiskSummary, summary.positionCount > 0 {
-                    detail += String(
-                        format: " (Detected input: median %.1f peaks per pattern, "
-                            + "%d%% of positions empty.)",
-                        summary.medianPeakCount,
-                        summary.zeroPeakPositionCount * 100 / summary.positionCount
-                    )
+                    detail += " (Detected input: median \(Num.fixed(Double(summary.medianPeakCount), 1)) peaks per pattern, "
+                        + "\(summary.zeroPeakPositionCount * 100 / summary.positionCount)% of positions empty.)"
                 }
             }
             if let kitRefusal { detail += " (CuboStrain refused: \(kitRefusal).)" }
@@ -129,32 +122,25 @@ extension AppState {
         // ("consensus"/"manual", "selected-region"/"whole-scan"), not Swift
         // case names — the two carriers share keys and must share values
         // (Gate B-lite F10).
-        var strainParameters: [String: String] = [
-            "reference_mode": map.diagnostics.referenceMaskApplied
-                ? "selected-region" : "whole-scan",
-            "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
-            "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
-            "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
-        ]
-        // A manual run's INPUT basis (the g-vectors it indexed with). The resolved
-        // ones above are the lattice it found, a median of local fits — not the
-        // same numbers, and running again from them is not running again from
-        // these. Only the lineage rewind reads these keys (replay keeps using the
-        // resolved ones, unchanged).
-        if let initialBasis {   // captured before the compute, not read back from the live fields
-            strainParameters["input_g1_x"] = String(initialBasis.g1.x); strainParameters["input_g1_y"] = String(initialBasis.g1.y)
-            strainParameters["input_g2_x"] = String(initialBasis.g2.x); strainParameters["input_g2_y"] = String(initialBasis.g2.y)
-        }
+        // A manual run's INPUT basis (the g-vectors it indexed with) rides along.
+        // The resolved ones are the lattice it found, a median of local fits —
+        // not the same numbers, and running again from them is not running again
+        // from these. Only the lineage rewind reads the input keys (replay keeps
+        // using the resolved ones, unchanged). `initialBasis` was captured
+        // before the compute, not read back from the live fields.
+        let strainParameters = StrainProduct.recordedParameters(
+            referenceMaskApplied: map.diagnostics.referenceMaskApplied,
+            automaticBasis: map.diagnostics.automaticBasis,
+            resolvedG1: (x: map.refG1.x, y: map.refG1.y), resolvedG2: (x: map.refG2.x, y: map.refG2.y),
+            inputBasis: initialBasis)
         recordReplayStep(kind: "strain", parameters: strainParameters, replaying: replaying)
         resultPresentation.resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
-        statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
-                            map.indexedFraction * 100,
-                            map.diagnostics.basisSupportFraction * 100,
-                            map.diagnostics.basisResidualPixels,
-                            map.diagnostics.basisConditionNumber,
-                            map.referencePositionCount,
-                            map.diagnostics.referenceCandidateCount)
+        statusText = "Strain ✓  \(Num.fixed(Double(map.indexedFraction) * 100, 0))% indexed"
+            + " · \(Num.fixed(Double(map.diagnostics.basisSupportFraction) * 100, 0))% basis support"
+            + " · RMS \(Num.sig(Double(map.diagnostics.basisResidualPixels), 3)) px"
+            + " · κ \(Num.fixed(Double(map.diagnostics.basisConditionNumber), 2))"
+            + " · \(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount) ref"
         return .published
     }
 }

@@ -85,22 +85,6 @@ enum MapBitmap {
     }
     static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
 
-    /// The bitmap with a scale bar drawn into its bottom-left corner, at the bitmap's own pixel size (the export has no points):
-    /// a white bar with a dark outline, 8 px in from the left and bottom edges, its label above it in 12 px white text with a
-    /// 1 px dark shadow. Every other pixel is the image's own. `plan.lengthPoints` is read as pixels. nil if the context fails.
-    /// `scale` is the export's pixels per point (an image already enlarged by it): every length above grows with it, so a 2x
-    /// export carries the same bar, twice the pixels.
-    static func addingScaleBar(to image: CGImage, plan: MapScaleBar.Plan, scale: Int = 1) -> CGImage? {
-        let w = image.width, h = image.height
-        guard w > 0, h > 0,
-              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        ctx.interpolationQuality = .none
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
-        guard drawScaleBar(in: ctx, plan: plan, scale: CGFloat(max(scale, 1))) else { return nil }
-        return ctx.makeImage()
-    }
-
     /// The bar and its label in the bottom-left corner of whatever `ctx` is drawing into (y up, origin at that corner), the
     /// one drawing the Maps PNGs and the exported figures share. False if the label cannot be made.
     @discardableResult
@@ -136,4 +120,3 @@ enum MapBitmap {
         return ctx.makeImage()
     }
 }
-

@@ -9,7 +9,6 @@
 //  region-reference canvas).
 //
 
-
 import Foundation
 #if canImport(DSTEMCore)
 import DSTEMCore
@@ -45,6 +44,27 @@ package final class ResultPresentation {
     package var virtualShape: VirtualShapeMode = .annulus
     package private(set) var virtualDiffractionPattern: DiffractionPattern?
 
+    /// The last virtual image a run landed, with what it was computed from. Imaging's own result: entering
+    /// the room with another room's map on screen re-shows it as it landed (`presentProductForEnteredMode`),
+    /// when it still describes the dataset, the live aperture and shape, and the scan sampling.
+    package struct HeldVirtualImage {
+        package let product: DisplayedProduct
+        package let epoch: Int
+        package let aperture: Aperture
+        package let shape: VirtualShapeMode
+        package init(product: DisplayedProduct, epoch: Int, aperture: Aperture, shape: VirtualShapeMode) {
+            self.product = product
+            self.epoch = epoch
+            self.aperture = aperture
+            self.shape = shape
+        }
+    }
+    @ObservationIgnored package private(set) var heldVirtualImage: HeldVirtualImage?
+    package func holdVirtualImage(_ held: HeldVirtualImage?) { heldVirtualImage = held }
+    /// The run Imaging starts on entry when it holds no image that fits; nil when none was needed. Kept so a
+    /// test can await it.
+    @ObservationIgnored package var imagingEntryRun: Task<Void, Never>?
+
     // Coalescing tokens for the result/ROI presentation paths. At most one
     // pass is in flight; the pending bit requests one latest-state rerun.
     @ObservationIgnored package var vdInFlight = false
@@ -66,7 +86,7 @@ package final class ResultPresentation {
 
     // These are memoized derivations, not semantic state. They are deliberately
     // ignored by Observation and keyed on the same explicit invalidation token
-    // as the texture upload. See ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md, seam 5 decision b.
+    // as the texture upload. See the archived notes, seam 5 decision b.
     @ObservationIgnored private var resultValueRangeCache:
         (version: Int, regionReference: Bool, symmetric: Bool,
          low: Double, high: Double)?
@@ -124,11 +144,6 @@ package final class ResultPresentation {
 
     package func setBraggPeakCount(_ count: Int?) {
         braggPeakCount = count
-    }
-
-    package func clearBraggVectors() {
-        braggVectors = nil
-        braggPeakCount = nil
     }
 
     package func setVirtualDiffractionPattern(_ pattern: DiffractionPattern?) {

@@ -73,18 +73,20 @@ extension AppState {
         // frames is real math for a session that wants it; recorded in
         // docs/open-items.md, not improvised here.
         //
-        // A thinned scan or a cropped detector moves positions the frame table
-        // has no role for (it knows the bin, not a stride or a crop offset), so
-        // the recipe is left out by name rather than stamped in a frame the
-        // file is not in (X2).
-        let (mappedRecipe, recipeOmission) = options.reframesRecipe && !(replay.recordForSaving?.isEmpty ?? true)
-            ? (nil, "the export thins the scan or crops the detector, which the recipe's frame table does not describe")
-            : ReplayRecordFrameMap.exportableRecipe(
-                record: replay.recordForSaving,
-                recordedFrame: replay.parameterFrame,
-                currentSpecification: loadedView.specification,
-                exportBin: options.qBin
-            )
+        // A thinned scan moves no detector-frame number (like a scan crop), so
+        // the recipe goes as it is. A cropped detector moves positions by the
+        // crop's offset before the bin, which the export transform applies in
+        // the writer's own order (crop, then bin).
+        let (mappedRecipe, recipeOmission) = ReplayRecordFrameMap.exportableRecipe(
+            record: replay.recordForSaving,
+            recordedFrame: replay.parameterFrame,
+            currentSpecification: loadedView.specification,
+            exportBin: options.qBin,
+            cropXOffset: options.qCropX?.lowerBound ?? 0,
+            cropYOffset: options.qCropY?.lowerBound ?? 0,
+            exportedWidth: (options.qCropX?.count ?? view.descriptor.qx) / max(options.qBin, 1),
+            exportedHeight: (options.qCropY?.count ?? view.descriptor.qy) / max(options.qBin, 1)
+        )
         runDataCubeWrite(
             DataCubeWriteRequest(
                 source: source, view: view, calibration: snapshot,
@@ -249,7 +251,7 @@ extension AppState {
         return record
     }
 
-    var publicationCaption: String {   // internal: PolishATests reads it
+    var publicationCaption: String {   // internal: ColormapAndCaptionTests reads it
         guard let product = displayedProduct else { return currentResultValueUnits }
         var parts = [
             product.domain.rawValue + " space",
@@ -712,13 +714,14 @@ extension AppState {
                 productMark = self.markLineageProductSaved(
                     productKind: scalarMap?.kind ?? rgbaMap?.kind ?? metadata.kind)
                 let recipe = replay.recordForSaving
+                let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
                 try await Task.detached(priority: .userInitiated) {
                     if let scalarMap {
                         try BraggVectorEMDWriter.mergeResultMap(
                             scalarMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
-                            loadSpecification: specification, replayRecord: recipe,
+                            loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                             cancellation: token, progress: progressUpdate
                         )
                     } else if let rgbaMap {
@@ -726,7 +729,7 @@ extension AppState {
                             rgbaMap, vectors: vectors,
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
-                            loadSpecification: specification, replayRecord: recipe,
+                            loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                             cancellation: token, progress: progressUpdate
                         )
                     }
@@ -976,11 +979,12 @@ extension AppState {
             // recipe like every other rewrite. // v2 S5
             let specification = loadedView.specification
             let recipe = replay.recordForSaving
+            let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
             try await Task.detached(priority: .userInitiated) {
                 try BraggVectorEMDWriter.removeResult(
                     kind: saved.kind, qWidth: descriptor.qx, qHeight: descriptor.qy,
                     calibration: calibration, from: url,
-                    loadSpecification: specification, replayRecord: recipe,
+                    loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
                     cancellation: token
                 )
             }.value
@@ -1211,6 +1215,7 @@ extension AppState {
         // The recipe travels with every publish, captured on the MainActor
         // before the detached write. // v2 S5
         let recipe = replay.recordForSaving
+        let sourceStamp = SessionSourceStamp(sourcePath: descriptor.filePath, shape: descriptor.shape)
         // Labels ride along the same way (C7 session 4); nil (an empty
         // store) tells `mergeCalibration` to preserve what the sidecar has.
         // Review 2026-10-02 a3: labels this view refused to restore are still in the sidecar, and a non-nil value
@@ -1235,7 +1240,7 @@ extension AppState {
                     try BraggVectorEMDWriter.mergeCalibration(
                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
                         to: url, loadSpecification: specification,
-                        replayRecord: recipe, diskCentreLabelsJSON: labelsJSON,
+                        replayRecord: recipe, source: sourceStamp, diskCentreLabelsJSON: labelsJSON,
                         cancellation: token
                     )
                 }.value
@@ -1409,14 +1414,21 @@ extension AppState {
 
     var currentScalarPersistenceMetadata:   // internal since v2.5 step 3c: publishLegacy reads it
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
-        if navigation.analysisMode == .dpc, dpc.dpcDisplay == .idpc {
+        scalarPersistenceMetadata(for: navigation.analysisMode)
+    }
+
+    /// A task's own sampling and provenance keys, whatever room the window is in: the strain, ACOM and DPC publish
+    /// sites take theirs from here, so a product never carries another task's `analysis_mode` or source keys.
+    func scalarPersistenceMetadata(for mode: AnalysisMode)
+        -> (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        if mode == .dpc, dpc.dpcDisplay == .idpc {
             if let physical = idpcPhysicalCalibration {
                 return (
                     Double(physical.rowSamplingAngstrom),
                     Double(physical.columnSamplingAngstrom),
                     "A",
                     [
-                        "analysis_mode": navigation.analysisMode.rawValue,
+                        "analysis_mode": mode.rawValue,
                         "source_product": "idpc_phase",
                         "quantitative": "true",
                         "boundary": "symmetric_zero_padded",
@@ -1436,7 +1448,7 @@ extension AppState {
             // still subtracted from the CoM field". A reader of the exported
             // file needs that difference to know whether to trust contrast.
             var provenance: [String: String] = [
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "idpc_qualitative",
                 "quantitative": "false",
                 "boundary": "symmetric_zero_padded",
@@ -1457,10 +1469,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .strain, let map = strain.map {
+        if mode == .strain, let map = strain.map {
             let diagnostics = map.diagnostics
             var provenance: [String: String] = [
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "strain_\(strain.component.rawValue)",
                 "basis_mode": diagnostics.automaticBasis ? "consensus" : "manual",
                 "basis_support_fraction": String(diagnostics.basisSupportFraction),
@@ -1493,10 +1505,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .acom, let map = acomSession.orientationMap {
+        if mode == .acom, let map = acomSession.orientationMap {
             var provenance = acomSession.lastRunSemantics?.provenance ?? [:]
             provenance.merge([
-                "analysis_mode": navigation.analysisMode.rawValue,
+                "analysis_mode": mode.rawValue,
                 "source_product": "acom_\(acomSession.display.rawValue)",
                 "crystal_symmetry": map.symmetry.rawValue,
                 "matching_backend": map.matchingBackend.rawValue,
@@ -1514,10 +1526,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .disks { return braggMapPersistenceMetadata }
+        if mode == .disks { return braggMapPersistenceMetadata }
         // Both modes: single-slice runs in its own (SingleslicePtychographyExportTests).
-        guard navigation.analysisMode == .ptychography || navigation.analysisMode == .singleslicePtychography else {
-            return scanMapPersistenceMetadata(for: navigation.analysisMode)
+        guard mode == .ptychography || mode == .singleslicePtychography else {
+            return scanMapPersistenceMetadata(for: mode)
         }
         switch phaseContrast.parallaxResultProduct {
         case .preprocess:

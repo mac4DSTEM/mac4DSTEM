@@ -4,6 +4,15 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
+/// Marks the promote run's own work — its reopen and its replayed steps, and
+/// every task they start — so `beginCancellableOperation` can tell it from a
+/// run the user starts while the promote run is in flight. A task started
+/// inside keeps the flag for its whole life; it matters only while a promote
+/// run is running (`promoteRunRefusesUserRuns`).
+nonisolated enum PromoteRunContext {
+    @TaskLocal static var isPromoteRun = false
+}
+
 /// Promote-and-replay orchestration and step execution.
 extension AppState {
     /// The promote control's action — the release claim's "one action"
@@ -53,7 +62,9 @@ extension AppState {
             frameNote = nil
         }
         guard replayRun.begin(titles: planned.map(\.title), frameNote: frameNote) else { return }
-        await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
+        await PromoteRunContext.$isPromoteRun.withValue(true) {
+            await promoteToFullExtent(runReestablishingAnalysis: firstStepRefused)
+        }
         // Replay only on the back of a promote that actually happened: a
         // refused or cancelled promote leaves the rehearsal (or nothing)
         // loaded, and running the recipe against it would be the promote
@@ -63,7 +74,9 @@ extension AppState {
             statusText = "Promote run stopped — the reopen did not complete; nothing was replayed"
             return
         }
-        await executeReplay(planned: planned)
+        await PromoteRunContext.$isPromoteRun.withValue(true) {
+            await executeReplay(planned: planned)
+        }
     }
 
     /// Sequential replay: one step at a time, in recipe order. The first
@@ -73,6 +86,8 @@ extension AppState {
     /// keep-awake assertion from before the reopen.
     private func executeReplay(planned: [PlannedReplayStep]) async {
         let epoch = datasetSession.epoch
+        promoteRunEpoch = epoch
+        defer { promoteRunEpoch = nil }
         var haltReason: String?
         for (index, step) in planned.enumerated() {
             guard datasetSession.epoch == epoch, !datasetSession.isLoading else {
@@ -184,9 +199,9 @@ extension AppState {
     func replayScaleRefusal(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
         let sessionScale = acomScaleSemantics.invAngstromPerPixel
         guard !acomPlan.agrees(withScaleInForce: sessionScale) else { return nil }
-        return String(
-            format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
-            acomPlan.scaleInvAngstromPerPixel, sessionScale)
+        return "the recipe matched at \(Num.sig(Double(acomPlan.scaleInvAngstromPerPixel), 6)) Å⁻¹/px "
+            + "but this session's scale is \(Num.sig(Double(sessionScale), 6)) Å⁻¹/px — matching at a different scale "
+            + "gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand"
     }
 
     /// Select the recorded phase model by id (never a fallback crystal), or
@@ -252,7 +267,60 @@ extension AppState {
             acomSession.refinesInPlaneAngle = acomPlan.refinesInPlaneAngle
             if let reason = replayRefusal(for: .acom) { return .refused(reason) }
             return .ran(await runACOM(replaying: true))
+
+        case .ptychography(let ptychographyPlan):
+            ptychography.apply(ptychographyPlan.settings)
+            // The probe is built at the aperture's outer radius: put the
+            // recorded one back, keeping an annulus valid.
+            aperture.outer = ptychographyPlan.probeRadiusPixels
+            aperture.inner = min(aperture.inner, aperture.outer)
+            // With no fitted or recorded mean origin, the run's origin WAS the
+            // aperture centre (`Calibration.referenceOrigin`), a control: put it
+            // back too, or the check below refuses an origin the user placed.
+            let calibration = calibrationSession.calibration
+            if calibration.meanOrigin == nil, calibration.recordedMeanOrigin == nil {
+                aperture.centerX = Float(ptychographyPlan.calibration.originQY)
+                aperture.centerY = Float(ptychographyPlan.calibration.originQX)
+            }
+            if let reason = replayRefusal(for: .singleslicePtychography) { return .refused(reason) }
+            if let reason = replayPtychographyCalibrationRefusal(ptychographyPlan) { return .refused(reason) }
+            return .ran(await runSingleslicePtychography(replaying: true))
+
+        case .parallax(let parallaxPlan):
+            phaseContrast.apply(parallaxPlan)
+            if let reason = replayRefusal(for: .ptychography) { return .refused(reason) }
+            if let reason = replayParallaxCalibrationRefusal(parallaxPlan) { return .refused(reason) }
+            if let reason = parallaxPlan.alignmentStopUnreachable { return .refused(reason) }
+            return .ran(await runParallaxReplay(parallaxPlan))
         }
     }
-}
 
+    /// Why the session's calibration, resolved as the parallax preprocess
+    /// resolves it, is not the one the recorded run used; nil when it is.
+    /// Writes nothing.
+    func replayParallaxCalibrationRefusal(_ plan: ReplayStepPlan.ParallaxReplayPlan) -> String? {
+        let resolved: ParallaxPhysicalCalibration
+        do {
+            resolved = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibrationSession.calibration, apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY, acceleratingVoltageKV: calibrationSession.acceleratingVoltage)
+        } catch {
+            return "this session's calibration cannot be resolved for parallax — \(error.localizedDescription)"
+        }
+        return plan.calibrationRefusal(against: resolved)
+    }
+
+    /// Why the session's calibration, resolved as the run resolves it, is not
+    /// the one the recorded ptychography ran with; nil when it is. Writes nothing.
+    func replayPtychographyCalibrationRefusal(_ plan: ReplayStepPlan.PtychographyReplayPlan) -> String? {
+        let resolved: ParallaxPhysicalCalibration
+        do {
+            resolved = try ParallaxPhysicalCalibration.resolve(
+                calibration: calibrationSession.calibration, apertureCenterX: aperture.centerX,
+                apertureCenterY: aperture.centerY, acceleratingVoltageKV: calibrationSession.acceleratingVoltage)
+        } catch {
+            return "this session's calibration cannot be resolved for ptychography — \(error.localizedDescription)"
+        }
+        return plan.calibrationRefusal(against: resolved)
+    }
+}

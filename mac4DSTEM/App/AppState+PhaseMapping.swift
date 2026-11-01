@@ -13,7 +13,7 @@
 //
 //  UNVALIDATED. Every product published here carries `validation: "none"` and
 //  an exploratory quantitative status until step 3 of
-//  `../_archive/mac4DSTEM/docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
+//  archived `docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
 //  published ground truth. A phase map you can look at is worth having; a
 //  density taken off one is not a measurement yet.
 //
@@ -87,6 +87,14 @@ extension AppState {
     @discardableResult
     func runPhaseMapping() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
+        // First, as in strain and ACOM: peaks the current settings did not
+        // produce must not be matched (mac4DSTEM#69). A caller that skips the
+        // disabled button (replay, a test) reaches this.
+        if diskDetectionSettingsAreStale {
+            let reason = Self.phaseMappingStaleDisksRefusal
+            statusText = reason
+            return .failed(reason)
+        }
         if let refusal = phaseMapping.runRefusal { return .failed(refusal) }
         guard let rawVectors = resultPresentation.braggVectors else {
             return .failed("Detect Bragg disks first — phase mapping matches the "
@@ -243,7 +251,7 @@ extension AppState {
     /// real-space calibration: density is then absent, never invented
     /// (`ObjectStatistics.arealDensity`'s own refusal rule).
     ///
-    /// `../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
+    /// archived `docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
     /// change what is validated: `PrecipitateClassificationProduct` makes no
     /// validation claim of its own, and the phase map it is built from is
     /// still `validation: "none"` — the Result section's badge says so for
@@ -551,6 +559,26 @@ extension AppState {
             + "peaks in detector pixels, so without it every position reads not indexed."
     }
 
+    /// The sentence strain, ACOM and q from crystal refuse stale disks with,
+    /// for the two phase-mapping runs (mac4DSTEM#69). Disks restored without
+    /// a recipe read stale too, through `diskDetectionSettingsAreStale`.
+    static let phaseMappingStaleDisksRefusal =
+        "Detection settings changed — run Detect All Disks again before phase mapping."
+    static let matrixZoneAxisStaleDisksRefusal =
+        "Detection settings changed — run Detect All Disks again before fitting the matrix zone axis."
+
+    /// Why Find Matrix Zone Axis cannot run now, or nil: no disks, disks the
+    /// current settings did not produce, or no physical Q scale. The button is
+    /// disabled on this and shows it as its help, and `findMatrixZoneAxis`
+    /// refuses on the same conditions.
+    var matrixZoneAxisRefusal: String? {
+        guard resultPresentation.braggVectors != nil else {
+            return "Detect Bragg disks first — this fits the axis to the peaks disk detection found."
+        }
+        if diskDetectionSettingsAreStale { return Self.matrixZoneAxisStaleDisksRefusal }
+        return phaseMappingQScaleRefusal
+    }
+
     /// Why the zone-axis ranking on the panel belongs to an earlier Q scale,
     /// origin or ellipse, or nil. Called from a view body, only while a ranking
     /// is shown (the stamp digests the fitted origin maps).
@@ -570,9 +598,8 @@ extension AppState {
     func scalePhaseMatchingToDetector() {
         guard let resolution = phaseVectorResolution else { return }
         phaseMapping.matching = resolution.scaledToDetector(phaseMapping.matching)
-        statusText = String(format: "Phase matching scaled to this detector: "
-                            + "pair radius %.4f Å⁻¹, one detector pixel",
-                            phaseMapping.matching.pairRadiusInvAngstrom)
+        statusText = "Phase matching scaled to this detector: "
+            + "pair radius \(Num.fixed(Double(phaseMapping.matching.pairRadiusInvAngstrom), 4)) Å⁻¹, one detector pixel"
     }
 
     /// Ask the DATA which beam direction the matrix is on, and set it.
@@ -588,6 +615,11 @@ extension AppState {
     /// cannot tell a fit from a coin toss.
     func findMatrixZoneAxis() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
+        if diskDetectionSettingsAreStale {
+            let reason = Self.matrixZoneAxisStaleDisksRefusal
+            statusText = reason
+            return .failed(reason)
+        }
         guard let matrixIndex = phaseMapping.phases.firstIndex(where: \.isMatrix) else {
             return .failed("Mark one phase as the matrix first.")
         }
@@ -676,8 +708,8 @@ extension AppState {
         guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
             return .failed("No zone axis stands out for \(slot.model.displayName): the best, "
                            + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
-                           + String(format: "explains %.0f %% where the median axis explains %.0f %%",
-                                    100 * winner.explainedFraction, 100 * winner.sweepMedianFraction)
+                           + "explains \(Num.fixed(100 * Double(winner.explainedFraction), 0)) % "
+                           + "where the median axis explains \(Num.fixed(100 * Double(winner.sweepMedianFraction), 0)) %"
                            + " — the matrix axis is not changed. The ranking is in the Phases panel.")
         }
         phaseMapping.phases[matrixIndex].u = winner.zoneAxis.x
@@ -686,8 +718,8 @@ extension AppState {
 
         statusText = "\(slot.model.displayName) best fits "
             + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "
-            + String(format: "explaining %.0f %% of the measured vectors at %.4f Å⁻¹",
-                     100 * winner.explainedFraction, winner.meanDistance)
+            + "explaining \(Num.fixed(100 * Double(winner.explainedFraction), 0)) % of the measured vectors "
+            + "at \(Num.fixed(Double(winner.meanDistance), 4)) Å⁻¹"
         return .published
     }
 

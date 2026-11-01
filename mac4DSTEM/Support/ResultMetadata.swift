@@ -11,7 +11,7 @@
 //  `App/ProductWorkflow.swift` the way `AnalysisMode` itself did at step 1.
 //
 //  Why it moved: `AppState.swift` + `Support/ResultExport.swift` may never net
-//  positive lines in a commit (CLAUDE.md, measured by `tools/run-tests.sh
+//  positive lines in a commit (measured by `tools/run-tests.sh
 //  inventory`), and wiring diffraction grouping needs a handful of lines in
 //  `AppState.swift`. The port analysis pre-registered this as the lever to
 //  spend. Say so rather than letting a reader think the file was split for
@@ -129,7 +129,14 @@ extension AppState {
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
         case .ptychography, .singleslicePtychography:
-            switch phaseContrast.parallaxResultProduct {
+            // The two rooms share one remembered product. Each reads only its own family, so an empty room is
+            // titled for what it makes, not for the other room's last product ("Parallax aligned BF" over an
+            // empty ptychography pane). The fallbacks are the ones `presentProductForEnteredMode` shows.
+            let remembered = phaseContrast.parallaxResultProduct
+            let own: ParallaxResultProduct = navigation.analysisMode == .singleslicePtychography
+                ? (remembered.isIterative ? remembered : .iterativePhase)
+                : (remembered.isIterative ? .preprocess : remembered)
+            switch own {
             case .correctedPhase:
                 return ("parallax_corrected_phase", "Parallax corrected phase",
                         "arbitrary_phase")

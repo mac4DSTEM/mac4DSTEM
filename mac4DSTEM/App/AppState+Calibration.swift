@@ -11,7 +11,10 @@ import DiffractoGeometry   // EllipseCalibration: the ellipse fit is DiffractoKi
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+// swiftlint:disable duplicate_imports
+// swiftformat:disable:next duplicateImports
 import struct DSTEMCore.DiffractionPattern   // the app's display type, over DiffractoGeometry's of the same name
+// swiftlint:enable duplicate_imports
 #endif
 
 extension AppState {
@@ -127,8 +130,8 @@ extension AppState {
                 calibrationSession.calibration.originProvenance = .fitted
             }
             let rms = result.origin.rmsResidual ?? 0
-            statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
-                                calibrationSession.calibration.probeRadius ?? result.probeRadius, rms, fitFn.rawValue)
+            let radius = Double(calibrationSession.calibration.probeRadius ?? result.probeRadius)
+            statusText = "Origin ✓  r ≈ \(Num.fixed(radius, 1)) px, fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
             // The lineage node (ADR 047): what the next disk detection, DPC and
             // strain run will name as their calibration input.
             recordOriginCalibrationRun(fitFunction: fitFn, method: method, probeSource: probeSource,
@@ -222,10 +225,9 @@ extension AppState {
             let shape = CalibrationUnitConversion.ellipseSummary(
                 a: fit.a, b: fit.b, thetaDegrees: fit.theta * 180 / .pi)
             statusText = fit.sparseCoverage
-                ? String(format: "Ellipse fitted anyway on %d/36 sectors · %@ · residual %.3f (%@) — marked Fit anyway",
-                         fit.occupiedAngularBins, shape, fit.normalizedResidual, sourceName)
-                : String(format: "Ellipse ✓  %@ · %@ · residual %.3f (%@)",
-                         fit.model.rawValue, shape, fit.normalizedResidual, sourceName)
+                ? "Ellipse fitted anyway on \(fit.occupiedAngularBins)/36 sectors · \(shape) · "
+                    + "residual \(Num.fixed(Double(fit.normalizedResidual), 3)) (\(sourceName)) — marked Fit anyway"
+                : "Ellipse ✓  \(fit.model.rawValue) · \(shape) · residual \(Num.fixed(Double(fit.normalizedResidual), 3)) (\(sourceName))"
             recordEllipseCalibrationRun()   // lineage node (ADR 047)
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }

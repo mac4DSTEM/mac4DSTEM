@@ -178,7 +178,9 @@ package enum RotationCalibration {
         var bestVal = (transpose ? grid.curveTransposed : grid.curve)[kitAngles.firstIndex(of: grid.degrees) ?? 0]
 
         // Refinement: 0.1° steps within ±1° of the grid winner, scored by the kit's `curve` in Double (a Float
-        // objective let a 3e-8 tie pick −82.7° for −82.6° on Al–Mg–Si). The first strictly better angle wins.
+        // objective let a 3e-8 tie pick −82.7° for −82.6° on an Al–Mg–Si cube in October 2026). The first strictly
+        // better angle wins. Pinned against a float64 transcription of py4DSTEM's objective (float32 angles give the
+        // same picks) by `RotationPy4DSTEMParityTests`, red on the Float rule.
         let center = bestDeg
         let fine = (0...20).map { center - 1 + Double($0) * 0.1 }
         if cancellation?.isCancelled == true { return nil }
@@ -197,7 +199,7 @@ package enum RotationCalibration {
         // exchangeable samples: it destroys the spatial arrangement, so a
         // rotation-free field with any spatial correlation — which probe
         // overlap alone produces — beat it far more often than its 1-in-16
-        // design rate. Measured with `../_archive/mac4DSTEM/tools/rotation-null-probe` before this
+        // design rate. Measured with archived `tools/rotation-null-probe` before this
         // change: box-smoothed noise certified 15 % (box 1, white), 32 %
         // (box 3), 52 % (box 5), 65 % (box 7) — the rate rising with the
         // correlation length is the diagnosis's own prediction, met.

@@ -10,7 +10,7 @@ import DSTEMSession
 ///
 /// A QUANTITY, never a verdict: no test here asserts a gate, because none
 /// exists. What is pinned is that the number tells the two probe shapes apart
-/// — the S14-D mechanism (`../_archive/mac4DSTEM/docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`):
+/// — the S14-D mechanism:
 /// a probe with a ring outside its core is moved several pixels by the window,
 /// a compact one is not moved at all.
 ///

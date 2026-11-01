@@ -9,7 +9,6 @@ import DSTEMCore
 /// `qy` planes, and `readScanRow` hands back `[position][qy][qx]`.
 final class DM4ScanFastestTests: XCTestCase {
 
-
     private indirect enum Node {
         case int(String, Int32)
         case float(String, Float)

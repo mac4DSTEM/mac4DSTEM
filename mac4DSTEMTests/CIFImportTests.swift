@@ -205,7 +205,7 @@ final class CIFImportTests: XCTestCase {
         // structure the app cannot orientation-map can still be used for phase
         // IDENTIFICATION, which needs a cell and a basis and no point group.
         // β″ in Al-Mg-Si is monoclinic C2/m, and refusing here blocked the
-        // phase mapping in ../_archive/mac4DSTEM/docs/v3-features.md#vector-matching before it started.
+        // phase mapping in the archived notes before it started.
         //
         // Both halves are asserted, because admitting the model without the
         // refusal below would let `identity.ipfColor` draw |x|,|y|,|z| as RGB —
@@ -436,7 +436,7 @@ final class CIFImportTests: XCTestCase {
     /// setting (a = b, γ = 120°) while carrying only a 3-fold along c. Cell
     /// parameters alone therefore admit quartz, calcite, alumina and hematite
     /// as `.hexagonal`, giving them a 12-operator fundamental zone and an IPF
-    /// key they do not have. `tools/harnesses/cif-symmetry-test/` covers the full matrix
+    /// key they do not have. `cif-symmetry-test` (a retired harness; the kit's parity tests hold it) covers the full matrix
     /// of accept/reject structures; this pins the user-visible contract.
     ///
     /// CHANGED 2026-10-15 (DiffractoKit 0.0.3, kit item 3; registration P4). This test was

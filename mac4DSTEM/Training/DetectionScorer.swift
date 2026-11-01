@@ -1,7 +1,7 @@
 //
 //  DetectionScorer.swift
 //  Role: recall and precision of a set of predicted disk centres against hand-labelled truth — a Swift
-//        port of `../_archive/mac4DSTEM/tools/disk-detector/evaluate.py`'s `match` (C3 pre-registration §2(b), §3 step 4).
+//        port of archived `tools/disk-detector/evaluate.py`'s `match` (C3 pre-registration §2(b), §3 step 4).
 //
 //  Greedy nearest pairing: truth points are visited IN ORDER; each takes the nearest still-unused
 //  prediction (the first of equals, as numpy's argmin does) and is matched when that distance is within

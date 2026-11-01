@@ -16,13 +16,13 @@ package nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
 }
 
 /// The aberrations the initial probe is built with (lane R1, 2026-09-30). All in Å, py4DSTEM's own conventions, verified against
-/// the vendored py4DSTEM (References/py4DSTEM-dev) and recorded in ../_archive/mac4DSTEM/docs/archive/v4/ (R1):
+/// the vendored py4DSTEM (References/py4DSTEM-dev) and recorded in the archived notes (R1):
 ///
 ///  - `defocusAngstrom` is py4DSTEM's `defocus` argument: `ComplexProbe` stores C10 = -defocus (process/phase/utils.py
 ///    `ComplexProbe.set_parameters`, `elif symbol == "defocus": ... = -value`; the same in phase_base_class.py
 ///    `_set_polar_parameters`). A parallax fit's C1 is that C10, so the defocus a parallax fit implies is -C1. Evidence: py4DSTEM's own
 ///    forward model (utils.py:159-160, C10 = -defocus) and E1 (the vendored Parallax returns C1 = -508.67 for a probe built at
-///    defocus +500; ../_archive/mac4DSTEM/tools/parallax-ptycho-real-probe/convention_check.py). The gold-on-carbon tutorial agrees
+///    defocus +500; archived tools/parallax-ptycho-real-probe/convention_check.py). The gold-on-carbon tutorial agrees
 ///    (`defocus = -parallax.aberration_C1`); the MoS2 notebooks pass +C1 at about 50 A, where the sign is nearly harmless.
 ///    The rule holds on the rotation branch the fit used: a 180 deg R-Q rotation flips every coefficient, and the wrong branch
 ///    reconstructs a conjugated object (negative phase), not a worse fit. Astigmatism seeding is verified for transpose = false only.

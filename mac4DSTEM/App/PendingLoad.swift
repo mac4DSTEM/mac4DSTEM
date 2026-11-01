@@ -3,7 +3,7 @@
 //  Role: A dataset that has been opened far enough to look at, but not yet
 //        committed to a load — the state L5's configurator edits.
 //
-//  This is the stage's `AppState` seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7): the
+//  This is the stage's `AppState` seam (the archived notes §7): the
 //  state this stage adds lives in its own `@Observable` type that `AppState`
 //  holds, no forwarding properties. Same precedent as `App/DatasetResidency.swift`
 //  and `App/LoadedView.swift`: the single-DP pane, the display caches and the
@@ -419,7 +419,6 @@ final class PendingLoad: Identifiable {
         }
     }
 }
-
 
 /// Whether a cube may be held in memory (owner 2026-10-01). Pure over bytes and
 /// the machine's numbers, so the sheet, the commit and the tests agree. It

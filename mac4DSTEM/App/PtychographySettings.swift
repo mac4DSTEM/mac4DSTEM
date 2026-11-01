@@ -1,11 +1,12 @@
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import DSTEMSession
 import struct CuboParallax.ParallaxAberrationFitResult
 #endif
 
 /// The single-slice ptychography input-settings seam (audit 3.2 row 5;
-/// `../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` §7). Owns the
+/// archived the archived notes §7). Owns the
 /// reconstruction's input controls only — pure view-state driving
 /// `SingleslicePtychographyOptions`, no science and no result. `AppState`
 /// holds it as `ptychography` without forwarding properties, the same
@@ -47,6 +48,32 @@ final class PtychographySettings {
         defocusAngstrom = probe.defocusAngstrom
         c12aAngstrom = probe.c12aAngstrom
         c12bAngstrom = probe.c12bAngstrom
+    }
+
+    /// The controls as the replay record carries them (`PtychographyReplayPlan.Settings`).
+    var replaySettings: ReplayStepPlan.PtychographyReplayPlan.Settings {
+        .init(iterations: iterations, stepSize: stepSize, normalizationMinimum: normalizationMinimum,
+              fixProbe: fixProbe, constrainObjectAmplitude: constrainObjectAmplitude, purePhaseObject: purePhaseObject,
+              fixProbeCenterOfMass: fixProbeCenterOfMass, constrainProbeAmplitude: constrainProbeAmplitude,
+              probeAmplitudeRadius: probeAmplitudeRadius, probeAmplitudeWidth: probeAmplitudeWidth,
+              defocusAngstrom: defocusAngstrom, c12aAngstrom: c12aAngstrom, c12bAngstrom: c12bAngstrom)
+    }
+
+    /// Put a recorded run's controls back (the replay executor).
+    func apply(_ settings: ReplayStepPlan.PtychographyReplayPlan.Settings) {
+        iterations = settings.iterations
+        stepSize = settings.stepSize
+        normalizationMinimum = settings.normalizationMinimum
+        fixProbe = settings.fixProbe
+        constrainObjectAmplitude = settings.constrainObjectAmplitude
+        purePhaseObject = settings.purePhaseObject
+        fixProbeCenterOfMass = settings.fixProbeCenterOfMass
+        constrainProbeAmplitude = settings.constrainProbeAmplitude
+        probeAmplitudeRadius = settings.probeAmplitudeRadius
+        probeAmplitudeWidth = settings.probeAmplitudeWidth
+        defocusAngstrom = settings.defocusAngstrom
+        c12aAngstrom = settings.c12aAngstrom
+        c12bAngstrom = settings.c12bAngstrom
     }
 
     /// The aberrations the next run builds its probe with.

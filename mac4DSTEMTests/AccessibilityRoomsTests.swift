@@ -6,7 +6,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 /// Lane Y of the 2026-10-07 SwiftUI review fixes: the pure helpers behind the room audit's no-new-surface accessibility
-/// fixes (../_archive/mac4DSTEM/docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md). The modifiers themselves are checked by a drive.
+/// fixes. The modifiers themselves are checked by a drive.
 @MainActor
 final class AccessibilityRoomsTests: XCTestCase {
 
@@ -178,11 +178,4 @@ final class AccessibilityRoomsTests: XCTestCase {
         XCTAssertNil(RoomAccessibilityText.steppedSample(finiteIndices: [], current: nil, offset: 1))
     }
 
-    /// Mutation: lose the lower bound (zoom below 1 would shrink the shared panels), the upper bound, or swap in/out -> red.
-    func testSteppedZoomDoublesHalvesAndStaysInRange() {
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: true, maximum: 64), 2)
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(8, zoomIn: false, maximum: 64), 4)
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: false, maximum: 64), 1, "never below 1")
-        XCTAssertEqual(RoomAccessibilityText.steppedZoom(48, zoomIn: true, maximum: 64), 64, "never above the maximum")
-    }
 }

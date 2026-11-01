@@ -7,6 +7,8 @@ import CuboPhase
 import DSTEMCore
 import DSTEMSession
 #endif
+import ShellEDXModel
+import ShellSpectroscopy
 
 struct SimpleError: LocalizedError {
     let message: String
@@ -39,7 +41,7 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
 }
 
 // `ParallaxResultProduct` moved to `Session/PhaseContrastProduct.swift` (seam
-// 1, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): a Session-layer owner cannot reference a
+// 1, the archived notes): a Session-layer owner cannot reference a
 // type defined in App/, so it moved with the state that uses it.
 
 /// Which image pane the user is currently operating on. Determines which ROI
@@ -70,7 +72,7 @@ enum AnalysisRunOutcome: Equatable {
 
 @Observable
 final class AppState {
-    /// Seam 6 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the live reader/array pair,
+    /// Seam 6: the live reader/array pair,
     /// dataset list, preview, loading state and stale-publish epoch. Readers go
     /// directly to the owner; AppState has no forwarding properties.
     let datasetSession = DatasetSession()
@@ -86,7 +88,7 @@ final class AppState {
 
     var openURL: URL?
     @ObservationIgnored var pendingRecovery: DatasetRecoveryRecord?
-    /// S1's seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7): the one
+    /// S1's seam (the archived notes §7): the one
     /// owner of where this dataset's session sidecar is and whether the app
     /// may read it. Replaces a bare `scopedSessionSidecarURL` that eight call
     /// sites derived around in two different ways — see
@@ -205,7 +207,7 @@ final class AppState {
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
         }
-        // Seam 3 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the live overlay needs
+        // Seam 3: the live overlay needs
         // `probeKernel`/`navigation`/`displayedPattern`, none of which
         // `diskDetection` holds — same hook shape as `strain
         // .onPresentationChange` above. Body unchanged from the pre-seam
@@ -213,7 +215,7 @@ final class AppState {
         diskDetection.onParamsChange = { [weak self] in
             Task { await self?.detectCurrentPattern() }
         }
-        // Seam 4 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the display derivation needs
+        // Seam 4: the display derivation needs
         // `comField`/`descriptor`/`navigation`/`calibrationSession`, none of
         // which `dpc` holds — same hook shape as `diskDetection
         // .onParamsChange` above. Body unchanged from the pre-seam
@@ -247,37 +249,41 @@ final class AppState {
     }
 
     /// The recents list and its location labels. S3's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
+    /// (the archived notes §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
     let recents: RecentDatasets
     /// The session's recipe — which analyses ran, with which parameters. S5's
-    /// seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionReplay.swift`.
+    /// seam (the archived notes §7) — see `Session/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
     let replay = SessionReplay()
     /// The state of the unattended promote run — S6's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/ReplayRun.swift`.
+    /// (the archived notes §7) — see `Session/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
+    /// The dataset epoch the promote run replays on, nil during its reopen
+    /// (`executeReplay` sets it). A file the user opens mid-run is not the
+    /// promote run's, and its own runs are not refused (`promoteRunRefusesUserRuns`).
+    @ObservationIgnored var promoteRunEpoch: Int?
     /// The configured-open slot consumed by commit or discard. The payload's
     /// preview/configuration remain owned by `PendingLoad`; no forwarding.
     let promotionRun = PromotionRun<PendingLoad>()
     /// The session's "may I?" policy gates — S7's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionGates.swift`.
+    /// (the archived notes §7) — see `Session/SessionGates.swift`.
     /// Views read `gates.…`; no forwarding properties. // v2 S7
     let gates = SessionGates()
     /// The strain product and its run controls — S8's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/StrainProduct.swift`.
+    /// (the archived notes §7) — see `Session/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
     /// Spatial precipitate objects. Session S3
-    /// (`../_archive/mac4DSTEM/docs/v3-features.md#precipitates-mp-plan`) wired its first
+    /// (archived `docs/v3-features.md#precipitates-mp-plan`) wired its first
     /// producer: `AppState+PhaseMapping.swift` publishes here from every
     /// finished vector-matched phase map, via the pure
     /// `PhaseMapObjectsBridge`. The pre-registered FULL-diffraction-pattern
     /// classification route this owner was originally scoped for
-    /// (`../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
+    /// (archived `docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
     /// would be a second producer, not a replacement. Neither producer nor
     /// this owner makes a validation claim of its own — the phase map's
     /// `validation: "none"` badge covers what is read off it. Views read
@@ -343,16 +349,16 @@ final class AppState {
     /// `scratchPreferencesDefaults()`), so a bare `AppState()` cannot read or
     /// write the owner's real Settings either way.
     let preferences: AppPreferences
-    /// Seam 5 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the retained product, result
+    /// Seam 5: the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
     let resultPresentation = ResultPresentation()
     /// The last reciprocal-pixel calibration attempt — S13's seam
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
+    /// (the archived notes §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
     /// What happened this session, for the output strip
-    /// (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
+    /// (the archived notes §7) — see `App/ActivityLog.swift`.
     /// Views read `activityLog.messages`; no forwarding properties.
     let activityLog = ActivityLog()
 
@@ -367,13 +373,14 @@ final class AppState {
     /// must not mutate the recipe. Without this, a replayed disk detection's
     /// `invalidating:` would DELETE the strain and ACOM steps mid-run, so a
     /// replay that halted between them would have destroyed the very recipe
-    /// it was executing. Keyed on the CALLER, not on `replayRun.isRunning` —
-    /// a user-initiated run that interleaves with the replay is a real
-    /// pipeline edit and suppressing it would silently diverge the recipe
-    /// from the published results (Gate A findings A4/B3, 2026-08-25). The
+    /// it was executing. Keyed on the CALLER, not on `replayRun.isRunning`
+    /// (Gate A findings A4/B3, 2026-08-25). A user-initiated run no longer
+    /// interleaves with the replay on its dataset — `beginCancellableOperation`
+    /// refuses it (`promoteRunRefusesUserRuns`) — but a run on a file opened
+    /// mid-replay is that file's own pipeline edit and records as one. The
     /// recipe keeps its rehearsal values; what actually ran is the results'
     /// own provenance and the run summary. // v2 S6
-    /// Widened from `private` (seam 2, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, the archived notes):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     ///
     /// Lineage (ADR 047 R2): the node this run became is remembered as the run
@@ -508,7 +515,7 @@ final class AppState {
     /// v2.5 step 4a: calibration state lives in `CalibrationSession`. Every
     /// reader goes there directly; the forwarders went in 7c slice 5b.
     let calibrationSession = CalibrationSession()
-    /// Seam 1 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the Parallax and single-slice
+    /// Seam 1: the Parallax and single-slice
     /// ptychography products and their run controls. Every reader goes
     /// there directly; there are no forwarding properties.
     let phaseContrast = PhaseContrastProduct()
@@ -519,13 +526,13 @@ final class AppState {
     var patternVersion = 0
 
     // DPC: cached CoM shift field so display-mode switches don't re-run the
-    // GPU. Widened from `private` (seam 4, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    // GPU. Widened from `private` (seam 4, the archived notes):
     // `App/AppState+DPC.swift`'s `runDPC`/`applyDPCDisplay` read/write it
     // from a different file.
     @ObservationIgnored var comField: [Float]?
 
     // Disk detection state. `diskParams` and its pure size-aware defaulting
-    // moved to `diskDetection` (seam 3, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md); these
+    // moved to `diskDetection` (seam 3, the archived notes); these
     // stay because they read AppState-only or another owner's state
     // (`descriptor`, `probeKernel`, `calibrationSession`, `resultPresentation.braggVectors`)
     // that cannot move with it. `currentDiskDiagnostics`/`resultPresentation.braggVectors`/
@@ -537,7 +544,7 @@ final class AppState {
     var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored var liveDetectionRequest: UInt64 = 0
-    /// Seam 3 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the disk-detection run controls'
+    /// Seam 3: the disk-detection run controls'
     /// one owner. Every reader goes there directly; there are no forwarding
     /// properties.
     let diskDetection = DiskDetectionProduct()
@@ -612,7 +619,7 @@ final class AppState {
 
     /// ACOM state, plan and map live in `ACOMSession` (v2.5 step 6a); the
     /// forwarders went in 7c 4b. The run functions moved to
-    /// `App/AppState+ACOM.swift` in seam 2 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md) and
+    /// `App/AppState+ACOM.swift` in seam 2 and
     /// still read the session directly; the session's hooks below carry the
     /// effects that need the window.
     let acomSession = ACOMSession()
@@ -630,7 +637,7 @@ final class AppState {
     /// `acomWorkPositionCount` and its dependents need `descriptor` (rx/ry),
     /// which only AppState holds, so they stay here as orchestration over
     /// `ACOMSession`'s moved `scanSelection`/`estimatedDuration` (seam 2,
-    /// ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md) rather than becoming forwarders — see the
+    /// the archived notes) rather than becoming forwarders — see the
     /// "seam 2 additions" note atop `Session/ACOMSession.swift`.
     var acomWorkPositionCount: Int {
         guard let descriptor else { return 0 }
@@ -950,7 +957,7 @@ final class AppState {
     /// quality check, one click away. Promoted only when the crystal actually
     /// has a symmetry to color by — `.identity` has no fundamental zone, so an
     /// IPF key there would be a fabricated legend.
-    /// Widened from `private` (seam 2, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, the archived notes):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     func promoteIPFZDisplayIfDefault(for map: OrientationMap) {
         guard !acomSession.displayIsUserChosen,
@@ -966,7 +973,7 @@ final class AppState {
     var activePane: ActivePane = .diffraction
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
-    /// Seam 4 (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md): the DPC display choice's one
+    /// Seam 4: the DPC display choice's one
     /// owner, `dpc.dpcDisplay` (its `didSet` is now `dpc`'s own
     /// `onDisplayChange` hook, wired in `init()`). Every reader goes there
     /// directly; there are no forwarding properties.
@@ -997,10 +1004,10 @@ final class AppState {
     /// Owner: `SpectroscopySession` (v5.0 WP2) — the spectrum image and the room's state; a window's second
     /// document, beside the 4D owners. The rest is in `AppState+Spectroscopy.swift`.
     let spectroscopy = SpectroscopySession()
-    /// Owner: `EDXSession` (DSTEMSession) — the EDS room's spectrum image, picks, regions and fit: macTEM 1.0's room, copied
-    /// (2026-10-23); its 4D links are `EDXSession+FourD.swift` and `AppState+EDS.swift`.
-    let edx = EDXSession()
-    /// Owner: `EDXRoomState` — the EDS room's spectrum window, export in flight and display choices (macTEM's, App/).
+    /// Owner: `EDXSession` (MacEMUI's ShellEDXModel) — the EDS room's spectrum image, picks, regions and fit, the room both apps share;
+    /// its 4D links are `AppState+EDS.swift`.
+    let edx = EDXSession(host: .mac4DSTEM)
+    /// Owner: `EDXRoomState` (MacEMUI's ShellSpectroscopy) — the EDS room's spectrum window, export in flight and display choices.
     let edxRoom = EDXRoomState()
     /// Set by the window (`DatasetWindow`): opens a file in a NEW window — see `routesOpenToNewWindow`.
     @ObservationIgnored var openInNewWindow: ((_ url: URL, _ configure: Bool) -> Void)?
@@ -1075,7 +1082,9 @@ final class AppState {
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature,
-            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance)
+            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance,
+            ptychographySettings: ptychography.replaySettings,
+            parallaxSignature: phaseContrast.parallaxCurrentSignature)
     }
 
     // The result-value cache moved to `resultPresentation` with the result
@@ -1156,9 +1165,29 @@ final class AppState {
         _ name: String, status: String, totalUnits: Int? = nil
     )
         -> AnalysisCancellationToken {
+        // While a promote run replays the recipe, only its own work may become
+        // the operation: `begin` cancels the operation it replaces, so a run the
+        // user started between or during steps cancelled the step and took
+        // Cancel with it. Such a run gets a token already cancelled and unwinds
+        // at its first check, as a cancel; the promote run keeps Cancel.
+        if promoteRunRefusesUserRuns {
+            let refused = AnalysisCancellationToken()
+            refused.cancel()
+            statusText = "\(name) not started — the promote run is replaying the recipe; wait for it, or cancel it first"
+            return refused
+        }
         let token = operationCenter.begin(name: name, totalUnits: totalUnits)
         statusText = status
         return token
+    }
+
+    /// Whether a run the user starts now would cut into the promote run: one is
+    /// replaying on this dataset (or reopening for it), and the caller is not
+    /// its own work (`PromoteRunContext`). Entry points with side effects before
+    /// `beginCancellableOperation` ask it first.
+    var promoteRunRefusesUserRuns: Bool {
+        guard replayRun.isRunning, !PromoteRunContext.isPromoteRun else { return false }
+        return promoteRunEpoch.map { $0 == datasetSession.epoch } ?? true
     }
 
     func finishCancellableOperation(_ token: AnalysisCancellationToken) {
@@ -1372,17 +1401,17 @@ final class AppState {
             if navigation.analysisMode == .dpc {
                 await runCurrentAnalysis()
             } else if navigation.analysisMode == .singleslicePtychography {
-                await runSingleslicePtychography()   // v2.5 step 7a: its own task
+                outcome = await runSingleslicePtychography()   // v2.5 step 7a: its own task
             } else if phaseContrast.parallaxPreprocess == nil {
-                await prepareParallaxPreview()
+                outcome = await prepareParallaxPreview()
             } else if phaseContrast.parallaxAlignment?.isComplete != true {
-                await alignParallaxNextLevel()
+                outcome = await alignParallaxNextLevel()
             } else if phaseContrast.parallaxHigherOrderFit == nil {
-                fitParallaxAberrations()
+                outcome = fitParallaxAberrations()
             } else if phaseContrast.parallaxCorrection == nil {
-                await correctParallaxPhase()
+                outcome = await correctParallaxPhase()
             } else if !parallaxStage4IsComplete(phaseContrast) {
-                await upsampleParallaxBF()
+                outcome = await upsampleParallaxBF()
             }
         case .spectroscopy:
             // Quantify: fit the selected region and record the step (ADR 054 item 8); the fit is live after this.
@@ -1444,7 +1473,7 @@ final class AppState {
         let read: Result<LoadSpecification?, Error>
         do {
             read = .success(try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: path)
             }.value.loadSpecification)
         } catch {
             read = .failure(error)
@@ -1547,9 +1576,12 @@ final class AppState {
     /// residual and so cannot bring physical iDPC back — a remedy that does
     /// nothing where it is printed (Gate B, 2026-08-25).
     var idpcOriginFitRefusal: String? {
-        calibrationSession.calibration.originFitJudgement.map {
-            $0 + " Try another Origin fit (Constant / Plane / Parabola) and "
-                + "re-run Calibrate Origin."
+        let calibration = calibrationSession.calibration
+        return calibration.originFitJudgement.map {
+            // The window pull is a biased measurement, the same for every fit function and every re-run (2026-10-31).
+            calibration.originWindowPullIsAcceptable
+                ? $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate Origin."
+                : $0 + " Changing the Origin fit function or re-running Calibrate Origin gives the same origins."
         }
     }
 
@@ -1590,17 +1622,6 @@ final class AppState {
         }
     }
 
-    /// Products held in memory right now. `strain.map` and `orientationMap` are
-    /// retained simultaneously — only the *displayed* one was ever
-    /// single-valued, which is why running ACOM and then Strain looked like it
-    /// had lost the first result (backlog #28).
-    var availableComputedProducts: [ComputedProduct] {
-        var products: [ComputedProduct] = []
-        if strain.map != nil { products.append(.strain) }
-        if acomSession.hasOrientationMap { products.append(.orientation) }
-        return products
-    }
-
     /// Bring a retained product back to the viewer.
     /// Deliberately an **explicit action**, not a side effect of `changeMode`:
     /// navigating between tasks must never silently relabel the visible
@@ -1628,7 +1649,9 @@ final class AppState {
             orientationPlan: acomSession.orientationPlan,
             orientationMap: acomSession.orientationMap,
             hasOrientationMap: acomSession.hasOrientationMap,
-            invAngstromPerPixel: acomScale
+            // The scale the map was matched at: a Q edit keeps a stale map, and its
+            // templates must not be redrawn at a scale they were never matched at.
+            invAngstromPerPixel: acomSession.lastRunSemantics?.scale.invAngstromPerPixel ?? acomScale
         )
     }
 

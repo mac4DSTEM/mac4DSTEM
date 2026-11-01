@@ -16,6 +16,7 @@ import ImagoCore
 import SpectroCore
 import SpectroEDX
 #endif
+import ShellEDXModel
 
 /// One element's mean composition under an object, from the per-pixel maps.
 package nonisolated struct ObjectComposition: Codable, Hashable, Sendable {

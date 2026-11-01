@@ -20,7 +20,10 @@ class Journey: XCTestCase {
     /// and the app then shows no window to the test.
     func launch(arguments extra: [String] = []) {
         let a = XCUIApplication()
-        a.launchArguments = ["--ui-testing"] + extra
+        // -NSTreatUnknownArgumentsAsOpen NO (macTEM's launcher does the same): AppKit otherwise turns the path after `--open` into an
+        // open-documents event instead of a plain launch, and SwiftUI then shows no window (an .h5 path: 0 windows, 2026-10-30).
+        // `--open <path>` is read by the app itself, never by AppKit.
+        a.launchArguments = ["--ui-testing", "-NSTreatUnknownArgumentsAsOpen", "NO"] + extra
         a.launch()
         a.activate()
         XCTAssertTrue(a.windows.firstMatch.waitForExistence(timeout: 20),
@@ -56,16 +59,6 @@ class Journey: XCTestCase {
         let e = element(identifier)
         XCTAssertTrue(e.waitForExistence(timeout: timeout), "\(identifier) did not appear in \(Int(timeout)) s", file: file, line: line)
         return e
-    }
-
-    /// Waits until the element's accessibility value satisfies `predicate` (a compute step: 60 s on the demo).
-    func waitValue(of identifier: String, timeout: TimeInterval = 60, file: StaticString = #filePath, line: UInt = #line,
-                   where predicate: @escaping (String) -> Bool) {
-        let e = element(identifier)
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in predicate((e.value as? String) ?? "") }, object: nil)
-        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed,
-                       "\(identifier) never reached the expected value (last: \(String(describing: e.value)))", file: file, line: line)
     }
 
     /// Waits until the identifier no longer exists (a busy indicator ends).

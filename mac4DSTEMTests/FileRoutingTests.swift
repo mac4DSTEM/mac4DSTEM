@@ -96,7 +96,7 @@ final class VeloxSingleSpectrumTests: XCTestCase {
         XCTAssertGreaterThan(opened.image.energyAxis.scale, 0)
         XCTAssertGreaterThan(opened.image.sum(mask: nil).reduce(0, +), 0)
         // The kit's single-spectrum reader maps no live or real time for this v4 file (its `Detector` metadata sits elsewhere): the
-        // times are nil here and stay a kit ask (`docs/open-items.md`); when the kit maps them they are non-negative and live <= real.
+        // times are nil here and stay a kit ask (mac4DSTEM/FormatoKit#10); when the kit maps them they are non-negative and live <= real.
         if let live = opened.liveTimeSeconds, let real = opened.realTimeSeconds { XCTAssertLessThanOrEqual(live, real * 1.0001) }
         XCTAssertGreaterThan(opened.image.metadata.beamEnergyKeV ?? 0, 0, "the file states its beam energy")
         XCTAssertEqual(opened.image.metadata.origin, .veloxEMD)

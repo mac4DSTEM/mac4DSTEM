@@ -52,7 +52,7 @@ import sys
 
 # Peak positions are pinned rounded to 0.01 px; 0.05 px is five times that and
 # far below the ~26 px movement the count fields missed. A threshold is a
-# property of the datasets it was measured on (CLAUDE.md): measured 2026-09-30 on
+# property of the datasets it was measured on: measured 2026-09-30 on
 # this Mac, three harness runs from two builds reproduced every pinned position
 # bit-for-bit (max nearest-neighbour distance 0 px); 0.05 px absorbs one .xx5
 # rounding flip on another GPU, not an offset.

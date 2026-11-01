@@ -206,7 +206,7 @@ extension AppState {
 
     /// The reader for a URL, by extension. Extracted so the configured open and
     /// the direct open cannot drift apart on which formats they accept.
-    /// Widened from `private` (seam 3, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):
+    /// Widened from `private` (seam 3, the archived notes):
     /// `App/AppState+DiskDetection.swift`'s `generateVacuumProbeKernel` calls
     /// it from outside this file.
     /// `@concurrent`: construction is file I/O (HDF5's `dlopen`, `HDF5Serial.acquire` — which waits behind another
@@ -229,8 +229,6 @@ extension AppState {
         case .refused(let why): throw SimpleError(why)
         }
     }
-
-
 
     /// "Ignore Session Sidecar…" (Dataset menu) and the inspector's "Reopen Without This Session": ASKS, never
     /// acts (owner card Q2 a, 2026-10-04). The reopen replaces the dataset, so every product computed in this
@@ -269,7 +267,6 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         return FileManager.default.fileExists(atPath: url.path) ? url.lastPathComponent : nil
     }
-
 
     func selectScan(x: Int, y: Int) {
         if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
@@ -503,14 +500,8 @@ extension AppState {
             inner: 0,
             outer: Float(defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy))  // one source with the preview's bright-field disk
         )
-        if let rawVoltage = await reader.readDoubleAttribute(
-            AcceleratingVoltage.attributeName, onObjectPath: "/"
-        ) {
-            // One app convention, kV — the rule (eV above 1000) is Core's, shared with the preprocessing export.
-            calibrationSession.acceleratingVoltage = AcceleratingVoltage.kilovolts(fromAttribute: rawVoltage)
-        } else {
-            calibrationSession.acceleratingVoltage = nil
-        }
+        // One app convention, kV — the rule (the stated unit, else eV above 1000) is Core's, shared with the preprocessing export.
+        calibrationSession.acceleratingVoltage = await AcceleratingVoltage.kilovolts(from: reader)
         // Strain dies BEFORE the calibration reset: `activate` suspends on reader
         // awaits in between, the export menu is reachable during a suspension, and
         // the strain frame keys come from the LIVE calibration — an uncleared map
@@ -803,6 +794,8 @@ extension AppState {
     /// what vouched for the peaks) and the learned-detector record is not
     /// touched (`learnedDetection.record` is for a completed run). The read
     /// is off the main actor and epoch-guarded like the calibration restore.
+    /// A schema-5 sidecar has no record: its disks are adopted on the shape
+    /// checks alone, at whole file only, and the controls are left alone.
     func restoreSessionPeaks(
         from snapshot: SessionSidecarSnapshot?, for descriptor: DatasetDescriptor
     ) async -> String? {
@@ -811,9 +804,12 @@ extension AppState {
         if let reason = SessionPeakRestore.refusalBeforeReading(
             viewRecord: snapshot.viewRecord,
             loadedSpecification: loadedView.specification,
-            replay: snapshot.replayRecord
+            replay: snapshot.replayRecord,
+            schema: snapshot.schema
         ) { return reason }
-        guard let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord) else { return nil }
+        // Nil only for a sidecar that predates the replay record (schema 5):
+        // the refusal above returns for every other sidecar without a disk step.
+        let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord)
         let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetSession.epoch
         let grid: BraggVectorEMDWriter.StoredPeakGrid?
@@ -830,11 +826,19 @@ extension AppState {
             return "Stored disks not used — the session's peak grid could not be read"
         }
         if let reason = SessionPeakRestore.refusal(
-            for: grid, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
+            for: grid, loadedSpecification: loadedView.specification, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
             detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
         ) { return reason }
         resultPresentation.setBraggVectors(grid.vectors)
         resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
+        guard let step else {
+            // No recipe: the controls stay at the detector defaults, and the
+            // disks read as not produced by the current settings until a new
+            // detection runs.
+            return "Disks restored from an older session without a recipe — "
+                + "\(SystemMonitor.count(grid.vectors.totalPeakCount)) peaks; "
+                + "their detection settings were not recorded, so run disk detection again to use them for strain or orientation"
+        }
         // Only on adoption: the controls show what these disks were detected
         // with, so a kernel built later with the same class judges them
         // `.current` until the user changes a control. A refusal returned
@@ -1032,9 +1036,11 @@ extension AppState {
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetSession.epoch
+        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is refused here like an unreadable one.
+        let sourcePath = descriptor.filePath
         do {
             let snapshot = try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url)
+                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: sourcePath)
             }.value
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
@@ -1282,7 +1288,6 @@ extension AppState {
         }
     }
 
-
     func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
         calibrationSession.parkedRecordedOrigin = nil
@@ -1317,6 +1322,25 @@ extension AppState {
         }
         rederiveDisplayedDPCForScaleChange()   // its Q, R and rotation just went
         acomSession.invalidateResult()
+    }
+
+    /// Prepare's Clear Calibration: the reset, and a lineage node for each
+    /// calibration kind the session had a node or a value of
+    /// (`recordCalibrationClearedRuns`) — a value from the file or a sidecar has
+    /// no node, and a product that used it must still read stale.
+    /// Activation and a cancelled load call `clearCalibration()` alone: a new
+    /// dataset's reset is not a change to this session's calibration.
+    func clearCalibrationAndRecord() {
+        let active = Set(replay.lineage.activeNodes().map(\.kind))
+        let calibration = calibrationSession.calibration
+        let present: Set<String> = [
+            calibration.origin != nil || calibration.meanOrigin != nil ? "calibration_origin" : nil,
+            calibration.ellipseA != nil ? "calibration_ellipse" : nil,
+            calibration.qPixelSize != nil ? "calibration_q" : nil,
+        ].reduce(into: []) { if let kind = $1 { $0.insert(kind) } }
+        let held = Self.clearedCalibrationKinds.filter { active.contains($0) || present.contains($0) }
+        clearCalibration()
+        recordCalibrationClearedRuns(kinds: held)
     }
 
     /// Undo a manual center: reinstate the fitted maps it set aside (with their original
@@ -1431,6 +1455,12 @@ extension AppState {
     /// for the value in effect — so a Return or blur on an untouched "0,1904"
     /// (restored from the session) does not arrive here, and no unchanged-value
     /// guard is needed (P1, 2026-10-04: it replaced a 5e-7 tolerance here).
+    ///
+    /// The orientation map stays, as the strain and phase maps do (D068): it
+    /// reads stale. Its run consumed the Q node (`calibration_q`) and its
+    /// signature carries the matching scale, so a typed or cleared Q changes
+    /// one or both, and the export writes the scale the map was matched at
+    /// (`lastRunSemantics`), not the one in force.
     func setManualQPixelSize(_ value: Double) {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
@@ -1441,12 +1471,10 @@ extension AppState {
             // the picker's visible default instead of retaining pixels/px.
             calibrationSession.calibration.qPixelUnits = manualQPixelUnits
             calibrationSession.provenance.qScale = .manual
-            acomSession.invalidateResult()
             recordQCalibrationRun()   // lineage node (ADR 047)
         } else {
             calibrationSession.calibration.qPixelSize = nil
             calibrationSession.provenance.qScale = nil
-            acomSession.invalidateResult()
         }
         rederiveDisplayedDPCForScaleChange()
     }
@@ -1468,7 +1496,7 @@ extension AppState {
             // setter gives it (review 2026-09-30 row 2).
             recordQCalibrationRun()   // lineage node (ADR 047)
         }
-        acomSession.invalidateResult()
+        // The orientation map stays and reads stale (`setManualQPixelSize`).
         rederiveDisplayedDPCForScaleChange()
     }
 
@@ -1518,7 +1546,6 @@ extension AppState {
         rederiveDisplayedDPCForScaleChange()
     }
 
-
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
     /// Derived from the same DetectorShape as virtual diffraction so both
@@ -1529,7 +1556,5 @@ extension AppState {
             shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
         return VirtualDetector.makeMask(shape: shape, qy: d.ry, qx: d.rx).map { $0 != 0 }
     }
-
-
 
 }

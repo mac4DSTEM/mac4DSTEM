@@ -390,6 +390,13 @@ package nonisolated struct LoadView: Sendable {
         return binned(output, patternCount: 1)
     }
 
+    /// The float32 bytes a reader streams for one scan position: the READ extent (`readDetectorCrop`, or the whole
+    /// source detector), BEFORE binning. A bin-2 view reads four times the bytes its binned `descriptor` holds; counting
+    /// the binned size understated "Streamed" by bin².
+    package var readBytesPerPattern: Int {
+        (readDetectorCrop?.height ?? source.qy) * (readDetectorCrop?.width ?? source.qx) * MemoryLayout<Float>.stride
+    }
+
     /// Bin `patternCount` contiguous patterns that are already at the **read**
     /// extent (`readDetectorCrop`, so a whole number of bins on both axes).
     ///

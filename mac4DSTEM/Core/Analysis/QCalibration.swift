@@ -26,7 +26,7 @@ import DiffractoGeometry
 /// single-shell assumption is at its least safe — thin or weakly-scattering
 /// samples are exactly the case where the first shell goes missing and the
 /// second is read as the first — so the state is reported rather than folded
-/// into "fine" (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §3.2).
+/// into "fine" (archived `docs/q-calibration-design.md` §3.2).
 package typealias QCalibrationShellCheck = LinearScaleShellCheck
 
 extension LinearScaleShellCheck {
@@ -63,13 +63,6 @@ package nonisolated struct QCalibrationEstimate: Sendable {
     package let sameShellPeaksPerPosition: Double
     /// Which crystal shell the first observed ring was taken to be (nil for an estimate made against a caller-chosen reference shell).
     package let assignment: ShellAssignment.Assigned?
-
-    /// `medianAbsoluteDeviationPixels / observedRadiusPixels`. Computed and
-    /// exposed because it is free and a later design pass will need it; **no
-    /// threshold is applied to it** — see the note on `KnownCrystalQCalibration`.
-    package var shellConsistency: Double {
-        observedRadiusPixels > 0 ? medianAbsoluteDeviationPixels / observedRadiusPixels : .infinity
-    }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(invAngstromPerPixel: Double, observedRadiusPixels: Double, referenceRadiusInvAngstrom: Double, medianAbsoluteDeviationPixels: Double, sampleCount: Int, secondShellRadiusPixels: Double?, shellCheck: QCalibrationShellCheck, sameShellPeaksPerPosition: Double, assignment: ShellAssignment.Assigned? = nil) {
@@ -117,7 +110,7 @@ package nonisolated enum KnownCrystalQCalibration {
     //    probe area and over-measures 2.15× on the app's own demo
     //    (docs/open-items.md, owed a Gate D session).
     // 5. **Measured again, on the app's own path, and still no line (lane Q,
-    //    2026-09-30, `../_archive/mac4DSTEM/tools/q-shell-probe`; run it to reproduce).** The decided
+    //    2026-09-30, archived `tools/q-shell-probe`; run it to reproduce).** The decided
     //    rule: a "disagrees" line sits at 2H only if 2H < M/2, H = the largest
     //    |observed/expected − 1| among cubes whose Q is within 3 % of truth
     //    (taking the recorded 4.07 % of `sim_Au` at a 1 px displacement), M =

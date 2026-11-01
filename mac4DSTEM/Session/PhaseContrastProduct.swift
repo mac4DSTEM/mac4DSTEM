@@ -4,7 +4,6 @@
 //        products and their run controls. Held by AppState as
 //        `let phaseContrast = PhaseContrastProduct()`, no forwarding
 //        properties; views read `phaseContrast.…`.
-//        (../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md, seam 1)
 //
 //  Every property stays a plain `package var` (not `private(set)`), unlike
 //  `StrainProduct`'s `private(set)` + publish-method encapsulation:
@@ -85,6 +84,90 @@ package final class PhaseContrastProduct {
     package var parallaxResultProduct: ParallaxResultProduct = .preprocess
     package var parallaxQLowpassInvAngstrom: Double = 0
     package var parallaxQHighpassInvAngstrom: Double = 0
+
+    // MARK: - What the held KDE and depth products ran with
+
+    /// The controls the held `parallaxSubpixel` / `parallaxDepth` ran with, for
+    /// the replay record (`ParallaxReplayPlan`). The results carry their
+    /// resolved values, not the controls (the heuristic upsample factor, the
+    /// depth list rather than its start, end and count). Read only while the
+    /// matching result is held: a site that clears the result leaves these
+    /// behind, and the record builder never reads them then.
+    package var parallaxSubpixelControls: ReplayStepPlan.ParallaxReplayPlan.Subpixel?
+    package var parallaxDepthControls: ReplayStepPlan.ParallaxReplayPlan.Depth?
+
+    /// The KDE controls as the fields hold them now.
+    package var parallaxSubpixelSettings: ReplayStepPlan.ParallaxReplayPlan.Subpixel {
+        .init(upsampleFactor: parallaxKDEUpsampleFactor, kdeSigmaPixels: parallaxKDESigmaPixels,
+              lowpass: parallaxKDELowpass, lanczosOrder: parallaxKDELanczosOrder,
+              positionCorrectionIterations: parallaxPositionCorrectionIterations,
+              positionCorrectionCheckerboard: parallaxPositionCorrectionCheckerboard)
+    }
+
+    /// The phase-correction filters as the fields hold them now.
+    package var parallaxCorrectionSettings: ReplayStepPlan.ParallaxReplayPlan.Correction {
+        .init(qLowpassInvAngstrom: parallaxQLowpassInvAngstrom, qHighpassInvAngstrom: parallaxQHighpassInvAngstrom)
+    }
+
+    /// The depth controls as the fields hold them now.
+    package var parallaxDepthSettings: ReplayStepPlan.ParallaxReplayPlan.Depth {
+        .init(startAngstrom: parallaxDepthStartAngstrom, endAngstrom: parallaxDepthEndAngstrom,
+              planeCount: parallaxDepthPlaneCount, useFullFit: parallaxDepthUseFullFit,
+              informationLimitInvAngstrom: parallaxDepthInformationLimit,
+              informationPower: parallaxDepthInformationPower)
+    }
+
+    /// Put a recorded run's controls back (the replay executor); a stage the
+    /// run did not reach keeps its fields.
+    package func apply(_ plan: ReplayStepPlan.ParallaxReplayPlan) {
+        if let s = plan.subpixel {
+            parallaxKDEUpsampleFactor = s.upsampleFactor
+            parallaxKDESigmaPixels = s.kdeSigmaPixels
+            parallaxKDELowpass = s.lowpass
+            parallaxKDELanczosOrder = s.lanczosOrder
+            parallaxPositionCorrectionIterations = s.positionCorrectionIterations
+            parallaxPositionCorrectionCheckerboard = s.positionCorrectionCheckerboard
+        }
+        if let c = plan.correction {
+            parallaxQLowpassInvAngstrom = c.qLowpassInvAngstrom
+            parallaxQHighpassInvAngstrom = c.qHighpassInvAngstrom
+        }
+        if let d = plan.depth {
+            parallaxDepthStartAngstrom = d.startAngstrom
+            parallaxDepthEndAngstrom = d.endAngstrom
+            parallaxDepthPlaneCount = d.planeCount
+            parallaxDepthUseFullFit = d.useFullFit
+            parallaxDepthInformationLimit = d.informationLimitInvAngstrom
+            parallaxDepthInformationPower = d.informationPower
+        }
+    }
+
+    /// The step the held products make (`ParallaxReplayPlan`), nil with no
+    /// preprocess. Correction's filters are read from its result, which
+    /// carries them as run (nil for 0).
+    package var parallaxReplayPlan: ReplayStepPlan.ParallaxReplayPlan? {
+        guard let preprocess = parallaxPreprocess else { return nil }
+        return .init(
+            calibration: .init(preprocess.calibration),
+            alignmentLevels: parallaxAlignment?.completedBins.count ?? 0,
+            alignmentComplete: parallaxAlignment?.isComplete ?? false,
+            alignmentStop: parallaxAlignment.flatMap { .init(completedBins: $0.completedBins) },
+            fitsAberrations: parallaxHigherOrderFit != nil,
+            subpixel: parallaxSubpixel == nil ? nil : parallaxSubpixelControls,
+            correction: parallaxCorrection.map {
+                .init(qLowpassInvAngstrom: $0.qLowpassInvAngstrom ?? 0, qHighpassInvAngstrom: $0.qHighpassInvAngstrom ?? 0)
+            },
+            depth: parallaxDepth == nil ? nil : parallaxDepthControls)
+    }
+
+    /// The staleness signature over the controls of each later stage whose
+    /// product is held, read from the fields.
+    package var parallaxCurrentSignature: [String: String] {
+        ReplayStepPlan.ParallaxReplayPlan.currentSignature(
+            subpixel: parallaxSubpixel == nil ? nil : parallaxSubpixelSettings,
+            correction: parallaxCorrection == nil ? nil : parallaxCorrectionSettings,
+            depth: parallaxDepth == nil ? nil : parallaxDepthSettings)
+    }
 
     // MARK: - The two cascading didSets
 

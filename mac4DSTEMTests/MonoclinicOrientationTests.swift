@@ -1,7 +1,7 @@
 //
 //  MonoclinicOrientationTests.swift
 //  Tier 1 (orientation angles are numbers a scientist reads): beta'' (Mg5Si6, C2/m)
-//  orientation maps. Registration: ../_archive/mac4DSTEM/docs/archive/v5/beta-double-prime-orientation-
+//  orientation maps. Registration: the archived notes
 //  registration-2026-10-14.md (P1-P4); band: .../beta-double-prime-orientation-design-
 //  2026-10-14.md (P2: disorientation <= 7.7 deg, >= 95 % of >= 500 draws).
 //
@@ -383,7 +383,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     }
 
     /// Peaks of a kinematic pattern for the lab frame (f1, f2, n) in crystal coordinates, built here
-    /// (never with production `project`), as in tools/harnesses/acom-mirror-test.
+    /// (never with production `project`), as in acom-mirror-test (a retired harness; the kit's parity tests hold it).
     private func peaks(crystal: CrystalStructure, truth: simd_double3x3, reflections: [KinematicReflection]) -> [BraggPeak] {
         let f1 = truth.columns.0, f2 = truth.columns.1, n = truth.columns.2
         let scale = 0.008, origin = 256.0, curvature = 0.02508 / 2
@@ -449,7 +449,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     }
 
     /// RECORD (item B, closed 2026-10-14, ADR 050): P2 as registered failed at the default library, 86.5 % of
-    /// 600 draws within 7.7 deg at 200 templates against a band of 95 % (../_archive/mac4DSTEM/docs/archive/v5/
+    /// 600 draws within 7.7 deg at 200 templates against a band of 95 % (the archived notes
     /// beta-double-prime-orientation-results-2026-10-14.md). 200 templates is no longer a shipped path for a
     /// monoclinic phase (`ACOMQualityPreset.templateCount(for:)`), so that case is not asserted here.
     ///

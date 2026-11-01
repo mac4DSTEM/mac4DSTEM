@@ -7,13 +7,13 @@ Numbers match the reference within its own spread, never stricter (suite rule D1
 
 Data: Zenodo 10.5281/zenodo.6645396 (CC BY 4.0, kept outside the repo in `References/mac4DSTEM/thronsen-datasetA`). Dataset A, 512 × 512
 (PDF page 3), stride 3 here (171 × 171; the full cube is not on this disk). Facts, page and table per number: `mac4DSTEMTests/Fixtures/thronsen-parity/truth.json`.
-Run (heavy, real data, skipped unless asked; 8 GB cap): `../tools/memcap.sh --gb 8 -- env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`
+Run (heavy, real data, skipped unless asked; 8 GB cap): `env TEST_RUNNER_MAC4DSTEM_THRONSEN=1 MAC4DSTEM_UNIT_ONLY=ThronsenParityTests tools/run-tests.sh unit`
 (`mac4DSTEMTests/ThronsenParityTests.swift`, 8 s after the build).
 
 | Check | Reference | Ours | State |
 |---|---|---|---|
 | Phase map accuracy, the paper's metric (share of positions equal to the manual ground truth, all classes counted) | Table 3 (PDF page 11), full resolution: NMF 98.50, vector matching 98.46, template matching 98.25, ANN 99.04 % | **98.69 %** at stride 3 (383 of 29 241 positions differ; 774 243 peaks) | inside the paper's spread (98.25 to 99.04); the published maps at stride 3 are 98.44 / 98.49 / 98.30 / 99.05 % (computed by us from the Zenodo maps, not published) |
-| Same, as the adopted T4 bar (ADR 040, 041) | per-position error 1.31 % | 1.31 % | reproduced; pinned in the test (±0.05) |
+| Same, as the adopted T4 bar | per-position error 1.31 % | 1.31 % | reproduced; pinned in the test (±0.05) |
 | Object statistics: count, Feret length, edge-corrected areal density (tasks 39 and 41) | none in the paper; derived from the truth map, **not published** | see below | exercises the pipeline end to end; unvalidated |
 | The four published maps against the truth at full 512 × 512 with the paper's scorer (`determine_accuracy.ipynb`: share of positions with label ≠ truth, every class and the four "not indexed" truth positions counted) | Table 3: 98.50 / 98.46 / 98.25 / 99.04 % | **98.5020 / 98.4570 / 98.2521 / 99.0391 %** | reproduced to 0.01 pp (`testThePublishedMapsReproduceTable3AtFullResolution`, runs when the maps are on disk); at stride 3 the same maps score 98.44 / 98.49 / 98.30 / 99.05 % |
 | N_V, composition, strain | none (no thickness, no EDS in the dataset) | not checkable here | said so, not scored |
@@ -78,10 +78,10 @@ as the paper's text says (T1 along [110] and [1-10] of Al, θ′ along [100] and
 
 **Read, not tested.** Table 2 (PDF page 3) against our three structures (`ThronsenReference`): θ′ the same (a 4.04, c 5.80, I-4m2, Al and Cu positions); T1 the same lattice (a 4.94775 against the table's 4.95, c 14.14499 against 14.15: the cell compressed to the paper's
 a_Al = 4.04 Å) and the same Cu, Li and Al (1/3, 0, 0) positions, **but the table's Al at (0, 1/2, 0.406) is (0, 0, 0.4062) in our structure**: not explained, to be tested by building the other and comparing the T1 ⟨0-41⟩ spot list; Al a = 4.04 in the table against the kit preset's 4.0495 (0.23 %, below the pair radius).
-Fig. 2 (PDF page 4) shows the same four zone axes our library samples (Al ⟨001⟩, θ′ ⟨001⟩ and ⟨100⟩, T1 ⟨0-41⟩); the spots were not compared one by one, and the max{s} of 0.030 / 0.050 / 0.030 / 0.022 Å⁻¹ belong to the template and ANN simulations. Section 3.5's vector matching against ADR 044 and the kit's matcher:
+Fig. 2 (PDF page 4) shows the same four zone axes our library samples (Al ⟨001⟩, θ′ ⟨001⟩ and ⟨100⟩, T1 ⟨0-41⟩); the spots were not compared one by one, and the max{s} of 0.030 / 0.050 / 0.030 / 0.022 Å⁻¹ belong to the template and ANN simulations. Section 3.5's vector matching against the app's one disk set and the kit's matcher:
 same: reference vectors from a thin slab (0.030 Å⁻¹ for T1, 0.300 Å⁻¹ for θ′, which our per-phase excitation slab carries), lattices rotated in-plane to the matrix's rotation, the matching score Σ|u − v| / N_v over unique reference vectors, patterns with too little left read as the matrix;
-different: the peak finder (theirs Laplacian of Gaussian plus centre of mass, ours the probe-kernel disk detector at a 0.15 % floor, ADR 041, because one detector serves strain, orientation and phase), the Al removal (theirs from one Al-only pattern, ours from the fitted matrix entry), and the not-indexed cut (theirs a score above 0.07 Å⁻¹, ours the known-variants rule and the chance-match guard);
-why: the app has one disk set for strain, orientation and phase (ADR 044), and the 2026-09-28 comparison ran at the same reported accuracy. (The comment in `PhaseDefinition` that cites the slab values as "their Table 2" means Section 3.5.)
+different: the peak finder (theirs Laplacian of Gaussian plus centre of mass, ours the probe-kernel disk detector at a 0.15 % floor, because one detector serves strain, orientation and phase), the Al removal (theirs from one Al-only pattern, ours from the fitted matrix entry), and the not-indexed cut (theirs a score above 0.07 Å⁻¹, ours the known-variants rule and the chance-match guard);
+why: the app has one disk set for strain, orientation and phase, and the 2026-09-28 comparison ran at the same reported accuracy. (The comment in `PhaseDefinition` that cites the slab values as "their Table 2" means Section 3.5.)
 
 **Side by side.** The pictures are offline renderings, not screenshots of the app: Fig. 7(c), the truth at stride 3, our map and the 383 positions where they differ
 (`thronsen-maps.png`, sent to the thread and not kept in the repo; unverified on screen in the app). Not done: our VDF with the aperture of Fig. 7(d) against 7(b), and our patterns at the four coloured rectangles of 7(b) against 7(d) to 7(g) (they need the app on the full cube or a drive).

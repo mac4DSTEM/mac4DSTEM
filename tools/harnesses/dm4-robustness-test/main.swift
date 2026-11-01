@@ -9,7 +9,7 @@ func fail(_ message: String) -> Never {
 
 // MARK: - Minimal DM4 byte writer.
 // Structure fields (labels, counts, SPECIAL, %%%%, encoded-type ints) are
-// big-endian; pixel/primitive values are little-endian. See ../_archive/mac4DSTEM/docs/dm4-format.md.
+// big-endian; pixel/primitive values are little-endian. See the archived notes.
 
 struct ByteWriter {
     private(set) var bytes: [UInt8] = []
@@ -147,7 +147,6 @@ func arrayTag(_ label: String, elementType: UInt64, length: UInt64, payload: [UI
     w.raw(payload)
     return w.bytes
 }
-
 
 func unitsTag(_ units: String) -> [UInt8] {
     var payload = ByteWriter()

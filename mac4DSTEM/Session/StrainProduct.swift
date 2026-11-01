@@ -1,6 +1,6 @@
 //
 //  StrainProduct.swift
-//  Role: S8's seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — the one owner of the
+//  Role: S8's seam (the archived notes §7) — the one owner of the
 //        strain analysis product and its run controls. Held by AppState with
 //        no forwarding properties; views read `strain.…`.
 //
@@ -123,6 +123,30 @@ package final class StrainProduct {
             "reference_mode": referenceMode == .wholeScan ? "whole-scan" : "selected-region",
             "basis_mode": basisMode == .manual ? "manual" : "consensus",
         ]
+    }
+
+    /// The recipe step a strain run records (`ReplayContract`'s strain row):
+    /// the run's modes, the RESOLVED basis, and for a manual run the INPUT basis
+    /// it indexed with. Tokens are the result-provenance vocabulary
+    /// ("consensus"/"manual", "selected-region"/"whole-scan"), not Swift case
+    /// names — the two carriers share keys and must share values. Built here so
+    /// the contract test reads the same writer the run does.
+    package nonisolated static func recordedParameters(
+        referenceMaskApplied: Bool, automaticBasis: Bool,
+        resolvedG1: (x: Float, y: Float), resolvedG2: (x: Float, y: Float),
+        inputBasis: (g1: (x: Float, y: Float), g2: (x: Float, y: Float))?
+    ) -> [String: String] {
+        var parameters: [String: String] = [
+            "reference_mode": referenceMaskApplied ? "selected-region" : "whole-scan",
+            "basis_mode": automaticBasis ? "consensus" : "manual",
+            "resolved_g1_x": String(resolvedG1.x), "resolved_g1_y": String(resolvedG1.y),
+            "resolved_g2_x": String(resolvedG2.x), "resolved_g2_y": String(resolvedG2.y),
+        ]
+        if let inputBasis {
+            parameters["input_g1_x"] = String(inputBasis.g1.x); parameters["input_g1_y"] = String(inputBasis.g1.y)
+            parameters["input_g2_x"] = String(inputBasis.g2.x); parameters["input_g2_y"] = String(inputBasis.g2.y)
+        }
+        return parameters
     }
 
     /// Publish a computed map. An automatic run adopts its resolved basis into

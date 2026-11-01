@@ -4,7 +4,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 /// Pins `RecentDatasets` — the recents list extracted from `AppState` as S3's
-/// seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7).
+/// seam (the archived notes §7).
 ///
 /// Persistence is injected as a recorder: `WorkspaceRecoveryStore` is
 /// `UserDefaults.standard` all the way down, and a test that wrote the user's

@@ -7,8 +7,8 @@
 //
 //  The step is lineage-only (`SessionLineage.lineageOnlyKinds`): an older build's linear record never
 //  carries it. Its input edges come from `SessionLineage.inputPolicy`: `phases` from the active phase
-//  map and `objects` from the active precipitate objects, whichever exist. A rewind to the step puts
-//  `QuantificationStep(parameters:)` back into the room (`SpectroscopySession.restoreQuantification`).
+//  map and `objects` from the active precipitate objects, whichever exist. `QuantificationStep(parameters:)`
+//  reads a recorded step back (Results rows); no rewind restores the method into the EDS room today.
 //
 //  The hash is recorded beside the JSON so a reader can see two steps used the same method without
 //  decoding either, and a restore refuses a step whose JSON no longer matches its hash.

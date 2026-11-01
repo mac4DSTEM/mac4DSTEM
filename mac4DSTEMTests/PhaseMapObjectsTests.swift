@@ -1,7 +1,7 @@
 //
 //  PhaseMapObjectsTests.swift
 //  Class-map → per-class objects → per-class statistics
-//  (../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification §2 steps 5–6, decision 019).
+//  (the archived notes §2 steps 5–6, decision 019).
 //  Every expected number here is arithmetic on a hand-drawn 12 × 9 label map,
 //  written before the implementation and broken against it before trusted.
 //
@@ -123,7 +123,7 @@ final class PhaseMapObjectsTests: XCTestCase {
         XCTAssertEqual(two.density.edgeExcluded, 0)
 
         // Object ids are unique across classes, so one inspector list can
-        // key on `rowIdentity` without collisions.
+        // key on them without collisions.
         let ids = result.classes.flatMap { $0.objects.map(\.id) }
         XCTAssertEqual(Set(ids).count, ids.count)
     }

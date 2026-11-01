@@ -4,7 +4,7 @@
 //        calibration from a known crystal, orientation-plan generation, the
 //        match run, and the one publish site for every ACOM display mode.
 //        The 15(ish) `acom*` properties these functions read live in
-//        `Session/ACOMSession.swift` (see ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md,
+//        `Session/ACOMSession.swift` (see the archived notes,
 //        seam 2) — call sites here use the owner prefix
 //        (`acomSession.modelSelectionIssue`, `.scanSelection(...)`,
 //        `.effectiveBackend`, `.effectiveReliabilityThreshold`,
@@ -141,20 +141,18 @@ extension AppState {
         calibrationSession.provenance.qShellCaveat = Self.qShellCaveatText(estimate).map {
             CalibrationProvenance.QShellCaveat(pixelSize: estimate.invAngstromPerPixel, text: $0)
         }
-        acomSession.invalidateResult()
+        // An orientation map stays and reads stale, as after a typed Q (`setManualQPixelSize`).
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
-        var status = String(
-            format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %@",
-            estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
-            Self.positionCountText(estimate.sampleCount)
-        )
+        var status = "Q calibration ✓  \(Num.fixed(Double(estimate.invAngstromPerPixel), 6)) Å⁻¹/px"
+            + " · first shell \(Num.fixed(Double(estimate.observedRadiusPixels), 2)) px"
+            + " · \(Self.positionCountText(estimate.sampleCount))"
         if let assigned = estimate.assignment { status += " · assigned to \(assigned.label)" }
         switch estimate.shellCheck {
         case .notSelfChecked:
             status += " · shell ratio unchecked"
         case .measured(let observed, let expected, _):
-            status += String(format: " · shell ratio %.3f vs %.3f predicted", locale: .autoupdatingCurrent, observed, expected)
+            status += " · shell ratio \(Num.fixed(Double(observed), 3)) vs \(Num.fixed(Double(expected), 3)) predicted"
         }
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)
@@ -376,12 +374,9 @@ extension AppState {
         acomSession.regionSelectionActive = false
         promoteIPFZDisplayIfDefault(for: map)
         applyACOMDisplay()
-        statusText = String(
-            format: "ACOM %@ ✓  %@ · %@ · %@ positions · %.1f s",
-            scope.resultQualifier, map.matchingBackend.rawValue,
-            runSemantics.scale.provenance.displayName,
-            workCount.formatted(), elapsed
-        )
+        statusText = "ACOM \(scope.resultQualifier) ✓  \(map.matchingBackend.rawValue)"
+            + " · \(runSemantics.scale.provenance.displayName)"
+            + " · \(workCount.formatted()) positions · \(Num.fixed(Double(elapsed), 1)) s"
         // A landed preview's natural next step is the full map, so the scope
         // — and with it the header's primary action — advances to it (R17,
         // owner decision). The segmented control shows the change, and the
@@ -422,6 +417,7 @@ extension AppState {
             gateProvenance["reliability_threshold"] = String(format: "%.3f", threshold)
             gateProvenance["fraction_above_reliability_threshold"] = String(format: "%.3f", kept)
         }
+        let own = scalarPersistenceMetadata(for: .acom)   // its own keys, whatever the current mode
         publishProduct(
             kind: "acom_\(scope.resultQualifier)_\(baseKind.dropFirst(5))",
             displayName: "ACOM \(scope.rawValue.lowercased()) · \(acomSession.display.rawValue)",
@@ -435,7 +431,9 @@ extension AppState {
                 ProductQualityField(name: "mirrored", units: "flag", image: map.mirroredImage),
             ],
             overlays: [ProductOverlayDescriptor(
-                kind: "matched_template", provenance: "selected ACOM orientation template")])
+                kind: "matched_template", provenance: "selected ACOM orientation template")],
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance, ownProvenanceOnly: true)
         if !gateProvenance.isEmpty, let product = resultPresentation.product {
             resultPresentation.replaceProduct(DisplayedProduct(
                 origin: product.origin, kind: product.kind, displayName: product.displayName,

@@ -1,6 +1,6 @@
 //
 //  PrecipitateSegmentation.swift
-//  Role: Step 3 of the precipitate chain (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2) —
+//  Role: Step 3 of the precipitate chain (the archived notes §2) —
 //        splits a classified scan map into 8-connected precipitate objects
 //        per class (`classObjects`). Since ImagoKit 0.7.0 (suite task 39) the labelling, every
 //        measurement (area, centroid, extents, perimeter, equivalent diameter, solidity, Feret) and the
@@ -52,14 +52,6 @@ package nonisolated enum PrecipitateSegmentation {
         package let solidity: Double
         /// The kit's measurements of this object (`Segmentation.regionProperties`); the class's Feret summary is the kit's `ObjectStatistics.feretSummary` over these.
         package let region: RegionProperties?
-
-        /// The inspector row's identity, in its OWN namespace — the object
-        /// half of the pair described on
-        /// `PrecipitateReflections.Candidate.rowIdentity`. The two `Int` id
-        /// spaces overlap, so a shared `ForEach(id: \.id)` inside one
-        /// `Section` let the reflection rows claim ids 1…23 and hide the
-        /// objects with those ids (`../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
-        package nonisolated var rowIdentity: String { "precipitate.object.\(id)" }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
         package nonisolated init(
