@@ -564,8 +564,8 @@ package nonisolated struct OriginMaps: Sendable {
     /// detector pixels (`OriginCalibration.windowPull`). The gate reads it:
     /// see `originFitIsSane`. `nil` when the maps did not come from this
     /// app's centre-of-mass run (an imported py4DSTEM map, a Friedel run, a
-    /// reopened session: the session file does not carry it yet): unknown,
-    /// never refused.
+    /// session saved before the session file carried it): unknown, never
+    /// refused.
     package var windowPullBoundPixels: Float?
 
     /// RMS of measured minus fitted origins, over EVERY scan position.
@@ -1082,7 +1082,8 @@ extension PixelOriginMaps {
             measuredX: measuredQY?.map(Float.init),
             measuredY: measuredQX?.map(Float.init),
             fittedX: fittedQY.map(Float.init),
-            fittedY: fittedQX.map(Float.init)
+            fittedY: fittedQX.map(Float.init),
+            windowPullBoundPixels: windowPullBoundPixels.flatMap { $0.isFinite && $0 >= 0 ? Float($0) : nil }
         )
     }
 }
