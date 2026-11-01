@@ -39,7 +39,7 @@ final class CIFModelIdentityTests: XCTestCase {
         "nias_rev": "hexagonal 4 fp 3eaf288dc1d8ec3f rev 0fd3b09ba1d31576 sites 45f09b06412c9a1b prov c8e057cb54cfcd49",
         "nacl": "cubic 8 fp 470dc9212ac7621d rev ccdbd0fc33e04d19 sites bd67e66db89fa580 prov f4906a7ef5735562",
         "sidia": "cubic 8 fp 135db76bcc528cdd rev b7ef98f7973578f5 sites 6fd5ee3a05ec94c8 prov 2316d9f830b7d1a0",
-        "monob": "monoclinic 6 fp 948a841a16b43437 rev 95d4be21ccd9777e sites 124037fb150e56af prov 5c079ae880b6a1b2",
+        "monob": "monoclinic 6 fp 948a841a16b43437 rev 95d4be21ccd9777e sites 124037fb150e56af prov 48cbefcfb21d0270",
         "p1scr": "cubic 4 fp 4a616d3e96aaf4ea rev bb636f9bdd047183 sites bfb921fd88c2acc4 prov 207130c2eb4bdf04",
         "mgo333": "hexagonal 4 fp 8ee7790a0f6b0fa1 rev 9921298469011ae3 sites 7c1402f6ba708b54 prov bce69c8776085645"
     ]

@@ -211,7 +211,7 @@ final class MaterialsProjectDocumentTests: XCTestCase {
         "au-f-primitive-no-matrix": "0b2452064e68c476",
         "bi2te3-like-r-primitive": "a99bb9a1ddba4a28",
         "mg-hexagonal": "67a9dbc0279cca02",
-        "monoclinic-no-symmetry-block": "71e237e400e3a24c",
+        "monoclinic-no-symmetry-block": "849923d35f3f314a",   // 2026-11-01: provenance names orientation_reduction, no validation keys
         "orthorhombic-c-primitive": "04cdea83a65a1eef",
         "si-conventional-labelled": "fc0d0fa8e56715c4",
         "si-f-primitive": "eb1209b62fa6cb53",
