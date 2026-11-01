@@ -240,6 +240,7 @@ mac4dstem_sources() {
         want+=(
           "$core/Data/DatasetDescriptor.swift"
           "$core/Data/DiffractionPattern.swift"
+          "$core/Data/SessionSidecarFormat.swift"   # FourDDataSource reads the origin gate attributes by its names (2026-11-01)
           "$core/Data/FourDDataSource.swift"
           "$core/Data/LoadSpecification.swift"
           "$core/Data/RQRotationConvention.swift"
