@@ -233,6 +233,8 @@ print ""
 print "== D. scientific reaches the real-data harness; all reaches it once =="
 FAKE="$WORK/fake"; mkdir -p "$FAKE/tools/lib" "$FAKE/bin" "$FAKE/home"
 cp "$ROOT/tools/run-tests.sh" "$FAKE/tools/run-tests.sh"
+# run-tests.sh sources the harness runner; it is part of the routing under test, so the real one is copied, not stubbed.
+cp "$ROOT/tools/lib/run-harnesses.sh" "$FAKE/tools/lib/run-harnesses.sh"
 print -r -- 'resolve_mac4dstem_developer_dir() { :; }' > "$FAKE/tools/lib/developer-dir.sh"
 print -r -- '#!/bin/sh'$'\n''exit 0' > "$FAKE/tools/lib/fetch-py4dstem.sh"
 print -r -- '#!/bin/sh'$'\n''exit 0' > "$FAKE/bin/xcodebuild"
