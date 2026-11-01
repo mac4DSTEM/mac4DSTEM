@@ -574,6 +574,11 @@ nonisolated extension BraggVectorEMDWriter {
                 measuredQX: measuredPair ? measuredQX?.values : nil,
                 measuredQY: measuredPair ? measuredQY?.values : nil
             )
+            // Absent on a session saved before 2026-10-31, or unreadable: unknown, which the origin gate does not refuse.
+            if let text = (try? file.stringAttribute(SessionSidecarFormat.originWindowPullAttribute, at: rootPath)) ?? nil,
+               let pull = Double(text), pull.isFinite, pull >= 0 {
+                calibration.originMaps?.windowPullBoundPixels = pull
+            }
         }
         let hasValue = calibration.rSize != nil || calibration.rUnits != nil
             || calibration.qSize != nil || calibration.qUnits != nil
