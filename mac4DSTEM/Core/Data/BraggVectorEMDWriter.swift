@@ -28,6 +28,7 @@ package nonisolated enum BraggVectorEMDWriter {
     static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
     static let lineageAttribute = SessionSidecarFormat.lineageAttribute
     static let sourceAttribute = SessionSidecarFormat.sourceAttribute
+    static let disksWithoutRecipeAttribute = SessionSidecarFormat.disksWithoutRecipeAttribute
     /// On the `braggvectors` group: the view (`LoadSpecification`, JSON, the whole file included) the stored disks were
     /// detected on. The root's specification says which view the LAST save came from; a grid carried through a save from
     /// another view keeps its own here, so a reopen never draws one crop's disks at another same-size crop's positions.
@@ -278,6 +279,7 @@ package nonisolated enum BraggVectorEMDWriter {
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
         source: SessionSourceStamp? = nil,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -304,6 +306,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -317,6 +320,7 @@ package nonisolated enum BraggVectorEMDWriter {
         loadSpecification: LoadSpecification? = nil,
         replayRecord: SessionReplayRecord? = nil,
         source: SessionSourceStamp? = nil,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -336,6 +340,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: existing, to: destination,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress)
     }
 
@@ -465,6 +470,7 @@ package nonisolated enum BraggVectorEMDWriter {
         source: SessionSourceStamp? = nil,
         diskCentreLabelsJSON: String? = nil,
         supportedSchema: Int = SessionSidecarFormat.currentSchema,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -479,6 +485,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     calibration: calibration, preserving: existing, removingKind: removingKind,
                     loadSpecification: loadSpecification, replayRecord: replayRecord, source: source,
                     diskCentreLabelsJSON: diskCentreLabelsJSON, supportedSchema: supportedSchema,
+                    vectorsWithoutRecipe: vectorsWithoutRecipe,
                     cancellation: cancellation, progress: progress
                 )
             }
