@@ -251,11 +251,21 @@ package nonisolated enum SessionPeakRestore {
     /// The checks that need the stored grid. With no `step` (a sidecar that
     /// predates the replay record) the detection settings cannot be compared,
     /// so only the scan and detector shapes are checked.
+    /// A grid that states its own view (`StoredPeakGrid.view`) must have been
+    /// detected on the view loaded now: the sidecar's view is only the last
+    /// save's, and a grid carried through a save from a same-size crop passes
+    /// every shape check at the wrong positions.
     package static func refusal(
         for grid: BraggVectorEMDWriter.StoredPeakGrid,
+        loadedSpecification: LoadSpecification,
         scanWidth: Int, scanHeight: Int, detectorWidth: Int, detectorHeight: Int,
         step: SessionReplayRecord.Step?
     ) -> String? {
+        if let view = grid.view,
+           SessionCalibrationFramePolicy.decide(session: view, loaded: loadedSpecification) != .identity {
+            return "Stored disks not used — they were detected on a different view "
+                + "(\(view.isFullExtent ? "the whole file" : view.provenanceSummary ?? "a reduced view")) than the one loaded now"
+        }
         guard grid.vectors.scanWidth == scanWidth, grid.vectors.scanHeight == scanHeight else {
             return "Stored disks not used — they cover a \(grid.vectors.scanWidth) × \(grid.vectors.scanHeight) scan, not \(scanWidth) × \(scanHeight)"
         }
