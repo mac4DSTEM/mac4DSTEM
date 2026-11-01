@@ -253,16 +253,18 @@ final class VendorRawReaderBaselineTests: XCTestCase {
         XCTAssertEqual((d.filePath as NSString).lastPathComponent, "scan_x3_y2.raw")
     }
 
-    /// Header sizes other than 384 and 768 and a pixel code come from the kit now; only header-less MIB keeps the app's frame reads.
-    func testTheKitTakesAnyHeaderSizeAndHeaderlessMIBKeepsTheFallback() async throws {
+    /// Header sizes other than 384 and 768 and a pixel code come from the kit, and since FormatoKit 0.12.0 a header without width and
+    /// height too (the kit reads the detector shape from the assembly). The bytes are the app reader's (`testMIBFilesReadByteForByteAsBefore`
+    /// pins `nodetector_*.mib` against the same baseline).
+    func testTheKitTakesAnyHeaderSizeAndHeaderlessMIB() async throws {
         try writeMIB("h512.mib", frames: 2, size: 512)
         try writeMIB("nodetector_512.mib", frames: 2, size: 512, withDetector: false)
         let kit = try MIBReader(path: directory.appendingPathComponent("h512.mib").path)
         let kitRefusal = await kit.kitRefusal
         XCTAssertNil(kitRefusal, "a 512-byte header with a width and height is the kit's")
-        let fallback = try MIBReader(path: directory.appendingPathComponent("nodetector_512.mib").path)
-        let fallbackRefusal = await fallback.kitRefusal
-        XCTAssertNotNil(fallbackRefusal, "a header without width and height is still read by the app")
+        let headerless = try MIBReader(path: directory.appendingPathComponent("nodetector_512.mib").path)
+        let headerlessRefusal = await headerless.kitRefusal
+        XCTAssertNil(headerlessRefusal, "a header without width and height is the kit's since FormatoKit 0.12.0")
         let d = try await kit.discoverPrimaryDataset()
         XCTAssertTrue(d.dtypeDescription.hasPrefix("U16"))
     }
