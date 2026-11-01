@@ -144,7 +144,7 @@ jobs:
           cache: pip
           cache-dependency-path: tools/lib/py4dstem-ci-constraints.txt
       # On the Mac runner setup-python would need sudo; uv puts a Python 3.12 venv (python, python3, pip) on PATH instead.
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         if: runner.environment == 'self-hosted'
       - name: Python 3.12 venv and the macOS SDK (Mac runner)
         if: runner.environment == 'self-hosted'
@@ -223,7 +223,7 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: SwiftLint
         run: docker run --rm -v "$PWD:/work" -w /work --entrypoint swiftlint ghcr.io/realm/swiftlint:0.65.1 lint --strict --quiet
       - name: SwiftFormat
