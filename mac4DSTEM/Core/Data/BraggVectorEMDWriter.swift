@@ -29,6 +29,11 @@ package nonisolated enum BraggVectorEMDWriter {
     static let lineageAttribute = SessionSidecarFormat.lineageAttribute
     static let sourceAttribute = SessionSidecarFormat.sourceAttribute
     static let disksWithoutRecipeAttribute = SessionSidecarFormat.disksWithoutRecipeAttribute
+    /// On the `braggvectors` group: the view (`LoadSpecification`, JSON, the whole file included) the stored disks were
+    /// detected on. The root's specification says which view the LAST save came from; a grid carried through a save from
+    /// another view keeps its own here, so a reopen never draws one crop's disks at another same-size crop's positions.
+    /// Additive and safe to ignore: absent, the root's view stands for the grid (every file written before it).
+    static let peaksViewAttribute = "mac4dstem_peaks_view"
     /// Why the last write left the lineage out, or nil when it wrote it (or had
     /// none). Written inside `writeFile` and read by `takeLineageOmission`,
     /// both under `HDF5Serial` — the lock every sidecar write already holds.
@@ -228,6 +233,7 @@ package nonisolated enum BraggVectorEMDWriter {
         qHeight: Int,
         calibration: PixelCalibration,
         to destination: URL,
+        loadSpecification: LoadSpecification? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
@@ -236,6 +242,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try publish(vectors: vectors, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
                     calibration: calibration, preserving: nil, to: destination,
+                    loadSpecification: loadSpecification,
                     cancellation: cancellation, progress: progress)
     }
 

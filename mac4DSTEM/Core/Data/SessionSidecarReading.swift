@@ -341,11 +341,16 @@ nonisolated extension BraggVectorEMDWriter {
         package let vectors: BraggVectors
         package let detectorHeight: Int
         package let detectorWidth: Int
+        /// The view the disks were detected on (`peaksViewAttribute`); nil when the file does not say, and then the
+        /// sidecar's own view stands for the grid.
+        package let view: LoadSpecification?
 
-        package nonisolated init(vectors: BraggVectors, detectorHeight: Int, detectorWidth: Int) {
+        package nonisolated init(vectors: BraggVectors, detectorHeight: Int, detectorWidth: Int,
+                                 view: LoadSpecification? = nil) {
             self.vectors = vectors
             self.detectorHeight = detectorHeight
             self.detectorWidth = detectorWidth
+            self.view = view
         }
     }
 
@@ -375,6 +380,17 @@ nonisolated extension BraggVectorEMDWriter {
         let dataPath = "\(braggPath)/_v_uncal/data"
         guard file.isDataset(dataPath), file.isGroup(braggPath) else { return nil }
         let provenance = decodeProvenance(try file.stringAttribute("mac4dstem_detection_provenance", at: braggPath))
+        // The grid's own view: absent is nil (the root's view stands for it); present but undecodable is refused by
+        // name, never read as "no view" (the specification attribute's rule).
+        let view: LoadSpecification?
+        if let json = try file.stringAttribute(peaksViewAttribute, at: braggPath) {
+            guard let decoded = LoadSpecification.decoded(from: json) else {
+                throw WriterError.malformedAttribute(name: peaksViewAttribute)
+            }
+            view = decoded
+        } else {
+            view = nil
+        }
         let shapePath = "\(braggPath)/metadatabundle/_braggvectors_shape/Qshape"
         guard file.isDataset(shapePath) else { return nil }
         let qShape: [Int]
@@ -423,7 +439,8 @@ nonisolated extension BraggVectorEMDWriter {
                 scanWidth: stored.scan.columns, scanHeight: stored.scan.rows, peaks: peaks,
                 detectionProvenance: provenance
             ),
-            detectorHeight: qShape[0], detectorWidth: qShape[1]
+            detectorHeight: qShape[0], detectorWidth: qShape[1],
+            view: view
         )
     }
 

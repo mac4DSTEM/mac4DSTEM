@@ -829,7 +829,7 @@ extension AppState {
             return "Stored disks not used — the session's peak grid could not be read"
         }
         if let reason = SessionPeakRestore.refusal(
-            for: grid, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
+            for: grid, loadedSpecification: loadedView.specification, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
             detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
         ) { return reason }
         // Without a recipe the disks are flagged, so they never read current

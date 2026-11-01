@@ -113,6 +113,11 @@ nonisolated extension BraggVectorEMDWriter {
             if let provenance = encodeProvenance(vectors.detectionProvenance) {
                 groupAttributes["mac4dstem_detection_provenance"] = provenance
             }
+            // Vectors handed to a save belong to the view the save records (detected on it, or restored onto it
+            // only when that view matched). Unstated (nil), the root's view stands for them, as before.
+            if let json = loadSpecification?.jsonString {
+                groupAttributes[peaksViewAttribute] = json
+            }
             // The kit's `.appImageXY` is this app's axis conversion: the peak's x is the detector column, y the row, and py4DSTEM's
             // stored qx is the row.
             let peaks = vectors.peaks.map { cell in
@@ -129,6 +134,15 @@ nonisolated extension BraggVectorEMDWriter {
         } else if canCopyBragg, let existing {
             try checkCancellation(cancellation)
             try session.copyObject(from: existing, braggPath, to: braggPath)
+            // A carried grid keeps the view it was detected on. A grid written before the stamp takes the view the
+            // file it comes from records (`recordedView`), so a save from another view cannot relabel it.
+            // A stamp or root specification that cannot be read leaves the grid as it was: the save goes on, and the
+            // reader refuses a mangled stamp by name on the next restore.
+            if let existingFile,
+               ((try? existingFile.stringAttribute(peaksViewAttribute, at: braggPath)) ?? nil) == nil,
+               let view = try? Self.recordedView(of: existingFile), let json = view.jsonString {
+                try session.setVariableLengthTextAttribute(peaksViewAttribute, on: braggPath, json)
+            }
         }
 
         // Preserve root children that this schema does not understand (for
@@ -331,5 +345,17 @@ nonisolated extension BraggVectorEMDWriter {
             metadata["provenance"] = json
         }
         return EMDMapAnnotations(groupAttributes: attributes, metadataName: "mac4dstem", metadata: metadata)
+    }
+
+    /// The view an existing sidecar's peak grid was detected on, when the grid does not say: the file's specification
+    /// attribute, else the whole file. That is the writer's own statement from schema 6 on, and the reading the restore
+    /// gives a schema-5 file that records no view (`SessionPeakRestore`: a reduced view was always recorded, so an
+    /// unrecorded one is the whole file). A mangled specification is refused by name, as the reader refuses it.
+    static func recordedView(of file: SidecarFile) throws -> LoadSpecification {
+        guard let json = try file.stringAttribute(loadSpecificationAttribute, at: rootPath) else { return .fullExtent }
+        guard let decoded = LoadSpecification.decoded(from: json) else {
+            throw WriterError.malformedAttribute(name: loadSpecificationAttribute)
+        }
+        return decoded
     }
 }
