@@ -121,17 +121,19 @@ spectrokit_module() {
   fi
   local prod="$scratch/out/Products/Release" t
   if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $fpin" || ! -f "$prod/SpectroEDX.o" || ! -f "$prod/FormatoHDF5.o" ]]; then
-    # SpectroKit's own Package.resolved names the FormatoKit it was released with (0.6.1: 0.3.0), but its manifest accepts 0.3.0..<0.5.0.
-    # The harnesses must test the FormatoKit the app ships (the pin here, 0.4.0), so SpectroKit is built from a writable copy of the
-    # pinned checkout whose Package.resolved is moved to that revision (the checkout itself is read-only and stays as SwiftPM left it).
+    # SpectroKit's own Package.resolved names the FormatoKit it was released with (0.12.0: 0.7.0), and its manifest accepts a wide
+    # range (0.4.0..<1.0.0). The harnesses must test the FormatoKit the app ships (the pin here), so SpectroKit is built from a writable
+    # copy of the pinned checkout carrying the APP's Package.resolved, with --force-resolved-versions (as kit_module). The checkout
+    # itself is read-only and stays as SwiftPM left it. Until 2026-11-01 this step ran `resolve FormatoKit --revision <pin>` and then
+    # a plain `swift build`, which re-resolved to the newest FormatoKit in range: harmless while that was the app pin, red for every
+    # harness once FormatoKit 0.12.0 was tagged above the app pin 0.11.0 (the check below caught it).
     rm -rf "$scratch/out"   # no object of the previous pin survives into SPECTROKIT_FLAGS (as kit_module)
     local src="$repo/.build/spectrokit-tools-src"
     rm -rf "$src"; ditto "$ck" "$src"; chmod -R u+w "$src"
-    swift package --package-path "$src" --scratch-path "$scratch" resolve >&2 \
-      && swift package --package-path "$src" --scratch-path "$scratch" resolve FormatoKit --revision "$fpin" >&2 \
-      || { echo "sources.manifest: resolving FormatoKit $fpin for SpectroKit $pin failed" >&2; exit 65; }
+    cp "$repo/Package.resolved" "$src/Package.resolved"
     for t in SpectroCore SpectroEDX; do
-      swift build -c release --build-system swiftbuild --package-path "$src" --scratch-path "$scratch" --target "$t" >&2 \
+      swift build -c release --build-system swiftbuild --package-path "$src" --scratch-path "$scratch" --target "$t" \
+        --force-resolved-versions >&2 \
         || { echo "sources.manifest: building SpectroKit $pin ($t) failed" >&2; exit 65; }
     done
     # The Formato objects came from the clone SpectroKit's manifest fetched into the scratch: it must be the pinned one,
