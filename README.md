@@ -59,7 +59,7 @@ measurements are in [`docs/performance.md`](docs/performance.md).
 ## Building it yourself
 
 You need Xcode 26.6 or later on an Apple silicon Mac. Open `mac4DSTEM.xcodeproj`, pick the `mac4DSTEM` scheme and press ⌘R. The
-first build fetches the kits and MacEMUI from GitHub at the exact tags in `Package.swift`. The tests run with
+first build fetches the kits and MacEMUI from GitHub at the versions in `Package.resolved`. The tests run with
 `tools/run-tests.sh unit`. How the code is organised is in [`docs/architecture.md`](docs/architecture.md), and how a
 release is built and notarised is in [`tools/release/README.md`](tools/release/README.md).
 

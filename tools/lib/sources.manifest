@@ -135,7 +135,7 @@ spectrokit_module() {
         || { echo "sources.manifest: building SpectroKit $pin ($t) failed" >&2; exit 65; }
     done
     # The Formato objects came from the clone SpectroKit's manifest fetched into the scratch: it must be the pinned one,
-    # or the harness would test a FormatoKit the app does not ship (the exact pins agree today; this keeps it so).
+    # or the harness would test a FormatoKit the app does not ship (the resolved versions agree today; this keeps it so).
     if [[ "$(git -C "$scratch/checkouts/FormatoKit" rev-parse HEAD 2>/dev/null)" != "$fpin" ]]; then
       echo "sources.manifest: SpectroKit $pin built FormatoKit $(git -C "$scratch/checkouts/FormatoKit" rev-parse HEAD 2>/dev/null), not the pinned $fpin" >&2
       exit 65

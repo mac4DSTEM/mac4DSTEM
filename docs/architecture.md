@@ -196,7 +196,7 @@ arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
 file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
-Science with a kit equivalent is the kit's, imported at exact tags (`Package.swift` is the truth for versions): standalone EDS (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
+Science with a kit equivalent is the kit's, imported by version range (`Package.swift`; `Package.resolved` holds the versions built): standalone EDS (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`); the file readers, the HDF5 lock (`HDF5Serial`) and libhdf5 are FormatoKit's; the crystallography, ring and ellipse fit, phase mapping and the ACOM matcher are DiffractoKit's; the 4D core (virtual imaging, centre of mass, origins, strain, DPC/iDPC, parallax, ptychography) is CuboKit's; the exact-length FFTs are ImagoKit's. 4D × spectroscopy correlation stays here
 (`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDS science goes to
 SpectroKit and arrives by a tag bump; the same holds for each kit.
 
