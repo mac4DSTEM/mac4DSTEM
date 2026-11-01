@@ -2,7 +2,6 @@ import XCTest
 import DiffractoCore
 import DiffractoOrientation
 import DSTEMCore
-import simd
 @testable import mac4DSTEM
 
 /// The orientation plan's k range is the detector's reach (DiffractoKit#65). At a fixed 1.2 Å⁻¹ on a detector that
@@ -46,7 +45,7 @@ final class ACOMDetectorReachTests: XCTestCase {
             .map { ACOMReflection(g: $0.g, intensity: $0.intensity) }
         let edge = Double(size - 1) - origin
         for axis in [SIMD3<Double>(0, 0, 1), SIMD3(0, 1, 1), SIMD3(1, 1, 1)] {
-            let n = simd_normalize(axis)
+            let n = Self.unit(axis)
             let spots = ACOMTemplateLibrary.project(reflections: reflections, zoneAxis: n,
                                                     settings: ACOMTemplateSettings(sgWidth: 0.03, intensityPower: 1))
             let peaks = spots.compactMap { s -> BraggPeak? in
@@ -65,10 +64,13 @@ final class ACOMDetectorReachTests: XCTestCase {
     static func offAxisDegrees(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double {
         func reduced(_ v: SIMD3<Double>) -> SIMD3<Double> {
             let s = [abs(v.x), abs(v.y), abs(v.z)].sorted()
-            return simd_normalize(SIMD3(s[0], s[1], s[2]))
+            return unit(SIMD3(s[0], s[1], s[2]))
         }
-        return acos(min(1, simd_dot(reduced(a), reduced(b)))) * 180 / .pi
+        return acos(min(1, (reduced(a) * reduced(b)).sum())) * 180 / .pi
     }
+
+    /// The unit vector along `v` (standard-library SIMD arithmetic: the app target imports no simd).
+    static func unit(_ v: SIMD3<Double>) -> SIMD3<Double> { v / (v * v).sum().squareRoot() }
 }
 
 /// The public Al-Mg-Si demo through the app's disk detector and matcher. Needs the file: run with
