@@ -80,7 +80,8 @@ struct WorkspaceView: View {
             WelcomeWorkspace()
         } else if appState.navigation.workspaceArea == .spectroscopy {
             // The EDS room: MacEMUI's shared room, with mac4DSTEM's 4D links (`AppState+EDS`).
-            EDXRoom(session: appState.edx, state: appState.edxRoom, actions: appState.edxActions)
+            EDXRoom(session: appState.edx, state: appState.edxRoom, actions: appState.edxActions,
+                    openExtensions: EDXOpening.readableExtensions)
         } else if appState.isSpectrumOnly {
             // A spectrum image and no cube: Results has nothing of the 4D
             // kind to review, and a 4D room is withheld (`isWorkspaceWithheld`).
