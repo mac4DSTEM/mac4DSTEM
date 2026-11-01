@@ -569,6 +569,11 @@ extension AppState {
                 calibrationSession.provenance.probe = .importedFile
             }
             if calibrationSession.calibration.hasEllipse { calibrationSession.provenance.ellipse = .importedFile }
+            // Row 29: a file ellipse the reader refused is said by name, not left as an empty Ellipse row.
+            if let note = pc.ellipseRefusalNote {
+                activityLog.record(note)
+                statusText = note
+            }
             // AXIS SWAP (single documented conversion point — see
             // PixelCalibration.qx0Mean/qy0Mean doc comment): py4DSTEM indexes
             // patterns (qx, qy) with qx as the first/row axis, which is this
@@ -805,11 +810,14 @@ extension AppState {
             viewRecord: snapshot.viewRecord,
             loadedSpecification: loadedView.specification,
             replay: snapshot.replayRecord,
-            schema: snapshot.schema
+            schema: snapshot.schema,
+            disksWithoutRecipe: snapshot.disksWithoutRecipe
         ) { return reason }
-        // Nil only for a sidecar that predates the replay record (schema 5):
-        // the refusal above returns for every other sidecar without a disk step.
-        let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord)
+        // Nil only for disks with no recipe behind them (a sidecar that
+        // predates the replay record, or one marked so by a later save): the
+        // refusal above returns for every other sidecar without a disk step.
+        // The marker wins over a step in the record beside it.
+        let step = snapshot.disksWithoutRecipe ? nil : SessionPeakRestore.diskStep(in: snapshot.replayRecord)
         let url = sessionSidecar.location(for: descriptor)
         let epoch = datasetSession.epoch
         let grid: BraggVectorEMDWriter.StoredPeakGrid?
@@ -829,7 +837,9 @@ extension AppState {
             for: grid, loadedSpecification: loadedView.specification, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
             detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
         ) { return reason }
-        resultPresentation.setBraggVectors(grid.vectors)
+        // Without a recipe the disks are flagged, so they never read current
+        // and the next save marks them the same way (mac4DSTEM#61).
+        resultPresentation.setBraggVectors(grid.vectors, withoutRecipe: step == nil)
         resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
         guard let step else {
             // No recipe: the controls stay at the detector defaults, and the
@@ -1202,6 +1212,11 @@ extension AppState {
                     ? (savedEllipseIsFitAnyway(saved) ? .fitAnyway : .sessionSidecar)
                     : .mixed)
                 : nil
+        }
+        // Row 29: a saved ellipse the reader refused is said by name.
+        if let note = saved.ellipseRefusalNote {
+            activityLog.record(note)
+            statusText = note
         }
         if restoredMaps, mapped.origin != nil {
             calibrationSession.calibration.origin = mapped.origin

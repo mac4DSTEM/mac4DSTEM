@@ -53,4 +53,47 @@ final class CalibrationEllipseValidityTests: XCTestCase {
         XCTAssertEqual(ok?.b, 17.9)
         XCTAssertEqual(ok?.theta, 0.3)
     }
+
+    /// The refusal is said by name: which values, and why. No ellipse in the file, or a valid one, says nothing.
+    func testRow29TheRefusalNamesTheValueAndTheReason() throws {
+        let negative = try XCTUnwrap(PixelCalibration.ellipseRefusal(a: 19.5, b: -1, theta: 0.3))
+        XCTAssertTrue(negative.contains("b = -1"), negative)
+        XCTAssertTrue(negative.contains("semi-axis b is not a positive number"), negative)
+        XCTAssertFalse(negative.contains("semi-axis a"), negative)
+        let partial = try XCTUnwrap(PixelCalibration.ellipseRefusal(a: nil, b: 1, theta: 0.3))
+        XCTAssertTrue(partial.contains("a = missing"), partial)
+        XCTAssertTrue(partial.contains("incomplete"), partial)
+        let nan = try XCTUnwrap(PixelCalibration.ellipseRefusal(a: .nan, b: 1, theta: 0.3))
+        XCTAssertTrue(nan.contains("semi-axis a is not a positive number"), nan)
+        XCTAssertNil(PixelCalibration.ellipseRefusal(a: nil, b: nil, theta: 0))
+        XCTAssertNil(PixelCalibration.ellipseRefusal(a: 19.5, b: 17.9, theta: 0.3))
+    }
+
+    /// A session file whose ellipse has b <= 0 reopens with no ellipse AND the reason. Before, the triple was dropped
+    /// with nothing said: the Ellipse row read "not set". Break it by dropping the `else` branch in
+    /// `SessionSidecarReading`.
+    func testRow29ASavedNonPositiveEllipseIsRefusedByName() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CalibrationEllipseValidityTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for (b, refused) in [(-17.9, true), (17.9, false)] {
+            var saved = PixelCalibration(rSize: 1.0, rUnits: "nm", qSize: 0.01, qUnits: "A^-1", qrFlip: false)
+            saved.ellipseA = 19.5
+            saved.ellipseB = b
+            saved.ellipseTheta = 0.4
+            let url = dir.appendingPathComponent("b\(b).mac4dstem.h5")
+            try BraggVectorEMDWriter.mergeCalibration(saved, qWidth: 32, qHeight: 32, to: url,
+                                                      loadSpecification: nil, replayRecord: nil)
+            let read = try XCTUnwrap(BraggVectorEMDWriter.loadSession(from: url).calibration)
+            if refused {
+                XCTAssertNil(read.ellipseA)
+                let note = try XCTUnwrap(read.ellipseRefusalNote)
+                XCTAssertTrue(note.contains("semi-axis b is not a positive number"), note)
+            } else {
+                XCTAssertEqual(read.ellipseB, 17.9)
+                XCTAssertNil(read.ellipseRefusalNote)
+            }
+        }
+    }
 }

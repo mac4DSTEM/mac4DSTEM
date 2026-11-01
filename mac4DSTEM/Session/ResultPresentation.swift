@@ -41,6 +41,11 @@ package final class ResultPresentation {
     // detector state feeds both the scan map and the ROI-summed CBED.
     package private(set) var braggPeakCount: Int?
     package private(set) var braggVectors: BraggVectors?
+    /// True while `braggVectors` are disks restored from a session that
+    /// recorded no recipe for them (schema 5): never current, and every save
+    /// marks them so (`SessionSidecarFormat.disksWithoutRecipeAttribute`).
+    /// Any other assignment of the vectors clears it.
+    package private(set) var braggVectorsWithoutRecipe = false
     package var virtualShape: VirtualShapeMode = .annulus
     package private(set) var virtualDiffractionPattern: DiffractionPattern?
 
@@ -138,8 +143,9 @@ package final class ResultPresentation {
         resultVersion = priorVersion
     }
 
-    package func setBraggVectors(_ vectors: BraggVectors?) {
+    package func setBraggVectors(_ vectors: BraggVectors?, withoutRecipe: Bool = false) {
         braggVectors = vectors
+        braggVectorsWithoutRecipe = vectors != nil && withoutRecipe
     }
 
     package func setBraggPeakCount(_ count: Int?) {

@@ -608,6 +608,11 @@ final class AppState {
     /// produced them. C4(b): now also catches kernel/learned-detector drift.
     var diskDetectionSettingsAreStale: Bool {
         guard resultPresentation.braggVectors != nil else { return false }
+        // Disks restored without a recipe are stale whatever the recipe beside
+        // them says: no recorded settings produced them (mac4DSTEM#61). Here,
+        // not only in `hasCurrentBraggVectors`, so the run guards that read
+        // staleness directly (strain, ACOM, q from crystal) refuse them too.
+        if resultPresentation.braggVectorsWithoutRecipe { return true }
         return ProductWorkflow.stalenessVerdict(recordedStep: recordedReplayStep(for: .disks),
             currentSignature: currentReplaySignature(for: .disks), hasProduct: true) != .current
     }
