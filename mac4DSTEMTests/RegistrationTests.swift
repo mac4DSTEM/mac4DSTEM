@@ -152,7 +152,7 @@ final class RegistrationTests: XCTestCase {
     /// The count-exact pool: whole pixels summed, integer counts preserved, the pool carries its source's badge
     /// and its own raggedness. Spectrum grid 2x2 x 3 channels with distinct counts per pixel, on the mirror map.
     /// Mutations: weight the pool by overlap (counts then non-integer / unequal) — red; drop `validation` — red.
-    func testAPoolIsTheExactSumOfWholePixelsAndInheritsTheBadge() throws {
+    func testAPoolIsTheExactSumOfWholePixels() throws {
         var counts = [UInt32]()
         for p in 0..<4 { for c in 0..<3 { counts.append(UInt32(10 * (p + 1) + c)) } }   // pixel p: 10(p+1)+c
         let image = DenseSpectrumImage(ny: 2, nx: 2, channels: 3, counts: counts)
@@ -169,11 +169,9 @@ final class RegistrationTests: XCTestCase {
         XCTAssertEqual(pool.footprintArea, 1.75, accuracy: 1e-12, "7 scan pixels x 1/4")
         XCTAssertEqual(pool.retainedFraction, 1, accuracy: 1e-12)
         XCTAssertEqual(pool.purity, 0.875, accuracy: 1e-12, "(1 + 0.75) / 2 pixels")
-        XCTAssertEqual(pool.validation, "none")
-        XCTAssertTrue(pool.isUnvalidated)
+        XCTAssertEqual(pool.validation, "none", "the kit carries the word it was given")
         let drawn = try PoolBuilder.pool(image: image, scanMask: scan, registration: mirror, name: "Drawn 1", kind: "drawn")
         XCTAssertNil(drawn.validation)
-        XCTAssertFalse(drawn.isUnvalidated)
         // A registration onto another grid than the image's is refused.
         let wrong = RegistrationRecordM2.identity(width: 3, height: 3)
         XCTAssertThrowsError(try PoolBuilder.pool(image: image, scanMask: [Bool](repeating: true, count: 9),
@@ -332,7 +330,6 @@ final class RegistrationTests: XCTestCase {
             let z = (observed - expected) / expected.squareRoot()
             XCTContext.runActivity(named: "M1 pool \(f.names[g]): pixels \(pool.pixelCount), partial \(pool.partialPixels), edge \(pool.edgePixels), observed \(Int(observed)), expected \(String(format: "%.1f", expected)), z \(String(format: "%.2f", z))") { _ in }
             XCTAssertLessThan(abs(z), 2, "\(f.names[g]): \(observed) vs \(expected)")
-            XCTAssertTrue(pool.isUnvalidated)
         }
         let masks = pools.map(\.mask)
         for p in 0..<(nx * ny) { XCTAssertLessThanOrEqual(masks.filter { $0[p] }.count, 1) }

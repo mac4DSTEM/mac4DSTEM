@@ -220,7 +220,7 @@ package nonisolated enum KnownCrystalQCalibration {
 /// The arithmetic is DiffractoKit's `LinearScale.assign` since 0.10.0 (the app's own copy, written on 2026-10-22 when the first ring
 /// stopped being assumed, is gone); this type only adapts its answer to the app's `Outcome` and writes the family labels. On Al [001]
 /// the {111} reflections are not in the zone, the first visible ring is {200}, and Δq used to read 13.4 % low. No Python reference
-/// exists (py4DSTEM does not do this): checked against planted truth only, `validation: "none"`.
+/// exists (py4DSTEM does not do this): checked against planted truth only.
 package nonisolated enum ShellAssignment {
 
     package nonisolated struct Assigned: Sendable, Equatable {

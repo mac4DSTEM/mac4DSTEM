@@ -16,10 +16,6 @@
 //    the matrix took, and what came second. That line is the whole argument
 //    for the colour at the selected position, in physical units.
 //
-//  And one refusal: the result is badged UNVALIDATED until step 3 of
-//  archived `docs/v3-features.md#vector-matching` runs. The badge is not decoration — this
-//  method has never been scored against an external truth in this app.
-//
 
 import ShellControls
 import ShellInspector
@@ -314,11 +310,6 @@ struct PhaseMappingSections: View {
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
         InspectorSection("Result") {
-            InspectorWarning("Unvalidated — this method has not been scored against an "
-                  + "external ground truth in this app. Read the map; do not "
-                  + "quote a phase fraction from it. Object counts and "
-                  + "densities come from this unvalidated map.", systemImage: "exclamationmark.triangle")
-
             if product.isStale {
                 InspectorWarning("From an earlier run — the phases or the settings have "
                       + "changed since. Map Phases again to update it.", systemImage: "clock.arrow.circlepath")

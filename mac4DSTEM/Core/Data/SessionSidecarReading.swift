@@ -327,6 +327,8 @@ nonisolated extension BraggVectorEMDWriter {
             lineage: lineage, lineageNote: lineageNote
         )
         snapshot.source = source
+        // Presence is the statement, read like the stamp: an unreadable one is absent, so the disks are refused, never misread.
+        snapshot.disksWithoutRecipe = ((try? file.stringAttribute(disksWithoutRecipeAttribute, at: rootPath)) ?? nil) != nil
         return snapshot
     }
 
@@ -548,14 +550,16 @@ nonisolated extension BraggVectorEMDWriter {
         )
         calibration.qx0Mean = try file.doubleDataset("qx0_mean", in: group)
         calibration.qy0Mean = try file.doubleDataset("qy0_mean", in: group)
-        // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
-        if let ellipse = Calibration.acceptedEllipse(
-            a: try file.doubleDataset("a", in: group),
-            b: try file.doubleDataset("b", in: group),
-            theta: try file.doubleDataset("theta", in: group)) {
+        // Row 29: a file ellipse with a non-positive semi-axis is refused whole, and by name.
+        let fileA = try file.doubleDataset("a", in: group)
+        let fileB = try file.doubleDataset("b", in: group)
+        let fileTheta = try file.doubleDataset("theta", in: group)
+        if let ellipse = Calibration.acceptedEllipse(a: fileA, b: fileB, theta: fileTheta) {
             calibration.ellipseA = ellipse.a
             calibration.ellipseB = ellipse.b
             calibration.ellipseTheta = ellipse.theta
+        } else {
+            calibration.ellipseRefusalNote = PixelCalibration.ellipseRefusal(a: fileA, b: fileB, theta: fileTheta)
         }
         calibration.qrRotationRad = try file.doubleDataset("QR_rotation", in: group)
         calibration.qrRotationConvention = try file.stringDataset("QR_rotation_convention", in: group)
@@ -574,20 +578,10 @@ nonisolated extension BraggVectorEMDWriter {
                 measuredQX: measuredPair ? measuredQX?.values : nil,
                 measuredQY: measuredPair ? measuredQY?.values : nil
             )
-            // Absent on a session saved before 2026-10-31, or unreadable: unknown, which the origin gate does not refuse.
-            if let text = (try? file.stringAttribute(SessionSidecarFormat.originWindowPullAttribute, at: rootPath)) ?? nil,
-               let pull = Double(text), pull.isFinite, pull >= 0 {
-                calibration.originMaps?.windowPullBoundPixels = pull
-            }
-            // The beam-stop test, the same way: absent or unreadable is unknown.
-            switch (try? file.stringAttribute(SessionSidecarFormat.originBeamStopAttribute, at: rootPath)) ?? nil {
-            case "true": calibration.originMaps?.beamStopCoversBeam = true
-            case "false": calibration.originMaps?.beamStopCoversBeam = false
-            default: break
-            }
-            if let text = (try? file.stringAttribute(SessionSidecarFormat.originFriedelFallbackAttribute, at: rootPath)) ?? nil,
-               let fallback = Double(text), fallback.isFinite, fallback >= 0 {
-                calibration.originMaps?.friedelFallbackResidualPixels = fallback
+            // The gate's window pull, beam stop, Friedel fallback residual and method. Absent on a session saved before
+            // 2026-10-31, or unreadable: unknown, which the origin gate does not refuse.
+            calibration.originMaps?.readGateAttributes { name in
+                (try? file.stringAttribute(name, at: rootPath)) ?? nil
             }
         }
         let hasValue = calibration.rSize != nil || calibration.rUnits != nil

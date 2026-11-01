@@ -62,23 +62,25 @@ final class PrecipitateNumberDensityTests: XCTestCase {
         XCTAssertEqual(PrecipitateThicknessRows.nVolumeText(withSigma), "170 ± 17.0 /µm³")
     }
 
-    /// P6 and P7: the CSV carries the same number, the thickness, the assumption and the kit's validation word.
+    /// P6: the CSV carries the same number, the thickness and the assumption, and no validation word.
     func testTheCSVAndTheSummaryCarryTheSameNumber() throws {
         let r = report()
         let csv = r.csv()
         let n = try XCTUnwrap(r.summaries.first?.nVolumePerUm3)
         XCTAssertTrue(csv.contains("N_V \(PrecipitateObjectReport.number(n))"), csv)
-        XCTAssertTrue(csv.contains("# N_V: areal density / thickness (100 nm +/- 10), assuming the objects span the foil; validation: none"), csv)
-        XCTAssertEqual(r.numberDensityValidation, "none", "P7: the kit's word")
+        XCTAssertTrue(csv.contains("# N_V: areal density / thickness (100 nm +/- 10), assuming the objects span the foil\n"), csv)
+        XCTAssertFalse(csv.contains("validation"), csv)
         // Without a thickness the CSV says nothing about N_V.
         XCTAssertFalse(report(t: nil).csv().contains("N_V"))
     }
 
-    /// A report decoded from before N_V existed has none of it. Mutation: the new fields made non-optional - red.
+    /// A report decoded from before N_V existed has none of it, and one that still carries the retired
+    /// `numberDensityValidation` key decodes. Mutation: the new fields made non-optional - red.
     func testAnOldSnapshotDecodesWithoutNV() throws {
         let data = try JSONEncoder().encode(report(t: nil))
         var object = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        for key in ["thicknessNm", "thicknessSigmaNm", "numberDensityValidation"] { object.removeValue(forKey: key) }
+        for key in ["thicknessNm", "thicknessSigmaNm"] { object.removeValue(forKey: key) }
+        object["numberDensityValidation"] = "none"
         let decoded = try JSONDecoder().decode(PrecipitateObjectReport.self, from: JSONSerialization.data(withJSONObject: object))
         XCTAssertNil(decoded.thicknessNm)
         XCTAssertNil(decoded.summaries.first?.nVolumePerUm3)

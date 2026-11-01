@@ -59,6 +59,8 @@ package nonisolated struct PixelOriginMaps: Sendable {
     /// (`SessionSidecarFormat.originBeamStopAttribute`, `originFriedelFallbackAttribute`); nil when absent (unknown).
     package var beamStopCoversBeam: Bool? = nil
     package var friedelFallbackResidualPixels: Double? = nil
+    /// `OriginMaps.measuredByFriedel` (`SessionSidecarFormat.originMethodAttribute`); nil when absent (unknown).
+    package var measuredByFriedel: Bool? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
@@ -67,6 +69,52 @@ package nonisolated struct PixelOriginMaps: Sendable {
         self.fittedQY = fittedQY
         self.measuredQX = measuredQX
         self.measuredQY = measuredQY
+    }
+}
+
+extension PixelOriginMaps {
+    /// The origin gate's four fields as the text root attributes this app writes beside origin maps
+    /// (`SessionSidecarFormat.origin*Attribute`), in the session sidecar and in the calibrated-cube export alike.
+    /// A field that is unknown (nil, or a length that is not finite and non-negative) writes nothing.
+    package nonisolated var gateAttributes: [String: String] {
+        var out: [String: String] = [:]
+        if let pull = windowPullBoundPixels, pull.isFinite, pull >= 0 {
+            out[SessionSidecarFormat.originWindowPullAttribute] = String(pull)
+        }
+        if let stop = beamStopCoversBeam {
+            out[SessionSidecarFormat.originBeamStopAttribute] = stop ? "true" : "false"
+        }
+        if let fallback = friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
+            out[SessionSidecarFormat.originFriedelFallbackAttribute] = String(fallback)
+        }
+        if let friedel = measuredByFriedel {
+            out[SessionSidecarFormat.originMethodAttribute] = friedel ? "friedel" : "centreOfMass"
+        }
+        return out
+    }
+
+    /// The inverse of `gateAttributes`: each field from its root attribute, read through `text`. An attribute that is
+    /// absent or does not parse leaves its field nil (unknown, which the origin gate does not refuse); a file written
+    /// before the field existed reads that way.
+    package nonisolated mutating func readGateAttributes(_ text: (String) -> String?) {
+        if let value = text(SessionSidecarFormat.originWindowPullAttribute).flatMap(Double.init),
+           value.isFinite, value >= 0 {
+            windowPullBoundPixels = value
+        }
+        switch text(SessionSidecarFormat.originBeamStopAttribute) {
+        case "true": beamStopCoversBeam = true
+        case "false": beamStopCoversBeam = false
+        default: break
+        }
+        if let value = text(SessionSidecarFormat.originFriedelFallbackAttribute).flatMap(Double.init),
+           value.isFinite, value >= 0 {
+            friedelFallbackResidualPixels = value
+        }
+        switch text(SessionSidecarFormat.originMethodAttribute) {
+        case "friedel": measuredByFriedel = true
+        case "centreOfMass": measuredByFriedel = false
+        default: break
+        }
     }
 }
 
@@ -146,6 +194,32 @@ package nonisolated struct PixelCalibration: Sendable {
     /// (`RQRotationConvention.legacyNote`); the value itself is passed through
     /// unchanged. nil otherwise.
     package var qrRotationNote: String? = nil
+    /// Set by the readers when the file carries an ellipse (`a` or `b`) that is
+    /// not one (`Calibration.acceptedEllipse`: a non-positive or non-finite
+    /// semi-axis, or a missing member of the triple): the ellipse is refused
+    /// whole, and this says so by name (`ellipseRefusal(a:b:theta:)`) instead
+    /// of leaving the Ellipse row reading "not set". nil otherwise.
+    package var ellipseRefusalNote: String? = nil
+
+    /// The words for a file ellipse the readers refuse, or nil when the file
+    /// carries none (`a` and `b` both absent) or carries a valid one.
+    package nonisolated static func ellipseRefusal(a: Double?, b: Double?, theta: Double?) -> String? {
+        guard a != nil || b != nil else { return nil }
+        if let a, let b, let theta, a.isFinite, b.isFinite, theta.isFinite, a > 0, b > 0 { return nil }
+        func text(_ v: Double?) -> String {
+            guard let v else { return "missing" }
+            return v.isFinite ? String(format: "%.6g", v) : "\(v)"
+        }
+        var why: [String] = []
+        if a == nil || b == nil || theta == nil { why.append("the triple is incomplete") }
+        for (name, v) in [("a", a), ("b", b)] {
+            if let v, !(v.isFinite && v > 0) { why.append("semi-axis \(name) is not a positive number") }
+        }
+        if let theta, !theta.isFinite { why.append("theta is not finite") }
+        return "The file ellipse (a = \(text(a)), b = \(text(b)), theta = \(text(theta))) was refused: "
+            + why.joined(separator: ", ") + ". No elliptical correction is applied; fit the ellipse in the app or "
+            + "enter it manually."
+    }
     /// Probe radius returned by py4DSTEM probe-size fitting, in detector px.
     package var probeSemiangle: Double? = nil
     /// Fitted (and optionally measured) per-position origins from py4DSTEM.

@@ -257,13 +257,6 @@ extension AppState {
             product.domain.rawValue + " space",
             product.quantitativeStatus.rawValue,
         ]
-        // Review b2: an unvalidated method says so ON THE FACE, not only in the
-        // PNG's JSON chunk — the caption is the one carrier that survives a
-        // screenshot. The predicate is `validation == "none"`, the same one
-        // the inspector's badge reads (kept here: Support/ cannot import UI).
-        if product.provenance["validation"] == "none" {
-            parts.append("UNVALIDATED (validation=none)")
-        }
         if let step = product.sampling.column ?? product.sampling.row {
             parts.append(String(format: "%.5g %@/px", step, product.sampling.units.map { CalibrationUnitConversion.displayLabel($0) } ?? "px"))
         }
@@ -685,6 +678,9 @@ extension AppState {
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let pixelCalibration = sessionPixelCalibration(descriptor: descriptor)
         let vectors = resultPresentation.braggVectors
+        // Disks restored without a recipe are saved as such, or the reopen
+        // after this save refuses them (mac4DSTEM#61).
+        let vectorsWithoutRecipe = resultPresentation.braggVectorsWithoutRecipe
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Session sidecar", status: "Saving \(metadata.displayName)…"
@@ -722,6 +718,7 @@ extension AppState {
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
                             loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
+                            vectorsWithoutRecipe: vectorsWithoutRecipe,
                             cancellation: token, progress: progressUpdate
                         )
                     } else if let rgbaMap {
@@ -730,6 +727,7 @@ extension AppState {
                             qWidth: descriptor.qx, qHeight: descriptor.qy,
                             calibration: pixelCalibration, to: url,
                             loadSpecification: specification, replayRecord: recipe, source: sourceStamp,
+                            vectorsWithoutRecipe: vectorsWithoutRecipe,
                             cancellation: token, progress: progressUpdate
                         )
                     }
@@ -1376,6 +1374,7 @@ extension AppState {
             snapshot.originMaps?.windowPullBoundPixels = maps.windowPullBoundPixels.map(Double.init)
             snapshot.originMaps?.beamStopCoversBeam = maps.beamStopCoversBeam
             snapshot.originMaps?.friedelFallbackResidualPixels = maps.friedelFallbackResidualPixels.map(Double.init)
+            snapshot.originMaps?.measuredByFriedel = maps.measuredByFriedel
         }
         if let mean = calibrationSession.calibration.meanOrigin {
             snapshot.qx0Mean = Double(mean.y)

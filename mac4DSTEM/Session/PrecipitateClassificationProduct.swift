@@ -19,10 +19,9 @@ import DiffractoOrientation
 /// The Session boundary for archived `docs/v3-features.md#precipitate-classification` §3.
 ///
 /// It owns only a published `ClassMapObjects` value — it does not classify
-/// anything itself, publish a view, or export. It makes no validation claim
-/// of its own either: a writer's own result carries whatever validation
-/// status its source already has (today, the phase map's `validation:
-/// "none"`), and this type does not add or remove one.
+/// anything itself, publish a view, or export. It adds no method of
+/// its own either: a writer's own result carries the method and citation its
+/// source already has (today, the phase map's).
 @Observable
 @MainActor
 package final class PrecipitateClassificationProduct {

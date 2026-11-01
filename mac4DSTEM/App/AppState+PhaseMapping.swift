@@ -11,11 +11,11 @@
 //  for, gated, and sub-pixel refined. That is the deviation worth making
 //  (`docs/v3-phase-mapping-method-choice.md`).
 //
-//  UNVALIDATED. Every product published here carries `validation: "none"` and
-//  an exploratory quantitative status until step 3 of
-//  archived `docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
-//  published ground truth. A phase map you can look at is worth having; a
-//  density taken off one is not a measurement yet.
+//  Every product published here names its method and citation in its
+//  provenance (`method`, `method_citation`) and carries an exploratory
+//  quantitative status until step 3 of archived
+//  `docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
+//  published ground truth.
 //
 
 import Foundation
@@ -245,7 +245,6 @@ extension AppState {
             .joined(separator: ", ")
         statusText = "Phase map: \(indexed.isEmpty ? "no candidate phase found" : indexed)"
             + ", matrix \(map.count(of: .matrix)), not indexed \(map.count(of: .notIndexed))"
-            + " — unvalidated"
         return .published
     }
 
@@ -279,11 +278,9 @@ extension AppState {
     /// real-space calibration: density is then absent, never invented
     /// (`ObjectStatistics.arealDensity`'s own refusal rule).
     ///
-    /// archived `docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
-    /// change what is validated: `PrecipitateClassificationProduct` makes no
-    /// validation claim of its own, and the phase map it is built from is
-    /// still `validation: "none"` — the Result section's badge says so for
-    /// both.
+    /// archived `docs/v3-features.md#precipitate-classification` §2 steps 5–6.
+    /// `PrecipitateClassificationProduct` adds no method of its own beyond the
+    /// phase map's.
     func publishPrecipitateClassificationFromPhaseMap() async {
         guard let map = phaseMapping.map else { return }
         let labeled = PhaseMapObjectsBridge.labeledMap(from: map)
@@ -415,8 +412,8 @@ extension AppState {
         return PrecipitateHighlight.outline(objects: objects, ids: selection.objectIDs)
     }
 
-    /// The CSV's comment header: what was measured, from what, and that it
-    /// is unvalidated. Ordered: the load-bearing keys first.
+    /// The CSV's comment header: what was measured, from what, and by which
+    /// method. Ordered: the load-bearing keys first.
     private func precipitateReportProvenance(map: PhaseMap) -> [(String, String)] {
         var out: [(String, String)] = [("product", "precipitate objects from the phase map")]
         if let file = descriptor?.fileName { out.append(("source_file", file)) }
@@ -424,10 +421,10 @@ extension AppState {
         if let t = precipitateThickness, t.isUsable { out += t.provenancePairs }
         guard let run = phaseMapping.lastRun else { return out }
         let rest = phaseProvenance(map: map, run: run)
-        for key in ["validation", "method", "method_citation", "phases", "matrix_phase"] {
+        for key in ["method", "method_citation", "phases", "matrix_phase"] {
             if let value = rest[key] { out.append((key, value)) }
         }
-        let first: Set<String> = ["validation", "method", "method_citation", "phases", "matrix_phase"]
+        let first: Set<String> = ["method", "method_citation", "phases", "matrix_phase"]
         for key in rest.keys.sorted() where !first.contains(key) {
             out.append((key, rest[key] ?? ""))
         }
@@ -437,7 +434,7 @@ extension AppState {
     /// The objects over the scan, coloured as the numbers count them:
     /// counted objects in their phase colour, objects on the scan edge or
     /// under the minimum size dimmed (`PrecipitateObjectReport.image`).
-    /// Inherits the phase map's `validation: "none"`.
+    /// Inherits the phase map's method and citation.
     func publishPrecipitateObjectsProduct() {
         guard let map = phaseMapping.map, let run = phaseMapping.lastRun,
               let objects = precipitateClassification.result,
@@ -495,17 +492,12 @@ extension AppState {
         )
     }
 
-    /// Provenance both phase products share.
-    ///
-    /// `validation: "none"` is the load-bearing key. It is what stops a phase
-    /// fraction read off this map from being quoted as a measurement before
-    /// the acceptance test of `v3-features.md#vector-matching` step 3 has run.
+    /// Provenance both phase products share: the method and its citation first.
     private func phaseProvenance(map: PhaseMap,
                                  run: PhaseMappingProduct.RunRecord) -> [String: String] {
         var out: [String: String] = [
             "method": "vector_matching",
             "method_citation": "Thronsen et al., Ultramicroscopy 255 (2024) 113861",
-            "validation": "none",
             "phases": map.phaseNames.joined(separator: "|"),
             "matrix_phase": map.phaseNames.indices.contains(map.matrixPhaseIndex)
                 ? map.phaseNames[map.matrixPhaseIndex] : "?",

@@ -27,7 +27,7 @@ struct PrecipitateVariantRows: View {
             get: { appState.precipitateVariantSettings != nil },
             set: { appState.setPrecipitateVariantSettings($0 ? VariantSettings() : nil) }))
             .help("Name each object's orientation-relationship variant from the phase map's winning orientation per position (twelve for beta'' in Al), "
-                  + "and count the needles per direction and per variant. Unvalidated, like the phase map.")
+                  + "and count the needles per direction and per variant.")
             .accessibilityIdentifier("precipitates.variants.section")
         if let settings {
             controls(settings)
@@ -117,7 +117,7 @@ struct PrecipitateVariantRows: View {
         }
         InspectorNote(VariantGroupText.totals(groups)).accessibilityIdentifier("precipitates.variants.totals")
         if let summary = report.variantSummary {
-            Text("validation: none").font(.caption).foregroundStyle(.secondary).help(summary)
+            Text(summary).font(.caption).foregroundStyle(.secondary)
         }
     }
 

@@ -73,8 +73,9 @@ final class CompositionByClassTests: XCTestCase {
         XCTAssertGreaterThan(mgPrecipitate, 10 * mgMatrix)
 
         let csv = CompositionByClass.csv(results, imageName: "planted.emd", method: method)
-        XCTAssertTrue(csv.contains("class,pixels_pooled,counts,element,wt_percent,sigma_wt_percent,at_percent,sigma_at_percent,validation,method_hash,note"))
-        XCTAssertTrue(csv.contains("# validation: none") && csv.contains(method.hash))
+        XCTAssertTrue(csv.contains("class,pixels_pooled,counts,element,wt_percent,sigma_wt_percent,at_percent,sigma_at_percent,method_hash,note"))
+        XCTAssertTrue(csv.contains("# method: Cliff-Lorimer, k-factors ") && csv.contains(method.hash), csv)
+        XCTAssertFalse(csv.localizedCaseInsensitiveContains("validat"), "no validation state in the export")
         XCTAssertEqual(csv.split(separator: "\n").filter { !$0.hasPrefix("#") }.count, 1 + 6, "header and three elements per class")
     }
 

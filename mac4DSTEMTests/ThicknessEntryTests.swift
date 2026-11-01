@@ -19,9 +19,10 @@ final class ThicknessEntryTests: XCTestCase {
     func testTheEELSMethodJSONNamesTheSourceAndNothingElse() throws {
         let json = #"{"file":"lamella.dm4","origin":"x","method":"log-ratio, estimated threshold","validation":"none","mean_free_path_nm":120.5,"width":8,"height":6}"#
         let read = try ThicknessEntry.source(fromEELSMethodJSON: json)
-        XCTAssertTrue(read.text.contains("lamella.dm4") && read.text.contains("log-ratio") && read.text.contains("120.5") && read.text.contains("validation: none"), read.text)
-        guard case .eelsMethodJSON(let file, _, let lambda, let v) = read.origin else { return XCTFail() }
-        XCTAssertEqual(file, "lamella.dm4"); XCTAssertEqual(lambda, 120.5); XCTAssertEqual(v, "none")
+        XCTAssertTrue(read.text.contains("lamella.dm4") && read.text.contains("log-ratio") && read.text.contains("120.5"), read.text)
+        XCTAssertFalse(read.text.contains("validation"), "the file's validation key is not repeated: \(read.text)")
+        guard case .eelsMethodJSON(let file, _, let lambda) = read.origin else { return XCTFail() }
+        XCTAssertEqual(file, "lamella.dm4"); XCTAssertEqual(lambda, 120.5)
         XCTAssertThrowsError(try ThicknessEntry.source(fromEELSMethodJSON: "not json"))
         XCTAssertThrowsError(try ThicknessEntry.source(fromEELSMethodJSON: #"{"a":1}"#))
     }

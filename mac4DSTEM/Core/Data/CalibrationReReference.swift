@@ -384,7 +384,8 @@ package nonisolated enum CalibrationReReference {
             windowPullBoundPixels: origin.windowPullBoundPixels,
             // The stop and the fallback's scatter describe the detector, not which scan positions are kept.
             beamStopCoversBeam: origin.beamStopCoversBeam,
-            friedelFallbackResidualPixels: origin.friedelFallbackResidualPixels
+            friedelFallbackResidualPixels: origin.friedelFallbackResidualPixels,
+            measuredByFriedel: origin.measuredByFriedel
         )
     }
 
@@ -409,7 +410,8 @@ package nonisolated enum CalibrationReReference {
             windowPullBoundPixels: origin.windowPullBoundPixels.map { $0 / Float(bin) },
             // The stop is still over the beam after a crop or a bin; the fallback's residual is a length, as the pull.
             beamStopCoversBeam: origin.beamStopCoversBeam,
-            friedelFallbackResidualPixels: origin.friedelFallbackResidualPixels.map { $0 / Float(bin) }
+            friedelFallbackResidualPixels: origin.friedelFallbackResidualPixels.map { $0 / Float(bin) },
+            measuredByFriedel: origin.measuredByFriedel
         )
         let outside = fitted.firstOutside.map { ($0, fitted.columns[$0], fitted.rows[$0]) }
         return (result, outside)

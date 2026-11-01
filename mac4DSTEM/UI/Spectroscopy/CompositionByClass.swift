@@ -23,8 +23,6 @@ nonisolated struct ClassComposition: Sendable, Equatable {
     var rows: [Row]
     /// The kit's sentence when the pool could not be fitted.
     var failure: String?
-    /// The pool's source claim ("none" for a phase map) joined with the quantification's own.
-    var validation: String
 }
 
 nonisolated enum CompositionByClass {
@@ -45,35 +43,35 @@ nonisolated enum CompositionByClass {
                     ClassComposition.Row(element: $0.element, weightPercent: $0.weightPercent, weightSigma: $0.weightSigma,
                                          atomicPercent: $0.atomicPercent, atomicSigma: $0.atomicSigma, failure: $0.failure)
                 }
-                out.append(ClassComposition(className: p.name, pixels: p.pixels, counts: total, rows: rows, failure: fit.abundanceRefusal,
-                                            validation: PooledQuantification.abundanceValidation))
+                out.append(ClassComposition(className: p.name, pixels: p.pixels, counts: total, rows: rows, failure: fit.abundanceRefusal))
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 out.append(ClassComposition(className: p.name, pixels: p.pixels, counts: total, rows: [],
-                                            failure: (error as? LocalizedError)?.errorDescription ?? "\(error)",
-                                            validation: PooledQuantification.abundanceValidation))
+                                            failure: (error as? LocalizedError)?.errorDescription ?? "\(error)"))
             }
         }
         return out
     }
 
-    /// class, pixels pooled, element, wt%, sigma, at%, sigma, method hash; the `#` header names the file, the method and the badge.
+    /// class, pixels pooled, element, wt%, sigma, at%, sigma, method hash; the `#` header names the file, the classes' source,
+    /// the method with its k-factor reference, and the method hash.
     static func csv(_ results: [ClassComposition], imageName: String, method: QuantificationMethod) -> String {
         func num(_ v: Double?) -> String { v.map { String(format: "%.6g", $0) } ?? "" }
         func field(_ s: String) -> String { s.contains(",") || s.contains("\"") ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : s }
         var out = ["# mac4DSTEM Spectroscopy composition by class, file: \(imageName)",
                    "# one pooled fit per phase pool (the class's spectrum pixels, summed once); sigma is the pooled fit's",
-                   "# validation: none (the phase map and the quantification are both unvalidated)",
+                   "# classes: the phase map (vector matching, Thronsen et al., Ultramicroscopy 255 (2024) 113861)",
+                   "# method: \(AppState.edsMethodLine(method))",
                    "# method hash (sha256 of the method JSON): \(method.hash)",
-                   "class,pixels_pooled,counts,element,wt_percent,sigma_wt_percent,at_percent,sigma_at_percent,validation,method_hash,note"]
+                   "class,pixels_pooled,counts,element,wt_percent,sigma_wt_percent,at_percent,sigma_at_percent,method_hash,note"]
         for c in results {
             if c.rows.isEmpty {
-                out.append([field(c.className), "\(c.pixels)", "\(c.counts)", "", "", "", "", "", c.validation, method.hash, field(c.failure ?? "")].joined(separator: ","))
+                out.append([field(c.className), "\(c.pixels)", "\(c.counts)", "", "", "", "", "", method.hash, field(c.failure ?? "")].joined(separator: ","))
             }
             for r in c.rows {
                 out.append([field(c.className), "\(c.pixels)", "\(c.counts)", r.element, num(r.weightPercent), num(r.weightSigma),
-                            num(r.atomicPercent), num(r.atomicSigma), c.validation, method.hash,
+                            num(r.atomicPercent), num(r.atomicSigma), method.hash,
                             field(r.failure ?? c.failure ?? "")].joined(separator: ","))
             }
         }

@@ -86,6 +86,34 @@ final class BeamStopOriginTests: XCTestCase {
         XCTAssertFalse(stop.detected, "contrast \(stop.centreContrast) dark radius \(stop.darkRadius)")
     }
 
+    /// A NaN core wider than 1 px is still a beam: the fill grows in from the core's edge, so the missing pixels take the
+    /// beam's value. Before, the one-pass fill set every pixel with no finite neighbour to 0, and this core (radius 4 px
+    /// in a 6 px beam) read as a dark centre 3 px in radius inside a bright rim: a stop.
+    func testAWideNonFiniteCoreIsNotAStop() throws {
+        let q = 64
+        var pattern = [Float](repeating: 1, count: q * q)
+        for y in 0..<q { for x in 0..<q {
+            let r = hypot(Double(x) - 32, Double(y) - 32)
+            if r <= 6 { pattern[y * q + x] = 1000 }
+            if r <= 4 { pattern[y * q + x] = .nan }
+        } }
+        let stop = try XCTUnwrap(OriginCalibration.beamStop(meanDP: pattern, qy: q, qx: q))
+        XCTAssertFalse(stop.detected, "contrast \(stop.centreContrast) dark radius \(stop.darkRadius)")
+        XCTAssertGreaterThan(stop.centreContrast, 0.9)
+    }
+
+    /// The fill itself: a missing disk takes its border's value at any width; an image with nothing finite becomes 0.
+    func testTheFillGrowsInFromTheEdge() {
+        let q = 32
+        var v = [Float](repeating: 7, count: q * q)
+        for y in 0..<q { for x in 0..<q where hypot(Double(x) - 16, Double(y) - 16) <= 9 { v[y * q + x] = .infinity } }
+        OriginCalibration.fillNonFiniteFromOutside(&v, rows: q, columns: q)
+        XCTAssertEqual(v, [Float](repeating: 7, count: q * q))
+        var none = [Float](repeating: .nan, count: 9)
+        OriginCalibration.fillNonFiniteFromOutside(&none, rows: 3, columns: 3)
+        XCTAssertEqual(none, [Float](repeating: 0, count: 9))
+    }
+
     /// Two bright regions with a dark middle are not a stop: the ring does not close round the centre.
     func testTwoSeparateBlobsAreNotAStop() throws {
         let q = 64
@@ -149,7 +177,95 @@ final class BeamStopOriginTests: XCTestCase {
             XCTAssertEqual(Double(measuredY[i]), y, accuracy: 1e-3, "position \(i)")
         }
         XCTAssertNil(fit.origin.beamStopCoversBeam, "a Friedel run does not judge itself by the stop")
+        XCTAssertEqual(fit.origin.measuredByFriedel, true)
+        XCTAssertTrue(Self.calibration(fit).originFriedelResidualIsAcceptable, "0.0265 px is inside the 1 px limit")
         XCTAssertTrue(Self.calibration(fit).originFitIsSane)
+    }
+
+    // MARK: - A Friedel run picked by hand
+
+    /// A 3 x 3 map whose measured origins scatter 1.5 px about a flat fit, with a 4 px probe radius: the residual test
+    /// alone passes it.
+    private static func scattered(friedel: Bool?) -> DSTEMCore.Calibration {
+        var calibration = DSTEMCore.Calibration()
+        let fitted = [Float](repeating: 20, count: 9)
+        let measured: [Float] = [21.5, 18.5, 21.5, 18.5, 21.5, 18.5, 21.5, 18.5, 21.5]
+        calibration.origin = OriginMaps(width: 3, height: 3, measuredX: measured, measuredY: fitted,
+                                        fittedX: fitted, fittedY: fitted, measuredByFriedel: friedel)
+        calibration.probeRadius = 4
+        return calibration
+    }
+
+    /// The Friedel method chosen by hand faces the same 1 px limit the fallback is offered under, not only the probe
+    /// radius. Before, this 1.5 px fit was trusted. Break it by dropping `originFriedelResidualIsAcceptable` from
+    /// `originFitIsSane`.
+    func testAFriedelRunIsHeldToTheOnePixelLimit() throws {
+        let friedel = Self.scattered(friedel: true)
+        XCTAssertEqual(Double(try XCTUnwrap(friedel.origin?.rmsResidual)), 1.5, accuracy: 1e-5)
+        XCTAssertTrue(friedel.originResidualIsAcceptable, "fixture: inside the probe radius")
+        XCTAssertFalse(friedel.originFriedelResidualIsAcceptable)
+        XCTAssertFalse(friedel.originFitIsSane)
+        let refusal = try XCTUnwrap(friedel.originFitRefusal)
+        XCTAssertTrue(refusal.contains("allowed for the Friedel method"), refusal)
+        XCTAssertTrue(refusal.contains("Centre of mass"), refusal)
+        XCTAssertTrue(refusal.contains("reciprocal pixel size manually"), refusal)
+        let report = CalibrationReadinessReport.make(calibration: friedel, provenance: CalibrationProvenance())
+        let origin = try XCTUnwrap(report.items.first { $0.kind == .originProbe })
+        XCTAssertTrue(origin.detail.contains("Friedel fit over the 1\u{00A0}px limit"), origin.detail)
+        // The same scatter from the centre of mass, or from an unknown method, is judged by the probe radius as before.
+        for method in [false, nil] as [Bool?] {
+            XCTAssertTrue(Self.scattered(friedel: method).originFitIsSane, "\(String(describing: method))")
+        }
+    }
+
+    /// iDPC: the Friedel refusal points to the centre of mass or a manual origin, never to a manual Q.
+    @MainActor
+    func testTheIDPCRefusalOfAFriedelRun() throws {
+        let state = AppState()
+        state.calibrationSession.calibration = Self.scattered(friedel: true)
+        let text = try XCTUnwrap(state.idpcOriginFitRefusal)
+        XCTAssertTrue(text.contains("Centre of mass"), text)
+        XCTAssertFalse(text.contains("Try another Origin fit"), text)
+        XCTAssertFalse(text.contains("reciprocal pixel size"), text)
+    }
+
+    // MARK: - Progress during the fallback
+
+    private nonisolated final class ProgressLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [Double] = []
+        nonisolated func add(_ value: Double) { lock.lock(); stored.append(value); lock.unlock() }
+        nonisolated var values: [Double] { lock.lock(); defer { lock.unlock() }; return stored }
+    }
+
+    /// The fallback reports its own progress (it is a second pass over the cube, an FFT per pattern), and the run gives
+    /// it the 0.6 to 0.9 stretch of the bar: before, the bar stood at 0.9 for the whole fallback.
+    func testTheProgressBarMovesDuringTheFallback() async throws {
+        let source = BeamStopSource()
+        let d = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: d)
+        let stats = try await VirtualDetector.tiledDPStatistics(data: data, descriptor: d)
+        let fallback = ProgressLog()
+        _ = try await OriginCalibration.friedelFallbackResidual(
+            data: data, descriptor: d, meanDP: stats.meanDP, fitFunction: .plane, maximumTileRows: 3,
+            cancellation: nil, progress: { fallback.add($0) })
+        XCTAssertGreaterThanOrEqual(fallback.values.filter { $0 > 0 && $0 < 1 }.count, 2, "\(fallback.values)")
+        XCTAssertEqual(fallback.values.last, 1)
+
+        let run = ProgressLog()
+        _ = try await OriginCalibration.tiledRun(data: data, descriptor: d, maximumTileRows: 3,
+                                                 progress: { run.add($0) })
+        let values = run.values
+        XCTAssertEqual(values, values.sorted(), "the bar never steps back")
+        XCTAssertEqual(values.last, 1)
+        XCTAssertLessThanOrEqual(values.filter { $0 >= 0.9 }.count, 2, "no long stand at 0.9: \(values)")
+        // The same cube without its stop runs no fallback: the stop run reports the fallback's ticks on top. Before, it
+        // reported exactly as many as the run without a stop (the fallback ran with no progress).
+        let clearSource = BeamStopSource(stop: false)
+        let clear = ProgressLog()
+        _ = try await OriginCalibration.tiledRun(data: FourDArray(reader: clearSource, descriptor: d), descriptor: d,
+                                                 maximumTileRows: 3, progress: { clear.add($0) })
+        XCTAssertGreaterThanOrEqual(values.count - clear.values.count, 2, "stop \(values) clear \(clear.values)")
     }
 
     /// A clean beam pays nothing: no stop, no fallback, the gate as before.
@@ -157,6 +273,7 @@ final class BeamStopOriginTests: XCTestCase {
         let fit = try await Self.run(NoisyBeamSource(peak: 2000, background: 0, seed: 7))
         XCTAssertEqual(fit.origin.beamStopCoversBeam, false)
         XCTAssertNil(fit.origin.friedelFallbackResidualPixels)
+        XCTAssertEqual(fit.origin.measuredByFriedel, false)
         XCTAssertTrue(Self.calibration(fit).originFitIsSane)
     }
 
@@ -205,7 +322,7 @@ final class BeamStopOriginTests: XCTestCase {
         var c = DSTEMCore.Calibration()
         c.origin = OriginMaps(width: 2, height: 2, measuredX: [16, 16, 16, 16], measuredY: [16, 16, 16, 16],
                               fittedX: [16, 16, 16, 16], fittedY: [16, 16, 16, 16],
-                              beamStopCoversBeam: true, friedelFallbackResidualPixels: 0.8)
+                              beamStopCoversBeam: true, friedelFallbackResidualPixels: 0.8, measuredByFriedel: false)
         c.originProvenance = .fitted
         c.probeRadius = 4
         let source = DatasetDescriptor(filePath: "/tmp/x.h5", datasetPath: "/d", shape: [2, 2, 32, 32],
@@ -214,6 +331,7 @@ final class BeamStopOriginTests: XCTestCase {
         let outcome = CalibrationReReference.apply(view, to: c, provenance: CalibrationProvenance(), apertureCenter: nil)
         XCTAssertEqual(outcome.calibration.origin?.beamStopCoversBeam, true)
         XCTAssertEqual(try XCTUnwrap(outcome.calibration.origin?.friedelFallbackResidualPixels), 0.4, accuracy: 1e-6)
+        XCTAssertEqual(outcome.calibration.origin?.measuredByFriedel, false)
         XCTAssertFalse(outcome.calibration.originFitIsSane)
     }
 }

@@ -29,6 +29,7 @@ nonisolated extension BraggVectorEMDWriter {
         source: SessionSourceStamp?,
         diskCentreLabelsJSON: String?,
         supportedSchema: Int,
+        vectorsWithoutRecipe: Bool = false,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) throws {
@@ -213,14 +214,9 @@ nonisolated extension BraggVectorEMDWriter {
         // The origin gate's window pull, beside the origin maps it describes (the calibration group itself is the kit's
         // EMD layout). Written from this save's calibration only: maps without it are unknown, and a stale value from the
         // file being replaced must not describe a different fit.
-        if let pull = calibration.originMaps?.windowPullBoundPixels, pull.isFinite, pull >= 0 {
-            try setText(SessionSidecarFormat.originWindowPullAttribute, String(pull))
-        }
-        if let stop = calibration.originMaps?.beamStopCoversBeam {
-            try setText(SessionSidecarFormat.originBeamStopAttribute, stop ? "true" : "false")
-        }
-        if let fallback = calibration.originMaps?.friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
-            try setText(SessionSidecarFormat.originFriedelFallbackAttribute, String(fallback))
+        // The same attributes as the calibrated-cube export writes (`PixelOriginMaps.gateAttributes`).
+        for (name, value) in (calibration.originMaps?.gateAttributes ?? [:]).sorted(by: { $0.key < $1.key }) {
+            try setText(name, value)
         }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
@@ -250,6 +246,23 @@ nonisolated extension BraggVectorEMDWriter {
         } else if replayRecord?.lineage != nil {
             lineageOmission = "The lineage was not saved — it could not be encoded."
         }
+        // Disks with no recipe behind them (`disksWithoutRecipeAttribute`):
+        // fresh vectors carry the caller's word; copied vectors carry the word
+        // of the file they are copied from, which says so either by this
+        // marker or by predating the replay record (no record, stamp below 6
+        // or none). Never inferred from the record being written: a current
+        // session's disks without a disk step stay refused, as before.
+        let disksWithoutRecipe: Bool
+        if vectors != nil {
+            disksWithoutRecipe = vectorsWithoutRecipe
+        } else if canCopyBragg, let existingFile {
+            disksWithoutRecipe = existingDisksLackRecipe(existingFile)
+        } else {
+            disksWithoutRecipe = false
+        }
+        if disksWithoutRecipe {
+            try setText(disksWithoutRecipeAttribute, "restored from a session saved before the replay record")
+        }
         // Same rule as the replay record immediately above: the caller's
         // live value wins, otherwise the labels already on the file survive
         // the rewrite. // C7 session 4
@@ -260,6 +273,16 @@ nonisolated extension BraggVectorEMDWriter {
         }
         progress?(1)
         try checkCancellation(cancellation)   // after the last progress tick: a cancel raised by it still stops before the publish
+    }
+
+    /// True when the stored disks of `file` have no recipe behind them: it carries the marker, or it predates the replay
+    /// record (`SessionPeakRestore.predatesReplayRecord`'s rule, read like the reader reads the stamp: garbage is absent).
+    static func existingDisksLackRecipe(_ file: SidecarFile) -> Bool {
+        if ((try? file.stringAttribute(disksWithoutRecipeAttribute, at: rootPath)) ?? nil) != nil { return true }
+        if ((try? file.stringAttribute(replayRecordAttribute, at: rootPath)) ?? nil) != nil { return false }
+        let stamp = ((try? file.stringAttribute(schemaAttribute, at: rootPath)) ?? nil).flatMap { Int($0) }
+        guard let stamp else { return true }
+        return stamp < SessionViewRecord.firstSchemaThatRecordsTheView
     }
 
     /// The app's calibration as the kit's EMD calibration (py4DSTEM's `Calibration` entries). The rotation in degrees is the kit's

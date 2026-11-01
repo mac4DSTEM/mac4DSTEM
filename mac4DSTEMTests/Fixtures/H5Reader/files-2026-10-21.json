@@ -1,6 +1,6 @@
 {
   "cal_attrs.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -32,7 +32,7 @@
     "voltage" : "nil"
   },
   "cal_bad_ellipse.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: Optional(\"The file ellipse (a = -1, b = 0.98, theta = 0.3) was refused: semi-axis a is not a positive number. No elliptical correction is applied; fit the ellipse in the app or enter it manually.\"), probeSemiangle: Optional(21.5), originMaps: nil)",
     "chunk" : "nil",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -64,7 +64,7 @@
     "voltage" : "nil"
   },
   "cal_double_dataset.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -96,7 +96,7 @@
     "voltage" : "nil"
   },
   "cal_enum_attr.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -128,7 +128,7 @@
     "voltage" : "nil"
   },
   "cal_enum_dataset_false.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -160,7 +160,7 @@
     "voltage" : "nil"
   },
   "cal_enum_dataset.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -192,7 +192,7 @@
     "voltage" : "nil"
   },
   "cal_float16_dataset.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -224,7 +224,7 @@
     "voltage" : "nil"
   },
   "cal_int_attr.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -256,7 +256,7 @@
     "voltage" : "nil"
   },
   "cal_uint8_dataset.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil)))",
+    "calibration" : "PixelCalibration(rSize: Optional(2.5), rUnits: Optional(\"nm\"), qSize: Optional(0.0123456789), qUnits: Optional(\"A^-1\"), qrFlip: Optional(true), qx0Mean: Optional(64.25), qy0Mean: Optional(63.75), ellipseA: Optional(1.02), ellipseB: Optional(0.98), ellipseTheta: Optional(0.3), qrRotationRad: Optional(-0.45), qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: Optional(21.5), originMaps: Optional(DSTEMCore.PixelOriginMaps(shape: [3, 4], fittedQX: [-4.0, -3.75, -3.5, -3.25, -3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25], fittedQY: [-4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5], measuredQX: Optional([-4.0, -3.25, -2.5, -1.75, -1.0, -0.25, 0.5, 1.25, 2.0, 2.75, 3.5, 4.25]), measuredQY: Optional([-4.0, -3.875, -3.75, -3.625, -3.5, -3.375, -3.25, -3.125, -3.0, -2.875, -2.75, -2.625]), windowPullBoundPixels: nil, beamStopCoversBeam: nil, friedelFallbackResidualPixels: nil, measuredByFriedel: nil)))",
     "chunk" : "[1, 2, 5, 6]",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -288,7 +288,7 @@
     "voltage" : "nil"
   },
   "emd_dims_f16.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "[3, 4, 5, 6]",
     "dtype" : "uint16",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -320,7 +320,7 @@
     "voltage" : "nil"
   },
   "emd_dims_f32.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "[3, 4, 5, 6]",
     "dtype" : "uint16",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -352,7 +352,7 @@
     "voltage" : "nil"
   },
   "emd_dims_f64.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(1.5), rUnits: Optional(\"nm\"), qSize: Optional(0.25), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "[3, 4, 5, 6]",
     "dtype" : "uint16",
     "full.outside" : "readFailed(\"scan position (3, 0) is outside the loaded view\")",
@@ -384,7 +384,7 @@
     "voltage" : "nil"
   },
   "emd_dims_rank3.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(2.0), rUnits: Optional(\"nm\"), qSize: Optional(0.1), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(2.0), rUnits: Optional(\"nm\"), qSize: Optional(0.1), qUnits: Optional(\"1\/nm\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "nil",
     "dtype" : "int16",
     "full.outside" : "readFailed(\"scan position (1, 0) is outside the loaded view\")",

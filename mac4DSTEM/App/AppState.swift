@@ -285,8 +285,7 @@ final class AppState {
     /// classification route this owner was originally scoped for
     /// (archived `docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
     /// would be a second producer, not a replacement. Neither producer nor
-    /// this owner makes a validation claim of its own — the phase map's
-    /// `validation: "none"` badge covers what is read off it. Views read
+    /// this owner adds a method of its own beyond the phase map's. Views read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
     /// The specimen thickness behind the precipitate counts (typed, with its source); recorded on the objects run's lineage node
@@ -609,6 +608,11 @@ final class AppState {
     /// produced them. C4(b): now also catches kernel/learned-detector drift.
     var diskDetectionSettingsAreStale: Bool {
         guard resultPresentation.braggVectors != nil else { return false }
+        // Disks restored without a recipe are stale whatever the recipe beside
+        // them says: no recorded settings produced them (mac4DSTEM#61). Here,
+        // not only in `hasCurrentBraggVectors`, so the run guards that read
+        // staleness directly (strain, ACOM, q from crystal) refuse them too.
+        if resultPresentation.braggVectorsWithoutRecipe { return true }
         return ProductWorkflow.stalenessVerdict(recordedStep: recordedReplayStep(for: .disks),
             currentSignature: currentReplaySignature(for: .disks), hasProduct: true) != .current
     }
@@ -1580,6 +1584,9 @@ final class AppState {
         return calibration.originFitJudgement.map {
             // Under a beam stop the remedy is the Friedel method or a manual origin, never a re-fit.
             if !calibration.originBeamStopIsAcceptable { return $0 + " " + calibration.beamStopRemedy(manualQ: false) }
+            if calibration.originResidualIsAcceptable, !calibration.originFriedelResidualIsAcceptable {
+                return $0 + " " + DSTEMCore.Calibration.friedelRunRemedy(manualQ: false)
+            }
             // The window pull is a biased measurement, the same for every fit function and every re-run (2026-10-31).
             return calibration.originWindowPullIsAcceptable
                 ? $0 + " Try another Origin fit (Constant / Plane / Parabola) and re-run Calibrate Origin."

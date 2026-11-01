@@ -321,7 +321,7 @@ struct WorkspacePrimaryAction {
         case .map:
             switch appState.navigation.analysisMode {
             case .acom: "Runs the orientation area and quality selected in the inspector."
-            case .phaseMapping: "Matches every position's peaks against the phases you named. Unvalidated."
+            case .phaseMapping: "Matches every position's peaks against the phases you named."
             default: "Runs the selected whole-scan mapping task."
             }
         case .reconstruct:

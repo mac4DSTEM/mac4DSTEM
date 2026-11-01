@@ -1,7 +1,7 @@
 //
 //  SpectroscopyShared.swift
 //  What the retired Spectroscopy room left that the rest of the app reads (2026-10-23, the EDS room replaced it): the result
-//  number format (Results rows, the spectrum-only views, the histogram) and the unvalidated badge.
+//  number format (Results rows, the spectrum-only views, the histogram).
 //
 
 import ShellInspector
@@ -33,17 +33,4 @@ enum ResultFormat {
     }
     /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
     nonisolated static func counts(_ v: Double) -> String { grouped(v, locale: Locale(identifier: "en_US")) }
-}
-
-/// The badge `validation:"none"` carries on screen (ADR 054 §3). Orange text on a tint,
-/// as the mock draws it; the word is the claim.
-struct UnvalidatedBadge: View {
-    var body: some View {
-        Text("unvalidated")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.orange)
-            .padding(.horizontal, 6).padding(.vertical, 1)
-            .background(Capsule().fill(Color.orange.opacity(0.15)))
-            .accessibilityLabel("unvalidated")
-    }
 }

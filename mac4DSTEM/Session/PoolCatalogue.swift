@@ -48,14 +48,8 @@ package nonisolated struct SpectrumPool: Equatable, Sendable, Identifiable {
     package var pixelCount: Int
     /// On the spectrum image's grid, row-major.
     package var mask: PixelMask
-    /// The source product's self-reported validation: "none" for a phase map (and for what it did not index); nil for a
-    /// diffraction group, which records none and is never called validated.
-    package var validation: String?
     /// The picker section.
     package var section: PoolSection { kind == .group ? .groups : .phases }
-    /// The badge. `PooledSpectrum.isUnvalidated`'s predicate (`validation == "none"`): a missing validation is not read as
-    /// unvalidated, because a group pool has no phase-map claim to retract and carries no badge.
-    package var isUnvalidated: Bool { PoolCatalogue.isUnvalidated(validation: validation) }
 }
 
 package nonisolated struct PoolCatalogue: Equatable, Sendable {
@@ -69,9 +63,6 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
     package static let phaseIDBase = 1000
     package static let notIndexedID = 1900
     package static let groupIDBase = 2000
-
-    package static let phaseMapValidation = "none"
-    package static func isUnvalidated(validation: String?) -> Bool { validation == phaseMapValidation }
 
     package static let noPhaseMapLine = "Run phase mapping in Crystal Maps to pool by phase."
     package static let noRegistrationLine = "No registration between the 4D scan and this spectrum image: the app states one only for the two objects of one GMS file (same scan)."
@@ -156,7 +147,7 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
         let classes = names.enumerated().map { (id: Self.phaseIDBase + $0.offset, kind: SpectrumPool.Kind.phase, name: $0.element) }
             + [(id: Self.notIndexedID, kind: SpectrumPool.Kind.notIndexed, name: "Not indexed")]
         append(labels: labels, classes: classes, section: .phases, generation: generation, registration: registration,
-               validation: Self.phaseMapValidation, product: "the phase map")
+               product: "the phase map")
     }
 
     // MARK: Groups
@@ -166,11 +157,11 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
         guard k > 0 else { return }
         let classes = (0..<k).map { (id: Self.groupIDBase + $0, kind: SpectrumPool.Kind.group, name: "Group \($0 + 1)") }
         append(labels: result.groupOf.map { $0 >= 0 && $0 < k ? $0 : -1 }, classes: classes, section: .groups,
-               generation: generation, registration: registration, validation: nil, product: "the diffraction groups")
+               generation: generation, registration: registration, product: "the diffraction groups")
     }
 
     private mutating func append(labels: [Int], classes: [(id: Int, kind: SpectrumPool.Kind, name: String)], section: PoolSection,
-                                 generation: Int, registration: RegistrationRecordM2, validation: String?, product: String) {
+                                 generation: Int, registration: RegistrationRecordM2, product: String) {
         let t: TransportedLabels
         do { t = try MaskTransport.transport(labels: labels, classCount: classes.count, registration: registration) }
         catch { notes.append(PoolNote(section: section, text: "\(error)")); return }
@@ -183,7 +174,7 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
                 continue
             }
             pools.append(SpectrumPool(id: cls.id, kind: cls.kind, name: cls.name, sourceGeneration: generation,
-                                      pixelCount: count, mask: mask, validation: validation))
+                                      pixelCount: count, mask: mask))
         }
     }
 

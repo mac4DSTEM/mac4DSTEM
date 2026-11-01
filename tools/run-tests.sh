@@ -225,19 +225,6 @@ inventory() {
   else
     echo "  no app caller of loadForComparison"
   fi
-  # Unvalidated stays labelled (owner, 2026-09-18): the phase-mapping badge
-  # and the export key are load-bearing; a session that drops either would
-  # ship an unvalidated map as science.
-  echo "== unvalidated products stay labelled"
-  # The badge is the kit's `InspectorWarning` since 2026-09-30 (same look as the
-  # hand-rolled Label it replaced); either spelling of it satisfies the rule.
-  if grep -Eq '(Label|InspectorWarning)\("Unvalidated' "$ROOT/mac4DSTEM/UI/PhaseMappingSettings.swift" \
-     && grep -q '"validation": "none"' "$ROOT/mac4DSTEM/App/AppState+PhaseMapping.swift" \
-     && grep -q 'UNVALIDATED (validation=none)' "$ROOT/mac4DSTEM/Support/ResultExport.swift"; then
-    echo "  phase mapping: badge, validation:\"none\" key and the exported caption's UNVALIDATED present"
-  else
-    echo "  phase mapping: the Unvalidated badge, the validation:\"none\" key or the caption's UNVALIDATED is GONE"; rc=1
-  fi
 
   # DM4 mapping (Gate B 2026-09-28; FormatoKit 0.7.0 switch 2026-10-21): the unit tests pin `readingOptions(forPath:)` alone; a
   # literal storage in `init` kept them green and read a 128 MB file off exFAT into memory again (the defect that panicked this

@@ -1206,12 +1206,6 @@ private struct ACOMSections: View {
                 InspectorWarning(reason, systemImage: "nosign")
             } else if let model = appState.resolvedACOMModel {
                 InspectorValueRow("Symmetry", model.symmetry.displayName)
-                if model.symmetry == .monoclinic {
-                    // Unvalidated stays labelled (owner, 2026-09-18). One warning row, only for a
-                    // monoclinic phase; the product itself carries `validation: "none"` (CrystalModel).
-                    InspectorWarning("Unvalidated — \(CrystalModel.monoclinicValidationNote). "
-                        + "Read the map; do not quote an angle from it.", systemImage: "exclamationmark.triangle")
-                }
                 InspectorValueRow("Source", acomPhaseModelSourceLabel(source: model.source, id: model.id))
                 InspectorNote("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
             }
@@ -1353,7 +1347,7 @@ private struct ACOMSections: View {
         }
         InspectorValueRow("Will use", appState.acomSession.effectiveBackend.rawValue)
         Toggle("Refine in-plane angle", isOn: $session.refinesInPlaneAngle)
-            .help("Places the in-plane angle at the vertex of a parabola through the correlation peak instead of the 128-bin step (DiffractoKit 0.9; off by default). Measured on planted off-grid patterns: fewer wrong orientations. Not validated on real data.")
+            .help("Places the in-plane angle at the vertex of a parabola through the correlation peak instead of the 128-bin step (DiffractoKit 0.9; off by default). Measured on planted off-grid patterns: fewer wrong orientations.")
             .accessibilityIdentifier("acom.refineInPlane")
         if appState.acomSession.refinesInPlaneAngle, appState.acomSession.effectiveBackend == .metal {
             InspectorNote("Refinement runs on the CPU scan only: the Metal engine keeps the bin.")

@@ -198,6 +198,16 @@ package nonisolated enum SessionPeakRestore {
         return schema < SessionViewRecord.firstSchemaThatRecordsTheView
     }
 
+    /// True when the stored disks are restored on the shape checks alone, with
+    /// no recipe step compared and never as current: the sidecar predates the
+    /// replay record, or it says its disks have none
+    /// (`SessionSidecarFormat.disksWithoutRecipeAttribute`, written when such
+    /// disks are saved again). The marker wins over a record beside it: the
+    /// record vouches for a later run, not for these disks.
+    package static func restoresWithoutRecipe(schema: Int?, replay: SessionReplayRecord?, marked: Bool) -> Bool {
+        marked || predatesReplayRecord(schema: schema, replay: replay)
+    }
+
     /// As below, for a sidecar's own view record. An unrecorded view (schema
     /// 5 without a load specification) is the whole file: that writer recorded
     /// a specification for every reduced view from 2026-08-18, and before that
@@ -208,7 +218,8 @@ package nonisolated enum SessionPeakRestore {
         viewRecord: SessionViewRecord,
         loadedSpecification: LoadSpecification,
         replay: SessionReplayRecord?,
-        schema: Int?
+        schema: Int?,
+        disksWithoutRecipe: Bool = false
     ) -> String? {
         let sessionSpecification: LoadSpecification
         switch viewRecord {
@@ -223,26 +234,29 @@ package nonisolated enum SessionPeakRestore {
         }
         return refusalBeforeReading(
             sessionSpecification: sessionSpecification,
-            loadedSpecification: loadedSpecification, replay: replay, schema: schema
+            loadedSpecification: loadedSpecification, replay: replay, schema: schema,
+            disksWithoutRecipe: disksWithoutRecipe
         )
     }
 
     /// The checks that need no peaks read — run first so a sidecar that cannot
     /// pass is never read (a Thronsen-A grid is 18 MB). A nil return means
     /// read the grid: either the recipe has a disk step, or the sidecar
-    /// `predatesReplayRecord` and the shape checks alone decide.
+    /// `restoresWithoutRecipe` and the shape checks alone decide.
     package static func refusalBeforeReading(
         sessionSpecification: LoadSpecification,
         loadedSpecification: LoadSpecification,
         replay: SessionReplayRecord?,
-        schema: Int?
+        schema: Int?,
+        disksWithoutRecipe: Bool = false
     ) -> String? {
         guard SessionCalibrationFramePolicy.decide(
             session: sessionSpecification, loaded: loadedSpecification
         ) == .identity else {
             return "Stored disks not used — they were detected on a different view than the one loaded now"
         }
-        guard diskStep(in: replay) != nil || predatesReplayRecord(schema: schema, replay: replay) else {
+        guard diskStep(in: replay) != nil
+            || restoresWithoutRecipe(schema: schema, replay: replay, marked: disksWithoutRecipe) else {
             return "Stored disks not used — the session's recipe has no disk-detection step to vouch for them"
         }
         return nil

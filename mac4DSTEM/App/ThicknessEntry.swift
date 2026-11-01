@@ -13,7 +13,7 @@ package nonisolated struct ThicknessEntry: Codable, Equatable, Sendable {
     package enum Origin: Codable, Equatable, Sendable {
         case typed
         /// macTEM's EELS method JSON, read: its file name, the method line, the mean free path when the JSON states one, its badge.
-        case eelsMethodJSON(file: String, method: String, lambdaNanometres: Double?, validation: String?)
+        case eelsMethodJSON(file: String, method: String, lambdaNanometres: Double?)
     }
 
     package var nanometres: Double
@@ -48,11 +48,9 @@ package nonisolated struct ThicknessEntry: Codable, Equatable, Sendable {
         else { throw JSONError.notAnObject }
         guard let file = object["file"] as? String, let method = object["method"] as? String else { throw JSONError.notAnEELSMethod }
         let lambda = (object["mean_free_path_nm"] as? NSNumber)?.doubleValue
-        let validation = object["validation"] as? String
         var text = "EELS t/\u{03BB} of \(file), \(method)"
         if let lambda { text += String(format: ", \u{03BB} = %.4g nm", lambda) }
-        if let validation { text += ", validation: \(validation)" }
-        return (text, .eelsMethodJSON(file: file, method: method, lambdaNanometres: lambda, validation: validation))
+        return (text, .eelsMethodJSON(file: file, method: method, lambdaNanometres: lambda))
     }
 
     // MARK: lineage parameters (the sidecar's record of it)
@@ -71,7 +69,7 @@ package nonisolated struct ThicknessEntry: Codable, Equatable, Sendable {
               let source = p["thickness_source"] else { return nil }
         self.init(nanometres: t, sigmaNanometres: s, source: source,
                   origin: p["thickness_origin"] == "eels_method_json"
-                    ? .eelsMethodJSON(file: "", method: "", lambdaNanometres: nil, validation: nil) : .typed)
+                    ? .eelsMethodJSON(file: "", method: "", lambdaNanometres: nil) : .typed)
         guard isUsable else { return nil }
     }
 

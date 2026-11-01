@@ -195,10 +195,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     /// only ever drawn on the map of the run it came from. Nil for a report
     /// with no such source (or decoded from before the field existed).
     package let sourceID: UUID?
-    /// The typed thickness behind N_V (nm) and the kit's validation word for it ("none"); nil without a usable thickness.
+    /// The typed thickness behind N_V (nm); nil without a usable thickness.
     package let thicknessNm: Double?
     package let thicknessSigmaNm: Double?
-    package let numberDensityValidation: String?
     /// The elements of the composition columns, in the maps' order; empty without the join. When a join could not run, why.
     package let compositionElements: [String]
     package let compositionUnavailable: String?
@@ -314,8 +313,6 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             sourceID: sourceID,
             thicknessNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessNm : nil,
             thicknessSigmaNm: summaries.contains { $0.nVolumePerUm3 != nil } ? thicknessSigmaNm : nil,
-            numberDensityValidation: summaries.contains { $0.nVolumePerUm3 != nil }
-                ? (try? ObjectStatistics.numberDensity(arealDensity: 0, thickness: 1))?.validation : nil,
             compositionElements: compositionJoin?.perObject.values.first?.elements.map(\.symbol) ?? [],
             compositionUnavailable: compositionJoin?.unavailable,
             strainAvailable: (strainJoin?.perObject.isEmpty == false),
@@ -479,16 +476,16 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         lines.append("# density: each counted object weighted by W*H / ((W - bx - 1)(H - by - 1)) for its bounding box (Miles-Lantuejoul edge correction), over the analysed area")
         if let t = thicknessNm {
             lines.append("# N_V: areal density / thickness (\(Self.number(t)) nm" + (thicknessSigmaNm.map { " +/- \(Self.number($0))" } ?? "")
-                + "), assuming the objects span the foil; validation: \(numberDensityValidation ?? "none")")
+                + "), assuming the objects span the foil")
         }
         if !compositionElements.isEmpty {
-            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDS pixels (no sigma; not the pooled fit); objects under the minimum EDS pixels have none; validation: none")
+            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDS pixels (no sigma; not the pooled fit); objects under the minimum EDS pixels have none")
         } else if let why = compositionUnavailable { lines.append("# composition: not available: \(why)") }
         if strainAvailable {
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
         } else if let why = strainUnavailable { lines.append("# strain: not available: \(why)") }
         if let summary = variantSummary, variantGroups != nil {
-            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; \(variantHabit == .plate ? "plate normals are matrix directions" : "needle directions are the matrix cube axes"); validation: none")
+            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; \(variantHabit == .plate ? "plate normals are matrix directions" : "needle directions are the matrix cube axes")")
             if let end = endOnDirection {
                 let name = variantGroups?.first { $0.kind == .direction && $0.index == end }?.title ?? VariantGroup.directionName(end)
                 lines.append(variantHabit == .plate ? "# face-on: plates on \(name) lie face-on to the beam" : "# end-on: needles along \(name) lie along the beam")

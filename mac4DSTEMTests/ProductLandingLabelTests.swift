@@ -147,7 +147,9 @@ final class ProductLandingLabelTests: XCTestCase {
         XCTAssertEqual(product.sampling.units, r.rPixelUnits)
         XCTAssertEqual(product.provenance["analysis_mode"], AnalysisMode.phaseMapping.rawValue)
         XCTAssertNil(product.provenance["coordinate_space"])
-        XCTAssertEqual(product.provenance["validation"], "none")
+        XCTAssertNil(product.provenance["validation"])
+        XCTAssertEqual(product.provenance["method"], "vector_matching")
+        XCTAssertEqual(product.provenance["method_citation"], "Thronsen et al., Ultramicroscopy 255 (2024) 113861")
     }
 
     // MARK: c2

@@ -183,7 +183,7 @@ struct ResultsWorkspace: View {
 }
 
 /// The Quantify steps recorded in this window's session, newest first: what was quantified, the method, the at% the Spectroscopy
-/// room's table showed, the unvalidated badge, and the step's readable keys behind a disclosure. Read from the record; no fit runs here.
+/// room's table showed, and the step's readable keys behind a disclosure. Read from the record; no fit runs here.
 struct QuantificationRowsList: View {
     let rows: [QuantificationRow]
 
@@ -193,22 +193,7 @@ struct QuantificationRowsList: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(rows) { row in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 8) {
-                                Text(row.title).fontWeight(.semibold)
-                                if row.unvalidated { UnvalidatedBadge() }
-                            }
-                            Text(row.result).font(.callout.monospacedDigit()).selectableText(row.result)
-                            Text(row.method).font(.caption).foregroundStyle(.secondary)
-                            DisclosureGroup("Parameters") {
-                                ForEach(row.parameters, id: \.key) { entry in
-                                    let line = "\(entry.key): \(entry.value)"
-                                    Text(line).font(.caption2.monospaced()).selectableText(line)
-                                }
-                            }
-                            .font(.caption)
-                        }
-                        .accessibilityElement(children: .contain)
+                        QuantificationRowView(row: row)
                     }
                 }
             }
@@ -216,6 +201,28 @@ struct QuantificationRowsList: View {
         }
         .padding()
         .accessibilityIdentifier("result.quantifications")
+    }
+}
+
+/// One Quantify step: title, at%, method, and its readable keys behind a disclosure. Its own view so a test can render it
+/// offscreen (ImageRenderer draws no ScrollView content).
+struct QuantificationRowView: View {
+    let row: QuantificationRow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(row.title).fontWeight(.semibold)
+            Text(row.result).font(.callout.monospacedDigit()).selectableText(row.result)
+            Text(row.method).font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup("Parameters") {
+                ForEach(row.parameters, id: \.key) { entry in
+                    let line = "\(entry.key): \(entry.value)"
+                    Text(line).font(.caption2.monospaced()).selectableText(line)
+                }
+            }
+            .font(.caption)
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
