@@ -1,5 +1,5 @@
 {
-  "originHash" : "b809e737ac985c437a01fed8951bb114c93bf39a71e2fb06ffc6fd3ca0b7e72f",
+  "originHash" : "68c4676c3ef5ec06b24616b3ef8058bbcf011216cd015591b105aa8d040f4899",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",
       "state" : {
-        "revision" : "7117e70acabf5387c70374264f9bc17c4b4f9fd0",
-        "version" : "0.13.0"
+        "revision" : "e47e563bdaa2bf5ce7869b07e2be29888c458ed3",
+        "version" : "0.13.1"
       }
     }
   ],

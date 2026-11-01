@@ -1574,7 +1574,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/SpectroKit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.13.0;
+				minimumVersion = 0.13.1;
 			};
 		};
 		30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */ = {
