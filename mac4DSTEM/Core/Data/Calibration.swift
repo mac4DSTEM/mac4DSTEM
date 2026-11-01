@@ -385,9 +385,14 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
                     Double(1 - excluded) * 100, Double(excluded) * 100
                 )
             }
-            if !originFitAcceptable {
+            if !calibration.originResidualIsAcceptable {
                 originDetail += " (exceeds probe radius; recalibrate before quantitative use)"
             }
+        }
+        if !calibration.originWindowPullIsAcceptable, let bound = calibration.origin?.windowPullBoundPixels {
+            originDetail += " · Window\u{00A0}pull up to "
+                + "\(CalibrationUnitConversion.displayNumber(Double(bound), digits: 3, locale: locale))\u{00A0}px"
+                + " (the window is mostly background; not for quantitative use)"
         }
 
         let validEllipse = calibration.hasEllipse
@@ -554,6 +559,15 @@ package nonisolated struct OriginMaps: Sendable {
     /// format is the owner's (plan §8), so a restored session reads `nil`.
     package var originValidity: [Bool]?
 
+    /// How far, at most, the background inside the origin window can have
+    /// pulled each measured origin toward where its search started, in
+    /// detector pixels (`OriginCalibration.windowPull`). The gate reads it:
+    /// see `originFitIsSane`. `nil` when the maps did not come from this
+    /// app's centre-of-mass run (an imported py4DSTEM map, a Friedel run, a
+    /// reopened session: the session file does not carry it yet): unknown,
+    /// never refused.
+    package var windowPullBoundPixels: Float?
+
     /// RMS of measured minus fitted origins, over EVERY scan position.
     package var rmsResidual: Float? {
         guard let measuredX, let measuredY,
@@ -582,7 +596,8 @@ package nonisolated struct OriginMaps: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil, originValidity: [Bool]? = nil) {
+    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil, originValidity: [Bool]? = nil, windowPullBoundPixels: Float? = nil) {
+        self.windowPullBoundPixels = windowPullBoundPixels
         self.width = width
         self.height = height
         self.measuredX = measuredX
@@ -719,9 +734,45 @@ package nonisolated struct Calibration: Sendable {
     /// excluded as outliers".
     package static let excludedFractionDisclosureFloor: Float = 0.02
 
-    package var originFitIsSane: Bool {
+    /// The most the window pull (`OriginMaps.windowPullBoundPixels`) may be
+    /// for the fit to be trusted, in detector pixels.
+    ///
+    /// **Why a second statistic.** The residual test below measures scatter
+    /// about the fit, never its bias, and the radius it is compared with grows
+    /// with the noise. Measured 2026-10-31 on the Poisson cubes of
+    /// `NoisyOriginTests` (4 px probe): at 3 counts per pixel the fit is 2.69 px
+    /// off with an RMS residual of 1.20 px against an 8.26 px radius, and the
+    /// residual test trusted it. The bias is the background inside the origin
+    /// window: each centre-of-mass pass moves the centre only the beam's share
+    /// of the way to the beam, so a pattern whose window is mostly background
+    /// stays near where its search started. The pull bound reads 6.5 px there,
+    /// 1.85 px at 5 counts (fit 0.29 px off), 0.07 px at 10 counts (fit 0.04 px
+    /// off) and below 0.001 px on the demo cubes. The 1 px limit therefore
+    /// refuses the 5-count cube too, whose fit is good to 0.3 px: the bound
+    /// over-states the bias (the fit error is 0.15 to 0.6 of it), so a refused
+    /// fit may be better than 1 px but cannot be shown to be. That is the
+    /// chosen side: the gate exists to keep a wrong origin out of a measurement.
+    package static let originWindowPullLimitPixels: Float = 1
+
+    /// The origin fit's bias test: false when the window pull is known and
+    /// exceeds `originWindowPullLimitPixels`. Unknown (nil) passes, as an
+    /// imported map with no measured arrays passes the residual test.
+    package var originWindowPullIsAcceptable: Bool {
+        guard let bound = origin?.windowPullBoundPixels, bound.isFinite else { return true }
+        return bound <= Self.originWindowPullLimitPixels
+    }
+
+    /// The origin fit's scatter test: the full-scan RMS residual at most the
+    /// probe radius (unknown passes).
+    package var originResidualIsAcceptable: Bool {
         guard let residual = origin?.rmsResidual, let probeRadius else { return true }
         return residual.isFinite && residual <= probeRadius
+    }
+
+    /// Both tests: the residual (scatter, `originResidualIsAcceptable`) and,
+    /// since 2026-10-31, the window pull (bias, `originWindowPullIsAcceptable`).
+    package var originFitIsSane: Bool {
+        originResidualIsAcceptable && originWindowPullIsAcceptable
     }
 
     /// The residual `originFitIsSane` actually judged, so a caller quoting a
@@ -853,7 +904,14 @@ package nonisolated struct Calibration: Sendable {
     /// move this residual, so appending it to the iDPC refusal printed a
     /// remedy that provably does nothing there (Gate B, 2026-08-25). // v2 S7
     package var originFitJudgement: String? {
-        guard !originFitIsSane, let residual = judgedOriginResidual else { return nil }
+        if !originWindowPullIsAcceptable, let bound = origin?.windowPullBoundPixels {
+            return String(
+                format: "The origin window holds too little of the direct beam: background could have pulled each "
+                    + "measured origin by up to %.3g px, more than the %.3g px allowed — Bragg vectors are "
+                    + "re-centred on this origin, so a value measured from them could be wrong.",
+                Double(bound), Double(Self.originWindowPullLimitPixels))
+        }
+        guard !originResidualIsAcceptable, let residual = judgedOriginResidual else { return nil }
         let excluded = origin?.excludedFraction
         let scope = (excluded ?? 0) > Self.excludedFractionDisclosureFloor
             ? String(format: " over the %.0f%% of scan positions the robust fit kept",
@@ -886,6 +944,14 @@ package nonisolated struct Calibration: Sendable {
     /// trim removed, and the residual is still too large).
     package var originFitRefusal: String? {
         guard let judgement = originFitJudgement else { return nil }
+        if !originWindowPullIsAcceptable {
+            // A biased measurement, not outliers: trimming and the fit function cannot move it. On the noisy cubes the
+            // cause is the window's size: it is sized from the maximum pattern, which noise widens (15 px for a 4 px
+            // probe at 3 counts per pixel), so the window is mostly background.
+            return judgement
+                + " Changing the Origin fit function cannot help: every function fits the same pulled origins."
+                + " Enter the reciprocal pixel size manually to proceed — that bypasses this fit."
+        }
         // The diagnosis says only what was OBSERVED. The first version drew an
         // inference from an excluded fraction of zero — "the origin measurement
         // is failing across the whole scan rather than at a few positions" —

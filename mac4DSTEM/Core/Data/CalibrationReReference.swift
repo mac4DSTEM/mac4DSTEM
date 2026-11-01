@@ -379,7 +379,9 @@ package nonisolated enum CalibrationReReference {
         return OriginMaps(
             width: crop.width, height: crop.height,
             measuredX: measuredX, measuredY: measuredY,
-            fittedX: fittedX, fittedY: fittedY
+            fittedX: fittedX, fittedY: fittedY,
+            // A property of every measured pattern, so of any subset of them: kept as is.
+            windowPullBoundPixels: origin.windowPullBoundPixels
         )
     }
 
@@ -399,7 +401,9 @@ package nonisolated enum CalibrationReReference {
             width: origin.width, height: origin.height,
             measuredX: shift(origin.measuredX, by: dx),
             measuredY: shift(origin.measuredY, by: dy),
-            fittedX: fitted.columns, fittedY: fitted.rows
+            fittedX: fitted.columns, fittedY: fitted.rows,
+            // A length in detector pixels: unchanged by the crop offset, divided by the bin.
+            windowPullBoundPixels: origin.windowPullBoundPixels.map { $0 / Float(bin) }
         )
         let outside = fitted.firstOutside.map { ($0, fitted.columns[$0], fitted.rows[$0]) }
         return (result, outside)

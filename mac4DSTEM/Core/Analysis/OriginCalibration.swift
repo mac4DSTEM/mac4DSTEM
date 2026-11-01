@@ -384,6 +384,16 @@ package nonisolated enum OriginCalibration {
                 data: data, descriptor: d, probeRadius: radius, shippedScale: rscale)
         }
         guard cancellation?.isCancelled != true else { return nil }
+        // The origin gate's bias test reads this; only the centre-of-mass refine has a window.
+        var pull: Float?
+        if originMethod == .centreOfMass, !fitted.fittedX.isEmpty, fitted.fittedY.count == fitted.fittedX.count {
+            // Summed in Double: a Float sum over a large scan loses the fraction (512 x 512 positions near 127 px).
+            let n = Double(fitted.fittedX.count)
+            let centre = (x: Float(fitted.fittedX.reduce(0.0) { $0 + Double($1) } / n),
+                          y: Float(fitted.fittedY.reduce(0.0) { $0 + Double($1) } / n))
+            pull = windowPull(meanDP: statistics.meanDP, qy: d.qy, qx: d.qx, centre: centre,
+                              windowRadius: originWindowRadius(probeRadius: radius, radiusScale: rscale))?.boundPixels
+        }
         progress?(1)
         // The calibration's probe radius: py4DSTEM's `DataCube.get_probe_size` default is the MEAN pattern (`radius` above is
         // `get_origin`'s working radius, the origin window's). nil when the mean pattern has no measurable probe.
@@ -396,10 +406,89 @@ package nonisolated enum OriginCalibration {
                        fittedX: fitted.fittedX, fittedY: fitted.fittedY,
                        excludedFraction: fitted.excludedFraction,
                        robustResidual: fitted.keptResidual,
-                       originValidity: fitted.kept),
+                       originValidity: fitted.kept,
+                       windowPullBoundPixels: pull),
             statistics.maxDP, statistics.meanDP,
             sensitivity
         )
+    }
+
+    // MARK: - Window pull (the origin gate's bias test, 2026-10-31)
+
+    /// Passes and margin of the per-position refine the app runs (`VirtualDetector.tiledMeasuredOrigins`: CuboKit's
+    /// `.iteratedWindow()` with its defaults).
+    package static let originRefinePasses = 4
+    package static let originRefineMargin: Float = 1.5
+
+    /// The refine's window radius: `max(r · k, r + margin)`, as the kit's iterated-window estimator.
+    package nonisolated static func originWindowRadius(probeRadius r: Float, radiusScale k: Float) -> Float {
+        max(r * k, r + originRefineMargin)
+    }
+
+    /// How much of the origin window is the direct beam, and the most the rest can have biased the refine.
+    ///
+    /// The refine is a centre of mass over a disk of radius `windowRadius` around its previous centre `c`. With a flat
+    /// background `b` filling the window, the background's own centre of mass is `c`, so one pass moves the centre to
+    /// `f · beam + (1 − f) · c`, `f` the beam's share of the window's counts: the error shrinks by `(1 − f)` per pass and
+    /// after `passes` passes is at most `(1 − f)^passes` times the starting error. The start (the brightest block) is
+    /// taken as at most a window radius off, the farthest it can be with the beam still in the window, so the bound is
+    /// `(1 − f)^passes · windowRadius`. The block-centre start is usually closer (about 0.7 · round(r)), so the bound
+    /// over-states the pull, by 2 to 7 times on the cubes measured.
+    ///
+    /// Assumptions, stated because a case outside them is not covered:
+    /// - the background is roughly flat across the window, and the beam is inside the first window (a noise or
+    ///   hot-pixel argmax farther off is not covered);
+    /// - the window is not cut by the detector edge (a cut window's background pulls inward by a fixed amount the
+    ///   `(1 − f)` term does not shrink);
+    /// - the data are not background-subtracted: the refine clamps each pattern at 0, which turns zero-mean noise into a
+    ///   positive background, while the mean pattern's median reads about 0 here, so such data read as no pull;
+    /// - `f` from the mean pattern stands for every pattern; at low dose single patterns scatter about it and, the bound
+    ///   being convex in `f`, the mean understates their average a little;
+    /// - structure inside the window that is not centred on the beam (a ring cut by the window, the S14-D bullseye) is a
+    ///   different bias this does not see: the ringed fixture of `OriginWindowSensitivityTests` reads 0 here with its
+    ///   fit 4 px off.
+    /// A window that covers the whole detector has no outside to read a background from: nil, so unknown, not refused.
+    ///
+    /// `f` is read on the MEAN pattern: the window centred on the mean fitted origin, intensities clamped at 0, the
+    /// background `b` the
+    /// median of the pixels outside the window, `f = (S − b·A) / S` over the window's sum `S` and area `A` (clamped to
+    /// 0...1). Diffraction outside the window does not enter `S`; a halo rising toward the beam counts as beam, which is
+    /// right for the bias because it is centred on the beam. The window, sized from the maximum pattern, holds the
+    /// descan spread of the beam (the maximum pattern is the union over it).
+    ///
+    /// Measured 2026-10-31 (`NoisyOriginTests`): bound 6.5 px at 3 counts per pixel (fit 2.69 px off), 7.2 px at 1
+    /// (3.19 off), 1.84 px at 5 (0.29 off), 0.072 px at 10 (0.042 off), below 0.001 px on the demo cubes.
+    /// nil when there is no window pixel, no pixel outside it to read a background from, or no counts in it.
+    package nonisolated static func windowPull(
+        meanDP: [Float], qy: Int, qx: Int, centre: (x: Float, y: Float), windowRadius w: Float,
+        passes: Int = originRefinePasses
+    ) -> (signalFraction: Float, boundPixels: Float)? {
+        guard meanDP.count == qy * qx, qy > 0, qx > 0, w.isFinite, w > 0,
+              centre.x.isFinite, centre.y.isFinite, passes >= 0 else { return nil }
+        let w2 = Double(w) * Double(w)
+        var sum = 0.0, area = 0.0
+        var outside: [Float] = []
+        outside.reserveCapacity(meanDP.count)
+        for y in 0..<qy {
+            let dy = Double(y) - Double(centre.y)
+            for x in 0..<qx {
+                let raw = meanDP[y * qx + x]
+                let v = raw.isFinite ? max(raw, 0) : 0
+                let dx = Double(x) - Double(centre.x)
+                if dx * dx + dy * dy <= w2 {
+                    sum += Double(v); area += 1
+                } else {
+                    outside.append(v)
+                }
+            }
+        }
+        guard area > 0, !outside.isEmpty, sum > 0 else { return nil }
+        outside.sort()
+        let m = outside.count / 2
+        let background = outside.count.isMultiple(of: 2) ? (Double(outside[m - 1]) + Double(outside[m])) / 2 : Double(outside[m])
+        let f = min(1, max(0, (sum - background * area) / sum))
+        let bound = pow(1 - f, Double(passes)) * Double(w)
+        return (Float(f), Float(bound))
     }
 
     // MARK: - Window sensitivity (C14, lane Q 2026-09-30)
