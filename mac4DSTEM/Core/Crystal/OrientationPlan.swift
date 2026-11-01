@@ -66,13 +66,16 @@ package nonisolated struct OrientationPlan {
     /// Not subtracted: the disk detector's edge boundary (no peak within it is reported). It would put the demo at
     /// 0.702 Å⁻¹, a hair above the Al 220 shell (0.698), and a range just below a strong shell drops it from the
     /// templates: below 0.70 the [111] grain, which shows only 220 spots, is lost.
+    ///
+    /// `maximum` is the range when the detector reaches further, and the fallback: `maximumKMax` for a plan, the user's
+    /// Max |q| for the phase-mapping reference library (`AppState.phaseLibraryKMax`).
     package nonisolated static func kMax(originX: Double, originY: Double, detectorColumns: Int, detectorRows: Int,
-                                         invAngstromPerPixel: Double) -> Double {
+                                         invAngstromPerPixel: Double, maximum: Double = maximumKMax) -> Double {
         let reachPixels = min(originX, originY, Double(detectorColumns - 1) - originX, Double(detectorRows - 1) - originY)
         guard reachPixels.isFinite, reachPixels > 0, invAngstromPerPixel.isFinite, invAngstromPerPixel > 0 else {
-            return maximumKMax
+            return maximum
         }
-        return min(maximumKMax, reachPixels * invAngstromPerPixel)
+        return min(maximum, reachPixels * invAngstromPerPixel)
     }
 
     // MARK: Generation

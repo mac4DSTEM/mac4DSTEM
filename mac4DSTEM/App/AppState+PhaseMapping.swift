@@ -56,6 +56,27 @@ extension AppState {
         }
     }
 
+    /// The k range (Å⁻¹) the phase-mapping reference library and the matrix zone-axis sweep are built to: the distance
+    /// from the reference origin the Bragg vectors are re-centred on to the nearest detector edge, at the matching Q
+    /// scale, at most `setting` (Max |q|), and `setting` when the reach cannot be read (`OrientationPlan.kMax`).
+    ///
+    /// Why the detector decides it (measured 2026-10-31 on the public Al-Mg-Si demo, 0.762 Å⁻¹ to the edge, with the
+    /// Al-Mg-Si preset): an entry keeps its `maximumVectorsPerEntry` (48) strongest reflections, and at Max |q| 1.6 Å⁻¹
+    /// 14 of the end-on β″ [010] entry's 48 and 22 of the β″ [001] entry's 48 lie beyond the detector, in place of
+    /// reflections it records. The known-variants rule scores every surviving vector by its nearest reference, so a
+    /// recorded reflection the entry lacks scores as a miss: all 96 end-on β″ positions came back "not indexed", and 50
+    /// matrix positions too; at the detector's reach all 96 are β″ [010] and those 50 matrix. Lifting the cap instead
+    /// finds the 96 but labels the whole [111] grain β″ (2250 positions), so the cap stays. The matrix challenge
+    /// builds from the same range (`library.settings`), so it too stops at the detector.
+    ///
+    /// Not covered: the reach is read from the one mean reference origin, without the ellipse correction; with a
+    /// fitted origin map a position whose own origin drifts can record a little beyond the library on one side.
+    func phaseLibraryKMax(setting: Double, origin: (x: Float, y: Float), descriptor: DatasetDescriptor) -> Double {
+        OrientationPlan.kMax(originX: Double(origin.x), originY: Double(origin.y),
+                             detectorColumns: descriptor.qx, detectorRows: descriptor.qy,
+                             invAngstromPerPixel: acomScaleSemantics.invAngstromPerPixel, maximum: setting)
+    }
+
     /// Human-readable reason a `PhaseReferenceLibrary.Failure` happened.
     /// Every arm names a number or a phase, because "could not build the
     /// library" tells a user nothing they can act on.
@@ -71,7 +92,8 @@ extension AppState {
             return "\(phase)'s zone axis is [0 0 0], which names no direction."
         case .noVisibleReflections(let phase):
             return "\(phase) has no reflection above the visibility cut at any "
-                + "sampled orientation. Raise Max |q| or lower the minimum intensity."
+                + "sampled orientation. Raise Max |q| or lower the minimum intensity; the library also stops "
+                + "at the detector's edge as seen from the origin, so check the origin and the Q scale."
         case .libraryTooLarge(let requested, let limit):
             return "That would build \(requested) reference orientations against a "
                 + "limit of \(limit). Increase the in-plane step, or raise the limit."
@@ -116,10 +138,17 @@ extension AppState {
         let matchSettings = phaseMapping.matching
         let phaseSignature = phaseMapping.phaseSignature
 
+        let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
+        let origin = calibrated.origin.point
+        // The library is built to the detector's reach, at most Max |q| (`phaseLibraryKMax`).
+        var librarySettings = referenceSettings
+        librarySettings.kMaxInvAngstrom = phaseLibraryKMax(setting: referenceSettings.kMaxInvAngstrom,
+                                                           origin: origin, descriptor: descriptor)
+
         let library: PhaseReferenceLibrary
         do {
             library = try PhaseReferenceLibrary.build(phases: definitions,
-                                                      settings: referenceSettings)
+                                                      settings: librarySettings)
         } catch is CancellationError {
             return .cancelled
         } catch let failure as PhaseReferenceLibrary.Failure {
@@ -128,8 +157,6 @@ extension AppState {
             return .failed(Self.errorDetail(error))
         }
 
-        let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
-        let origin = calibrated.origin.point
         // Taken with the vectors above, before the awaits: a calibration
         // edited while the matcher runs must not be recorded as the run's.
         let calibrationStamp = PhaseMappingProduct.CalibrationStamp(
@@ -185,7 +212,7 @@ extension AppState {
             .map {
                 library.entries[$0].chanceMatchFraction(
                     pairRadius: matchSettings.pairRadiusInvAngstrom,
-                    accessibleRadius: referenceSettings.kMaxInvAngstrom)
+                    accessibleRadius: librarySettings.kMaxInvAngstrom)
             }
             .max() ?? 0
         let matrixDegrees = map.matrixEntryIndex >= 0
@@ -202,7 +229,8 @@ extension AppState {
             invAngstromPerPixel: scale.invAngstromPerPixel,
             qScaleIsPhysical: scale.provenance.isPhysical,
             peakCount: rawVectors.totalPeakCount,
-            calibration: calibrationStamp
+            calibration: calibrationStamp,
+            libraryKMaxInvAngstrom: librarySettings.kMaxInvAngstrom
         ), library: library)
 
         // Recorded BEFORE the map is published, so the map names this run
@@ -483,7 +511,9 @@ extension AppState {
                 ? map.phaseNames[map.matrixPhaseIndex] : "?",
             "library_entries": String(run.libraryEntryCount),
             "in_plane_step_deg": String(format: "%.3g", run.reference.inPlaneStepDeg),
-            "k_max_inv_angstrom": String(format: "%.4g", run.reference.kMaxInvAngstrom),
+            // The range the library was built to (the detector's reach, at most Max |q|), and Max |q| itself.
+            "k_max_inv_angstrom": String(format: "%.4g", run.libraryKMaxInvAngstrom),
+            "k_max_setting_inv_angstrom": String(format: "%.4g", run.reference.kMaxInvAngstrom),
             "max_vectors_per_entry": String(run.reference.maximumVectorsPerEntry),
             "pair_radius_inv_angstrom": String(format: "%.4g", run.matching.pairRadiusInvAngstrom),
             "matrix_tolerance_inv_angstrom":
@@ -648,7 +678,9 @@ extension AppState {
         // Read on the main actor, before the detach below — same reason as
         // runPhaseMapping's invAngstromPerPixel extraction, above.
         let invAngstromPerPixel = scale.invAngstromPerPixel
-        let reference = phaseMapping.reference
+        var reference = phaseMapping.reference
+        reference.kMaxInvAngstrom = phaseLibraryKMax(setting: reference.kMaxInvAngstrom, origin: origin,
+                                                     descriptor: descriptor)
         let matching = phaseMapping.matching
         let crystal = slot.model.structure
         let scan = calibrated.vectors.phaseScan
