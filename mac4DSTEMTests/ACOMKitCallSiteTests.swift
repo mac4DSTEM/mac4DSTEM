@@ -54,7 +54,9 @@ final class ACOMKitCallSiteTests: XCTestCase {
 
         XCTAssertEqual(app.results.count, width * height)
         var differing = 0
-        for index in app.results.indices where app.results[index] != kit.results[index] { differing += 1 }
+        // The app's map reports py4DSTEM's Euler frame (`ACOMEulerFrame`); the kit's call is in the matcher's.
+        let kitInPy4DSTEMFrame = kit.results.map { ACOMEulerFrame.py4DSTEM(fromMatcher: $0, symmetry: plan.symmetry) }
+        for index in app.results.indices where app.results[index] != kitInPy4DSTEMFrame[index] { differing += 1 }
         XCTAssertEqual(differing, 0, "\(differing) positions differ between the app run and one kit call")
         XCTAssertTrue(app.results.contains { $0.templateIndex >= 0 }, "the scan must have matched something")
         XCTAssertTrue(app.results.contains { $0.templateIndex < 0 }, "the empty positions stay unmatched")
