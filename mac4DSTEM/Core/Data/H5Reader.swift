@@ -549,12 +549,14 @@ package actor H5Reader: FourDDataSource {
             // per-position qx0/qy0 maps (2D array datasets) are not read here.
             out.qx0Mean = scalar("qx0_mean")
             out.qy0Mean = scalar("qy0_mean")
-            // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
-            if let ellipse = Calibration.acceptedEllipse(
-                a: scalar("a"), b: scalar("b"), theta: scalar("theta")) {
+            // Row 29: a file ellipse with a non-positive semi-axis is refused whole, and by name.
+            let (fileA, fileB, fileTheta) = (scalar("a"), scalar("b"), scalar("theta"))
+            if let ellipse = Calibration.acceptedEllipse(a: fileA, b: fileB, theta: fileTheta) {
                 out.ellipseA = ellipse.a
                 out.ellipseB = ellipse.b
                 out.ellipseTheta = ellipse.theta
+            } else {
+                out.ellipseRefusalNote = PixelCalibration.ellipseRefusal(a: fileA, b: fileB, theta: fileTheta)
             }
             out.qrRotationRad = scalar("QR_rotation")
             // ADR 040 residual: the value is passed through unchanged; only a

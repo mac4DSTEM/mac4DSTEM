@@ -548,14 +548,16 @@ nonisolated extension BraggVectorEMDWriter {
         )
         calibration.qx0Mean = try file.doubleDataset("qx0_mean", in: group)
         calibration.qy0Mean = try file.doubleDataset("qy0_mean", in: group)
-        // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
-        if let ellipse = Calibration.acceptedEllipse(
-            a: try file.doubleDataset("a", in: group),
-            b: try file.doubleDataset("b", in: group),
-            theta: try file.doubleDataset("theta", in: group)) {
+        // Row 29: a file ellipse with a non-positive semi-axis is refused whole, and by name.
+        let fileA = try file.doubleDataset("a", in: group)
+        let fileB = try file.doubleDataset("b", in: group)
+        let fileTheta = try file.doubleDataset("theta", in: group)
+        if let ellipse = Calibration.acceptedEllipse(a: fileA, b: fileB, theta: fileTheta) {
             calibration.ellipseA = ellipse.a
             calibration.ellipseB = ellipse.b
             calibration.ellipseTheta = ellipse.theta
+        } else {
+            calibration.ellipseRefusalNote = PixelCalibration.ellipseRefusal(a: fileA, b: fileB, theta: fileTheta)
         }
         calibration.qrRotationRad = try file.doubleDataset("QR_rotation", in: group)
         calibration.qrRotationConvention = try file.stringDataset("QR_rotation_convention", in: group)
