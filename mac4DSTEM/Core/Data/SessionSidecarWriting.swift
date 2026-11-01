@@ -222,6 +222,9 @@ nonisolated extension BraggVectorEMDWriter {
         if let fallback = calibration.originMaps?.friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
             try setText(SessionSidecarFormat.originFriedelFallbackAttribute, String(fallback))
         }
+        if let friedel = calibration.originMaps?.measuredByFriedel {
+            try setText(SessionSidecarFormat.originMethodAttribute, friedel ? "friedel" : "centreOfMass")
+        }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
         let recordJSON = replayRecord.flatMap { $0.isEmpty ? nil : $0.jsonString }

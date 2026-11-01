@@ -59,6 +59,8 @@ package nonisolated struct PixelOriginMaps: Sendable {
     /// (`SessionSidecarFormat.originBeamStopAttribute`, `originFriedelFallbackAttribute`); nil when absent (unknown).
     package var beamStopCoversBeam: Bool? = nil
     package var friedelFallbackResidualPixels: Double? = nil
+    /// `OriginMaps.measuredByFriedel` (`SessionSidecarFormat.originMethodAttribute`); nil when absent (unknown).
+    package var measuredByFriedel: Bool? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(shape: [Int], fittedQX: [Double], fittedQY: [Double], measuredQX: [Double]? = nil, measuredQY: [Double]? = nil) {
