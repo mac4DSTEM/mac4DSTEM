@@ -213,17 +213,9 @@ nonisolated extension BraggVectorEMDWriter {
         // The origin gate's window pull, beside the origin maps it describes (the calibration group itself is the kit's
         // EMD layout). Written from this save's calibration only: maps without it are unknown, and a stale value from the
         // file being replaced must not describe a different fit.
-        if let pull = calibration.originMaps?.windowPullBoundPixels, pull.isFinite, pull >= 0 {
-            try setText(SessionSidecarFormat.originWindowPullAttribute, String(pull))
-        }
-        if let stop = calibration.originMaps?.beamStopCoversBeam {
-            try setText(SessionSidecarFormat.originBeamStopAttribute, stop ? "true" : "false")
-        }
-        if let fallback = calibration.originMaps?.friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
-            try setText(SessionSidecarFormat.originFriedelFallbackAttribute, String(fallback))
-        }
-        if let friedel = calibration.originMaps?.measuredByFriedel {
-            try setText(SessionSidecarFormat.originMethodAttribute, friedel ? "friedel" : "centreOfMass")
+        // The same attributes as the calibrated-cube export writes (`PixelOriginMaps.gateAttributes`).
+        for (name, value) in (calibration.originMaps?.gateAttributes ?? [:]).sorted(by: { $0.key < $1.key }) {
+            try setText(name, value)
         }
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.

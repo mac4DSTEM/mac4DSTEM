@@ -72,6 +72,52 @@ package nonisolated struct PixelOriginMaps: Sendable {
     }
 }
 
+extension PixelOriginMaps {
+    /// The origin gate's four fields as the text root attributes this app writes beside origin maps
+    /// (`SessionSidecarFormat.origin*Attribute`), in the session sidecar and in the calibrated-cube export alike.
+    /// A field that is unknown (nil, or a length that is not finite and non-negative) writes nothing.
+    package nonisolated var gateAttributes: [String: String] {
+        var out: [String: String] = [:]
+        if let pull = windowPullBoundPixels, pull.isFinite, pull >= 0 {
+            out[SessionSidecarFormat.originWindowPullAttribute] = String(pull)
+        }
+        if let stop = beamStopCoversBeam {
+            out[SessionSidecarFormat.originBeamStopAttribute] = stop ? "true" : "false"
+        }
+        if let fallback = friedelFallbackResidualPixels, fallback.isFinite, fallback >= 0 {
+            out[SessionSidecarFormat.originFriedelFallbackAttribute] = String(fallback)
+        }
+        if let friedel = measuredByFriedel {
+            out[SessionSidecarFormat.originMethodAttribute] = friedel ? "friedel" : "centreOfMass"
+        }
+        return out
+    }
+
+    /// The inverse of `gateAttributes`: each field from its root attribute, read through `text`. An attribute that is
+    /// absent or does not parse leaves its field nil (unknown, which the origin gate does not refuse); a file written
+    /// before the field existed reads that way.
+    package nonisolated mutating func readGateAttributes(_ text: (String) -> String?) {
+        if let value = text(SessionSidecarFormat.originWindowPullAttribute).flatMap(Double.init),
+           value.isFinite, value >= 0 {
+            windowPullBoundPixels = value
+        }
+        switch text(SessionSidecarFormat.originBeamStopAttribute) {
+        case "true": beamStopCoversBeam = true
+        case "false": beamStopCoversBeam = false
+        default: break
+        }
+        if let value = text(SessionSidecarFormat.originFriedelFallbackAttribute).flatMap(Double.init),
+           value.isFinite, value >= 0 {
+            friedelFallbackResidualPixels = value
+        }
+        switch text(SessionSidecarFormat.originMethodAttribute) {
+        case "friedel": measuredByFriedel = true
+        case "centreOfMass": measuredByFriedel = false
+        default: break
+        }
+    }
+}
+
 /// The accelerating voltage as the app holds it (kV) and as a file's root
 /// attribute spells it. ONE rule for both directions: the opener
 /// (`AppState.activate`) and the export's raw-file door read the attribute

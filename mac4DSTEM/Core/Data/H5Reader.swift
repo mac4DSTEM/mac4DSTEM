@@ -587,6 +587,10 @@ package actor H5Reader: FourDDataSource {
                     measuredQX: qx0Measured != nil && qy0Measured != nil ? qx0Measured : nil,
                     measuredQY: qx0Measured != nil && qy0Measured != nil ? qy0Measured : nil
                 )
+                // The origin gate's fields this app's calibrated-cube export writes as root attributes beside the maps
+                // (`PixelOriginMaps.gateAttributes`). A py4DSTEM file, or an export written before 2026-10-31, has none:
+                // unknown, which the gate does not refuse.
+                out.originMaps?.readGateAttributes { stringAttribute($0, onPath: "/") }
             }
         }
 
