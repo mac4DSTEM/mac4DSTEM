@@ -24,6 +24,7 @@ mac4DSTEM/Training/DetectorGraph.swift	MetalPerformanceShadersGraph,+symbols	lea
 mac4DSTEM/Training/DetectorTrainer.swift	Metal,MetalPerformanceShadersGraph,+symbols	learned detector (training + refine), stays in the app by decision (D13, ADR 071)
 mac4DSTEM/UI/PaneOverlays.swift	simd	view / overlay geometry in simd, no science
 mac4DSTEM/UI/PhaseMappingSettings.swift	simd	view / overlay geometry in simd, no science
+mac4DSTEMTests/ACOMEulerFrameTests.swift	simd	test of the frame change on the kit orientation matrices (EulerAngles.py4DSTEMOrientationMatrix is simd_double3x3); no own numerics
 mac4DSTEMTests/ACOMKitCallSiteTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMScanRouteTests.swift	simd	test of display, residency or detector GPU path, or of simd-typed kit calls
 mac4DSTEMTests/ACOMMetalMemoryTests.swift	Metal,simd	test of display, residency or detector GPU path, or of simd-typed kit calls

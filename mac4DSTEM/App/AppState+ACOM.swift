@@ -187,6 +187,20 @@ extension AppState {
         return map[selectedScan.x, selectedScan.y].mirrored ? "Yes" : "No"
     }
 
+    /// The k range the orientation plan is built for: the distance from the reference origin (the one the Bragg vectors
+    /// are re-centred on before matching) to the nearest detector edge, at the matching Q scale, at most 1.2 Å⁻¹.
+    /// nil without a dataset.
+    var acomPlanKMax: Double? {
+        guard let descriptor else { return nil }
+        let origin = calibrationSession.calibration.referenceOrigin(
+            detectorQX: descriptor.qx, detectorQY: descriptor.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
+        )
+        return OrientationPlan.kMax(originX: Double(origin.x), originY: Double(origin.y),
+                                    detectorColumns: descriptor.qx, detectorRows: descriptor.qy,
+                                    invAngstromPerPixel: acomScale)
+    }
+
     /// Build the orientation-plan template library for the selected crystal.
     func generateOrientationPlan() async {
         guard descriptor != nil else { return }
@@ -218,7 +232,9 @@ extension AppState {
         let planWavelength = calibrationSession.acceleratingVoltage.flatMap {
             DPC.electronWavelengthAngstrom(voltageKV: $0)
         }
-        let planKMax = 1.2
+        // The detector's reach, not a fixed 1.2 Å⁻¹ (DiffractoKit#65): rings the detector cannot record pull the beam
+        // direction off the zone axis.
+        let planKMax = acomPlanKMax ?? OrientationPlan.maximumKMax
         let (plan, refusal) = await Task.detached(priority: .userInitiated) {
             let plan = OrientationPlan.generate(crystal: model.structure, kMax: planKMax,
                                                 zoneAxisCount: templateCount,
@@ -268,9 +284,18 @@ extension AppState {
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
         }
+        // A plan built for another k range (the origin or the Q scale moved since) is rebuilt, not reused. Only the plan
+        // goes: the current map stays until this run replaces it, so a cancelled or refused rebuild does not delete it.
+        if let built = acomSession.orientationPlan?.kMax, let wanted = acomPlanKMax, abs(built - wanted) > 1e-9 {
+            acomSession.orientationPlan = nil
+            acomSession.hasOrientationPlan = false
+        }
         if acomSession.orientationPlan == nil { await generateOrientationPlan() }
         guard let plan = acomSession.orientationPlan else {
             return .failed("No orientation plan could be generated")
+        }
+        if let wanted = acomPlanKMax, abs(plan.kMax - wanted) > 1e-9 {
+            return .failed("The origin or the Q scale changed while the orientation plan was built; run ACOM again.")
         }
 
         let selection = acomSession.scanSelection(selectedX: selectedScan.x, selectedY: selectedScan.y)
