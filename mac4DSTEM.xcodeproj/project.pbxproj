@@ -120,6 +120,7 @@
 		F6A1D0DE0001000000000003 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000005 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		F6A1D0DE0001000000000007 /* NOTICE */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE; sourceTree = "<group>"; };
+		F6A1D0DE0001000000000009 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Version.xcconfig; path = Config/Version.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -410,6 +411,7 @@
 				F6A1D0DE0001000000000003 /* Licenses */,
 				F6A1D0DE0001000000000005 /* LICENSE */,
 				F6A1D0DE0001000000000007 /* NOTICE */,
+				F6A1D0DE0001000000000009 /* Version.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -747,6 +749,7 @@
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "mac4DSTEM" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F6A1D0DE0001000000000009 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLETVOS_DEPLOYMENT_TARGET = 27.0;
@@ -818,6 +821,7 @@
 		};
 		000000000000000012000000 /* Release configuration for PBXProject "mac4DSTEM" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F6A1D0DE0001000000000009 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLETVOS_DEPLOYMENT_TARGET = 27.0;
@@ -881,6 +885,7 @@
 		};
 		000000000000000013000000 /* Develop configuration for PBXProject "mac4DSTEM" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F6A1D0DE0001000000000009 /* Version.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				APPLETVOS_DEPLOYMENT_TARGET = 27.0;
@@ -981,7 +986,6 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1032,7 +1036,6 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1081,7 +1084,6 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1224,7 +1226,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1256,7 +1257,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1288,7 +1288,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1320,7 +1319,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1352,7 +1350,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1384,7 +1381,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1416,7 +1412,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1447,7 +1442,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1478,7 +1472,6 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.HDF5Helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
