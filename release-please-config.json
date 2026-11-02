@@ -7,7 +7,13 @@
   "packages": {
     ".": {
       "package-name": "mac4DSTEM",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Config/Version.xcconfig"
+        }
+      ]
     }
   }
 }

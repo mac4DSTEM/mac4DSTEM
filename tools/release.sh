@@ -18,12 +18,19 @@ OUT="$ROOT/build/release/$(date +%Y%m%d-%H%M%S)"   # a new folder per run, so a 
 [[ -z "$(git -C "$ROOT" status --porcelain)" ]] || { echo "The working tree is not clean; commit first so the build has a commit." >&2; exit 1; }
 security find-identity -v -p codesigning | grep -q "$DEVELOPER_ID_APPLICATION" || { echo "No certificate \"$DEVELOPER_ID_APPLICATION\" in the keychain." >&2; exit 1; }
 [[ -x "$ROOT/build/dmg-venv/bin/dmgbuild" ]] || { echo "No dmgbuild; run: python3 -m venv build/dmg-venv && build/dmg-venv/bin/pip install dmgbuild==1.6.1" >&2; exit 1; }
+# A download is built from a release tag, and the app must carry that tag's version (Config/Version.xcconfig, which
+# release-please bumps): checked here before the archive and again on the built app.
+TAG="$(git -C "$ROOT" describe --exact-match --tags HEAD 2>/dev/null)" || { echo "HEAD is not a release tag; check out the tag to build (git worktree add … vX.Y.Z)." >&2; exit 1; }
+EXPECTED="${TAG#v}"
+SET="$(sed -n 's/^MARKETING_VERSION = \([0-9.]*\).*/\1/p' "$ROOT/Config/Version.xcconfig")"
+[[ "$SET" == "$EXPECTED" ]] || { echo "Config/Version.xcconfig says $SET but the tag is $TAG." >&2; exit 1; }
 mkdir -p "$OUT"
 
 echo "== Archive ($(git -C "$ROOT" rev-parse --short HEAD))"
 "$ROOT/tools/release/build-developer-id.sh" "$OUT" > "$OUT/archive.log" 2>&1 || { tail -30 "$OUT/archive.log"; exit 1; }
 APP="$OUT/mac4DSTEM.xcarchive/Products/Applications/mac4DSTEM.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+[[ "$VERSION" == "$EXPECTED" ]] || { echo "The built app says $VERSION but the tag is $TAG." >&2; exit 1; }
 echo "mac4DSTEM $VERSION"
 
 echo "== Notarize the app"

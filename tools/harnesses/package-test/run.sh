@@ -46,7 +46,7 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")" = \
 # encoded the 1.0 contract, then the 2.0 one, and went red at every bump
 # (2026-09-03: the 2.5 bump found it asserting 2.0 / 1). The audit's claim is
 # that the bundle carries what the project declares, and only that.
-MARKETING="$(grep -m1 'MARKETING_VERSION = ' "$REPO/mac4DSTEM.xcodeproj/project.pbxproj" | sed 's/.*= \(.*\);/\1/')"
+MARKETING="$(sed -n 's/^MARKETING_VERSION = \([0-9.]*\).*/\1/p' "$REPO/Config/Version.xcconfig")"
 BUILD="$(grep -m1 'CURRENT_PROJECT_VERSION = ' "$REPO/mac4DSTEM.xcodeproj/project.pbxproj" | sed 's/.*= \(.*\);/\1/')"
 test -n "$MARKETING" && test -n "$BUILD"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")" = "$MARKETING"
