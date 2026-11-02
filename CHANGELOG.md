@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
   button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
 
+## [5.1.1](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.1.0...v5.1.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* the app builds from a checkout in any folder ([#96](https://github.com/mac4DSTEM/mac4DSTEM/issues/96)) ([088120a](https://github.com/mac4DSTEM/mac4DSTEM/commit/088120af34bfdafb7b0b4d5e7b5a993c85cd6cdd))
+* the app version comes from the release tag ([#97](https://github.com/mac4DSTEM/mac4DSTEM/issues/97)) ([d3a1cdb](https://github.com/mac4DSTEM/mac4DSTEM/commit/d3a1cdbc5517abaf18e8650299871198051bd71b))
+
 ## [5.1.0](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.0.1...v5.1.0) (2026-11-01)
 
 
