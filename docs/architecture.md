@@ -30,7 +30,7 @@ second time: an explicit exception list in `project.pbxproj` excludes every
 instead. A `Session/` file missing from that list is compiled into both
 (`DPCProduct.swift` and `DiskDetectionProduct.swift` were, until 2026-10-12);
 check `mac4DSTEM.SwiftFileList` under DerivedData. Declarations use the `package` access level throughout (app
-and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`); a file compiled into
+and test targets set `SWIFT_PACKAGE_NAME = "$(SRCROOT:file:lower:c99extidentifier)"`, the identity SwiftPM gives the local package from the checkout folder, so a clone in any folder builds; `tools/run-tests.sh inventory` refuses a literal name); a file compiled into
 both the app target and a standalone `tools/` harness guards the imports
 with `#if canImport(DSTEMCore) import DSTEMCore import DSTEMSession #endif`. `tools/run-tests.sh inventory` backs the UI half: it greps
 `UI/*.swift` for `import AppKit` and for

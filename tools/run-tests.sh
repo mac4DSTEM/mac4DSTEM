@@ -166,6 +166,14 @@ inventory() {
   "$ROOT/tools/lib/run-harnesses-selftest.sh" || rc=1
   echo "== kit boundary (no Accelerate / Metal / vDSP in the app outside tools/kit-boundary.allow)"
   "$ROOT/tools/check-kit-boundary.sh" || rc=1
+  # SwiftPM names the local package after the checkout folder; the Xcode targets must too, or every `package` symbol of
+  # DSTEMCore is out of reach from a clone in another folder (v5.1.0's archive from ~/GitHub/.worktrees/mac4DSTEM-v5.1.0).
+  echo "== SWIFT_PACKAGE_NAME follows the checkout folder"
+  local pkg_lines
+  pkg_lines="$(grep -E 'SWIFT_PACKAGE_NAME = ' "$ROOT/mac4DSTEM.xcodeproj/project.pbxproj")"
+  if [[ -z "$pkg_lines" ]] || grep -vqF 'SWIFT_PACKAGE_NAME = "$(SRCROOT:file:lower:c99extidentifier)";' <<< "$pkg_lines"; then
+    echo "  every SWIFT_PACKAGE_NAME must be \"\$(SRCROOT:file:lower:c99extidentifier)\", never a literal name"; rc=1
+  fi
   local -a gated=("${scientific[@]}" real-data-acceptance package-test)
   local -a harness_names=("${gated[@]}" "${diagnostic[@]}" "${owner_only[@]}" "${retired[@]}")
   echo "== tools/: gated ${#gated[@]}, diagnostic ${#diagnostic[@]}, owner-only ${#owner_only[@]}, retired ${#retired[@]}, support ${#support[@]}"
