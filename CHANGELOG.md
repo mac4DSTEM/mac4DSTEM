@@ -8,6 +8,51 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
   button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
 
+## [5.1.0](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.0.1...v5.1.0) (2026-11-01)
+
+
+### Features
+
+* an HDF5 helper XPC service opens and describes files out of process (off by default) ([#56](https://github.com/mac4DSTEM/mac4DSTEM/issues/56)) ([6299988](https://github.com/mac4DSTEM/mac4DSTEM/commit/6299988a6efd5d8278dbae8f47e49452210fb9d4))
+* parallax joins the replay record ([#46](https://github.com/mac4DSTEM/mac4DSTEM/issues/46)) ([feba068](https://github.com/mac4DSTEM/mac4DSTEM/commit/feba06821072f5eee2bc41b7e964a8ffe5c2d93a))
+* results no longer carry an unvalidated badge ([#91](https://github.com/mac4DSTEM/mac4DSTEM/issues/91)) ([6f62761](https://github.com/mac4DSTEM/mac4DSTEM/commit/6f62761b4b8d000d6226435e312061641813b3dc))
+* single-slice ptychography joins the replay record ([#42](https://github.com/mac4DSTEM/mac4DSTEM/issues/42)) ([2ecffa3](https://github.com/mac4DSTEM/mac4DSTEM/commit/2ecffa3da5ccd45f50874794d7eae540b8a48be9))
+* the EDS room comes from MacEMUI ([#23](https://github.com/mac4DSTEM/mac4DSTEM/issues/23)) ([16bf151](https://github.com/mac4DSTEM/mac4DSTEM/commit/16bf1518c9b59930e33bf6805814b1dd6832d114))
+
+
+### Bug Fixes
+
+* a circular scan region is the py4DSTEM circle mask (R 5: 69 positions, was 97) ([#50](https://github.com/mac4DSTEM/mac4DSTEM/issues/50)) ([c26e44f](https://github.com/mac4DSTEM/mac4DSTEM/commit/c26e44fdb39a135f914329cd7c1584481d2e480b))
+* a DM4 whose disk comes back reads again without reopening the dataset ([#34](https://github.com/mac4DSTEM/mac4DSTEM/issues/34)) ([8f1e315](https://github.com/mac4DSTEM/mac4DSTEM/commit/8f1e315ce6722e84bfdd61366b253263edb8bc8f))
+* a partial parallax alignment replays to the bin it stopped at, not a level count ([#60](https://github.com/mac4DSTEM/mac4DSTEM/issues/60)) ([d18c882](https://github.com/mac4DSTEM/mac4DSTEM/commit/d18c88257880c912728b12f4c044557e3a9dcb16))
+* a reopened session keeps the origin gate's window pull ([#79](https://github.com/mac4DSTEM/mac4DSTEM/issues/79)) ([70d593c](https://github.com/mac4DSTEM/mac4DSTEM/commit/70d593cf805fa593b0984f5ceb478e646d50580e))
+* a room shows its own result again after a visit to a room with none ([#52](https://github.com/mac4DSTEM/mac4DSTEM/issues/52)) ([4db7385](https://github.com/mac4DSTEM/mac4DSTEM/commit/4db7385f3d213ced1a6535c26c3d32a5bba10e3c))
+* a schema-5 session gives its stored Bragg disks back on the whole file ([#62](https://github.com/mac4DSTEM/mac4DSTEM/issues/62)) ([01d0133](https://github.com/mac4DSTEM/mac4DSTEM/commit/01d0133272c61692dda8f177c5abca16cd0b908a))
+* a session sidecar names its source, and another file of the same stem does not adopt it ([#35](https://github.com/mac4DSTEM/mac4DSTEM/issues/35)) ([c40142c](https://github.com/mac4DSTEM/mac4DSTEM/commit/c40142c30a5a0954ac5c9e9d324b40694c132695))
+* a session voltage above 1000 kV reopens as written ([#36](https://github.com/mac4DSTEM/mac4DSTEM/issues/36)) ([d1b7df9](https://github.com/mac4DSTEM/mac4DSTEM/commit/d1b7df95dab818fd5a5b4d772e01c6e613202a87))
+* ACOM Euler angles are reported in the py4DSTEM frame ([#85](https://github.com/mac4DSTEM/mac4DSTEM/issues/85)) ([ebd69be](https://github.com/mac4DSTEM/mac4DSTEM/commit/ebd69be74e745d5839b80b8c9a8fafc874495773))
+* build the ACOM plan to the detector reach, not a fixed 1.2 1/A ([#76](https://github.com/mac4DSTEM/mac4DSTEM/issues/76)) ([a346523](https://github.com/mac4DSTEM/mac4DSTEM/commit/a346523945dea11af5206646e027dee1c69eb44b))
+* build the phase-mapping library to the detector reach, not a fixed 1.6 1/A ([#77](https://github.com/mac4DSTEM/mac4DSTEM/issues/77)) ([f60586a](https://github.com/mac4DSTEM/mac4DSTEM/commit/f60586a5578ea1d4755f94b92731a2c633446eb2))
+* Clear Calibration is a lineage node; thinned or cropped exports carry the recipe ([#38](https://github.com/mac4DSTEM/mac4DSTEM/issues/38)) ([16c9ac1](https://github.com/mac4DSTEM/mac4DSTEM/commit/16c9ac1903ea5ec18c51ab3e8f8e11711d2d0b0d))
+* disks restored from a schema-5 session survive the next save and reopen ([#68](https://github.com/mac4DSTEM/mac4DSTEM/issues/68)) ([a8d7f3d](https://github.com/mac4DSTEM/mac4DSTEM/commit/a8d7f3dea3dacccc8269fdd17cb9286be6edc2e8))
+* harness runner reports every red harness; no stale kit objects after a pin change ([#29](https://github.com/mac4DSTEM/mac4DSTEM/issues/29)) ([5250e34](https://github.com/mac4DSTEM/mac4DSTEM/commit/5250e34ee14bb63f49c504968cf9e3898a1afd79))
+* hold a Friedel origin run to 1 px, read a wide NaN core as a beam, move the bar during the fallback ([#80](https://github.com/mac4DSTEM/mac4DSTEM/issues/80)) ([b7123f5](https://github.com/mac4DSTEM/mac4DSTEM/commit/b7123f59c51cea408b890c351fa346eb13d1f034))
+* Imaging shows its virtual image again after another room's map ([#54](https://github.com/mac4DSTEM/mac4DSTEM/issues/54)) ([bc2836f](https://github.com/mac4DSTEM/mac4DSTEM/commit/bc2836faae69e4ed4c1cf1353adb241c89b4d6c0))
+* learned disks read current before the bundled model loads ([#67](https://github.com/mac4DSTEM/mac4DSTEM/issues/67)) ([ed2c99e](https://github.com/mac4DSTEM/mac4DSTEM/commit/ed2c99e8b4dfb28f478e5a3884f50dc331f6763a))
+* lineage state — a Q edit keeps ACOM stale, restored maps get a verdict, Cancel stays with the promote run ([#40](https://github.com/mac4DSTEM/mac4DSTEM/issues/40)) ([093584f](https://github.com/mac4DSTEM/mac4DSTEM/commit/093584f941a83f08e09ec2a8076c778ed7173301))
+* numbers in pane overlays, the status line and the inspector use the locale decimal mark ([#49](https://github.com/mac4DSTEM/mac4DSTEM/issues/49)) ([0e10b1a](https://github.com/mac4DSTEM/mac4DSTEM/commit/0e10b1a75e2db68fbbce731e08d3c2f8455c400a))
+* phase mapping refuses stale Bragg disks, as strain and ACOM do ([#70](https://github.com/mac4DSTEM/mac4DSTEM/issues/70)) ([15c830a](https://github.com/mac4DSTEM/mac4DSTEM/commit/15c830aa743b1647e8f92a2f6158ea0187dea3ce))
+* refuse a file ellipse with a non-positive semi-axis by name ([#82](https://github.com/mac4DSTEM/mac4DSTEM/issues/82)) ([1b31cec](https://github.com/mac4DSTEM/mac4DSTEM/commit/1b31cec5b503568959fdd6ccf58a94fa24256869))
+* Spectroscopy is unavailable until the window holds a spectrum image ([#53](https://github.com/mac4DSTEM/mac4DSTEM/issues/53)) ([8d3fa83](https://github.com/mac4DSTEM/mac4DSTEM/commit/8d3fa83022ef498518e036f2bf9537b5cade402d))
+* stored Bragg disks are not restored at a same-size crop they were not detected on ([#64](https://github.com/mac4DSTEM/mac4DSTEM/issues/64)) ([29f2a43](https://github.com/mac4DSTEM/mac4DSTEM/commit/29f2a439120ab15b26da7bfd495c6a2fc998ddc8))
+* Streamed counts the bytes a binned load reads, not the bytes it keeps ([#51](https://github.com/mac4DSTEM/mac4DSTEM/issues/51)) ([ffb0e1e](https://github.com/mac4DSTEM/mac4DSTEM/commit/ffb0e1ee17f244e2a588254028009d04b7424a5e))
+* the calibrated-cube export keeps the origin gate fields, so a refused origin reopens refused ([#84](https://github.com/mac4DSTEM/mac4DSTEM/issues/84)) ([7e4a656](https://github.com/mac4DSTEM/mac4DSTEM/commit/7e4a656e7b578bdfe07e2a09f34f467feb7ac7fe))
+* the origin gate refuses a centre-of-mass origin under a beam stop ([#78](https://github.com/mac4DSTEM/mac4DSTEM/issues/78)) ([b4caa37](https://github.com/mac4DSTEM/mac4DSTEM/commit/b4caa37e37499ceda5d1045a5b7d9ab5a9ddde00))
+* the origin gate refuses a fit biased by background in its window ([#75](https://github.com/mac4DSTEM/mac4DSTEM/issues/75)) ([0ff9139](https://github.com/mac4DSTEM/mac4DSTEM/commit/0ff9139af2b9623f1446f31a6a2aee4cda9e613b))
+* the ptychography pane is titled for ptychography before a run, not Parallax aligned BF ([#63](https://github.com/mac4DSTEM/mac4DSTEM/issues/63)) ([66e8f78](https://github.com/mac4DSTEM/mac4DSTEM/commit/66e8f78843b1e5b541a36be47aa56a8a916e5097))
+* **tools:** scientific harnesses build kits at the app pins and find SessionSidecarFormat ([#94](https://github.com/mac4DSTEM/mac4DSTEM/issues/94)) ([ed83f65](https://github.com/mac4DSTEM/mac4DSTEM/commit/ed83f658d6be7aabebd0bf03e0bab6e3be577479))
+* UI journeys open a file with --open, and the stale glyph keeps its own identifier ([#57](https://github.com/mac4DSTEM/mac4DSTEM/issues/57)) ([11f411d](https://github.com/mac4DSTEM/mac4DSTEM/commit/11f411ddc8361127fe0d45f08c4db21bf69be080))
+
 ## v5.0.1 — 2026-10-23
 
 v5.0.0 as described below, notarized: the two Quick Look extensions now run with the hardened runtime, which Apple's notary service
