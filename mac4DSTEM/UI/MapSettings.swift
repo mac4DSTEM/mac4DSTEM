@@ -36,6 +36,16 @@ import UniformTypeIdentifiers
 /// the key to nil and back before any new pattern is keyed. A collision would
 /// need a different mean pattern of the same size agreeing on every sampled
 /// pixel, and even then the hint is only an offer the user clicks.
+/// A probe radius typed into Bragg Disks › Probe kernel (mac4DSTEM#114): a positive, finite number of pixels that fits the
+/// detector (at most half its smaller side), or nothing. Pure so a test holds the rule.
+enum ProbeRadiusEntry {
+    static func radius(typed: Double, descriptor: DatasetDescriptor?) -> Float? {
+        guard typed.isFinite, typed > 0 else { return nil }
+        if let d = descriptor, typed > Double(min(d.qy, d.qx)) / 2 { return nil }
+        return Float(typed)
+    }
+}
+
 struct ProbeRingHintKey: Hashable {
     let qy: Int
     let qx: Int
@@ -243,6 +253,24 @@ private struct DiskDetectionRows: View {
                     ? RoomAccessibilityText.ringProbe(outerRadius: Double(hint.outerRadius)) : nil
             }
         })
+
+        if kernelSource == .synthetic {
+            // The radius a synthetic kernel is built at: measured by Calibrate Origin, or typed here (mac4DSTEM#114;
+            // Thronsen et al.'s recipe uses 2 px). A typed value is recorded as manual, like the ring hint's.
+            InspectorRow("Probe radius") {
+                OptionalNumericField(
+                    title: "Probe radius",
+                    value: appState.calibrationSession.calibration.probeRadius.map(Double.init),
+                    format: .number.precision(.fractionLength(0...2)), unit: "px", prompt: "measured"
+                ) { typed in
+                    guard let radius = ProbeRadiusEntry.radius(typed: typed, descriptor: appState.descriptor) else { return }
+                    PendingEdits.run { await appState.useProbeRadius(radius) }
+                }
+                .accessibilityIdentifier("disk.probeRadius")
+            }
+            .help("The radius the synthetic kernel is built at. Empty until Calibrate Origin measures it; a typed value "
+                  + "replaces the measured one (provenance becomes Manual) and rebuilds a synthetic kernel already built.")
+        }
 
         if kernelSource != .synthetic {
             InspectorRow("Measured kernel mode") {
