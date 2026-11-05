@@ -17,9 +17,9 @@ final class DM4ReadingOptionsTests: XCTestCase {
         XCTAssertEqual(DM4Reader.readingOptions(forPath: path), .alwaysMapped)
     }
 
-    /// When `statfs` cannot answer, the reader keeps the old, conservative
+    /// When the volume cannot be asked, the reader keeps the old, conservative
     /// option rather than guessing the volume is safe to map.
-    func testAPathStatfsCannotResolveKeepsMappedIfSafe() {
+    func testAPathTheVolumeCannotResolveKeepsMappedIfSafe() {
         let path = NSTemporaryDirectory() + "mac4dstem-no-such-directory/cube.dm4"
         XCTAssertEqual(DM4Reader.readingOptions(forPath: path), .mappedIfSafe)
     }

@@ -17,6 +17,9 @@
 	     no proxy icon (docs/open-items.md). -->
 	<!-- HDF5 has no system content type, and Quick Look matches on content type: the app imports one for h5 and hdf5 (the
 	     QuickLook extensions name it). Imported, not exported: the HDF Group's type, declared by any app that reads the format. -->
+	<!-- App Store export compliance (mac4DSTEM#119): the only encryption is HTTPS through URLSession, which is exempt. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
