@@ -13,8 +13,7 @@
 //
 
 import CuboCore
-import struct CuboBragg.BraggDetector   // the neighbour-median fill
-import CuboBragg   // BraggOrigin (mac4DSTEM#138); the app's own BraggVectors and BraggPeak shadow the kit's here, as in TiledDiskDetection
+import CuboBragg   // BraggDetector's neighbour-median fill and BraggOrigin (mac4DSTEM#138); the app's own BraggVectors and BraggPeak shadow the kit's, as in TiledDiskDetection
 import CuboVirtual   // FriedelOrigin and BeamstopMask are the kit's (CuboKit 0.2.0, 2026-10-16); CuboKit also exports ProbeKernel, which the app's own type of that name still shadows here
 import Foundation
 
