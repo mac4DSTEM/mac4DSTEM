@@ -1,0 +1,7 @@
+Support URL: https://mac4dstem.com/support.html
+Marketing URL: https://mac4dstem.com/
+Privacy Policy URL: https://mac4dstem.com/privacy.html
+
+The domain is mac4dstem.com (website/CNAME); www redirects to the apex.
+
+Before submission: privacy.html still carries the [FULL NAME] and [STREET AND NUMBER] controller placeholders, and support.html still says macOS 27 and calls Velox EDS planned for version 5. Both need updating for the store build.

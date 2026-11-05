@@ -1,0 +1,20 @@
+Notes for App Review
+
+mac4DSTEM analyses 4D-STEM datasets from electron microscopes. You do not need a dataset of your own to try it.
+
+How to try it:
+1. Launch the app. The welcome window opens.
+2. Click "Try Demo Data". It opens a small synthetic 4D-STEM dataset built into the app; every workspace works on it, and nothing on disk is touched.
+3. Work down the sidebar: Prepare (calibration), Imaging (move the detector on the diffraction pattern and the virtual image updates), Bragg Disks, Crystal Maps, Reconstruction, Results.
+
+The Spectroscopy workspace stays unavailable on the demo: it opens only when the window holds an EDS spectrum image, which needs a microscope file.
+
+Materials Project (optional):
+In Crystal Maps, the phase picker has a "Materials Project…" button that fetches a crystal structure from api.materialsproject.org. It needs the user's own free Materials Project API key, which the user types and the app stores in the macOS Keychain. It is optional: a structure can also come from a CIF file through "Import CIF…", and the rest of the app works without either. This is the app's only network request, and it is made only when the user starts it.
+
+No account, sign-in or purchase is needed anywhere in the app.
+
+Open source:
+mac4DSTEM is free software under GPL-3.0. Source: https://github.com/mac4DSTEM/mac4DSTEM
+
+Contact: mail@mac4dstem.com

@@ -1,0 +1,1 @@
+Virtual images, calibration, Bragg disks, strain, ACOM orientation, phase maps, ptychography and EDS, against a live view. Open source, and your data stays on your Mac.

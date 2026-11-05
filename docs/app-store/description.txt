@@ -1,0 +1,26 @@
+mac4DSTEM analyses 4D-STEM data natively on Apple silicon. Virtual images, calibration, Bragg disk detection, strain, orientation and phase maps, reconstruction and EDS spectrum images are worked on interactively instead of in scripts. Detector, calibration and fit settings change against a live view, so you see what a choice does while you make it.
+
+OPEN YOUR FILES
+py4DSTEM and other EMD/HDF5 files, Gatan DM3 and DM4, and, less tested, Merlin MIB and EMPAD RAW. Crop, bin or filter hot pixels without touching the source file. Quick Look shows Finder thumbnails and spacebar previews of 4D-STEM HDF5 files.
+
+WORKSPACES
+• Prepare: inspect the dataset and calibrate the probe and origin, elliptical distortion, the rotation between real and reciprocal space, and the reciprocal pixel size from a known crystal.
+• Imaging: bright field, ADF and HAADF virtual images, and annular, rectangular or point detectors you place by hand.
+• Bragg Disks: disk detection by cross-correlation with subpixel refinement, with diagnostics to judge the result. A learned disk detector runs on the Neural Engine.
+• Crystal Maps: strain from a local lattice fit, orientation mapping by template matching (ACOM) against your own CIF or a Materials Project structure, phase maps, and precipitate objects with their sizes, variants and number density.
+• Reconstruction: DPC, iDPC, parallax and single-slice ptychography.
+• Spectroscopy: EDS spectrum images, on their own or with the 4D scan. Auto ID suggests the elements, element maps and regions show where they are, and quantification gives wt% and at% with an uncertainty on every number.
+• Results: review, save and export. Bragg vectors, datacubes and maps are written as EMD files that py4DSTEM reads.
+
+WHERE THE NUMBERS COME FROM
+The 4D-STEM methods are ported from py4DSTEM and checked against it. Where the app departs from py4DSTEM, the source says so and why. Every quantity keeps its calibration and where it came from through display, export and reopening, and every export names the method a result came from and its reference.
+
+YOUR DATA STAYS ON YOUR MAC
+No account, no analytics, no telemetry. Datasets and results are read from and written to your own storage only. The one network request is an optional Materials Project lookup that you start yourself, with your own API key, which is kept in the macOS Keychain.
+
+OPEN SOURCE
+mac4DSTEM is free software under GPL-3.0. The source, the issue tracker and the tolerance each function is checked to are at github.com/mac4DSTEM/mac4DSTEM.
+
+Its companion app, macTEM, analyses TEM images, EDS and EELS spectrum images and electron diffraction.
+
+Requires a Mac with Apple silicon.
