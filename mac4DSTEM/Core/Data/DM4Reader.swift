@@ -257,10 +257,12 @@ package actor DM4Reader: FourDDataSource {
     /// and are not built.
     ///
     /// `init` asks this once for the storage it chooses; `run-tests.sh inventory` greps for it.
+    /// Asks Foundation's `volumeIsLocal` (the same `MNT_LOCAL` bit) rather than `statfs`: `statfs` is an App Store
+    /// required-reason API whose listed reasons are about free space, which this is not (mac4DSTEM#119).
     package nonisolated static func readingOptions(forPath path: String) -> Data.ReadingOptions {
-        var info = statfs()
-        guard statfs(path, &info) == 0 else { return .mappedIfSafe }
-        return (info.f_flags & UInt32(MNT_LOCAL)) != 0 ? .alwaysMapped : .mappedIfSafe
+        guard let isLocal = try? URL(fileURLWithPath: path).resourceValues(forKeys: [.volumeIsLocalKey]).volumeIsLocal
+        else { return .mappedIfSafe }
+        return isLocal ? .alwaysMapped : .mappedIfSafe
     }
 
     // MARK: FourDDataSource
