@@ -209,27 +209,43 @@ struct PrecipitateObjectsWindow: View {
             // one structure differ only in that suffix (seen truncated,
             // 2026-09-28 drive).
             .width(min: 160, ideal: 250)
-            TableColumn("Area (\(areaUnit))", value: \.areaPx) { row in
-                Text(row.area.map { format($0) } ?? row.areaPx.formatted()).monospacedDigit()
-            }
-            .width(min: 56, ideal: 80)
-            .alignment(.numeric)
-            TableColumn("Length (\(unit))", value: \.lengthPx) { row in
-                Text(format(row.length ?? row.lengthPx)).monospacedDigit()
-            }
-            .width(min: 56, ideal: 80)
-            .alignment(.numeric)
-            TableColumn("Width (\(unit))", value: \.widthPx) { row in
-                Text(format(row.width ?? row.widthPx)).monospacedDigit()
-            }
-            .width(min: 56, ideal: 80)
-            .alignment(.numeric)
-            TableColumn("Aspect", value: \.aspectRatio) { row in
-                Text(format(row.aspectRatio)).monospacedDigit()
-            }
-            .width(min: 48, ideal: 64)
-            .alignment(.numeric)
+            // The joins (suite task 42) beside the phase, not past the shape columns: at the window's default width they were off screen
+            // (#106). Wide enough for "rr -0.21 · cc 0.59 · rc 0.12 %, 0.50°" and a composition with its pixel note ("Al 96.0 · Si 4.0 at% (172 px, 548 failed or masked)").
             Group {
+                TableColumn("Composition (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
+                    Text(row.compositionSummary).monospacedDigit()
+                        .foregroundStyle(row.composition == nil ? .secondary : .primary)
+                        .help(report.compositionUnavailable ?? "The mean of the per-pixel at% maps under the object. Not the pooled fit's value, no sigma.")
+                }
+                .width(min: 140, ideal: 340)
+                TableColumn("Strain (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
+                    Text(row.strainSummary).monospacedDigit()
+                        .foregroundStyle(row.strain == nil ? .secondary : .primary)
+                        .help(report.strainUnavailable ?? "The mean strain under the object, in rows (rr) and columns (cc). Not a fit error.")
+                }
+                .width(min: 170, ideal: 290)
+            }
+            Group {
+                TableColumn("Area (\(areaUnit))", value: \PrecipitateObjectReport.Row.areaPx) { row in
+                    Text(row.area.map { format($0) } ?? row.areaPx.formatted()).monospacedDigit()
+                }
+                .width(min: 56, ideal: 80)
+                .alignment(.numeric)
+                TableColumn("Length (\(unit))", value: \PrecipitateObjectReport.Row.lengthPx) { row in
+                    Text(format(row.length ?? row.lengthPx)).monospacedDigit()
+                }
+                .width(min: 56, ideal: 80)
+                .alignment(.numeric)
+                TableColumn("Width (\(unit))", value: \PrecipitateObjectReport.Row.widthPx) { row in
+                    Text(format(row.width ?? row.widthPx)).monospacedDigit()
+                }
+                .width(min: 56, ideal: 80)
+                .alignment(.numeric)
+                TableColumn("Aspect", value: \PrecipitateObjectReport.Row.aspectRatio) { row in
+                    Text(format(row.aspectRatio)).monospacedDigit()
+                }
+                .width(min: 48, ideal: 64)
+                .alignment(.numeric)
                 TableColumn("Axis major (\(unit))", value: \PrecipitateObjectReport.Row.axisMajorSortKey) { row in
                     Text(row.axisMajorLength.map(format) ?? row.axisMajorLengthPx.map(format) ?? "").monospacedDigit()
                 }
@@ -274,18 +290,6 @@ struct PrecipitateObjectsWindow: View {
                 }
                 .width(min: 64, ideal: 76)
                 .alignment(.numeric)
-                TableColumn("Composition (mean of pixels)") { row in
-                    Text(row.compositionSummary).monospacedDigit()
-                        .foregroundStyle(row.composition == nil ? .secondary : .primary)
-                        .help(report.compositionUnavailable ?? "The mean of the per-pixel at% maps under the object. Not the pooled fit's value, no sigma.")
-                }
-                .width(min: 140, ideal: 190)
-                TableColumn("Strain (mean of pixels)") { row in
-                    Text(row.strainSummary).monospacedDigit()
-                        .foregroundStyle(row.strain == nil ? .secondary : .primary)
-                        .help(report.strainUnavailable ?? "The mean strain under the object, in rows (rr) and columns (cc). Not a fit error.")
-                }
-                .width(min: 170, ideal: 230)
             }
             TableColumn("Counted", value: \.countedSortKey) { row in
                 if let why = row.exclusion {
