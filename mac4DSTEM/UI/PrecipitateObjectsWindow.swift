@@ -87,6 +87,14 @@ struct PrecipitateObjectsWindow: View {
                 .padding(.vertical, 12)
             Divider()
             table
+            if let coverage = report.compositionCoverage {
+                Divider()
+                Text(coverage)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16).padding(.vertical, 6)
+                    .accessibilityIdentifier("precipitates.objects.compositionCoverage")
+            }
             let notes = [report.compositionUnavailable.map { "Composition: " + $0 }, report.strainUnavailable.map { "Strain: " + $0 }].compactMap { $0 }
             if !notes.isEmpty {
                 Divider()
