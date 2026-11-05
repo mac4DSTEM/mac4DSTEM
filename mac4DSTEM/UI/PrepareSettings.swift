@@ -277,6 +277,17 @@ struct PrepareSettings: View {
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.calibrateOrigin")
                 Button {
+                    PendingEdits.run { await appState.calibrateOriginFromBraggPeaks() }
+                } label: {
+                    Label("Origin from Bragg Peaks", systemImage: "circle.grid.cross")
+                }
+                .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
+                .accessibilityIdentifier("calibration.originFromBraggPeaks")
+                .tooltip("Follows the direct beam among the detected Bragg disks (py4DSTEM measure_origin + "
+                    + "fit_origin) instead of the centre of mass. For crystals whose strong disks pull the centre of "
+                    + "mass off the beam. Needs Detect All Disks first.",
+                    hint: "For crystals whose strong disks pull the centre of mass")
+                Button {
                     PendingEdits.run { await appState.calibrateRotation() }
                 } label: {
                     Label("Measure R–Q Rotation", systemImage: "rotate.3d")

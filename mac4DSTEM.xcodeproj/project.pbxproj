@@ -1582,8 +1582,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mac4DSTEM/CuboKit";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.10.0;
+				branch = "claude/project-thread-we7qwt";
+				kind = branch;
 			};
 		};
 		30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */ = {
