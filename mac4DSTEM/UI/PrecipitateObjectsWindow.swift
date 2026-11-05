@@ -328,8 +328,13 @@ struct PrecipitateObjectsWindow: View {
         return "\(format(px)) px"
     }
 
-    private func density(_ value: Double?) -> String {
-        guard let value, let unit = report.pixelUnit else { return "no scan scale" }
+    private func density(_ value: Double?) -> String { Self.densityText(value, unit: report.pixelUnit) }
+
+    /// "no scan scale" only when the scan has no physical scale; a calibrated scan with no density (no counted objects,
+    /// nothing analysed) reads "—", as the Precipitates section does (issue #104).
+    static func densityText(_ value: Double?, unit: String?) -> String {
+        guard let unit else { return "no scan scale" }
+        guard let value else { return "—" }
         return PrecipitateFormat.density(value, unit: unit)
     }
 
