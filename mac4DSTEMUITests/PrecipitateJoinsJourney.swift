@@ -57,7 +57,7 @@ final class PrecipitateJoinsJourney: Journey {
         waitIdle("the at% maps", timeout: 300)
     }
 
-    private func openAndQuantify() throws {
+    private func openAndQuantify(adding extra: [String] = []) throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: Self.fourDEDS), "\(Self.fourDEDS) is not on this machine")
         try XCTSkipUnless(FileManager.default.fileExists(atPath: Self.betaCIF), "\(Self.betaCIF) is not on this machine")
         step("open AlMgSi_4D_EDX.dm4") {
@@ -65,6 +65,16 @@ final class PrecipitateJoinsJourney: Journey {
             waitForLoadingToEnd(timeout: 180)
             wait(for: "edx.spectrum", timeout: 180)
             waitIdle("Auto ID on open")
+        }
+        for symbol in extra {
+            step("add \(symbol) in the Elements table") {
+                let cell = wait(for: "periodicTable.\(symbol)", timeout: 30)
+                cell.click()
+                let picked = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'mapped'"), object: cell)
+                XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 20), .completed,
+                               "\(symbol) is not quantified after the click: \(String(describing: cell.value))")
+                waitIdle("adding \(symbol)")
+            }
         }
         step("Quantify the spectrum image") {
             clickPrimary("Quantify")
@@ -130,6 +140,87 @@ final class PrecipitateJoinsJourney: Journey {
             let text = (notes.value as? String) ?? notes.label
             XCTAssertTrue(text.contains("wt% or at%"), "the note reads: \(text)")
             XCTAssertFalse(text.contains("Strain:"), "strain is computed but the note says it is not: \(text)")
+        }
+    }
+
+    /// The composition cells of the table, row by row, as the window shows them (attached to the step for the PR's truth table).
+    private func compositionCells() -> [String] {
+        table.staticTexts.allElementsBoundByIndex.compactMap { ($0.value as? String) ?? $0.label }.filter { $0.contains(" at%") }
+    }
+
+    /// #108: Mg added by hand before Quantify; the β″ objects then carry Mg, and the coverage line names it.
+    func test3_MgAddedByHandShowsInTheComposition() throws {
+        try openAndQuantify(adding: ["Mg"])
+        step("Maps ▸ at%") { showAtomicPercentMaps() }
+        objectsStrainAndTable()
+        step("the β″ objects show Mg, and the coverage line names Mg") {
+            let coverage = table.descendants(matching: .any).matching(identifier: "precipitates.objects.compositionCoverage").firstMatch
+            XCTAssertTrue(coverage.waitForExistence(timeout: 10), "the table does not say which elements the composition covers")
+            let text = (coverage.value as? String) ?? coverage.label
+            XCTAssertTrue(text.contains("Mg"), "the coverage line reads: \(text)")
+            let cells = compositionCells()
+            let record = XCTAttachment(string: cells.joined(separator: "\n"))
+            record.name = "composition cells"; record.lifetime = .keepAlways
+            add(record)
+            XCTAssertFalse(cells.isEmpty, "no composition cell")
+            XCTAssertTrue(cells.allSatisfy { $0.contains("Mg ") }, "an object has no Mg: \(cells)")
+        }
+    }
+
+    /// The variant map on the same file (suite task 40): Count variants on, the legend counts needles per direction and per variant,
+    /// and the exported CSV carries the variant columns. It does not assert assignments: the demo plants beta'' at the matrix's in-plane
+    /// angle + 0 or 90 degrees, not in the Andersen relationship, so every object is honestly unassigned here (#115).
+    func test4_VariantMapLegendAndCSV() throws {
+        try openAndQuantify()
+        objectsStrainAndTable()
+        step("close the table, Count variants") {
+            table.buttons["_XCUI:CloseWindow"].click()
+            let toggle = wait(for: "precipitates.variants.section", timeout: 20)
+            toggle.click()
+            XCTAssertTrue(element("precipitates.variants.totals").waitForExistence(timeout: 60)
+                          || element("precipitates.variants.unavailable").exists, "the variant run showed neither a legend nor a reason")
+            if element("precipitates.variants.unavailable").exists {
+                let why = element("precipitates.variants.unavailable")
+                XCTFail("variants unavailable: \((why.value as? String) ?? why.label)")
+            }
+            let directions = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'precipitates.variants.legend.direction.'"))
+            XCTAssertGreaterThan(directions.count, 0, "the legend has no needle direction rows")
+            let totals = element("precipitates.variants.totals")
+            let record = XCTAttachment(string: ((totals.value as? String) ?? totals.label) + "\n"
+                                       + directions.allElementsBoundByIndex.map(\.label).joined(separator: "\n"))
+            record.name = "variant legend"; record.lifetime = .keepAlways
+            add(record)
+        }
+        step("Export CSV with the variant columns") {
+            let path = NSTemporaryDirectory() + "precipitate-objects-\(UUID().uuidString).csv"
+            wait(for: "precipitates.exportCSV").click()
+            let panel = app.sheets.firstMatch.exists ? app.sheets.firstMatch : app.dialogs.firstMatch
+            XCTAssertTrue(panel.waitForExistence(timeout: 20), "the save panel did not appear")
+            let name = panel.textFields["saveAsNameTextField"]
+            XCTAssertTrue(name.waitForExistence(timeout: 10), "the save panel has no name field")
+            name.click()
+            name.typeKey("a", modifierFlags: .command)
+            name.typeText((path as NSString).lastPathComponent)
+            app.typeKey("g", modifierFlags: [.command, .shift])
+            let go = app.textFields["PathTextField"]
+            XCTAssertTrue(go.waitForExistence(timeout: 10), "Go to Folder showed no path field")
+            go.typeText(NSTemporaryDirectory())
+            go.typeKey(.return, modifierFlags: [])
+            let goGone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: go)
+            XCTAssertEqual(XCTWaiter().wait(for: [goGone], timeout: 10), .completed, "Go to Folder did not close")
+            panel.buttons["OKButton"].click()   // titled Export by the file exporter
+            let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: panel)
+            XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed, "the save panel did not close")
+            let written = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in FileManager.default.fileExists(atPath: path) }, object: nil)
+            XCTAssertEqual(XCTWaiter().wait(for: [written], timeout: 20), .completed, "no CSV at \(path)")
+            let csv = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+            let header = csv.split(separator: "\n").first { !$0.hasPrefix("#") && $0.contains("variant") }.map(String.init) ?? ""
+            for column in ["variant", "direction", "variant_status", "variant_agreement", "variant_angle_deg"] {
+                XCTAssertTrue(header.split(separator: ",").contains { $0 == column }, "the CSV has no \(column) column: \(header)")
+            }
+            let record = XCTAttachment(string: csv); record.name = "objects CSV"; record.lifetime = .keepAlways
+            add(record)
+            try? FileManager.default.removeItem(atPath: path)
         }
     }
 }
