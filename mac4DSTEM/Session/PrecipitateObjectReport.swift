@@ -201,6 +201,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     /// The elements of the composition columns, in the maps' order; empty without the join. When a join could not run, why.
     package let compositionElements: [String]
     package let compositionUnavailable: String?
+    /// Which elements the per-object composition covers, said where the composition is shown (#108): an element the EDS room did not
+    /// quantify (Auto ID left Mg out on the Al-Mg-Si demo) is absent from every object's at%, and only this line makes that visible.
+    package var compositionCoverage: String? {
+        compositionElements.isEmpty ? nil : "Composition over " + compositionElements.joined(separator: ", ") + " (quantified elements)"
+    }
     package let strainAvailable: Bool
     package let strainUnavailable: String?
     /// The variant run (suite task 40): the groups (three directions, twelve variants, the unassigned) and the settings in words; nil without

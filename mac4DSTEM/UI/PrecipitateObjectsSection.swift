@@ -86,6 +86,10 @@ struct PrecipitateObjectsSection: View {
             InspectorNote(excluded)
         }
 
+        if let coverage = report.compositionCoverage {
+            InspectorNote(coverage).accessibilityIdentifier("precipitates.compositionCoverage")
+        }
+
         PrecipitateThicknessRows(report: report)
 
         PrecipitateVariantRows(report: report)

@@ -158,6 +158,19 @@ final class ObjectJoinsTests: XCTestCase {
             objects: objects(), phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1)
         XCTAssertFalse(plain.csv().contains("strain_rr") || plain.csv().contains("_at_pct"), "no joins, no columns")
     }
+
+    /// #108: the composition says which elements it covers, so an element the EDS room did not quantify is visibly absent.
+    func testTheReportSaysWhichElementsTheCompositionCovers() throws {
+        let comp = ObjectCompositionJoin.run(objects: objects(), maps: try maps(),
+                                             registration: PoolCatalogue.identityRegistration(width: 8, height: 8))
+        let report = PrecipitateObjectReport.make(
+            objects: objects(), phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1,
+            compositionJoin: comp)
+        XCTAssertEqual(report.compositionCoverage, "Composition over Mg, Al (quantified elements)")
+        let plain = PrecipitateObjectReport.make(
+            objects: objects(), phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1)
+        XCTAssertNil(plain.compositionCoverage, "no composition, no coverage line")
+    }
 }
 
 extension ObjectJoinsTests {
