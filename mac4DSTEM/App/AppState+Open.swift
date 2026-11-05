@@ -215,6 +215,8 @@ extension AppState {
     /// that comes back crosses the hop safely.
     @concurrent
     static func makeReader(for url: URL) async throws -> any FourDDataSource {
+        // A .mib's .hdr and an EMPAD .xml/.raw pair: the sandbox grants the picked file only (#120).
+        RelatedFileAccess.grant(for: url)
         // By content (FormatoKit's sniff): the extension picks the candidates, the first bytes confirm them.
         // The sniff opens an HDF5 file under the HDF5 lock: off the main actor, like the readers.
         let path = url.path
