@@ -8,6 +8,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
   button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
 
+## [5.2.0](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.1.1...v5.2.0) (2026-11-05)
+
+
+### Features
+
+* Origin from Bragg Peaks, an opt-in origin for crystals whose disks pull the centre of mass ([#139](https://github.com/mac4DSTEM/mac4DSTEM/issues/139)) ([8266df0](https://github.com/mac4DSTEM/mac4DSTEM/commit/8266df06f8ffbccce0459731c7a034fdcb56db18))
+
+
+### Bug Fixes
+
+* Known variants shows the detector-scale warning and Scale to This Detector ([#101](https://github.com/mac4DSTEM/mac4DSTEM/issues/101)) ([4b78487](https://github.com/mac4DSTEM/mac4DSTEM/commit/4b78487ebd2d2381de7a100c5e2bfe19a9c4d13c)), closes [#100](https://github.com/mac4DSTEM/mac4DSTEM/issues/100)
+* read a .mib's .hdr and an EMPAD pair under the App Sandbox ([#126](https://github.com/mac4DSTEM/mac4DSTEM/issues/126)) ([6347b09](https://github.com/mac4DSTEM/mac4DSTEM/commit/6347b09a4042e2fd67a5b159fa15fd4f412e0732))
+* remember files the sandbox grants read-only (recent-file bookmark 256) ([#132](https://github.com/mac4DSTEM/mac4DSTEM/issues/132)) ([18eb06a](https://github.com/mac4DSTEM/mac4DSTEM/commit/18eb06a54ad16c4e79079c38681dddd0b4ae9015))
+* the object table and Precipitates section say which elements the composition covers ([#112](https://github.com/mac4DSTEM/mac4DSTEM/issues/112)) ([ab34b5b](https://github.com/mac4DSTEM/mac4DSTEM/commit/ab34b5b9d888929add2a5d3bfeb5d2ac05a48cb6))
+* the object table and Precipitates section say which elements the per-object composition covers ([ab34b5b](https://github.com/mac4DSTEM/mac4DSTEM/commit/ab34b5b9d888929add2a5d3bfeb5d2ac05a48cb6))
+* the object table says "no scan scale" only when the scan has no scale ([#105](https://github.com/mac4DSTEM/mac4DSTEM/issues/105)) ([3cbcdb9](https://github.com/mac4DSTEM/mac4DSTEM/commit/3cbcdb9815e51e7e2aba9bfbb3f36a30c6995b6b)), closes [#104](https://github.com/mac4DSTEM/mac4DSTEM/issues/104)
+* the object table says to show wt% or at% when the spectrum image is quantified without composition maps ([#102](https://github.com/mac4DSTEM/mac4DSTEM/issues/102)) ([354d585](https://github.com/mac4DSTEM/mac4DSTEM/commit/354d585974604bfa3ee51f3dc57719d3ef859445))
+* the object table shows the composition and strain columns beside the phase ([#109](https://github.com/mac4DSTEM/mac4DSTEM/issues/109)) ([05448ae](https://github.com/mac4DSTEM/mac4DSTEM/commit/05448aee2e1794516190b4d686286b2461e85abe))
+* the object table shows the composition and strain columns beside the phase, wide enough for their text ([05448ae](https://github.com/mac4DSTEM/mac4DSTEM/commit/05448aee2e1794516190b4d686286b2461e85abe))
+* the synthetic probe kernel's radius can be typed in Bragg Disks ([#116](https://github.com/mac4DSTEM/mac4DSTEM/issues/116)) ([de6e5f7](https://github.com/mac4DSTEM/mac4DSTEM/commit/de6e5f7625eac36cb73fa289b2c57bbb0349c76a))
+* the toolbar is busy while the EDS room fits and checks ([#135](https://github.com/mac4DSTEM/mac4DSTEM/issues/135)) ([67bda36](https://github.com/mac4DSTEM/mac4DSTEM/commit/67bda3629b9185ce552e27b191d752256ca9f742))
+
 ## [5.1.1](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.1.0...v5.1.1) (2026-11-02)
 
 
