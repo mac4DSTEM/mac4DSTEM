@@ -1,1 +1,1 @@
-Virtual images, calibration, Bragg disks, strain, ACOM orientation, phase maps, ptychography and EDS, against a live view. Open source, and your data stays on your Mac.
+Explore 4D-STEM data interactively: virtual images, Bragg disks, strain, orientation and phase maps, ptychography and EDS, native on Apple silicon.
