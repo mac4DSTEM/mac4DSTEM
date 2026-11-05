@@ -66,7 +66,7 @@ final class PrecipitatesJourney: Journey {
         }
         if let q = ProcessInfo.processInfo.environment["PRECIP_Q"] {
             step("Prepare ▸ Q pixel scale ▸ type \(q) by hand") {
-                let disclosure = element("calibration.action.qManual.override")
+                let disclosure = element("calibration.action.qManual" + ".override")   // built as identifier + ".override" in CalibrationReadinessRow
                 if disclosure.waitForExistence(timeout: 5) { disclosure.click() }
                 let field = wait(for: "calibration.action.qManual", timeout: 10)
                 field.click(); field.typeKey("a", modifierFlags: .command); field.typeText(q + "\r")
