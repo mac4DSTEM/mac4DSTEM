@@ -97,7 +97,7 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var windowToolbarContent: some ToolbarContent {
         ShellToolbar(
-            display: { ToolbarRunDisplay(toolbarDisplay) },
+            display: { ToolbarRunDisplay(appState.toolbarDisplay) },
             verb: { PrimaryActionButton(WorkspacePrimaryAction.current(appState)) },
             utility: {
                 ToolbarItem(placement: .primaryAction) {
@@ -106,30 +106,6 @@ struct ContentView: View {
                 .lowVisibilityPriority()
             },
             documentMenu: { DatasetMenu() })
-    }
-
-    /// What the toolbar's centre shows: nothing without a document or while it loads; the running operation and its clock while busy;
-    /// else "file · room · size".
-    private var toolbarDisplay: ToolbarDisplayState? {
-        guard !appState.datasetSession.isLoading else { return nil }
-        let room = WorkspaceRoute.current(appState.navigation).title
-        if let descriptor = appState.descriptor {
-            if appState.isBusy {
-                return .busy(operation: appState.activeOperation ?? appState.statusText, progress: appState.progress,
-                             metrics: { date in
-                                 appState.activeOperationMetrics(at: date).map { ($0.elapsed, nil) }
-                             })
-            }
-            let positions = descriptor.rx * descriptor.ry
-            return .idle(file: descriptor.fileName, room: room,
-                         detail: "\(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")",
-                         help: descriptor.filePath)
-        }
-        if let metadata = appState.spectroscopy.metadata {
-            // A spectrum-only window (v5.0 WP2): the same display, its grid in pixels.
-            return .idle(file: metadata.fileName, room: room, detail: "\(metadata.scanWidth) × \(metadata.scanHeight) px", help: metadata.filePath)
-        }
-        return nil
     }
 
     /// The importer's completion, as a method rather than an inline closure:
@@ -180,5 +156,35 @@ extension ToolbarItem {
         #else
         self
         #endif
+    }
+}
+
+extension AppState {
+    /// What the toolbar's centre shows: nothing without a document or while it loads; the running operation and its clock while busy
+    /// (the EDS room's work names itself, without a clock); else "file · room · size". On `AppState` so a unit test reads it.
+    var toolbarDisplay: ToolbarDisplayState? {
+        guard !datasetSession.isLoading else { return nil }
+        let room = WorkspaceRoute.current(navigation).title
+        // The EDS room's own work (fit, check, Auto ID, maps) is busy too, in a 4D window and in a spectrum-only one.
+        if !isBusy, let eds = edsBusyOperation, hasDocument {
+            return .busy(operation: eds, progress: nil, metrics: { _ in nil })
+        }
+        if let descriptor = descriptor {
+            if isBusy {
+                return .busy(operation: activeOperation ?? statusText, progress: progress,
+                             metrics: { [self] date in
+                                 activeOperationMetrics(at: date).map { ($0.elapsed, nil) }
+                             })
+            }
+            let positions = descriptor.rx * descriptor.ry
+            return .idle(file: descriptor.fileName, room: room,
+                         detail: "\(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")",
+                         help: descriptor.filePath)
+        }
+        if let metadata = spectroscopy.metadata {
+            // A spectrum-only window (v5.0 WP2): the same display, its grid in pixels.
+            return .idle(file: metadata.fileName, room: room, detail: "\(metadata.scanWidth) × \(metadata.scanHeight) px", help: metadata.filePath)
+        }
+        return nil
     }
 }

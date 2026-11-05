@@ -38,6 +38,32 @@ extension AppState {
     }
 }
 
+// MARK: The toolbar while the room works
+
+extension AppState {
+    /// The EDS room's running work as the toolbar's busy line names it, nil when the room is at rest or not shown. The room's fit, its
+    /// unlisted-line check, Auto ID and the composition maps run in `EDXSession`, not in `OperationCenter`, so `isBusy` never saw them and
+    /// the toolbar said idle while Results CSV was still disabled (EDSJourney on the 1024 x 1024 Velox file, 2026-11-05).
+    var edsBusyOperation: String? {
+        guard navigation.workspaceArea == .spectroscopy, edx.isBusy else { return nil }
+        return Self.edsBusyOperation(opening: edx.isOpening, fitting: edx.isFitting, checking: edx.isChecking,
+                                     identifying: edx.autoID == .running, mapping: edx.mapsState == .running,
+                                     refreshing: edx.isRefreshing) ?? "Working…"
+    }
+
+    /// The first of the room's busy flags in the order a Quantify sets them (the fit runs inside a refresh); macTEM's words.
+    nonisolated static func edsBusyOperation(opening: Bool, fitting: Bool, checking: Bool, identifying: Bool, mapping: Bool,
+                                             refreshing: Bool) -> String? {
+        if opening { return "Opening the spectrum image…" }
+        if fitting { return "Quantifying…" }
+        if checking { return "Checking for unlisted lines…" }
+        if identifying { return "Identifying elements…" }
+        if mapping { return "Computing the composition maps…" }
+        if refreshing { return "Updating the spectrum and maps…" }
+        return nil
+    }
+}
+
 // MARK: Quantify and its replay step
 
 extension AppState {

@@ -23,15 +23,16 @@ final class EDSJourney: Journey {
         let verb = wait(for: "workspace.primaryAction", timeout: 60)
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: verb)
         XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 120), .completed, "Quantify never became enabled")
-        verb.click()
+        click(verb)
         wait(for: "edx.compositionTable", timeout: 180)
+        // Idle means the fit AND its unlisted-line check have landed: the toolbar is busy for the EDS room's own work since 2026-11-05.
         XCTAssertTrue(element("toolbar.display.idle").waitForExistence(timeout: 180), "the room did not come back to idle after Quantify")
     }
 
     private func exportResults() {
         let button = wait(for: "edx.export.results", timeout: 30)
         XCTAssertTrue(button.isEnabled, "Results CSV is not enabled after Quantify")
-        button.click()
+        click(button)
         let said = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Exported' OR value BEGINSWITH 'Exported'")).firstMatch
         XCTAssertTrue(said.waitForExistence(timeout: 30), "the status line never said the results were exported")
     }

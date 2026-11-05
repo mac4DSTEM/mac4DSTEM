@@ -49,6 +49,15 @@ class Journey: XCTestCase {
         }
     }
 
+    /// Clicks `element` only while the app is frontmost with its window on screen; otherwise the journey stops (`continueAfterFailure`
+    /// is off) rather than send a click to whatever else is in front.
+    func click(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        guard app.state == .runningForeground, app.windows.firstMatch.exists, app.windows.firstMatch.isHittable else {
+            return XCTFail("mac4DSTEM is not frontmost with its window on screen (state \(app.state.rawValue)): no click sent", file: file, line: line)
+        }
+        element.click()
+    }
+
     /// The element with this identifier, found anywhere in the window.
     func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
