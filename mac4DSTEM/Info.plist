@@ -57,6 +57,25 @@
 				<string>mib</string>
 			</array>
 		</dict>
+		<!-- Companion files (mac4DSTEM#120): a .mib's .hdr, an EMPAD .xml/.raw pair. NSIsRelatedItemType lets the sandboxed
+		     app read the sibling of a file the user picked (App/RelatedFileAccess.swift). Role and rank None: this claims
+		     nothing, so mac4DSTEM still stays out of the Open With menu of every XML and raw file. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>4D-STEM companion file</string>
+			<key>CFBundleTypeRole</key>
+			<string>None</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>NSIsRelatedItemType</key>
+			<true/>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>hdr</string>
+				<string>xml</string>
+				<string>raw</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>
