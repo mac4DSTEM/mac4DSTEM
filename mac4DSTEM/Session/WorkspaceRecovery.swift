@@ -170,9 +170,24 @@ package nonisolated enum WorkspaceRecoveryStore {
     package static func saveRecovery(_ record: DatasetRecoveryRecord) { encode(record, key: recoveryKey) }
     package static func clearRecovery() { UserDefaults.standard.removeObject(forKey: recoveryKey) }
 
-    package static func bookmark(for url: URL) throws -> Data {
-        try url.bookmarkData(options: [.withSecurityScope],
-                             includingResourceValuesForKeys: [.nameKey], relativeTo: nil)
+    /// A read-write security-scoped bookmark, or a read-only one when the sandbox grants only read access. In the
+    /// sandbox a read-write bookmark fails (NSCocoaErrorDomain 256, "couldn't be opened") whenever the process may
+    /// read the file but not write it: a file the user picked on a READ-ONLY volume (a disk image, a read-only share),
+    /// and a DEBUG `--open` file, which Xcode's test-only `/` read exception lets the app read without any grant.
+    /// Measured 2026-11-05 in a sandboxed harness with this app's entitlements (#130): a read-only bookmark made
+    /// there resolves and reads in a new process. The read-write attempt stays first, so a writable file keeps a
+    /// writable grant.
+    package static func bookmark(
+        for url: URL,
+        make: (URL, URL.BookmarkCreationOptions) throws -> Data = { url, options in
+            try url.bookmarkData(options: options, includingResourceValuesForKeys: [.nameKey], relativeTo: nil)
+        }
+    ) throws -> Data {
+        do {
+            return try make(url, [.withSecurityScope])
+        } catch {
+            return try make(url, [.withSecurityScope, .securityScopeAllowOnlyReadAccess])
+        }
     }
 
     package static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
