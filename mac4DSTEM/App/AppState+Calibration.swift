@@ -148,6 +148,47 @@ extension AppState {
         }
     }
 
+    /// The origin from the detected Bragg peaks (mac4DSTEM#138; `OriginCalibration.fromBraggPeaks`), opt-in: for a crystal
+    /// whose strong reflections pull the centre of mass off the direct beam. Needs a full-scan disk detection; replaces the
+    /// fitted origin maps and recentres the aperture, as Calibrate Origin does, and leaves the probe radius alone.
+    func calibrateOriginFromBraggPeaks() async {
+        guard let d = descriptor else { return }
+        guard let vectors = resultPresentation.braggVectors else {
+            presentComputeFailure(BraggPeakOriginError.noPeaks)
+            return
+        }
+        let fitFn = calibrationSession.originFitFunction
+        let maps: OriginMaps
+        do {
+            // Milliseconds even on a large scan (one pass over the peaks, a detector-sized map, a two-parameter fit).
+            maps = try OriginCalibration.fromBraggPeaks(vectors, qy: d.qy, qx: d.qx, fitFunction: fitFn)
+        } catch {
+            presentComputeFailure(error)
+            return
+        }
+        guard maps.width == d.rx, maps.height == d.ry else { return }
+        calibrationSession.calibration.origin = maps
+        clearSupersededFittedOrigin()
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
+        if let origin = calibrationSession.calibration.meanOrigin {
+            aperture.centerX = origin.x
+            aperture.centerY = origin.y
+            calibrationSession.calibration.originProvenance = .fitted
+        }
+        let rms = maps.rmsResidual ?? 0
+        statusText = "Origin from Bragg peaks ✓  fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
+        var parameters = ["fit_function": fitFn.rawValue, "method": "bragg_peaks",
+                          OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"]
+        if let origin = calibrationSession.calibration.meanOrigin {
+            parameters["origin_x_px"] = String(origin.x)
+            parameters["origin_y_px"] = String(origin.y)
+        }
+        if let r = maps.rmsResidual { parameters["fit_rms_px"] = String(r) }
+        recordLineageRun(kind: "calibration_origin", parameters: parameters)
+        if navigation.analysisMode == .disks { showBraggMap(vectors, descriptor: d) }
+    }
+
     /// Fit py4DSTEM-native `(a,b,theta)` from the detector-shaped Bragg map
     /// when one is visible, otherwise from the scan-mean diffraction pattern.
     /// The fitter owns the qx=row/qy=column convention; this method performs

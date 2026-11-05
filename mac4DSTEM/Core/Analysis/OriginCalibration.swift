@@ -13,7 +13,7 @@
 //
 
 import CuboCore
-import struct CuboBragg.BraggDetector   // the neighbour-median fill
+import CuboBragg   // BraggDetector's neighbour-median fill and BraggOrigin (mac4DSTEM#138); the app's own BraggVectors and BraggPeak shadow the kit's, as in TiledDiskDetection
 import CuboVirtual   // FriedelOrigin and BeamstopMask are the kit's (CuboKit 0.2.0, 2026-10-16); CuboKit also exports ProbeKernel, which the app's own type of that name still shadows here
 import Foundation
 
@@ -754,4 +754,56 @@ package nonisolated enum OriginCalibration {
         return (kernel, statistics.meanDP, size.r, size.x0, size.y0)
     }
 
+}
+
+// MARK: - Origin from the Bragg peaks (mac4DSTEM#138)
+
+/// Why `OriginCalibration.fromBraggPeaks` produced no origin.
+package enum BraggPeakOriginError: LocalizedError, Equatable {
+    /// No scan position has a detected peak, so there is no direct beam to follow.
+    case noPeaks
+
+    package var errorDescription: String? {
+        switch self {
+        case .noPeaks:
+            return "No Bragg peaks were detected, so there is no direct beam to measure the origin from. "
+                + "Run Detect All Disks first."
+        }
+    }
+}
+
+extension OriginCalibration {
+    /// The origin from the detected Bragg peaks, opt-in beside the centre-of-mass and Friedel methods: py4DSTEM's
+    /// `BraggVectors.measure_origin` with a distance score and `fit_origin` (CuboKit's `BraggOrigin`), with the centre
+    /// guess from the symmetry of the peak map (`BraggOrigin.symmetryCenterGuess`, a mac4DSTEM variant). For crystals whose
+    /// strong reflections pull the centre of mass off the beam: on py4DSTEM's Si/SiGe tutorial cube the centre of mass lands
+    /// about 10 px from the direct beam, the Bragg-peak origin within 0.2 px RMS.
+    ///
+    /// `vectors` are the raw (uncalibrated) peaks of a full-scan detection on a `qy × qx` detector. The measured maps hold
+    /// the chosen peak per position (the guess where a position has none); the fitted maps are the `fitFunction` surface
+    /// over the positions with a peak.
+    package nonisolated static func fromBraggPeaks(_ vectors: BraggVectors, qy: Int, qx: Int,
+                                                   fitFunction: OriginFitFunction = .plane) throws -> OriginMaps {
+        let rows = vectors.scanHeight, columns = vectors.scanWidth
+        let kit = CuboBragg.BraggVectors(
+            scanRows: rows, scanColumns: columns,
+            peaks: vectors.peaks.map { list in
+                list.map { CuboBragg.BraggPeak(row: Double($0.y), column: Double($0.x), intensity: Double($0.intensity)) }
+            })
+        guard let guess = try BraggOrigin.symmetryCenterGuess(kit, detectorRows: qy, detectorColumns: qx) else {
+            throw BraggPeakOriginError.noPeaks
+        }
+        let measured = try BraggOrigin.measure(kit, detectorRows: qy, detectorColumns: qx, centerGuess: guess, score: .distance)
+        let model: OriginFitModel
+        switch fitFunction {
+        case .constant: model = .constant
+        case .plane: model = .plane
+        case .parabola: model = .parabola
+        }
+        let fit = try BraggOrigin.fit(measured, model: model)
+        return OriginMaps(width: columns, height: rows,
+                          measuredX: measured.column.map(Float.init), measuredY: measured.row.map(Float.init),
+                          fittedX: fit.fittedColumn.map(Float.init), fittedY: fit.fittedRow.map(Float.init),
+                          measuredByFriedel: false)
+    }
 }
