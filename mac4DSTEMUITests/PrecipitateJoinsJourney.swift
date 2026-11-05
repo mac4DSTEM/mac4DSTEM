@@ -128,6 +128,14 @@ final class PrecipitateJoinsJourney: Journey {
             let strain = table.staticTexts.matching(NSPredicate(format: "value BEGINSWITH 'rr ' OR label BEGINSWITH 'rr '")).firstMatch
             XCTAssertTrue(strain.waitForExistence(timeout: 10), "no row shows a strain")
         }
+        step("both join columns are on screen at the default size") {
+            // #106: they sat past the shape columns, off screen until the reader scrolled.
+            for header in ["Composition (mean of pixels)", "Strain (mean of pixels)"] {
+                let button = table.buttons[header]
+                XCTAssertTrue(button.waitForExistence(timeout: 10), "no \(header) column")
+                XCTAssertLessThanOrEqual(button.frame.maxX, table.frame.maxX, "\(header) is off screen to the right")
+            }
+        }
     }
 
     /// Quantify with Maps left at net counts (#99): the composition note names the missing step, not Quantify.
