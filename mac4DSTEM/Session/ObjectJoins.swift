@@ -64,15 +64,30 @@ package nonisolated struct ObjectCompositionValue: Sendable, Equatable {
 package nonisolated enum ObjectCompositionJoin {
     /// The sentence the section shows when no quantified spectrum image is there.
     package static let noMapsSentence = "Open the EDS spectrum image of this scan and Quantify it for composition per object."
+    /// The sentence when the spectrum image is quantified but its per-pixel maps were never made: the EDS session makes them only while
+    /// Spectroscopy ▸ Maps shows wt% or at% (net counts, the default, makes none).
+    package static let mapsNotShownSentence = "The spectrum image is quantified, but its composition maps are made only while Spectroscopy ▸ Maps "
+        + "shows wt% or at%: choose one for composition per object."
+
+    /// Why there are no maps to join, from what the EDS session says about itself: a quantified fit and the maps' own state.
+    package static func noMapsReason(quantified: Bool, mapsState: EDXMapsState) -> String {
+        switch mapsState {
+        case .blocked(let why), .failed(let why): "The composition maps are not available: " + why
+        case .running: "The composition maps are still being made."
+        case .idle, .done: quantified ? mapsNotShownSentence : noMapsSentence
+        }
+    }
 
     /// - Parameters:
     ///   - objects: the class map's objects on the 4D scan grid.
     ///   - maps: the quantified maps (wt% and at% per element, NaN where the fit failed, 0 where masked) on the spectrum grid.
     ///   - registration: where the spectrum grid sits on the scan grid; nil: the spectrum image is not registered to the scan.
     ///   - minimumPixels: an object under this many EDX pixels has no composition (default 4).
+    ///   - noMapsReason: what to say when there are no maps (`noMapsReason(quantified:mapsState:)`); nil: `noMapsSentence`.
     package static func run(objects: PrecipitateSegmentation.ClassMapObjects, maps: EDXQuantificationMaps?,
-                            registration: RegistrationRecordM2?, minimumPixels: Int = 4) -> ObjectJoinResult<ObjectCompositionValue> {
-        guard let maps, !maps.elements.isEmpty else { return .init(unavailable: noMapsSentence) }
+                            registration: RegistrationRecordM2?, minimumPixels: Int = 4,
+                            noMapsReason: String? = nil) -> ObjectJoinResult<ObjectCompositionValue> {
+        guard let maps, !maps.elements.isEmpty else { return .init(unavailable: noMapsReason ?? noMapsSentence) }
         guard let registration else {
             return .init(unavailable: "This spectrum image is not registered to the 4D scan, so its pixels cannot be matched to the objects.")
         }
