@@ -68,6 +68,23 @@ and a byte-identical `mac4DSTEM.dmg` for the
 and size. It pushes and uploads nothing. The sections below describe the
 same steps one at a time.
 
+## App Store package: `tools/release.sh --store`
+
+One tag, two builds (decision of 2026-11-04). From the same checked-out release tag, `tools/release.sh --store` runs
+`tools/release/build-app-store.sh`: a Release archive with automatic signing under team 3B8SMSSAX4 and
+`MACEM_STORE_BUILD=YES` (the switch that leaves the Sparkle updater out), then `xcodebuild -exportArchive` with
+`ExportOptions-AppStore.plist` (`method = app-store-connect`, `destination = export`). It checks the product: installer
+signature, sandbox on, no `get-task-allow`, a privacy manifest in every bundle, the export-compliance key, arm64 only, no
+Sparkle. Output: `build/release/<stamp>/store/mac4DSTEM.pkg`.
+
+- First run: Xcode must be signed in to the team's Apple ID; `-allowProvisioningUpdates` lets it create the Apple
+  Distribution and Mac Installer Distribution certificates and the App Store profiles (app, two Quick Look extensions,
+  HDF5 helper).
+- Validate and upload need an App Store Connect API key: `ASC_KEY_ID`, `ASC_ISSUER_ID`, the `.p8` in
+  `~/.appstoreconnect/private_keys/`. With the key, `--store` validates; `--store --upload` validates and uploads.
+  Without it the run stops after the checks.
+- A second upload of the same version needs a new build number: `STORE_BUILD_NUMBER=2 tools/release.sh --store --upload`.
+
 ## Before using credentials
 
 Run the complete gate from the repository root:
