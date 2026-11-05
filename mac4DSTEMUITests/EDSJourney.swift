@@ -49,4 +49,16 @@ final class EDSJourney: Journey {
         step("Quantify") { quantify() }
         step("Results CSV") { exportResults() }
     }
+
+    /// The typed-k sheet's fields keep their own identifiers (MacEMUI#73, fixed in MacEMUI#74): the sheet's identifier on its container hid them, so
+    /// `edx.typedK.source` and `edx.typedK.done` could not be found and every child read `edx.typedK`.
+    func test3_TypedKSheetFieldsKeepTheirIdentifiers() throws {
+        try step("open AlMgSi_4D_EDX.dm4") { try open(Self.fourDEDS) }
+        step("k-factors: Typed opens the sheet") {
+            wait(for: "edx.kSource", timeout: 20).click()
+            app.menuItems["Typed"].click()
+            wait(for: "edx.typedK.source", timeout: 20)
+            wait(for: "edx.typedK.done", timeout: 5)
+        }
+    }
 }
