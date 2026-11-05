@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- App Store export (mac4DSTEM#121), used by tools/release/build-app-store.sh. Exports a signed .pkg to disk; the
+     upload is a separate step Paul runs (tools/release.sh --store --upload). Automatic signing creates the App Store
+     profiles for the app, both Quick Look extensions and the HDF5 helper under team 3B8SMSSAX4. -->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>teamID</key>
+	<string>3B8SMSSAX4</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>
