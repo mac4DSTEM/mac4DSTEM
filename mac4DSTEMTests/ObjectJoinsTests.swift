@@ -78,6 +78,23 @@ final class ObjectJoinsTests: XCTestCase {
                                                   registration: PoolCatalogue.identityRegistration(width: 4, height: 4)).unavailable)
     }
 
+    /// Issue 99: Quantify ran, the Maps control still shows net counts (the default), so no per-pixel maps exist. The note must say to
+    /// show wt% or at%, not to Quantify again; a blocked or failed pass gives its own reason; without a fit the old sentence stands.
+    func testNoMapsAfterQuantifySaysToShowTheCompositionMaps() {
+        let identity = PoolCatalogue.identityRegistration(width: 8, height: 8)
+        let quantifiedNet = ObjectCompositionJoin.noMapsReason(quantified: true, mapsState: .idle)
+        XCTAssertEqual(quantifiedNet, ObjectCompositionJoin.mapsNotShownSentence)
+        XCTAssertTrue(quantifiedNet.contains("wt% or at%"))
+        XCTAssertEqual(ObjectCompositionJoin.run(objects: objects(), maps: nil, registration: identity, noMapsReason: quantifiedNet).unavailable,
+                       ObjectCompositionJoin.mapsNotShownSentence)
+        XCTAssertEqual(ObjectCompositionJoin.noMapsReason(quantified: false, mapsState: .idle), ObjectCompositionJoin.noMapsSentence)
+        XCTAssertEqual(ObjectCompositionJoin.noMapsReason(quantified: true, mapsState: .blocked("Type the k-factors.")),
+                       "The composition maps are not available: Type the k-factors.")
+        XCTAssertEqual(ObjectCompositionJoin.noMapsReason(quantified: true, mapsState: .failed("boom")),
+                       "The composition maps are not available: boom")
+        XCTAssertEqual(ObjectCompositionJoin.noMapsReason(quantified: true, mapsState: .running), "The composition maps are still being made.")
+    }
+
     private func strainMap(dropB: Int) -> StrainMap {
         var exx = [Float](repeating: 0, count: 64), eyy = exx, exy = exx, theta = exx
         var mask = [Bool](repeating: true, count: 64)

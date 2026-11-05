@@ -32,6 +32,7 @@ extension AppState {
             return
         }
         let maps = edx.quantMaps
+        let noMapsReason = ObjectCompositionJoin.noMapsReason(quantified: edx.fit != nil, mapsState: edx.mapsState)
         let registration = spectroscopy.registration
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
         let variantSettings = precipitateVariantSettings
@@ -40,7 +41,7 @@ extension AppState {
             let joins = await Task.detached(priority: .userInitiated) {
                 let variants = variantSettings.map { ObjectVariantJoin.run(objects: objects, map: phaseMap, library: library, matrixEntryIndex: matrixEntry, settings: $0) }
                 return PrecipitateJoins(
-                    composition: ObjectCompositionJoin.run(objects: objects, maps: maps, registration: registration),
+                    composition: ObjectCompositionJoin.run(objects: objects, maps: maps, registration: registration, noMapsReason: noMapsReason),
                     strain: ObjectStrainJoin.run(objects: objects, strain: strainMap),
                     variants: variants?.result, variantEndOnDirection: variants?.endOnDirection,
                     variantDirections: variants?.habitFamilies)
