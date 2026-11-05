@@ -249,14 +249,13 @@ struct PhaseMappingSections: View {
             // These are set in Å⁻¹ but met on a pixel grid, and the two can
             // silently disagree: at 0.44 of one detector pixel (measured),
             // matrix removal removes nothing and the map comes back empty.
-            // Only meaningful for `.search`'s own floors and cliff — see the
-            // footnote above.
-            if product.matching.classificationRule == .search,
-               let resolution = appState.phaseVectorResolution {
+            // Pair radius and matrix removal are used by BOTH classifiers
+            // (Known variants too: the Al–Mg–Si preset mapped Paul's bin-4
+            // cube 100 % not indexed with no warning, issue #100); only the
+            // "not indexed above" cliff is Search's own.
+            if let resolution = appState.phaseVectorResolution {
                 InspectorRow("On this detector") {
-                    Text("\(Num.fixed(Double(resolution.pairRadiusPixels), 2)) · "
-                         + "\(Num.fixed(Double(resolution.matrixRemovalPixels), 2)) · "
-                         + "\(Num.fixed(Double(resolution.notIndexedAbovePixels), 2)) px")
+                    Text(Self.detectorResolutionText(resolution, rule: product.matching.classificationRule))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)   // the advice below carries the warning, on its symbol
                         .labelsHidden()
@@ -419,6 +418,16 @@ struct PhaseMappingSections: View {
                 }
             }
         )
+    }
+
+    /// The "On this detector" row: the tolerances the classifier uses, in detector pixels. Known variants has no
+    /// "not indexed above" cliff, so it shows pair radius and matrix removal only.
+    static func detectorResolutionText(_ resolution: PhaseVectorResolution,
+                                       rule: PhaseVectorSettings.ClassificationRule,
+                                       locale: Locale = .autoupdatingCurrent) -> String {
+        var values = [resolution.pairRadiusPixels, resolution.matrixRemovalPixels]
+        if rule != .knownVariants { values.append(resolution.notIndexedAbovePixels) }
+        return values.map { Num.fixed($0, 2, locale: locale) }.joined(separator: " · ") + " px"
     }
 
     /// Materials Project is the default phase source (owner decision); the
