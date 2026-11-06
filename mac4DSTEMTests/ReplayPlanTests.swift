@@ -11,7 +11,6 @@ import CuboCore
 import DiffractoCore
 import DSTEMCore
 import DSTEMSession
-@testable import mac4DSTEM
 
 @MainActor
 final class ReplayPlanTests: XCTestCase {

@@ -4,7 +4,6 @@ import simd
 import DiffractoCore
 import DSTEMCore
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// Coverage for session S4a's Materials Project Core plumbing
 /// (`MaterialsProjectImport`, `PhaseExpectation`, and the Keychain-backed

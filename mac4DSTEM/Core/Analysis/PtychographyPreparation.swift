@@ -66,11 +66,6 @@ package nonisolated struct PtychographyProbeAberrations: Equatable, Sendable {
         self.higherOrder = higherOrder
     }
 
-    package var isZero: Bool {
-        defocusAngstrom == 0 && c12aAngstrom == 0 && c12bAngstrom == 0
-            && higherOrder.allSatisfy { $0.coefficientAngstrom == 0 }
-    }
-
     package var isValid: Bool {
         defocusAngstrom.isFinite && c12aAngstrom.isFinite && c12bAngstrom.isFinite
             && higherOrder.allSatisfy {

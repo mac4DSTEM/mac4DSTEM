@@ -12,7 +12,6 @@ import struct CuboParallax.ParallaxPhysicalShift
 import struct CuboParallax.ParallaxAberrationFitResult
 import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
 import struct CuboParallax.ParallaxAberrationTerm
-@testable import mac4DSTEM
 
 @MainActor
 final class ParallaxProgressAndCancelTests: XCTestCase {

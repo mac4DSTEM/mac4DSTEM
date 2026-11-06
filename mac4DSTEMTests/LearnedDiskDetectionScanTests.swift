@@ -12,7 +12,6 @@
 import XCTest
 import Metal
 import DSTEMCore
-@testable import mac4DSTEM
 @testable import ShellMetal
 
 /// An in-memory `FourDDataSource` over a fixed list of scan-position patterns

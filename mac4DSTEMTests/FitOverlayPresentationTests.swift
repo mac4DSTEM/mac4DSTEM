@@ -2,7 +2,6 @@ import XCTest
 import DSTEMCore
 import DiffractoGeometry
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// C5's first extraction (2026-09-07): the fit-verification overlays left
 /// `AppState` as a value over a snapshot. These pin what the move must not

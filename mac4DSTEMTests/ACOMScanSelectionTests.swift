@@ -4,7 +4,6 @@ import DSTEMSession
 import DiffractoOrientation
 import simd
 import DiffractoCore
-@testable import mac4DSTEM
 
 final class ACOMScanSelectionTests: XCTestCase {
     func testPreviewBoundsWorkAndExpandsCoarseBlocks() {

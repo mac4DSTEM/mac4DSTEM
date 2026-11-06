@@ -1,7 +1,6 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-@testable import mac4DSTEM
 
 func rdCIF(_ name: String, _ cell: [Double], _ ops: [String], _ atoms: [(String, Double, Double, Double)]) -> String {
     var s = "data_\(name)\n_cell_length_a \(cell[0])\n_cell_length_b \(cell[1])\n_cell_length_c \(cell[2])\n_cell_angle_alpha \(cell[3])\n_cell_angle_beta \(cell[4])\n_cell_angle_gamma \(cell[5])\n"

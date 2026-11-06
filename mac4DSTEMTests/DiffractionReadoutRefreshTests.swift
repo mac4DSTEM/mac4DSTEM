@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// The Diffraction readout's q must follow a Q-scale change under a pointer that has not moved (UI audit 2026-10-14: "q goes stale

@@ -1,7 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// Lane D (2026-10-02): the Info/configurator real-space preview was solid
 /// black on a cube whose patterns are each normalised to unit sum, because the

@@ -9,9 +9,7 @@
 
 import XCTest
 import DSTEMCore
-import DSTEMSession
 import ImagoCore
-@testable import mac4DSTEM
 
 final class PrecipitateTests: XCTestCase {
 

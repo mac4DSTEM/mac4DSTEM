@@ -3,7 +3,6 @@ import DSTEMCore
 import struct CuboPtycho.PtychographyArray
 import struct CuboPtycho.PtychographyPosition
 import enum CuboPtycho.SingleslicePtychography
-@testable import mac4DSTEM
 
 /// Session 5 (2026-10-21): the initial probe is CuboKit 0.6.0's `PtychographyProbe.build` (C21 to C56 and any other (n, m) term), the
 /// app's own probe builder and its Float FFT are gone. The fixture `Fixtures/Ptychography/probe-engine-baseline-881f8e0a.json`

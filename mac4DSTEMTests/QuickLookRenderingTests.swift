@@ -17,7 +17,6 @@ import CoreGraphics
 import ImageIO
 import FormatoPeek
 import DSTEMQuickLook
-@testable import mac4DSTEM
 
 final class QuickLookRenderingTests: XCTestCase {
     private func frame(_ width: Int, _ height: Int, kind: Peek.Kind = .image, _ value: (Int, Int) -> Float) -> Peek.Frame {

@@ -1,7 +1,6 @@
 import XCTest
 import SwiftUI
 import Observation
-import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 @testable import ShellMetal

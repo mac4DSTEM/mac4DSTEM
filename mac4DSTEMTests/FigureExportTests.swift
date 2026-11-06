@@ -75,7 +75,6 @@ final class FigureExportTests: XCTestCase {
         return b
     }
     private func yellow(_ r: Int, _ g: Int, _ b: Int) -> Int { max(0, (r + g) / 2 - b) }
-    private func red(_ r: Int, _ g: Int, _ b: Int) -> Int { max(0, r - (g + b) / 2) }
 
     // MARK: the layout
 
@@ -275,8 +274,6 @@ final class FigureExportTests: XCTestCase {
     // MARK: the region outline
 
     // MARK: the room's regions
-
-    private func decode(_ data: Data) -> CGImage { CGImageSourceCreateImageAtIndex(CGImageSourceCreateWithData(data as CFData, nil)!, 0, nil)! }
 
     // MARK: the Maps export
 

@@ -23,8 +23,6 @@ package nonisolated struct OrientationPlan {
     package var count: Int { library.count }
     package var geometry: ACOMTemplateLibrary.Geometry { library.geometry }
     package var zoneAxes: [SIMD3<Double>] { library.zoneAxes }
-    /// py4DSTEM-style detector bases: lab x/y/z columns in crystal coordinates.
-    package var detectorBases: [simd_double3x3] { library.detectorBases }
     /// Per template: the projected reflections the polar image was built from. The overlay that verifies a match by eye
     /// draws exactly these spots.
     package var templateSpots: [[ACOMTemplateSpot]] { library.templateSpots }
@@ -35,8 +33,6 @@ package nonisolated struct OrientationPlan {
     package var templateFFTIm: [Float] { library.templateFFTIm }
     /// Exponent applied to spot weights (py4DSTEM's `power_intensity`, 0.25); the matcher weights the measured peaks the same.
     package var intensityPower: Double { library.settings.intensityPower }
-    /// Radial width (Å⁻¹) each spot is spread over when deposited (py4DSTEM's `corr_kernel_size`).
-    package var radialKernelInvAngstrom: Double { library.settings.radialKernel }
 
     package nonisolated init(library: ACOMTemplateLibrary, symmetry: ACOMCrystalSymmetry) {
         self.library = library

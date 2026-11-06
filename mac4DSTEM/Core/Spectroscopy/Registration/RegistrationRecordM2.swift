@@ -169,12 +169,6 @@ extension MaskTransport {
     package nonisolated static func transport(mask: [Bool], registration: RegistrationRecordM2) throws -> TransportedLabels {
         try transport(mask: mask, registration: registration.gridRegistration())
     }
-
-    /// Positions of a phase map labelled `phase` (indexed or matrix verdicts, as `PhaseMap.phaseCounts`): the 4D side of a
-    /// phase pool, which names the app's `PhaseMap` and so stays here.
-    package nonisolated static func mask(phase: Int, in map: PhaseMap) -> [Bool] {
-        map.results.map { ($0.verdict == .indexed || $0.verdict == .matrix) && Int($0.phaseIndex) == phase }
-    }
 }
 
 extension PoolBuilder {

@@ -3,9 +3,6 @@
 //  SwiftUI review fixes 2026-10-07, lane A (Metal engine, Metal image view).
 //
 import XCTest
-import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 @testable import ShellMetal
 
 final class MetalViewAppliedStateTests: XCTestCase {

@@ -1,7 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// The DPC electron wavelength is DiffractoKit's `ElectronWavelength.angstroms(volts:)` (CODATA 2018), through
 /// `DPC.electronWavelengthAngstrom(voltageKV:)`; `ParallaxPreprocessor.electronWavelengthAngstrom(energyEV:)` stays py4DSTEM's

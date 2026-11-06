@@ -15,7 +15,6 @@ import CuboCore
 import DSTEMCore
 import DiffractoGeometry
 import DSTEMSession
-@testable import mac4DSTEM
 
 final class CalibrationReReferenceTests: XCTestCase {
 

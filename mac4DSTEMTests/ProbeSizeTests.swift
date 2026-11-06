@@ -435,9 +435,6 @@ private actor SatelliteFourDDataSource: FourDDataSource {
         cube = all
     }
 
-    /// The whole cube, for tests that hand it to the resident-cube pipeline.
-    func fullCube() -> [Float] { cube }
-
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
@@ -490,7 +487,6 @@ private actor DisplacedBeamFourDDataSource: FourDDataSource {
         cube = all
     }
 
-    func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
@@ -514,7 +510,6 @@ private actor ZeroFourDDataSource: FourDDataSource {
     )
     private let cube = [Float](repeating: 0, count: 2 * 2 * 16 * 16)
 
-    func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
@@ -588,7 +583,6 @@ private actor FriedelCentrosymmetricSource: FourDDataSource {
         cube = all
     }
 
-    func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {

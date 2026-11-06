@@ -6,8 +6,6 @@
 
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 final class SessionControlRehydrationTests: XCTestCase {
     func testSeriesGeometryEmptySelectionAndGaps() {

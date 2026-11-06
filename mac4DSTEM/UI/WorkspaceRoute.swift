@@ -28,15 +28,6 @@ enum WorkspaceRoute: Hashable, Identifiable {
         }
     }
 
-    /// The workspace this route lives in, whichever kind it is.
-    var area: WorkspaceArea {
-        switch self {
-        case .workspace(let area): area
-        case .task(let mode): mode.workspaceArea
-        case .spectroscopyTool: .spectroscopy
-        }
-    }
-
     /// The title the window carries while this route is selected. A task
     /// names itself; a workspace without tasks names the workspace.
     var title: String {
@@ -44,22 +35,6 @@ enum WorkspaceRoute: Hashable, Identifiable {
         case .workspace(let area): area.title
         case .task(let mode): mode.productTitle
         case .spectroscopyTool(let tool): tool.title
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .workspace(let area): area.subtitle
-        case .task(let mode): mode.productSubtitle
-        case .spectroscopyTool: WorkspaceArea.spectroscopy.subtitle
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .workspace(let area): area.systemImage
-        case .task(let mode): mode.systemImage
-        case .spectroscopyTool(let tool): tool.systemImage
         }
     }
 

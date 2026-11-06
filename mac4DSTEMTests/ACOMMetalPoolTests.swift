@@ -4,7 +4,6 @@ import simd
 import DiffractoScattering
 import DSTEMCore
 import DiffractoCore
-@testable import mac4DSTEM
 @testable import ShellMetal
 
 /// Refuter D, item 6: the autorelease pool in the Metal ACOM batch loop (DiffractoKit's since 2026-10-21), tried on a plan the lane did not use (hexagonal WS2,

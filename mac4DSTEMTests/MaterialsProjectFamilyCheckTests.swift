@@ -8,7 +8,6 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class MaterialsProjectFamilyCheckTests: XCTestCase {
 

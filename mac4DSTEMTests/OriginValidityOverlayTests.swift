@@ -1,7 +1,6 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// S23 (2026-09-30 night): the origin fit's robust-trim mask
 /// (`OriginMaps.originValidity`, ADR 033) reaches the real-space pane as data.

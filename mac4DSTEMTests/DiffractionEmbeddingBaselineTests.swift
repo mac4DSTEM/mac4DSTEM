@@ -1,8 +1,6 @@
 import XCTest
 import CuboEmbedding
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// The CuboEmbedding 0.6.0 switch (2026-10-21): the streamed covariance, `PCA.fit(covariance:)`, the vDSP
 /// `binnedVector` and k-means moved to the kit. `Fixtures/Embedding/embedding-baseline-2026-10-21.json` was written by the

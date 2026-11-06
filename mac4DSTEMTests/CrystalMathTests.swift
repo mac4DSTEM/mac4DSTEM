@@ -1,8 +1,6 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// Coverage for the shared `axisDelta` free function (`Core/Crystal/Crystal.swift`),
 /// consolidated 2026-09-17 from byte-identical bodies in `CrystalModel.swift` and

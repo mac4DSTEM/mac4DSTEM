@@ -18,10 +18,8 @@
 import XCTest
 import simd
 import DSTEMCore
-import DSTEMSession
 import DiffractoOrientation
 import DiffractoCore
-@testable import mac4DSTEM
 
 final class PhaseDiskClaimsTests: XCTestCase {
 

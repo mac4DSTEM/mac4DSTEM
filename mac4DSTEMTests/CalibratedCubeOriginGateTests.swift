@@ -1,7 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// The calibrated-cube export carries the origin gate's fields (window pull, beam stop, Friedel fallback residual and
 /// method) beside the origin maps it writes, and the opener reads them back: a calibration the gate refused reopens

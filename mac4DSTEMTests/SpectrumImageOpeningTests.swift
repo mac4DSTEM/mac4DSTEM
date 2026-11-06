@@ -149,15 +149,6 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertEqual(routed, [url])
         XCTAssertFalse(state.hasSpectrumImage)
     }
-
-    private func waitFor(_ what: String = "the room to update", timeout: TimeInterval = 20, state: () -> String = { "" },
-                         _ condition: () -> Bool) async throws {
-        let end = Date().addingTimeInterval(timeout)
-        while !condition() {
-            if Date() > end { XCTFail("timed out waiting for \(what): \(state())"); return }
-            try await Task.sleep(nanoseconds: 50_000_000)
-        }
-    }
 }
 
 /// A flag set from a detached task and read after it: the sniff seam is `@Sendable`.

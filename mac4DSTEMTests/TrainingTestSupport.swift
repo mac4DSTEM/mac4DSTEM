@@ -5,7 +5,6 @@
 //
 
 import XCTest
-import DSTEMCore
 import DSTEMTraining
 
 enum TrainingTestSupport {

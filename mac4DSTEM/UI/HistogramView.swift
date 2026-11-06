@@ -93,15 +93,4 @@ enum HistogramReadout {
         }
         return unit.isEmpty ? number : number + " " + unit
     }
-
-    /// The pixel value at a window fraction of the data range (ShellControls' rule).
-    static func edge(fraction: Float, dataMin: Float, dataMax: Float) -> Float {
-        HistogramWindowRules.edge(fraction: fraction, dataMin: dataMin, dataMax: dataMax)
-    }
-
-    /// The window fraction a typed value (in `scale` units) stands for, clamped to 0...1 and kept 0.01 clear of the other edge.
-    static func commit(typed: Float, scale: Float, other: Float, isLow: Bool,
-                       dataMin: Float = 0, dataMax: Float = 1) -> Float {
-        HistogramWindowRules.commit(typed: typed, scale: scale, other: other, isLow: isLow, dataMin: dataMin, dataMax: dataMax)
-    }
 }

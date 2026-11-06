@@ -48,8 +48,6 @@ package nonisolated struct SpectrumPool: Equatable, Sendable, Identifiable {
     package var pixelCount: Int
     /// On the spectrum image's grid, row-major.
     package var mask: PixelMask
-    /// The picker section.
-    package var section: PoolSection { kind == .group ? .groups : .phases }
 }
 
 package nonisolated struct PoolCatalogue: Equatable, Sendable {

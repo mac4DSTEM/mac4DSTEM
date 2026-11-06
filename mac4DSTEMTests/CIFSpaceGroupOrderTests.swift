@@ -1,8 +1,6 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// S13 (2026-09-30 night) — CIF trust. A CIF that names a space group by its
 /// IT number but lists FEWER symmetry operations than that group has in the

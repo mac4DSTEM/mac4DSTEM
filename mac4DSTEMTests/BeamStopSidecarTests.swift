@@ -1,7 +1,6 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// The origin gate's beam-stop test (`OriginMaps.beamStopCoversBeam`, `friedelFallbackResidualPixels`) travels with the
 /// session: a centre-of-mass origin refused under a stop stays refused after save and reopen. A session saved without

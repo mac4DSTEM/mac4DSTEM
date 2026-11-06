@@ -9,12 +9,8 @@ import ShellMetal
 import SwiftUI
 import ShellLayout
 import DSTEMCore
-import DSTEMSession
 
 extension LayoutPolicy {
-    /// The colour dot before a region's name in the EDS room's regions table (macTEM's value).
-    static let regionSwatchSize: CGFloat = 9
-
     /// Science: one panel of the A / B / A−B comparison row.
     static let comparisonPaneMinimum: CGFloat = 120
 

@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The decision rule behind `RQLegacyExportTests`. Pure: no file.
 final class RQLegacyExportLabelTests: XCTestCase {

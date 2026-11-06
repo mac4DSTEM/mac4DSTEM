@@ -1,7 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// C14 (lane Q, 2026-09-30): `OriginCalibration.windowSensitivityPixels` (CuboKit's `OriginMeasurement.windowSensitivity` since 0.7.0;
 /// the strided, byte-bounded sample is the kit's and tested there), the

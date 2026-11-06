@@ -7,7 +7,6 @@
 
 import XCTest
 import ShellLayout
-@testable import DSTEMCore
 @testable import mac4DSTEM
 
 @MainActor

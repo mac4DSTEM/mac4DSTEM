@@ -13,10 +13,8 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-import DSTEMSession
 import simd
 import DiffractoOrientation
-@testable import mac4DSTEM
 
 final class HexagonalIPFKeyTests: XCTestCase {
 

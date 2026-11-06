@@ -1,6 +1,4 @@
 import XCTest
-import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// The scale bar's plate and text are laid out in points and drawn at 1x, 2x or 3x pixels per point, so a 2x or 3x figure is the 1x

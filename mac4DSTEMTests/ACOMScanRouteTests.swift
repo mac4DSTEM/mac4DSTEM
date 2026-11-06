@@ -13,7 +13,6 @@ import DiffractoScattering
 import DiffractoCore
 import DSTEMCore
 import simd
-@testable import mac4DSTEM
 
 final class ACOMScanRouteTests: XCTestCase {
 

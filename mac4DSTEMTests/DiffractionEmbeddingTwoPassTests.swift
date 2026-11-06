@@ -10,8 +10,6 @@
 
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// Small in-memory `FourDDataSource` (row-major patterns). Redeclared rather
 /// than shared: the sibling fixtures are file-private.

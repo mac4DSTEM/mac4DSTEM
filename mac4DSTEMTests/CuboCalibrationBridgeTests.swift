@@ -5,7 +5,6 @@
 import XCTest
 import CuboCore
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class CuboCalibrationBridgeTests: XCTestCase {
     private func calibration() -> DSTEMCore.Calibration {

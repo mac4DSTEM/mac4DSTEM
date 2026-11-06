@@ -10,7 +10,6 @@
 
 import XCTest
 import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// Integer-valued, deterministic patterns, generated at SOURCE coordinates and

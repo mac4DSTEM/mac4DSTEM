@@ -23,7 +23,6 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import DSTEMTraining
-@testable import mac4DSTEM
 
 final class DetectorTrainingFlowTests: XCTestCase {
 

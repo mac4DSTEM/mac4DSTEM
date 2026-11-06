@@ -15,7 +15,6 @@ import DSTEMCore
 import DSTEMSession
 import DiffractoOrientation
 import DiffractoCore
-@testable import mac4DSTEM
 
 @MainActor
 final class PhaseClaimGuardTests: XCTestCase {

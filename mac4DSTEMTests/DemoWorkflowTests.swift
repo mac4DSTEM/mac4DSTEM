@@ -1,8 +1,6 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
 import DiffractoCore
-@testable import mac4DSTEM
 
 final class DemoWorkflowTests: XCTestCase {
     func testDemoFixturePublishesAUsableOrientationPreview() async throws {

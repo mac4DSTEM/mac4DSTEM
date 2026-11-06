@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import DSTEMCore
 import DSTEMSession
 
 /// The overlay's switches (the Precipitates section): all off by default; the glyphs are drawn only when `onPanes`.

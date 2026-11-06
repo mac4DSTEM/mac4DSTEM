@@ -11,7 +11,6 @@ import DiffractoOrientation
 import DSTEMCore
 import simd
 import DiffractoCore
-@testable import mac4DSTEM
 
 final class ACOMKitCallSiteTests: XCTestCase {
 

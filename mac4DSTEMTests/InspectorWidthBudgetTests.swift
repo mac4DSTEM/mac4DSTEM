@@ -36,11 +36,6 @@ final class InspectorWidthBudgetTests: XCTestCase {
         return host.sizeThatFits(in: CGSize(width: 1, height: 10_000)).width
     }
 
-    private func naturalWidth<V: View>(_ view: V, state: AppState) -> CGFloat {
-        let host = NSHostingController(rootView: view.environment(state).environment(state.preferences))
-        return host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).width
-    }
-
     private func assertFits(_ name: String, _ width: CGFloat,
                             file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertGreaterThan(width, 10, "\(name): the probe measured nothing (\(width) pt)", file: file, line: line)

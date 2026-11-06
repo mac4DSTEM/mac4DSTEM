@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// Calibration numbers against py4DSTEM f050d207 (0.14.19). The fields and patterns in `Fixtures/Calibration/` were
 /// written by the scripts beside them; the public Al-Mg-Si demo is `AlMgSi_demo.h5` (100 x 100 x 128 x 128, uint16).

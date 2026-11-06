@@ -5,7 +5,6 @@
 
 import Foundation
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// A process-lifetime store with no persistence: the tests' `APIKeyStore`, so no test reads or writes the real Keychain item.
 nonisolated final class InMemoryAPIKeyStore: APIKeyStore, @unchecked Sendable {
