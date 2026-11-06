@@ -85,6 +85,39 @@ Sparkle. Output: `build/release/<stamp>/store/mac4DSTEM.pkg`.
   Without it the run stops after the checks.
 - A second upload of the same version needs a new build number: `STORE_BUILD_NUMBER=2 tools/release.sh --store --upload`.
 
+### The App Store submission, as it ran for 5.2.0 (2026-11-06)
+
+Two channels from one tag: the notarized DMG on the GitHub release and mac4dstem.com, and the Mac App Store. Both are
+built in the same checkout of the release tag, so they carry the same source and version.
+
+App Store Connect record: bundle ID `com.mac4dstem.mac4DSTEM`, Apple ID 6831377995, SKU `mac4dstem-macos`; free in all
+territories; Education, secondary Productivity; age rating 4+; App Privacy "Data Not Collected"; manual release after
+approval. The listing texts and every other field are in `docs/app-store/`.
+
+1. Merge the Release PR; release-please tags `vX.Y.Z` and writes the GitHub release.
+2. Check out the tag in its own worktree and run `tools/release.sh`; verify the DMG (`xcrun stapler validate`,
+   `spctl -a -t open --context context:primary-signature -v`, the version, SHA-256) and attach
+   `mac4DSTEM-X.Y.Z.dmg` and `mac4DSTEM.dmg` to the GitHub release.
+3. In the same worktree run `tools/release.sh --store --upload`. The release owner starts the first run, since it
+   creates the distribution certificates on the account. The upload needs an App Store Connect team API key (role
+   App Manager); the account must have API access enabled under Users and Access > Integrations first. The key file
+   stays in `~/.appstoreconnect/private_keys/`; the key, its ID and the issuer ID never go into the repository, an
+   issue or a log.
+4. Wait until Apple has processed the build (`xcrun altool --build-status --delivery-id <uuid> --wait`, with the
+   delivery UUID the upload printed), then select it on the version page. The build declares no non-exempt encryption,
+   so no export-compliance question follows.
+5. Fill the version page from `docs/app-store/`, add the screenshots and App Previews, set each preview's poster
+   frame once Apple has processed it, then Add for Review and Submit for Review.
+6. After approval, release the version by hand in App Store Connect.
+
+5.2.0: tag `v5.2.0`; DMG 17 740 505 bytes, SHA-256 `488a2ca60fac99ab3323655a6ad2fada679614b29e9bcb978d5c5457e515c797`;
+store build 5.2.0 (10), uploaded and submitted on 2026-11-06.
+
+Lessons: `altool --validate-app` took 12 minutes, so run it in the background; App Store Connect refuses screenshots
+with an alpha channel and previews without an audio track; nothing on the command line waits for preview processing.
+Not done before submitting: a drive of the store build itself (checked instead: the source at the tag, and sandbox
+entitlements equal to the DMG build's).
+
 ## Before using credentials
 
 Run the complete gate from the repository root:
