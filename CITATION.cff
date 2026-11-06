@@ -20,7 +20,7 @@ authors:
 version: 5.0.1
 date-released: "2026-10-23"
 license: GPL-3.0-only
-repository-code: https://github.com/mac4DSTEM/mac4DSTEM
+repository-code: https://github.com/macEMSuite/mac4DSTEM
 url: https://mac4dstem.com
 keywords:
   - 4D-STEM

@@ -5,7 +5,7 @@
 4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDS spectrum images, worked
 on interactively instead of in scripts.
 
-mac4DSTEM is the companion to [macTEM](https://github.com/mac4DSTEM/macTEM). Both are free, open source and built for
+mac4DSTEM is the companion to [macTEM](https://github.com/macEMSuite/macTEM). Both are free, open source and built for
 Apple silicon.
 
 <p align="center">
@@ -15,8 +15,8 @@ Apple silicon.
 ## Download
 
 Get the signed and notarised DMG:
-[mac4DSTEM.dmg](https://github.com/mac4DSTEM/mac4DSTEM/releases/latest/download/mac4DSTEM.dmg) (all versions are on the
-[releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases)). It needs macOS 26 or later on an Apple silicon Mac.
+[mac4DSTEM.dmg](https://github.com/macEMSuite/mac4DSTEM/releases/latest/download/mac4DSTEM.dmg) (all versions are on the
+[releases page](https://github.com/macEMSuite/mac4DSTEM/releases)). It needs macOS 26 or later on an Apple silicon Mac.
 Everything it needs is inside the app.
 
 ## What it does
@@ -45,12 +45,12 @@ Every quantity keeps its calibration and where it came from through display, exp
 The 4D-STEM methods are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and checked against it, pinned at
 commit `f050d207` (version 0.14.19). Where the app departs from py4DSTEM the source says so in a `DEVIATION` note with
 the reason. The rest is computed by the suite's Swift packages, each checked against the Python package it ports:
-[CuboKit](https://github.com/mac4DSTEM/CuboKit) (the 4D-STEM core),
-[DiffractoKit](https://github.com/mac4DSTEM/DiffractoKit) (crystallography and orientation),
-[SpectroKit](https://github.com/mac4DSTEM/SpectroKit) (EDS),
-[FormatoKit](https://github.com/mac4DSTEM/FormatoKit) (file readers),
-[ImagoKit](https://github.com/mac4DSTEM/ImagoKit) (FFT and image maths) and
-[MacEMUI](https://github.com/mac4DSTEM/MacEMUI) (the window and controls both apps share). Every export names the method a
+[CuboKit](https://github.com/macEMSuite/CuboKit) (the 4D-STEM core),
+[DiffractoKit](https://github.com/macEMSuite/DiffractoKit) (crystallography and orientation),
+[SpectroKit](https://github.com/macEMSuite/SpectroKit) (EDS),
+[FormatoKit](https://github.com/macEMSuite/FormatoKit) (file readers),
+[ImagoKit](https://github.com/macEMSuite/ImagoKit) (FFT and image maths) and
+[MacEMUI](https://github.com/macEMSuite/MacEMUI) (the window and controls both apps share). Every export names the method a
 result came from and its reference.
 
 Which function is checked against what, and to which tolerance, is in [`docs/parity.md`](docs/parity.md); speed

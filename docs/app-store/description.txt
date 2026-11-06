@@ -23,6 +23,6 @@ YOUR DATA STAYS ON YOUR MAC
 No account, no analytics, no telemetry. Datasets and results are read from and written to your own storage only. The one network request is an optional Materials Project lookup that you start yourself, with your own API key, which is kept in the macOS Keychain.
 
 OPEN SOURCE
-mac4DSTEM is free software under GPL-3.0. The source, the issue tracker and the tolerance each function is checked to are at github.com/mac4DSTEM/mac4DSTEM.
+mac4DSTEM is free software under GPL-3.0. The source, the issue tracker and the tolerance each function is checked to are at github.com/macEMSuite/mac4DSTEM.
 
 Requires a Mac with Apple silicon.

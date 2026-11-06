@@ -15,6 +15,6 @@ In Crystal Maps, the phase picker has a "Materials Project…" button that fetch
 No account, sign-in or purchase is needed anywhere in the app.
 
 Open source:
-mac4DSTEM is free software under GPL-3.0. Source: https://github.com/mac4DSTEM/mac4DSTEM
+mac4DSTEM is free software under GPL-3.0. Source: https://github.com/macEMSuite/mac4DSTEM
 
 Contact: mail@mac4dstem.com
