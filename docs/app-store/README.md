@@ -17,3 +17,18 @@ One plain UTF-8 file per App Store Connect field. Counts are characters (`wc -m`
 - `review-notes.txt`: 1371 / 4000
 
 Every claim comes from the README, CHANGELOG or mac4dstem.com as of 2026-11-05; nothing from the roadmap.
+
+## State
+
+5.2.0 is the first version in App Store Connect (Apple ID 6831377995): build 5.2.0 (10) uploaded and submitted for
+review on 2026-11-06, set to manual release. The steps are in `tools/release/README.md`, "The App Store submission".
+
+## Media
+
+Three screenshots and three App Previews, all from the public py4DSTEM Si/SiGe tutorial dataset. The master files are
+kept outside this repository, in the maintainer's private release archive, together with their SHA-256 checksums.
+
+- Screenshots, 2880 × 1800 PNG, Display P3, no alpha channel, in store order: strain ε_xx over the SiGe layers; Bragg
+  disks with the Bragg vector map; virtual annular dark field.
+- App Previews, 1920 × 1080, 30 fps, H.264, silent stereo track, each about 25 s, in store order: "Both spaces, live"
+  (poster frame at 10 s), "Open only what you need" (16 s), "From disks to maps" (17 s).
