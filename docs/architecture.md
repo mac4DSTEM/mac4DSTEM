@@ -1,7 +1,7 @@
 # Architecture
 
-What the app is made of, how the layers depend on each other, where a new
-file goes, and where the consolidation is taking the ownership model. Product
+What the app is made of, how the layers depend on each other and where a new
+file goes. Product
 scope is `README.md` and `CHANGELOG.md`.
 
 ## Layers and the dependency rule
@@ -27,8 +27,7 @@ moment `Core/` reaches upward into `App/`, `UI/` or `Support/` — run as
 `tools/run-tests.sh core`. The Xcode app target does not compile them a
 second time: an explicit exception list in `project.pbxproj` excludes every
 `Core/`/`Session/` file from the app target, which links the packages
-instead. A `Session/` file missing from that list is compiled into both
-(`DPCProduct.swift` and `DiskDetectionProduct.swift` were, until 2026-10-12);
+instead. A `Session/` file missing from that list is compiled into both;
 check `mac4DSTEM.SwiftFileList` under DerivedData. Declarations use the `package` access level throughout (app
 and test targets set `SWIFT_PACKAGE_NAME = "$(SRCROOT:file:lower:c99extidentifier)"`, the identity SwiftPM gives the local package from the checkout folder, so a clone in any folder builds; `tools/run-tests.sh inventory` refuses a literal name); a file compiled into
 both the app target and a standalone `tools/` harness guards the imports
@@ -358,8 +357,7 @@ Distribution always uses hardened Release (`tools/release/README.md`). HDF5 acce
 serialised process-wide by a lock, not an actor: `HDF5Serial`
 (FormatoKit's `HDF5Serial`, public in `FormatoHDF5`; one lock per process, `HDF5SingleLibraryTests`) is acquired and released around every
 `H5Reader` public method's body, recursive so a nested entry does not
-deadlock and never held across an `await`. The three redistributed dylibs came from Homebrew
-`hdf5 2.1.1` / `libaec 1.1.7` on one machine; nothing in the repo rebuilds them.
+deadlock and never held across an `await`. The HDF5, SZ and AEC binaries are FormatoKit's signed frameworks (its `NOTICE` says where they come from).
 
 ## Known limitations
 
@@ -373,7 +371,7 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
   probe-size fallback can look usable where py4DSTEM would return NaN.
 - No non-Metal fallback; `MetalEngine` (MacEMUI) fails fatally without a device.
 - R–Q rotation has an inherent 180° ambiguity (Flip 180° in Calibration).
-- MIB/EMPAD readers are Preview until real vendor acquisitions are supplied.
+- The MIB and EMPAD readers are less tested than the EMD and DM ones: no real vendor acquisition is in the fixtures.
 - Bundle identifier `com.mac4dstem.mac4DSTEM` keys the sandbox container and
   bookmarks; it cannot change again without breaking existing installs.
 
@@ -386,8 +384,6 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
   readers are actors; long analyses guard publication with dataset epoch and
   operation token. Never conscript the main thread with `concurrentPerform`
   (the frozen-Detect-All-Disks lesson).
-- A stale DerivedData test bundle can fake a pass and a surviving mutation: reconcile the case count against
-  `func test` per file, check which `XCTestCase` class a new test landed in, and grep the log for its own name.
 - Debug builds compile the app module AND the `DSTEMCore`/`DSTEMSession` packages at
-  `-O` (the packages since 2026-09-30, `Package.swift`), so interactive science is never
+  `-O` (`Package.swift`), so interactive science is never
   run or benchmarked at `-Onone` — the Friedel origin pass was 93× slower there.

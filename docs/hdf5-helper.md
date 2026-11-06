@@ -1,6 +1,6 @@
 # libhdf5 in a helper process
 
-Status: accepted 2026-10-29 (the owner's decision); this page is the design. Slice 1 lands with it.
+Status: the design, accepted 2026-10-29. Slice 1 (the XPC service `HDF5Helper`, off by default behind `HDF5ReadsInHelper`, #56) ships since 5.1.0; the later slices are open.
 
 ## Why
 
