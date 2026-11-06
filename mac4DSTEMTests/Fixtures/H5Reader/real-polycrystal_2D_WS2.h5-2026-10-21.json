@@ -1,6 +1,6 @@
 {
   "polycrystal_2D_WS2.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(1.0), rUnits: Optional(\"pixels\"), qSize: Optional(1.0), qUnits: Optional(\"pixels\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(1.0), rUnits: Optional(\"pixels\"), qSize: Optional(1.0), qUnits: Optional(\"pixels\"), qrFlip: nil, qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "nil",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (128, 0) is outside the loaded view\")",

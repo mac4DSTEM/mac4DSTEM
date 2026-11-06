@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App
 
 ## Unreleased
 
+- Test fixtures: the ten real-file H5Reader baselines (`mac4DSTEMTests/Fixtures/H5Reader/real-*.json`, read only on a Mac
+  with the data) print the calibration's `ellipseRefusalNote: nil` field added in #82. No value moved.
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
   button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
 
