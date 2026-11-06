@@ -1,8 +1,6 @@
 import Foundation
 import DSTEMCore
-import DSTEMSession
 import XCTest
-@testable import mac4DSTEM
 
 final class AnalysisOperationControllerTests: XCTestCase {
     func testReplacementCancelsOldTokenAndRejectsLateFinish() {

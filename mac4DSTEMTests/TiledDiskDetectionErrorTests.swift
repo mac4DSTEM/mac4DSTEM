@@ -11,8 +11,6 @@
 
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// A 4D source whose tile reads fail from a given scan row on — the shape of
 /// a NAS that drops out mid-detection. Rows before `failFromRow` read as

@@ -14,8 +14,6 @@
 import XCTest
 import MachO
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 import FormatoEMD
 import FormatoHDF5
 

@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The call sites of the CuboStrain / CuboPhase switch (2026-10-20): what the app asks of the kit and what it keeps when the
 /// kit refuses. The kit's own numbers are pinned in CuboKit; these pin the app's adaptation.

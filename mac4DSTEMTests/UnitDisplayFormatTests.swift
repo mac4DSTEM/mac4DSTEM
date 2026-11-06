@@ -5,7 +5,6 @@
 
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class UnitDisplayFormatTests: XCTestCase {
     /// "[pix]" (a bullseye file's own spelling) is a pixel unit and shows as "px".

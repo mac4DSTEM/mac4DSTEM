@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The CuboStrain 0.6.0 consensus switch (2026-10-21): `estimateLatticeBasis` takes its support/residual/condition/tolerance from
 /// `LatticeStrain.chooseBasisConsensusResult` and the reference's inliers from `referenceMADResult`. The baseline

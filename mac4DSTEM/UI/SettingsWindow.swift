@@ -50,7 +50,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct SettingsWindow: View {
-    @Environment(AppPreferences.self) private var preferences
     @State private var selection: SettingsSection? = .general
     /// Hoisted out of `MaterialsProjectSettingsView`, which the `switch`
     /// below rebuilds (a fresh `@State` each time, discarding the local one)

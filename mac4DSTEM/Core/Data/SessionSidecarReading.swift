@@ -448,10 +448,6 @@ nonisolated extension BraggVectorEMDWriter {
         try loadSession(from: url).inventory
     }
 
-    package static func loadResultMap(from url: URL) throws -> ScalarResultMap? {
-        try loadSession(from: url).currentResult
-    }
-
     package static func loadResultMap(
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema

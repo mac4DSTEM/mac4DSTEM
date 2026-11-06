@@ -161,14 +161,6 @@ struct ImagingSettings: View {
         }
     }
 
-    static func symbol(_ shape: RegionShape) -> String {
-        switch shape {
-        case .point: "smallcircle.filled.circle"
-        case .rectangle: "square"
-        case .circle: "circle"
-        }
-    }
-
     /// The three preset buttons; `showsGlyph` false is the narrow fallback.
     @ViewBuilder
     private func presetButtons(showsGlyph: Bool) -> some View {

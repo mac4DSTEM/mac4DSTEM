@@ -1,11 +1,9 @@
 import XCTest
-import DSTEMCore
 import DiffractoGeometry
 // swiftlint:disable duplicate_imports
 // swiftformat:disable:next duplicateImports
 import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 // swiftlint:enable duplicate_imports
-@testable import mac4DSTEM
 
 /// `EllipseCalibration.fit1D`'s Levenberg-Marquardt loop (2026-10-12) once
 /// tested convergence only after an ACCEPTED step. At the optimum the cost

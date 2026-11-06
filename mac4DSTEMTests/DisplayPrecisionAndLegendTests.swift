@@ -7,7 +7,6 @@
 import ShellControls
 import XCTest
 import DSTEMCore
-import DSTEMSession
 import DiffractoOrientation
 @testable import mac4DSTEM
 @testable import ShellMetal

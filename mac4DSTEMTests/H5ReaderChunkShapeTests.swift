@@ -6,7 +6,6 @@
 
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class H5ReaderChunkShapeTests: XCTestCase {
     private struct LayoutReadFailed: Error {}

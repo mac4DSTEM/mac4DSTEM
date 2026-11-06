@@ -29,8 +29,6 @@ package nonisolated struct FourDScanTile: Sendable {
     package let detectorWidth: Int
     package let pixels: [Float]
 
-    package var rowCount: Int { yRange.count }
-
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(yRange: Range<Int>, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, pixels: [Float]) {
         self.yRange = yRange

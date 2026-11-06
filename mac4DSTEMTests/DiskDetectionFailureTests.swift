@@ -6,7 +6,6 @@
 
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// A cube held in memory, for a full scan without a file.
 private actor CubeFixtureSource: FourDDataSource {

@@ -2,8 +2,6 @@ import XCTest
 import DiffractoCore
 import DiffractoScattering
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// Coverage for `CIFImport`: the local-file CIF parser that produces a
 /// validated `.imported` `CrystalModel`. Every fixture is a real CIF text

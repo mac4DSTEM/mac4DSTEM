@@ -27,22 +27,10 @@ extension ACOMMatcher {
               invAngstromPerPixel: invAngstromPerPixel)
     }
 
-    package nonisolated func templateScores(peaks: [BraggPeak], originX: Float, originY: Float,
-                                            invAngstromPerPixel: Double = 1) -> [Float] {
-        templateScores(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
-                       invAngstromPerPixel: invAngstromPerPixel)
-    }
-
     package nonisolated func experimentalPolarImage(peaks: [BraggPeak], originX: Float, originY: Float,
                                                     invAngstromPerPixel: Double = 1) -> [Float]? {
         experimentalPolarImage(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
                                invAngstromPerPixel: invAngstromPerPixel)
-    }
-
-    package nonisolated func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
-                                             invAngstromPerPixel: Double = 1) -> (re: [Float], im: [Float])? {
-        experimentalFFT(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
-                        invAngstromPerPixel: invAngstromPerPixel)
     }
 }
 

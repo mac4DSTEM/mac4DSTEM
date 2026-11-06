@@ -16,7 +16,6 @@ import SpectroEDX
 import ShellEDXModel
 
 final class ObjectJoinsTests: XCTestCase {
-    private let n = 8
     private let rowsA = [1, 2, 3], colsA = [1, 2]
     private let rowsB = [5, 6], colsB = [5, 6]
     private let rowsC = [1, 2], colsC = [5, 6]

@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// The history plots print their axes: the y range of the finite samples and what x counts (audit 2026-10-14, "History plots have

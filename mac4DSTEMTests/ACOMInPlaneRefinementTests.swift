@@ -6,7 +6,6 @@ import DiffractoOrientation
 import DSTEMCore
 import DSTEMSession
 import DiffractoCore
-@testable import mac4DSTEM
 
 final class ACOMInPlaneRefinementTests: XCTestCase {
 

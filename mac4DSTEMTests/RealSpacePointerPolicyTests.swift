@@ -1,6 +1,4 @@
 import XCTest
-import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// Backlog #35 — who owns a plain drag in the real-space pane.

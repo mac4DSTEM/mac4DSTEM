@@ -1,7 +1,6 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
-@testable import mac4DSTEM
 
 /// The origin gate's window pull (`OriginMaps.windowPullBoundPixels`, 2026-10-31) travels with the session: a refused
 /// fit must stay refused after save and reopen, and after a crop or bin re-reference. A session saved before the value

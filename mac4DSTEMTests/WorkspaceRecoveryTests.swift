@@ -2,7 +2,6 @@ import Foundation
 import DSTEMCore
 import DSTEMSession
 import XCTest
-@testable import mac4DSTEM
 
 final class WorkspaceRecoveryTests: XCTestCase {
     func testRecoveryRecordCodableRoundTrip() throws {

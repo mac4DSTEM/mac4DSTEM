@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// mac4DSTEM#138: the origin from the Bragg peaks when a reflection is brighter than the direct beam (the Si/SiGe case),
 /// where the brightest peak is the reflection and the centre of mass sits between the two. Planted peaks: a direct beam

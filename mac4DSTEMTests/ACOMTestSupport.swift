@@ -10,7 +10,6 @@ import DiffractoOrientation
 import DSTEMCore
 import DiffractoScattering
 import simd
-@testable import mac4DSTEM
 
 extension OrientationPlan {
     static func project(reflections: [KinematicReflection], zoneAxis n: SIMD3<Double>,

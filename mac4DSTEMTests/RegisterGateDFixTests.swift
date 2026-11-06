@@ -9,7 +9,6 @@
 import XCTest
 import struct CuboBragg.BraggDetector
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// D025: the real-space circle mask sat on the pixel CORNER (R 5 at (30, 30):
 /// 88 pixels, centroid (30.5, 30.5)) while the drawn ring is centred on the

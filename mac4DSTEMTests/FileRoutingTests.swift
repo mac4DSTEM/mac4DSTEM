@@ -61,13 +61,6 @@ final class FileRoutingTests: XCTestCase {
 
     // MARK: .msa through the room
 
-    private func plantedCounts() -> [Double] {
-        var out = [Double](repeating: 0, count: 1024)
-        for i in 0..<1024 { out[i] = Double(50 + i % 37) }
-        out[148] += 4000
-        return out
-    }
-
     func testAMSAWithNegativeCountsIsRefused() throws {
         let data = try FileRouting.msaData(counts: [1, -2, 3], offsetKeV: 0, scaleKeV: 0.01, title: "bad", beamEnergyKeV: nil)
         let path = dir.appendingPathComponent("bad.msa").path

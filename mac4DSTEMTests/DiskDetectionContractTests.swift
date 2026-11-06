@@ -1,7 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 final class DiskDetectionContractTests: XCTestCase {
     /// ADR 041 (Gate D 2026-09-28): the shipped floor is 0.15 %, a DEVIATION

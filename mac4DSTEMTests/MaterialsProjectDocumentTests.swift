@@ -13,7 +13,6 @@ import simd
 import DiffractoCore
 import DiffractoScattering
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class MaterialsProjectDocumentTests: XCTestCase {
 

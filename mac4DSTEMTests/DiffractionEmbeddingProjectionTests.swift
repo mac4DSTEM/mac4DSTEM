@@ -1,6 +1,5 @@
 import CuboEmbedding
 import XCTest
-import DSTEMCore
 
 /// Gate D, 2026-09-28:
 /// the projection moved to `vDSP_vsub` + `vDSP_dotpr`. The old loop is kept

@@ -1,8 +1,6 @@
 import XCTest
 import DiffractoCore
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// D006 — a multi-`data_` CIF was merged into one crystal (cell values
 /// last-wins, atom sites and symmetry operations concatenated across blocks).

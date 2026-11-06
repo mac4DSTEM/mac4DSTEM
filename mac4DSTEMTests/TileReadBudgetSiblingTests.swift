@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 
 /// Slot 4¾ lane L (pre-release review d1 residual, 2026-10-02).

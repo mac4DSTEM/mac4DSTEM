@@ -3,7 +3,6 @@
 
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class CalibrationReadinessLocaleTests: XCTestCase {
     private func report(_ locale: Locale) -> CalibrationReadinessReport {

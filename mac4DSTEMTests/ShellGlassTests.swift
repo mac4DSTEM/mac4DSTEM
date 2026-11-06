@@ -6,7 +6,6 @@
 //
 
 import XCTest
-@testable import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 

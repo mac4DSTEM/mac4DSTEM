@@ -59,32 +59,8 @@ extension MapScaleBar {
     }
 }
 
-/// A bitmap of `width x height` pixels from a per-pixel colour, drawn scaled with nearest-neighbour sampling: a map is one
-/// image draw, not a path per scan pixel.
+/// What the Maps PNGs and the exported figures draw the same way.
 enum MapBitmap {
-    static func image(width: Int, height: Int, pixel: (Int) -> (UInt8, UInt8, UInt8)) -> CGImage? {
-        guard width > 0, height > 0 else { return nil }
-        var bytes = [UInt8](repeating: 255, count: width * height * 4)
-        for i in 0..<(width * height) {
-            let c = pixel(i)
-            bytes[i * 4] = c.0; bytes[i * 4 + 1] = c.1; bytes[i * 4 + 2] = c.2
-        }
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
-        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-                       space: CGColorSpaceCreateDeviceRGB(),
-                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-                       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
-    }
-    /// The bitmap as PNG bytes at its own pixel grid (no resampling, no chrome); nil if the encoder refuses. The Maps export's one encoder.
-    /// `pixelScale` 2 or 3 tags the file 144 or 216 pixels per inch (`AppState.pngDensity`), so it is placed at the 1x size.
-    static func pngData(_ image: CGImage, pixelScale: Int = 1) -> Data? {
-        let out = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(dest, image, AppState.pngDensity(pixelScale: pixelScale) as CFDictionary?)
-        return CGImageDestinationFinalize(dest) ? out as Data : nil
-    }
-    static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
-
     /// The bar and its label in the bottom-left corner of whatever `ctx` is drawing into (y up, origin at that corner), the
     /// one drawing the Maps PNGs and the exported figures share. False if the label cannot be made.
     @discardableResult

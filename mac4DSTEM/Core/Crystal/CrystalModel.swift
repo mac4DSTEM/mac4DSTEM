@@ -111,8 +111,6 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     /// when under `closeContactLimit` (0.5 Å, below the shortest interatomic contact known in any crystal): the kit's
     /// `CrystalStructure.shortestCloseContact`, the app's algorithm moved out unchanged. Split sites (occupancies
     /// summing to at most 1.02) are skipped.
-    package static let closeContactLimit = CrystalStructure.closeContactLimit
-
     package var shortestCloseContact: Double? { structure.shortestCloseContact }
 
     package var isUsable: Bool { validationIssues.isEmpty }

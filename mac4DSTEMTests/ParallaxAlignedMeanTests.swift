@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// Lane R4 (2026-10-01), the aligned bright field's "edge vignette" on py4DSTEM's graphene cube: `ParallaxAligner.alignNextLevel` took the
 /// whole-stack mean as `Double(stack.reduce(0, +)) / n`, whose `reduce` sums in Float and stalls at 2^24 - the freeze D021 fixed in

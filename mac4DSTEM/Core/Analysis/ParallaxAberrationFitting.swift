@@ -56,20 +56,6 @@ package nonisolated enum ParallaxAberrationFitter {
         }
     }
 
-    package static func defaultTerms(
-        maxRadialOrder: Int = 3,
-        maxAngularOrder: Int = 4,
-        minRadialOrder: Int = 2,
-        minAngularOrder: Int = 0
-    ) throws -> [ParallaxAberrationTerm] {
-        try bridged {
-            try CuboParallax.ParallaxAberrationFitter.defaultTerms(
-                maxRadialOrder: maxRadialOrder, maxAngularOrder: maxAngularOrder,
-                minRadialOrder: minRadialOrder, minAngularOrder: minAngularOrder
-            )
-        }
-    }
-
     /// Default recursive higher-order fit from py4DSTEM `aberration_fit` (CuboParallax's `fitHigherOrder`), with the gradient basis
     /// evaluated at the angles the affine fit used (`.selectedCentroid`).
     ///
@@ -100,21 +86,6 @@ package nonisolated enum ParallaxAberrationFitter {
                 },
                 scanSampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
                 basisAngles: angles, options: kit
-            )
-        }
-    }
-
-    /// Row-major `[sample, term]` pairs of (dchi/du, dchi/dv). The derivatives
-    /// intentionally omit the phase-only global scale, matching py4DSTEM.
-    package static func gradientSamples(
-        probeAnglesMrad: [ParallaxVector],
-        rotationRad: Double,
-        terms: [ParallaxAberrationTerm]
-    ) throws -> [(Double, Double)] {
-        try bridged {
-            try CuboParallax.ParallaxAberrationFitter.gradientSamples(
-                probeAngles: radians(probeAnglesMrad), rotationRad: rotationRad,
-                terms: terms
             )
         }
     }

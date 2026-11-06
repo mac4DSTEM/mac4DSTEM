@@ -26,10 +26,7 @@
 //
 
 import XCTest
-import DSTEMCore
-import DSTEMSession
 import MetalKit
-@testable import mac4DSTEM
 @testable import ShellMetal
 
 final class MetalLayerScaleTests: XCTestCase {

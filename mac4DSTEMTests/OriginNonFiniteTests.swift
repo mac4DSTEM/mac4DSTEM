@@ -11,7 +11,6 @@ import XCTest
 import CuboCore
 import CuboVirtual
 import DSTEMCore
-@testable import mac4DSTEM
 
 final class OriginNonFiniteTests: XCTestCase {
 

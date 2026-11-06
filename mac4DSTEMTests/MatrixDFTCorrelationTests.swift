@@ -16,7 +16,6 @@ import XCTest
 import struct CuboParallax.ParallaxShift
 import struct CuboParallax.ParallaxSpectrum
 import enum CuboParallax.ParallaxAlignment
-@testable import mac4DSTEM
 
 final class MatrixDFTCorrelationTests: XCTestCase {
 

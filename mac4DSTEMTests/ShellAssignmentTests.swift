@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The ring-sequence assignment of the known-crystal Q calibration, against planted truth (calibration design 2026-10-22, section 6).
 /// No Python reference exists for it; every number below is a closed form.

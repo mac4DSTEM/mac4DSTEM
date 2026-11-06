@@ -14,8 +14,6 @@
 import XCTest
 import CuboEmbedding
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// An in-memory `FourDDataSource` over a fixed list of scan-position patterns
 /// (row-major) — the same shape as `LearnedDiskDetectionScanTests`'

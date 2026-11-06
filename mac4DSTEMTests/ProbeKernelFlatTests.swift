@@ -1,6 +1,5 @@
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The FLAT measured-kernel mode (py4DSTEM `get_probe_kernel_flat`): the
 /// probe normalised to unit sum and Fourier-shifted so its centre lands on

@@ -2,7 +2,6 @@ import XCTest
 import DiffractoCore
 import DiffractoScattering
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The family check against an external oracle (2026-10-15, macTEM's refuter finding: compare against py4DSTEM or
 /// pymatgen, never the Swift against itself). `Fixtures/py4dstem-preset-reflections.json` is written by

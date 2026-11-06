@@ -13,7 +13,6 @@
 import XCTest
 import CoreML
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// The Swift fixture, shared by the three learned-detector test files.
 struct LearnedSwiftFixture {

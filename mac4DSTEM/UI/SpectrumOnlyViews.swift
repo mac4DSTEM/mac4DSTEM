@@ -102,25 +102,10 @@ struct SpectrumImageInfoSection: View {
 }
 
 enum SpectroscopyPlaceholderFormat {
-    /// A spectrum image beside a 4D cube is not registered to its scan: the
-    /// registration record (M2, ADR 053 item 4) comes with WP3, and until then
-    /// no pixel of one may be read as a pixel of the other.
-    static func registrationNote(hasFourDCube: Bool) -> String? {
-        hasFourDCube ? unregisteredNote : nil
-    }
-
-    /// The sentence a spectrum image beside a 4D cube carries until a registration exists (one place for the note and the source row).
-    static let unregisteredNote = "Not registered to the 4D scan: a pixel of one is not a pixel of the other."
-
     /// "az 45° · el 18° · 0.7 sr (as stored)": only what the file wrote.
     static func detector(_ d: SpectrumDetectorSegment) -> String {
         [d.azimuthDegrees.map { String(format: "az %.0f°", locale: .autoupdatingCurrent, $0) }, d.elevationDegrees.map { String(format: "el %.0f°", locale: .autoupdatingCurrent, $0) },
          d.solidAngle.map { "\($0.formatted()) sr" }].compactMap { $0 }.joined(separator: " · ")
-    }
-
-    /// "64 × 64 px · 2048 channels · 0–20.48 keV".
-    static func summary(_ m: SpectrumImageMetadata) -> String {
-        "\(m.scanWidth) × \(m.scanHeight) px · \(m.channelCount) channels · \(energyAxis(m))"
     }
 
     /// The axis as the file states it, first channel to the end of the last.
@@ -155,18 +140,5 @@ enum SpectroscopyPlaceholderFormat {
             v.map { "\(name) \(number($0, fraction: 1...1, locale: locale))\u{00B0}" }
         }
         return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
-    }
-
-    /// "4 187,7 s \u{00B7} real 1 423,1 s": the detectors' live time (a range when the segments differ), then the real time when
-    /// the file has one; nil when no detector carries a live time (semantics as stored, unverified).
-    static func liveTime(_ m: SpectrumImageMetadata, locale: Locale = .current) -> String? {
-        func span(_ values: [Double]) -> String? {
-            guard let lo = values.min(), let hi = values.max() else { return nil }
-            let a = number(lo, fraction: 1...1, locale: locale)
-            return lo == hi ? a : a + "\u{2013}" + number(hi, fraction: 1...1, locale: locale)
-        }
-        guard let live = span(m.detectors.compactMap(\.liveTime)) else { return nil }
-        let real = span(m.detectors.compactMap(\.realTime)).map { " \u{00B7} real \($0) s" } ?? ""
-        return live + " s" + real
     }
 }

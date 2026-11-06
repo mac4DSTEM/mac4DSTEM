@@ -1,8 +1,6 @@
 import XCTest
 import CuboCore
 import DSTEMCore
-import DSTEMSession
-@testable import mac4DSTEM
 
 /// The consumer side of the CuboKit 0.0.3 switch (C1 and C2, 2026-10-15, tier 1). The kit holds its own algorithms
 /// against py4DSTEM; these tests hold what the APP does around them: which pixel is which (row and column), what an

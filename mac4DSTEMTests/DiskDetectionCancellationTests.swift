@@ -6,7 +6,6 @@
 
 import XCTest
 import DSTEMCore
-@testable import mac4DSTEM
 
 /// A cube held in memory, read through the app's `FourDArray` as a file would be.
 private actor CancellationCubeSource: FourDDataSource {

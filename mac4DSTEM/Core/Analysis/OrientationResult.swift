@@ -243,9 +243,6 @@ package nonisolated struct OrientationMap {
         plane(OrientationMapAnalysis.symmetryDisorientationPlane(results))
     }
 
-    /// Symmetry-specific inverse-pole-figure color for sample Z (beam).
-    package var ipfZImage: RGBAImage { ipfZImage(maskingReliabilityBelow: nil) }
-
     /// The reliability value below which the given fraction of MATCHED positions falls (0.1 gives the 10th percentile).
     /// Nil when nothing matched. The default confidence gate for the IPF map.
     package func reliabilityThreshold(percentile fraction: Float) -> Float? {

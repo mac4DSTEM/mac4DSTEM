@@ -18,7 +18,6 @@
 import XCTest
 import Foundation
 @testable import DSTEMCore
-import DSTEMSession
 @testable import mac4DSTEM
 @testable import FormatoEMD
 @testable import SpectroCore

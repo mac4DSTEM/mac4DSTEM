@@ -14,7 +14,6 @@ import struct CuboBragg.BraggDetector
 import struct CuboBragg.BraggDiskOptions
 import struct CuboVirtual.DetectorImage
 import DSTEMCore
-@testable import mac4DSTEM
 
 enum DiskKitFixture {
     /// SplitMix64, so the patterns do not depend on the platform's generator.
