@@ -2,6 +2,7 @@
 // source, carried by the objects run's lineage node (the sidecar's record) and named in the objects CSV.
 
 import XCTest
+@testable import ShellControls
 import DSTEMCore
 import DSTEMSession
 import DiffractoOrientation
@@ -54,5 +55,27 @@ final class ThicknessEntryTests: XCTestCase {
         // Clearing is a change too.
         state.setPrecipitateThickness(nil)
         XCTAssertNil(state.precipitateThickness)
+    }
+
+    /// #129 (drive on Thronsen dataset A, 2026-11-05): 50 typed, then the field emptied and Return: the 50 nm stayed, N_V stayed and
+    /// the CSV kept its thickness and N_V lines. The commit here goes through the field's own rule (`NumberEntryField.resolve`) with
+    /// the thickness rows' setting, as the field does. Mutation: `emptiedFieldClears` false (the old field) - red.
+    func testEmptyingTheThicknessFieldClearsTheEntry() {
+        typealias Field = NumberEntryField<Double, FloatingPointFormatStyle<Double>>
+        let entry = DecimalEntryFormat(FloatingPointFormatStyle<Double>.number)
+        let state = AppState()
+        state.recordLineageRun(kind: "precipitate_objects", parameters: ["connectivity": "8", "minimum_object_area_px": "1"])
+        func commit(_ typed: String) {
+            guard case .set(let value) = Field.resolve(typed: typed, current: state.precipitateThickness?.nanometres,
+                                                       emptyClears: PrecipitateThicknessRows.emptiedFieldClears, entry: entry, edited: true)
+            else { return }
+            state.setPrecipitateThickness(value.map { ThicknessEntry(nanometres: $0, sigmaNanometres: 0, source: "typed value") })
+        }
+        commit("50")
+        XCTAssertEqual(state.precipitateThickness?.nanometres, 50)
+        commit("")
+        XCTAssertNil(state.precipitateThickness, "an emptied thickness field removes the thickness")
+        let node = state.replay.lineage.activeNodes().last { $0.kind == "precipitate_objects" }
+        XCTAssertNil(node?.parameters["thickness_nm"], "the objects run on record carries no thickness, so the CSV drops its thickness and N_V lines")
     }
 }
