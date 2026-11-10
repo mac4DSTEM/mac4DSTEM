@@ -223,7 +223,7 @@ struct PrecipitateObjectsWindow: View {
                 TableColumn("Composition (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
                     Text(row.compositionSummary).monospacedDigit()
                         .foregroundStyle(row.composition == nil ? .secondary : .primary)
-                        .help(report.compositionUnavailable ?? "The mean of the per-pixel at% maps under the object. Not the pooled fit's value, no sigma.")
+                        .help(report.compositionUnavailable ?? "One pooled fit of the summed spectrum of the object's EDS pixels, with the Spectroscopy room's method. ± is the fit's sigma.")
                 }
                 .width(min: 140, ideal: 340)
                 TableColumn("Strain (mean of pixels)") { (row: PrecipitateObjectReport.Row) in

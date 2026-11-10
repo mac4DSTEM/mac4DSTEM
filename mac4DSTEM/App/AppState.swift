@@ -295,6 +295,10 @@ final class AppState {
     /// strain map; the object report reads them. Recomputed by `refreshPrecipitateJoins`.
     private(set) var precipitateJoins = PrecipitateJoins()
     @ObservationIgnored var precipitateJoinGeneration = 0
+    /// The running join (one pooled fit per object can take a while): a newer request cancels it.
+    @ObservationIgnored var precipitateJoinTask: Task<Void, Never>?
+    /// What the standing composition per object was fitted with (the room's method hash; nil: not quantified).
+    @ObservationIgnored var precipitateCompositionKey: String?
     /// The variant run's settings (suite task 40); nil is off. Recorded on the objects run's lineage node like the thickness; set through
     /// `setPrecipitateVariantSettings`. Nothing is computed without them.
     private(set) var precipitateVariantSettings: VariantSettings?
