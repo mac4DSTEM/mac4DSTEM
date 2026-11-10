@@ -375,13 +375,62 @@ extension AppState {
     /// imported from, by file name and content fingerprint.
     private func recordPhaseMappingRun(map: PhaseMap, run: PhaseMappingProduct.RunRecord?) {
         guard let run else { return }
-        let parameters = phaseProvenance(map: map, run: run)
+        var parameters = phaseProvenance(map: map, run: run)
             .filter { !$0.key.hasPrefix("count_") }
+        // The setup itself, so a reopened session has its phases and settings back (#128).
+        parameters[PhaseSetupRecord.lineageKey] = PhaseSetupRecord(
+            phases: phaseMapping.phases, reference: phaseMapping.reference, matching: phaseMapping.matching,
+            cifSources: acomSession.importedCIFSources).jsonString
         let imported = phaseMapping.phases
             .filter { $0.model.source == .imported }
             .map { SessionLineage.External(name: $0.model.id,
                                            fingerprint: $0.model.contentFingerprint) }
-        recordLineageRun(kind: "phase_mapping", parameters: parameters, external: imported)
+        guard let id = recordLineageRun(kind: "phase_mapping", parameters: parameters, external: imported) else { return }
+        // Only the newest run carries the CIF texts; an older run keeps its list and settings.
+        replay.rewriteParameter(PhaseSetupRecord.lineageKey, onNodesOfKind: "phase_mapping", except: id) {
+            PhaseSetupRecord.decoded(from: $0)?.withoutCIFTexts.jsonString
+        }
+    }
+
+    /// After a sidecar's lineage is adopted: the standing phase-mapping run's phase list and settings are this
+    /// window's (#128), with the imported structures rebuilt from the CIF texts the session file carries. A window
+    /// that already holds a phase list keeps it (a list is about the specimen and is carried from cube to cube);
+    /// a setup that cannot be rebuilt whole is left out and the session log says why.
+    func restorePhaseSetupFromLineage() {
+        guard let json = replay.lineage.activeNodes().last(where: { $0.kind == "phase_mapping" })?
+            .parameters[PhaseSetupRecord.lineageKey] else { return }
+        guard let record = PhaseSetupRecord.decoded(from: json) else {
+            activityLog.record(PhaseSetupRecord.Refusal.unknownSettings.description)
+            return
+        }
+        guard phaseMapping.phases.isEmpty else {
+            // The same list (the session reopened in its own window) needs no word.
+            let held = PhaseSetupRecord(phases: phaseMapping.phases, reference: phaseMapping.reference,
+                                        matching: phaseMapping.matching, cifSources: [:])
+            if held.slots != record.withoutCIFTexts.slots {
+                activityLog.record("The session's saved phase list is not applied: this window already has phases.")
+            }
+            return
+        }
+        switch record.restored(held: acomSession.importedCrystalModels) {
+        case .failure(let refusal):
+            activityLog.record(refusal.description)
+        case .success(let setup):
+            for entry in setup.imported {
+                if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == entry.model.id }) {
+                    acomSession.importedCrystalModels[index] = entry.model
+                } else {
+                    acomSession.importedCrystalModels.append(entry.model)
+                }
+                acomSession.importedCIFSources[entry.model.id] = entry.cif
+            }
+            phaseMapping.phases = setup.phases
+            phaseMapping.reference = setup.reference
+            phaseMapping.matching = setup.matching
+            activityLog.record("Phases restored from the session: "
+                + ListFormatter.localizedString(byJoining: setup.phases.map(\.model.displayName))
+                + ". Run Map Phases to work with the map.")
+        }
     }
 
     /// The object table for what the reader has now: the retained objects,
@@ -764,13 +813,14 @@ extension AppState {
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
             let text = try String(contentsOf: url, encoding: .utf8)
-            let model = try CIFModelImport.crystalModel(
-                from: text, fileBaseName: url.deletingPathExtension().lastPathComponent)
+            let baseName = url.deletingPathExtension().lastPathComponent
+            let model = try CIFModelImport.crystalModel(from: text, fileBaseName: baseName)
             if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
                 acomSession.importedCrystalModels[index] = model
             } else {
                 acomSession.importedCrystalModels.append(model)
             }
+            acomSession.importedCIFSources[model.id] = PhaseSetupRecord.CIFSource(text: text, fileBaseName: baseName)
             let before = phaseMapping.listSnapshot
             phaseMapping.applyAlMgSiPreset(precipitate: model)
             statusText = "Al–Mg–Si preset: Al (matrix) + \"\(model.displayName)\" at [0 1 0] and [0 0 1], "

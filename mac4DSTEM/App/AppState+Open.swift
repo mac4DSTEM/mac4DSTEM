@@ -149,6 +149,7 @@ extension AppState {
             } else {
                 acomSession.importedCrystalModels.append(model)
             }
+            acomSession.importedCIFSources[model.id] = PhaseSetupRecord.CIFSource(text: text, fileBaseName: baseName)
             acomSession.modelSelection = .imported(model.id)
             statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
             return model
@@ -1078,6 +1079,7 @@ extension AppState {
             if let note = snapshot.lineageNote { activityLog.record(note) }
             restorePrecipitateThicknessFromLineage()
             restorePrecipitateVariantsFromLineage()
+            restorePhaseSetupFromLineage()
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(
                     sessionCalibration,

@@ -142,6 +142,12 @@ package final class SessionReplay {
         lineage.restoreProduct(step: id, to: previous)
     }
 
+    /// `SessionLineage.rewriteParameter`: a lineage-only kind, so the recipe does not change.
+    package func rewriteParameter(_ key: String, onNodesOfKind kind: String, except id: String,
+                                  _ transform: (String) -> String?) {
+        lineage.rewriteParameter(key, onNodesOfKind: kind, except: id, transform)
+    }
+
     /// A sidecar restore produced a recipe (and the lineage it projects from,
     /// synthesized in memory from v1): it becomes this session's starting
     /// point, so a later save round-trips a colleague's recipe instead of

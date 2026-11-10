@@ -232,6 +232,7 @@
 				Session/PhaseContrastProduct.swift,
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
+				Session/PhaseSetupRecord.swift,
 				Session/PoolCatalogue.swift,
 				Session/PrecipitateClassificationProduct.swift,
 				Session/PrecipitateObjectReport.swift,

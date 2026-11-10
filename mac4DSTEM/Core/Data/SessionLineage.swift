@@ -616,6 +616,19 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         nodes[index].product = name
     }
 
+    /// Rewrite one parameter on every node of a kind but `id`: `transform` returns the new value, or nil to take the
+    /// key off. For a parameter only the newest run needs in full (the phase setup's CIF texts), so a session with
+    /// many runs does not carry the same text once per run toward the size cap. Lineage-only kinds only: a replayable
+    /// kind's parameters are the recipe written beside the lineage and must not change under it.
+    package mutating func rewriteParameter(_ key: String, onNodesOfKind kind: String, except id: String,
+                                           _ transform: (String) -> String?) {
+        guard Self.lineageOnlyKinds.contains(kind) else { return }
+        for index in nodes.indices where nodes[index].kind == kind && nodes[index].id != id {
+            guard let value = nodes[index].parameters[key] else { continue }
+            nodes[index].parameters[key] = transform(value)
+        }
+    }
+
     /// Put a node's product back as it was (nil = none) — the undo of
     /// `markProduct` when the save it announced did not happen.
     package mutating func restoreProduct(step id: String, to previous: String?) {
