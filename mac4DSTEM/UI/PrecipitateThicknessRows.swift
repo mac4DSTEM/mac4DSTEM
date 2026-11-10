@@ -3,9 +3,11 @@
 //  Role: the thickness behind the counts and what it gives (rooms design 2026-10-21 §3, task 41): a typed t ± σ in nm with its source
 //        in words, and under it N_V per phase, ImagoKit's `numberDensity` of each phase's areal density (the report's summaries; the
 //        view computes nothing). Typing a usable value records a new objects run through `AppState.setPrecipitateThickness`; an
-//        unusable one marks itself and leaves the run alone. Read the EELS method JSON fills the source words, never the number.
+//        unusable one marks itself and leaves the run alone; an emptied thickness takes the entry away again (#129). Read the EELS
+//        method JSON fills the source words, never the number.
 //
 
+import ShellControls
 import ShellInspector
 import SwiftUI
 import UniformTypeIdentifiers
@@ -27,12 +29,12 @@ struct PrecipitateThicknessRows: View {
 
     var body: some View {
         InspectorRow("Thickness") {
-            OptionalNumericField(title: "Thickness", value: thickness, format: .number, unit: "nm", prompt: "—") { thickness = $0; commit() }
+            ClearableNanometreField(title: "Thickness", value: thickness, prompt: "—") { thickness = $0; commit() }
                 .accessibilityIdentifier("precipitates.nv.thickness")
         }
         .help("The specimen thickness behind N_V, in nm, typed by you.")
         InspectorRow("Thickness ±") {
-            OptionalNumericField(title: "Thickness sigma", value: sigma, format: .number, unit: "nm", prompt: "0") { sigma = $0; commit() }
+            ClearableNanometreField(title: "Thickness sigma", value: sigma, prompt: "0") { sigma = $0; commit() }
                 .accessibilityIdentifier("precipitates.nv.sigma")
         }
         .help("The thickness's uncertainty (σ), in nm; it is the σ of N_V.")
@@ -97,6 +99,9 @@ struct PrecipitateThicknessRows: View {
         }
     }
 
+    /// The thickness and σ fields commit nil when emptied, so a typed thickness can be taken away again (#129).
+    static let emptiedFieldClears = true
+
     /// "3 400 ± 430 /µm³", the σ only when the thickness has one.
     static func nVolumeText(_ s: PrecipitateObjectReport.ClassSummary) -> String {
         guard let value = s.nVolumePerUm3 else { return "—" }
@@ -126,11 +131,41 @@ struct PrecipitateThicknessRows: View {
         appState.setPrecipitateThickness(entry)
     }
 
+    /// A cleared entry empties the thickness field only when the field still shows a value that was in effect; a value being
+    /// typed that is not usable yet (and so never became the entry) stays for the person to fix.
     private func load(_ entry: ThicknessEntry?) {
-        guard let entry else { return }
+        guard let entry else {
+            if invalidReason == nil { thickness = nil }
+            return
+        }
         if thickness != entry.nanometres { thickness = entry.nanometres }
         if sigma != entry.sigmaNanometres { sigma = entry.sigmaNanometres }
         if source != entry.source { source = entry.source }
         origin = entry.origin
+    }
+}
+
+/// A number of nm that can be emptied again: `OptionalNumericField`'s look, on `NumberEntryField` with `emptyClears`, as the
+/// phase list's Excitation slab field does. An emptied field commits nil (#129: a typed thickness could not be removed).
+private struct ClearableNanometreField: View {
+    let title: String
+    let value: Double?
+    let prompt: String
+    let onCommit: (Double?) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            NumberEntryField(title: title, value: value, format: FloatingPointFormatStyle<Double>.number, prompt: prompt,
+                             emptyClears: PrecipitateThicknessRows.emptiedFieldClears, onCommit: onCommit)
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: NumericFieldMetrics.width)
+                .accessibilityLabel(NumericFieldSpeech.label(title, unit: "nm"))
+            Text("nm")
+                .foregroundStyle(.secondary)
+                .fixedSize()
+                .accessibilityHidden(true)
+        }
     }
 }
