@@ -212,7 +212,10 @@ package nonisolated enum ObjectVariantAssigner {
                 return ObjectVariantAssigner.entryOrientation(entry, crystal: library.phases[entry.phaseIndex].crystal)
             }
             let matrixEntry = library.entries[matrixEntryIndex]
-            guard let matrix = orientation(matrixEntry) else { return nil }
+            guard let fitted = orientation(matrixEntry) else { return nil }
+            // The matcher returns any one of the in-plane angles the matrix's symmetry about the beam makes equal (four for Al [001]);
+            // the variant numbers and the needle directions are counted in the matrix frame, so the frame is made canonical (#155).
+            let matrix = ObjectVariantAssigner.canonicalMatrixOrientation(fitted, crystal: library.phases[matrixEntry.phaseIndex].crystal)
             let beamAxis = PhaseReferenceLibrary.cartesianZoneAxis(matrixEntry.zoneAxis, crystal: library.phases[matrixEntry.phaseIndex].crystal)
             let beam = beamAxis
                 .flatMap { axis -> Int? in
@@ -222,6 +225,33 @@ package nonisolated enum ObjectVariantAssigner {
             return Orientations(entryPhase: library.entries.map(\.phaseIndex), entryOrientation: library.entries.map(orientation),
                                 matrixOrientation: matrix, inPlaneStepDegrees: library.settings.inPlaneStepDeg, matrixBeamDirection: beam, matrixBeamAxis: beamAxis)
         }
+    }
+
+    /// The one orientation that stands for `orientation` and for every orientation the matrix's own symmetry about the beam makes
+    /// equivalent to it: the one with the smallest non-negative in-plane angle against the kit's detector basis of that beam. A crystal seen
+    /// down a symmetry axis gives the same pattern at each of those angles (Al [001]: 12, 102, 192 and 282 degrees), the matcher's choice among
+    /// them is a tie, and the variant index and the needle direction are counted in the matrix frame: without this the same needles were
+    /// numbered differently from run to run (mac4DSTEM#155). Only operators that keep the beam are used, so the zone axis the user chose
+    /// and the end-on direction keep their names. A crystal without a standard setting is returned unchanged.
+    /// INTERIM in the app: the rule belongs beside `OrientationVariantSet` in DiffractoKit; delete at DiffractoKit 0.13.0.
+    package static func canonicalMatrixOrientation(_ orientation: simd_double3x3, crystal: CrystalStructure) -> simd_double3x3 {
+        guard let symmetry = PhaseModel.orientationSymmetry(of: crystal) else { return orientation }
+        let beam = orientation.columns.2
+        let basis = ZoneAxisFrame.detectorBasis(zoneAxis: beam)
+        // An orientation with this beam is basis * Rz(theta); its first column in the basis is (cos theta, -sin theta, 0).
+        func inPlaneAngle(_ o: simd_double3x3) -> Double {
+            let x = basis.transpose * o.columns.0
+            let angle = atan2(-x.y, x.x)
+            return angle < -1e-6 ? angle + 2 * .pi : max(angle, 0)
+        }
+        var best = orientation, bestAngle = inPlaneAngle(orientation)
+        for g in symmetry.operators {
+            let candidate = g * orientation
+            guard simd_length(candidate.columns.2 - beam) < 1e-6 else { continue }
+            let angle = inPlaneAngle(candidate)
+            if angle < bestAngle - 1e-6 { best = candidate; bestAngle = angle }
+        }
+        return best
     }
 
     /// An entry's orientation: its zone axis in the crystal's Cartesian frame, then its in-plane rotation (the library rotates the projected
