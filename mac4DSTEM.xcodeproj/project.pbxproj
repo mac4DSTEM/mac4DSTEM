@@ -1608,7 +1608,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.1;
+				minimumVersion = 0.5.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

@@ -68,6 +68,25 @@ final class EDSFourDLinkTests: XCTestCase {
         XCTAssertEqual(session.region, .wholeMap, "a pool the catalogue no longer holds cannot be selected")
     }
 
+    /// MacEMUI 0.5.2 (#108): a phase pool applied to the EDS session restarts Auto ID, which then also searches that phase's own
+    /// spectrum (an element a small phase holds can fail the proposer's bar in the whole map's sum). The demo image's Mg-Si blob is the
+    /// phase. Mutation: MacEMUI 0.5.1 (`applyPools` starts no search, `alsoSearched` does not exist) - does not compile, or stays empty.
+    func testAPhasePoolAppliedToTheSessionRestartsAutoIDOnThatPhase() async {
+        let session = EDXSession(host: .mac4DSTEM)
+        await session.bind(DemoSpectrumImageSource.make(beamEnergyKeV: 200)).value
+        if session.autoID == .idle { await session.runAutoID()?.value }
+        await session.settled()
+        XCTAssertEqual(session.autoID.outcome?.alsoSearched ?? [], [], "no pools yet: only the whole map was searched")
+        let blob = EDXPoolRegion(kind: "phase", name: "blob",
+                                 mask: (0..<(32 * 32)).map { let x = $0 % 32 - 16, y = $0 / 32 - 16; return x * x + y * y < 64 }, key: "1000@1")
+        session.applyPools([blob])
+        XCTAssertEqual(session.autoID, .running, "the new phase pool starts a search by itself")
+        await session.settled()
+        XCTAssertEqual(session.autoID.outcome?.alsoSearched, ["blob"])
+        session.applyPools([blob])
+        XCTAssertNotEqual(session.autoID, .running, "the same pool again: nothing new to search")
+    }
+
     /// The step's region keys are the old room's kinds, so Results rows label them as before ("A · phase pool").
     /// Mutation: the shape name ("rectangle", "whole") recorded instead - red.
     func testTheReplayRegionKeysAreTheOldRoomsKinds() {
