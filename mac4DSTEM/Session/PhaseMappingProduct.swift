@@ -695,6 +695,25 @@ package final class PhaseMappingProduct {
 
     package nonisolated static let distanceDisplayName = "Phase match distance"
 
+    /// What the Phases section says when a reopened session carries a phase-mapping run but this window holds no map (#128): a
+    /// session keeps the map's picture and the run's words, not the per-position map or the phase structures, so the panel
+    /// would otherwise read as if nothing had been mapped. From the run's lineage parameters (`phases`, joined by `|`, and
+    /// `matrix_phase`); nil when the run names no phases. Pure, so it is tested without a window.
+    package nonisolated static func savedRunNote(parameters: [String: String], hasPhases: Bool) -> String? {
+        let names = (parameters["phases"] ?? "").split(separator: "|").map(String.init)
+        guard !names.isEmpty else { return nil }
+        var matrixNamed = false
+        let listed = names.map { name -> String in
+            guard !matrixNamed, name == parameters["matrix_phase"] else { return name }
+            matrixNamed = true
+            return name + " (matrix)"
+        }
+        let made = "The session's phase map was made with " + ListFormatter.localizedString(byJoining: listed) + "."
+        return made + (hasPhases
+            ? " The session keeps its picture, not the map behind it: run Map Phases to work with it."
+            : " The session keeps its picture, not the phases: add them again and run Map Phases to work with it.")
+    }
+
     /// Dataset activation: the map dies with the dataset, the controls do not.
     /// A phase list is about the specimen the user is studying and survives
     /// switching between cubes of the same alloy, which is the whole workflow

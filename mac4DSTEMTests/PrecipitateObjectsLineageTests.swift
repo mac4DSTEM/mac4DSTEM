@@ -91,4 +91,29 @@ final class PrecipitateObjectsLineageTests: XCTestCase {
         XCTAssertEqual(second.parameters["minimum_object_area_px"], "3")
         XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], second.id)
     }
+
+    /// #128: a reopened session carries the phase-mapping run in its lineage (and the map's picture), but this window holds no
+    /// map and often no phases, and the Phases section said nothing about it. The note names what the run was made with and what
+    /// to do; with a map in hand, or no run, there is none. Mutation: `savedPhaseMappingRunNote` returning nil always - red.
+    func testAReopenedSessionsPhaseRunIsNamedInThePhasesSection() async throws {
+        let reopened = AppState()
+        XCTAssertNil(reopened.savedPhaseMappingRunNote, "no run, no note")
+        reopened.recordLineageRun(kind: "phase_mapping", parameters: ["phases": "Al|Mg5Si6|Mg5Si6", "matrix_phase": "Al"])
+        let note = try XCTUnwrap(reopened.savedPhaseMappingRunNote)
+        XCTAssertTrue(note.contains("Al (matrix)") && note.contains("Mg5Si6"), note)
+        XCTAssertTrue(note.hasSuffix("add them again and run Map Phases to work with it."), note)
+        reopened.addPhaseMappingSlot(CrystalModelLibrary.models[0])
+        let withPhases = try XCTUnwrap(reopened.savedPhaseMappingRunNote)
+        XCTAssertTrue(withPhases.hasSuffix("run Map Phases to work with it.") && !withPhases.contains("add them again"), withPhases)
+
+        // Only the first phase of the matrix's name is the matrix; a run that names no phases says nothing.
+        let twice = try XCTUnwrap(PhaseMappingProduct.savedRunNote(parameters: ["phases": "Al|Al", "matrix_phase": "Al"], hasPhases: false))
+        XCTAssertEqual(twice.components(separatedBy: "(matrix)").count, 2, twice)
+        XCTAssertNil(PhaseMappingProduct.savedRunNote(parameters: ["matrix_phase": "Al"], hasPhases: false))
+
+        // A window that holds the map needs no note.
+        let live = await classifiedState()
+        XCTAssertNotNil(live.phaseMapping.map)
+        XCTAssertNil(live.savedPhaseMappingRunNote)
+    }
 }
