@@ -96,8 +96,16 @@ nonisolated extension BraggVectorEMDWriter {
         // The source stamp, by the same rule: the caller's wins, else the file's own is carried over (read like the
         // reader reads it: an unreadable one is absent, not a reason to refuse the save).
         var preservedSourceJSON: String?
-        if source == nil, let existingFile, existingFile.isGroup(rootPath) {
-            preservedSourceJSON = (try? existingFile.stringAttribute(sourceAttribute, at: rootPath)) ?? nil
+        if let existing, let existingFile, existingFile.isGroup(rootPath) {
+            let existingJSON: String? = (try? existingFile.stringAttribute(sourceAttribute, at: rootPath)) ?? nil
+            // A save for one source is never merged into the sidecar of another (`scan.dm4` into `scan.h5`'s
+            // `scan.mac4dstem.h5`): the results, disks and recipe it would carry over are the other file's. Refused
+            // before anything is written; the publish is atomic, so the other session stays as it was.
+            if let sentence = SessionSourceStamp.saveRefusal(
+                existing: existingJSON.flatMap(SessionSourceStamp.decoded(from:)), saving: source, sidecar: existing) {
+                throw WriterError.belongsToAnotherSource(sentence)
+            }
+            if source == nil { preservedSourceJSON = existingJSON }
         }
 
         let braggPath = "\(rootPath)/braggvectors"

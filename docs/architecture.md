@@ -105,7 +105,9 @@ engine, each memory-bounded, cancellable and source-locked to py4DSTEM.
 
 **Sessions, recipes, export.** A `<source>.mac4dstem.h5` sidecar holds named
 results, calibration, BraggVectors and the replay record; every sidecar
-names the oldest reader that interprets it without misreading. A rehearsal
+names the oldest reader that interprets it without misreading, and the source
+file it belongs to: two sources of one stem (`scan.h5`, `scan.dm4`) never
+share a session, the second keeps its own in `scan.dm4.mac4dstem.h5`. A rehearsal
 on a view records a recipe; promote replays it on the full cube,
 re-referencing detector-pixel parameters into the source frame and refusing
 by name what it cannot re-express. Exports: PNG as displayed, Bragg peaks

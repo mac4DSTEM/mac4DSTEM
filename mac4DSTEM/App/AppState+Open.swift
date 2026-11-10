@@ -1045,15 +1045,14 @@ extension AppState {
                 return nil
             }
         }
-        let url = sessionSidecar.location(for: descriptor)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let epoch = datasetSession.epoch
-        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is refused here like an unreadable one.
-        let sourcePath = descriptor.filePath
+        // A sidecar another source wrote (`scan.h5`'s, opened beside `scan.dm4`) is left alone and this dataset's own
+        // is read instead (`readSession`); one nothing can place (unstamped, two candidates) is refused like an
+        // unreadable one.
+        guard let session = await readSession(forSourcePath: descriptor.filePath) else { return nil }
+        let url = session.url
         do {
-            let snapshot = try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: sourcePath)
-            }.value
+            let snapshot = try session.read.get()
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
             // What the sidecar SAYS, not what its absence could be read as:

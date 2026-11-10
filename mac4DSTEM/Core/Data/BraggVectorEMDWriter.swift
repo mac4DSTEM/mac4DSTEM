@@ -91,12 +91,16 @@ package nonisolated enum BraggVectorEMDWriter {
         /// exists to prevent — and a mangled recipe reads as "no recipe".
         /// // v2 S7
         case malformedAttribute(name: String)
-        /// The sidecar belongs to another source file (`SessionSourceStamp.check`); the sentence names both.
+        /// The sidecar is stamped for another source file (`SessionSourceStamp.check`, `saveRefusal`); the sentence
+        /// names both.
         case belongsToAnotherSource(String)
+        /// The sidecar carries no source stamp and two files share its name (`SessionSourceStamp.check`), so nothing
+        /// says which of them wrote it.
+        case sourceNotRecorded(String)
 
         package var errorDescription: String? {
             switch self {
-            case .belongsToAnotherSource(let sentence):
+            case .belongsToAnotherSource(let sentence), .sourceNotRecorded(let sentence):
                 return sentence
             case .cancelled:
                 return "The sidecar operation was cancelled."
@@ -225,6 +229,15 @@ package nonisolated enum BraggVectorEMDWriter {
             .appendingPathComponent(stem + SessionSidecarFormat.nameSuffix, isDirectory: false)
     }
 
+    /// The companion path that names the source with its extension (`scan.dm4.mac4dstem.h5`). Used when the stem-named
+    /// one is stamped for another source: `scan.h5` and `scan.dm4` in one folder share `scan.mac4dstem.h5`, and the
+    /// file that did not write it keeps its session here.
+    package static func ownSessionSidecarURL(forSourcePath path: String) -> URL {
+        let source = URL(fileURLWithPath: path)
+        return source.deletingLastPathComponent()
+            .appendingPathComponent(source.lastPathComponent + SessionSidecarFormat.nameSuffix, isDirectory: false)
+    }
+
     /// `qHeight` is the detector row count and becomes py4DSTEM Qshape[0];
     /// `qWidth` is the detector column count and becomes Qshape[1].
     package static func write(
@@ -260,7 +273,8 @@ package nonisolated enum BraggVectorEMDWriter {
     /// sidecar, and the publish renames over it. nil when the destination is safe.
     package nonisolated static func exportDestinationRefusal(_ destination: URL, sourcePath: String) -> String? {
         let source = URL(fileURLWithPath: sourcePath)
-        if isSameFile(destination, source) || isSameFile(destination, sessionSidecarURL(forSourcePath: sourcePath)) {
+        if isSameFile(destination, source) || isSameFile(destination, sessionSidecarURL(forSourcePath: sourcePath))
+            || isSameFile(destination, ownSessionSidecarURL(forSourcePath: sourcePath)) {
             return "Choose a different file: the source is never changed."
         }
         return nil

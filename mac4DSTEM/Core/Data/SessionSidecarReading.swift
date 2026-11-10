@@ -191,7 +191,7 @@ nonisolated extension BraggVectorEMDWriter {
     /// Production callers never pass it — the default is the build's truth.
     ///
     /// `sourcePath`: the source being opened. When given, a sidecar that belongs to another source is refused whole
-    /// (`WriterError.belongsToAnotherSource`, `SessionSourceStamp.check`), before anything is restored; the inventory
+    /// (`WriterError.belongsToAnotherSource` or `.sourceNotRecorded`, `SessionSourceStamp.check`), before anything is restored; the inventory
     /// reads pass nil.
     package static func loadSession(
         from url: URL,
@@ -222,7 +222,8 @@ nonisolated extension BraggVectorEMDWriter {
             if case .refused(let sentence) = SessionSourceStamp.check(
                 source, sourcePath: sourcePath, sidecarName: url.lastPathComponent,
                 siblings: siblings ?? SessionSourceStamp.siblingNames(ofSourcePath: sourcePath)) {
-                throw WriterError.belongsToAnotherSource(sentence)
+                // Stamped for another file, or unstamped beside two candidates: the open path tells them apart.
+                throw source == nil ? WriterError.sourceNotRecorded(sentence) : WriterError.belongsToAnotherSource(sentence)
             }
         }
 
