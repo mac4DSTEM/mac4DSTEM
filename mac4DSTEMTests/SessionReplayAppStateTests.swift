@@ -1011,7 +1011,9 @@ extension SessionReplayAppStateTests {
                        "the kept map's templates are drawn at the scale they were matched at")
         let reason = try XCTUnwrap(productState(state, .acom).staleReason, "a new scale reads the map stale")
         XCTAssertTrue(reason.contains("scale_inv_angstrom_per_pixel"), reason)
-        XCTAssertEqual(graphState(state, a1), .stale)
+        // The lineage pane judges a node by the path and the calibration nodes it read, not by task settings; the
+        // exploratory scale is a task setting with no node, so a1 stays on the path as it would after a quality change.
+        XCTAssertNotEqual(graphState(state, a1), .stale)
 
         state.acomSession.exploratoryScale = matchedScale
         XCTAssertEqual(productState(state, .acom), .current, "back at the matched scale it reads current again")

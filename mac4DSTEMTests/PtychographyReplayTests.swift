@@ -149,6 +149,8 @@ final class PtychographyReplayTests: XCTestCase {
             kind: "ptychography",
             parameters: Plan.recordedParameters(settings: settings, probeRadiusPixels: 9, calibration: physical()),
             under: .detectorIdentity)
+        // A run that published keeps its node; without a product the next run would replace it in place.
+        state.replay.markProduct(step: p1, as: "ptychography")
         let p2 = state.replay.record(
             kind: "ptychography",
             parameters: Plan.recordedParameters(settings: later, probeRadiusPixels: 12, calibration: physical()),
