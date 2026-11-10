@@ -555,6 +555,11 @@ extension AppState {
                 calibrationSession.provenance.ellipse = nil
                 calibrationSession.lastEllipseFit = nil
                 calibrationSession.ellipseFitAnywayOffer = nil
+                // As restoring an ellipse does: the Bragg map on screen is drawn with the ellipse, so it is drawn again without it.
+                if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors,
+                   let descriptor {
+                    showBraggMap(vectors, descriptor: descriptor)
+                }
             case .clearQScale:
                 calibrationSession.calibration.qPixelSize = nil
                 calibrationSession.calibration.qPixelUnits = nil
