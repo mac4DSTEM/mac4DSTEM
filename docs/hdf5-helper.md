@@ -1,6 +1,6 @@
 # libhdf5 in a helper process
 
-Status: the design, accepted 2026-10-29. Slice 1 (the XPC service `HDF5Helper`, off by default behind `HDF5ReadsInHelper`, #56) ships since 5.1.0; the later slices are open.
+Status: the design, accepted 2026-10-29. Slice 1 (the XPC service `HDF5Helper`, off by default behind `HDF5ReadsInHelper`, #56) ships since 5.1.0. Slice 2 (the open path) is in: with the flag on, the helper opens and describes an HDF5 file before any libhdf5 call in the app touches it; it waits for the owner's signed-build check below. Slices 3 to 5 are open.
 
 ## Why
 
@@ -112,7 +112,7 @@ release.
 ## Slices
 
 1. **The helper target, plus open, describe and close over XPC.** The watchdog, a client that turns a crash or a hang into an error, and the flag. Tests: the in-process protocol over an anonymous listener; the embedded helper crashing; the embedded helper hanging. Nothing in the app calls it yet.
-2. **The open path.** With the flag on, `makeReader` opens and describes HDF5 files through the helper, so a file that crashes libhdf5 on open is refused with a sentence. Pixels are still read in process.
+2. **The open path.** With the flag on, `makeReader` opens and describes HDF5 files through the helper first (`HDF5HelperClient.preflight`), so a file that crashes libhdf5 on open is refused with a sentence. A file the helper only refuses (no datacube) goes on to the app's own routing. The reader and the pixels are still in process.
 3. **Slab reads over shared memory.** `FourDDataSource` gets a helper-backed reader. Tests check byte-identical patterns, rows and tiles against `H5Reader` on the `Fixtures/H5Reader` files, plus a crafted file that crashes or hangs on read.
 4. **Metadata and writers.** Calibration, probe candidates and attributes go through the helper. The session sidecar and export writers follow, or stay in process with a stated reason.
 5. **Default on, then shared.** After the owner's drive: the flag defaults on; the protocol and client move to FormatoKit for macTEM; the helper target slims.
