@@ -80,6 +80,10 @@ private struct DatasetWindow: View {
         _holder = State(initialValue: LazyAppState { AppState(preferences: preferences, recents: recents) })
     }
 
+    private var externalOpenPatterns: Set<String> {
+        ExternalOpen.patterns(holdsDocument: appState.hasDocument, isOpening: appState.datasetSession.isLoading)
+    }
+
     var body: some View {
         ContentView()
             .environment(appState)
@@ -113,6 +117,8 @@ private struct DatasetWindow: View {
         // reaching HDF5 twice.
         // UNVERIFIED ON SCREEN: not yet driven from Finder.
         .onOpenURL { appState.openFile(url: $0) }
+        // An empty window takes the Finder open; one with a dataset leaves it to a new window (#163).
+        .handlesExternalEvents(preferring: externalOpenPatterns, allowing: externalOpenPatterns)
         // Review a6 / owner card D2 (a): a closed window lets go of its dataset at once, even if something still
         // retains its state; a window that appears again is known again (`OpenDatasetRegistry`).
         .onAppear {

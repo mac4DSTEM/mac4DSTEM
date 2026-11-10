@@ -61,4 +61,14 @@ final class MenuAndDropTests: XCTestCase {
         XCTAssertNil(DropToOpen.dataset(in: [URL(string: "https://example.com/a.h5")!]))
         XCTAssertNil(DropToOpen.dataset(in: []))
     }
+
+    /// #163: a Finder open fills the empty window. A window with a document, or one already opening a file,
+    /// declines it, and SwiftUI makes a new window for it.
+    func testOnlyAnEmptyWindowTakesAFinderOpen() {
+        XCTAssertEqual(ExternalOpen.patterns(holdsDocument: false, isOpening: false), ["*"])
+        XCTAssertEqual(ExternalOpen.patterns(holdsDocument: true, isOpening: false), [])
+        XCTAssertEqual(ExternalOpen.patterns(holdsDocument: false, isOpening: true), [])
+        let empty = AppState()
+        XCTAssertFalse(empty.hasDocument, "a new window holds nothing, so it is the one that takes the open")
+    }
 }

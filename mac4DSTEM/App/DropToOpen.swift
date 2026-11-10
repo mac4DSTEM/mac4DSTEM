@@ -17,3 +17,14 @@ enum DropToOpen {
         dropped.first(where: \.isFileURL)
     }
 }
+
+/// Which window a Finder open (Open With, a double-click, a file dropped on the Dock icon) goes to (#163). An empty
+/// window takes it; a window that holds a document or is opening one declines it, so SwiftUI makes a new window.
+/// Without it SwiftUI made a new window for every Finder open, and the empty welcome window stayed behind.
+enum ExternalOpen {
+
+    /// The window's `handlesExternalEvents(preferring:allowing:)` patterns.
+    static func patterns(holdsDocument: Bool, isOpening: Bool) -> Set<String> {
+        holdsDocument || isOpening ? [] : ["*"]
+    }
+}
