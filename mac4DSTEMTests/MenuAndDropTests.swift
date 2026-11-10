@@ -71,4 +71,27 @@ final class MenuAndDropTests: XCTestCase {
         let empty = AppState()
         XCTAssertFalse(empty.hasDocument, "a new window holds nothing, so it is the one that takes the open")
     }
+
+    /// Drive 2026-11-11, check 3: the file a window holds, opened again from Finder, goes to that window (which
+    /// comes forward) and not to a new window that refuses it. Any other file is still declined.
+    func testTheWindowHoldingAFileTakesThatFileAgain() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let held = folder.appendingPathComponent("scan a.h5")
+        let other = folder.appendingPathComponent("other.h5")
+        try Data([0]).write(to: held)
+        try Data([0]).write(to: other)
+
+        let patterns = ExternalOpen.patterns(holdsDocument: true, isOpening: false, heldPath: held.path)
+        XCTAssertTrue(patterns.contains(held.absoluteString), "the URL Finder sends for the held file, spaces escaped")
+        XCTAssertFalse(patterns.contains("*"), "a window with a dataset takes no other file")
+        XCTAssertFalse(patterns.contains { other.absoluteString.contains($0) }, "the other file matches none of them")
+        XCTAssertEqual(ExternalOpen.patterns(holdsDocument: true, isOpening: true, heldPath: held.path), [],
+                       "nothing while an open is running")
+
+        XCTAssertTrue(ExternalOpen.isHeld(held, heldPath: held.path))
+        XCTAssertFalse(ExternalOpen.isHeld(other, heldPath: held.path))
+        XCTAssertFalse(ExternalOpen.isHeld(held, heldPath: nil))
+    }
 }
