@@ -186,6 +186,7 @@ private struct DatasetWindow: View {
 private struct DatasetCommands: Commands {
     @FocusedValue(\.appState) private var appState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openURL) private var openURL
     let menuRelay: MenuActionRelay
     /// The app-wide list behind File > Open Recent. Also on the focused window's state, but a menu with no window
     /// focused (the last one closed) still has the list.
@@ -297,6 +298,12 @@ private struct DatasetCommands: Commands {
             }
             .keyboardShortcut("l", modifiers: [.command, .control])
             .disabled(appState?.hasDataset != true || appState?.navigation.workspaceArea == .results)
+        }
+        // The Help menu: the app ships no help book, so the default "mac4DSTEM Help" item only said help was unavailable. In its
+        // place, the support page and an email to the project (`FeedbackLinks`); the app itself sends nothing.
+        CommandGroup(replacing: .help) {
+            Button("mac4DSTEM Support") { if let url = FeedbackLinks.support { openURL(url) } }
+            Button("Send Feedback…") { if let url = FeedbackLinks.mail { openURL(url) } }
         }
         CommandMenu("Analysis") {
             Button("Run Current Task") {
