@@ -498,8 +498,16 @@ nonisolated struct LineageGraphModel {
         let activeValue: String?
     }
 
+    /// Parameters that are stored data and not a setting to read: the phase setup (JSON with the CIF texts).
+    static let unlistedParameterKeys: Set<String> = [PhaseSetupRecord.lineageKey]
+
+    /// A node's parameters as the detail pane lists them, by key.
+    static func listedParameters(of node: SessionLineage.Node) -> [(key: String, value: String)] {
+        node.parameters.filter { !unlistedParameterKeys.contains($0.key) }.sorted { $0.key < $1.key }
+    }
+
     static func differences(of node: SessionLineage.Node, from active: SessionLineage.Node) -> [Difference] {
-        let keys = Set(node.parameters.keys).union(active.parameters.keys).sorted()
+        let keys = Set(node.parameters.keys).union(active.parameters.keys).subtracting(unlistedParameterKeys).sorted()
         return keys.compactMap { key in
             let mine = node.parameters[key], theirs = active.parameters[key]
             return mine == theirs ? nil : Difference(key: key, value: mine, activeValue: theirs)

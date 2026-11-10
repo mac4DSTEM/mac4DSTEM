@@ -39,6 +39,10 @@ package final class ACOMSession {
             if before != after { invalidatePlan() }
         }
     }
+    /// The text each imported CIF was built from, by model id: what a saved phase-mapping run writes into the
+    /// session file so the phases come back on reopen (`PhaseSetupRecord`). The sandbox grants a CIF once, so the
+    /// file itself cannot be read again later.
+    package var importedCIFSources: [String: PhaseSetupRecord.CIFSource] = [:]
     /// A different scale changes the match and the plan's k range (the detector's reach in Å⁻¹); `runACOM` rebuilds a plan
     /// whose range no longer fits, so only the result is invalidated here.
     package var exploratoryScale: Double = 0.01 {

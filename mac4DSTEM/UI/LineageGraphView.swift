@@ -343,7 +343,7 @@ struct LineageGraphView: View {
 
                 DetailSection("Parameters") {
                     LineageDetailRow(label: "Frame", value: LineageGraphModel.frameDescription(node.frame))
-                    ForEach(node.parameters.sorted { $0.key < $1.key }, id: \.key) { entry in
+                    ForEach(LineageGraphModel.listedParameters(of: node), id: \.key) { entry in
                         LineageDetailRow(label: LineageKindStyle.humanised(entry.key), value: entry.value)
                     }
                     if node.parameters.isEmpty {
