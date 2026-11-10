@@ -80,9 +80,8 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         self.computeUnits = computeUnits; self.compiledURL = compiledURL
     }
 
-    /// Loads the asset: hash the package tree, compile it (Core ML writes the compiled
-    /// model to a temporary location that lives as long as the process), load it on
-    /// the Neural Engine. Slow the first time; never inside a run.
+    /// Loads the asset: hash the package tree, compile it once and keep the compiled model
+    /// (`CompiledModelCache`), load it on the Neural Engine. Slow the first time; never inside a run.
     /// The compute units are `.cpuAndNeuralEngine`, not `.all` (2026-09-30, the archived notes):
     /// on the M5 Pro under macOS 27.0.1 `.all` plans and runs this model on the GPU, whose heatmaps differ from
     /// the Neural Engine's the fixture and the threshold were measured on. Under `.cpuAndNeuralEngine` only the
@@ -102,18 +101,27 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     package static func loadForComparison(assetURL: URL, compiledURL: URL? = nil, computeUnits: MLComputeUnits,
                                           batch requestedBatch: Int? = nil) async throws -> LearnedDiskDetector {
         let sha = try sha256(ofAsset: assetURL)
-        let compiled: URL
-        if let compiledURL {
-            compiled = compiledURL
-        } else {
-            do { compiled = try await MLModel.compileModel(at: assetURL) }
-            catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.compileModel(at:)", underlying: error) }
-        }
         let config = MLModelConfiguration()
         config.computeUnits = computeUnits
-        let model: MLModel
-        do { model = try await MLModel.load(contentsOf: compiled, configuration: config) }
-        catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — compute units \(computeUnits.rawValue)", underlying: error) }
+        var compiled: URL
+        var model: MLModel
+        if let compiledURL {
+            compiled = compiledURL
+            do { model = try await MLModel.load(contentsOf: compiled, configuration: config) }
+            catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — compute units \(computeUnits.rawValue)", underlying: error) }
+        } else {
+            // Compiled once per weights and kept (`CompiledModelCache`), so every later load, in this launch or the
+            // next, opens the same compiled model at the same path.
+            compiled = try await CompiledModelCache.shared.compiledModel(forAsset: assetURL, sha256: sha)
+            do {
+                model = try await MLModel.load(contentsOf: compiled, configuration: config)
+            } catch {
+                // A kept copy this OS cannot load (compiled under another OS version, or damaged): compile again, once.
+                compiled = try await CompiledModelCache.shared.compiledModel(forAsset: assetURL, sha256: sha, recompiling: true)
+                do { model = try await MLModel.load(contentsOf: compiled, configuration: config) }
+                catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — compute units \(computeUnits.rawValue)", underlying: error) }
+            }
+        }
         let desc = model.modelDescription
         guard let input = desc.inputDescriptionsByName["x"], let c = input.multiArrayConstraint,
               desc.outputDescriptionsByName["heatmap"] != nil,
@@ -629,4 +637,82 @@ package enum LearnedDiskDetectorError: Error, CustomStringConvertible, Localized
     /// generic "could not be completed", which is exactly the text that hid the
     /// runtime's failure on 2026-09-07.
     package var errorDescription: String? { description }
+}
+
+/// The compiled copies of the detector models, one per weights, kept in the app's Caches folder under the package's
+/// tree hash: `Caches/<bundle id>/DiskDetectorCompiled/<sha256>.mlmodelc`.
+///
+/// `MLModel.compileModel(at:)` writes a new compiled model to a new temporary folder on every call. Loading from a
+/// new path each time made Core ML's own on-disk cache of device-specialised models
+/// (`Caches/<bundle id>/com.apple.e5rt.e5bundlecache`) add entries on every load and never reuse one: 26 GB in
+/// 48,160 entries on the development Mac, a month of launches and test runs. A model compiled once and loaded from
+/// one stable path gives that cache one model to key on. Core ML's cache itself is never touched here.
+///
+/// The folder holds at most `limit` compiled models: the bundled one and the most recent fine-tuning candidates.
+/// Older ones are removed; each is rebuilt from its package when asked for again.
+package actor CompiledModelCache {
+    package static let shared = CompiledModelCache(directory: defaultDirectory())
+
+    package static let limit = 4
+
+    /// nil when the Caches folder cannot be found; models are then compiled to Core ML's temporary location as before.
+    package let directory: URL?
+
+    package init(directory: URL?) { self.directory = directory }
+
+    package static func defaultDirectory() -> URL? {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        return caches
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.mac4dstem.mac4DSTEM", isDirectory: true)
+            .appendingPathComponent("DiskDetectorCompiled", isDirectory: true)
+    }
+
+    /// Where the compiled model of the weights with this tree hash is kept.
+    package nonisolated func location(sha256: String) -> URL? {
+        directory?.appendingPathComponent(sha256 + ".mlmodelc", isDirectory: true)
+    }
+
+    /// The compiled model of `assetURL` (tree hash `sha256`): the kept copy when there is one, else compiled now and
+    /// kept. `recompiling` replaces a kept copy that would not load. An actor, so two loads of one model compile once.
+    package func compiledModel(forAsset assetURL: URL, sha256: String, recompiling: Bool = false) async throws -> URL {
+        let fm = FileManager.default
+        let kept = location(sha256: sha256)
+        if let kept, fm.fileExists(atPath: kept.path) {
+            if recompiling {
+                try? fm.removeItem(at: kept)
+            } else {
+                // Touched on use, so the limit drops the models nobody loads any more.
+                try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: kept.path)
+                return kept
+            }
+        }
+        let fresh: URL
+        do { fresh = try await MLModel.compileModel(at: assetURL) }
+        catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.compileModel(at:)", underlying: error) }
+        guard let kept, let directory else { return fresh }
+        do {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: kept.path) { try fm.removeItem(at: kept) }
+            try fm.moveItem(at: fresh, to: kept)
+        } catch {
+            // The Caches folder cannot be written: this load uses Core ML's temporary copy, as every load used to.
+            return fresh
+        }
+        prune(keeping: kept)
+        return kept
+    }
+
+    /// Removes the least recently used compiled models beyond `limit`, never `current`.
+    private func prune(keeping current: URL) {
+        guard let directory else { return }
+        let fm = FileManager.default
+        let entries = ((try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [])
+            .filter { $0.pathExtension == "mlmodelc" && $0.lastPathComponent != current.lastPathComponent }
+        let byAge = entries.sorted {
+            let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return a > b
+        }
+        for stale in byAge.dropFirst(Self.limit - 1) { try? fm.removeItem(at: stale) }
+    }
 }
