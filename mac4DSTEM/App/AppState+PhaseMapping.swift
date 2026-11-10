@@ -18,6 +18,7 @@
 //  published ground truth.
 //
 
+import ShellLayout
 import Foundation
 #if canImport(DSTEMCore)
 import DiffractoCore
