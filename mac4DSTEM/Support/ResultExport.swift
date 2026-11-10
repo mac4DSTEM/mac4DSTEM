@@ -155,9 +155,7 @@ extension AppState {
 
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let granted = sessionSidecar.grant(for: descriptor) { return granted }
-        let suggested = BraggVectorEMDWriter.sessionSidecarURL(
-            forSourcePath: descriptor.filePath
-        )
+        let suggested = sessionSidecar.derivedLocation(forSourcePath: descriptor.filePath)
         guard let url = runSidecarSavePanel(
             title: "Choose Session Sidecar",
             message: "Choose the companion file mac4DSTEM may update and reopen.",

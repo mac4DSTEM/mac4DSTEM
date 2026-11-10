@@ -143,6 +143,10 @@ package final class SessionSidecarLocator {
     /// `UserDefaults.standard` would both pollute the user's defaults and be
     /// unable to prove the KEY is right — which Gate D showed was untested while
     /// being the single string the whole diagnosis is indexed by.
+    /// The source path whose stem-named sidecar this open found stamped for another source (`keepApart`). Cleared by
+    /// `release()`; the next open finds it again, or finds the own-named file once a save has made it.
+    @ObservationIgnored private var keptApart: String?
+
     @ObservationIgnored private let defaults: UserDefaults
 
     package init(defaults: UserDefaults = .standard) {
@@ -171,8 +175,34 @@ package final class SessionSidecarLocator {
     /// one is what lets that call site use the same derivation as every other,
     /// which is the whole point of this type.
     package func location(forSourcePath path: String) -> URL {
-        grant(forSourcePath: path)
-            ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: path)
+        grant(forSourcePath: path) ?? derivedLocation(forSourcePath: path)
+    }
+
+    /// Where the sidecar is with no grant: `<stem>.mac4dstem.h5` beside the source. Two sources of one stem
+    /// (`scan.h5`, `scan.dm4`) share that name, so the one that did not write it keeps its session in
+    /// `<name with extension>.mac4dstem.h5`: once that file exists, or once this open found the stem-named file
+    /// stamped for the other source (`keepApart`).
+    package func derivedLocation(forSourcePath path: String) -> URL {
+        let own = BraggVectorEMDWriter.ownSessionSidecarURL(forSourcePath: path)
+        if keptApart == path || FileManager.default.fileExists(atPath: own.path) { return own }
+        return BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: path)
+    }
+
+    /// The sidecar at `foreign` is stamped for another source, so this source stops using it: a grant that points at
+    /// it is forgotten (the file itself is untouched), and `location` answers the source's own name from here on.
+    /// False when there is nothing left to move away from (already apart, or `foreign` is the own-named file).
+    @discardableResult
+    package func keepApart(forSourcePath path: String, from foreign: URL) -> Bool {
+        let own = BraggVectorEMDWriter.ownSessionSidecarURL(forSourcePath: path)
+        guard keptApart != path, !BraggVectorEMDWriter.isSameFile(foreign, own) else { return false }
+        if let scoped, scoped.sourcePath == path {
+            scoped.url.stopAccessingSecurityScopedResource()
+            self.scoped = nil
+            hasGrant = false
+        }
+        defaults.removeObject(forKey: Self.bookmarkKey(path))
+        keptApart = path
+        return true
     }
 
     /// The bookmark-resolved URL for `descriptor`, or nil when the app has no
@@ -274,6 +304,7 @@ package final class SessionSidecarLocator {
     package func release() {
         scoped?.url.stopAccessingSecurityScopedResource()
         scoped = nil
+        keptApart = nil
         hasGrant = false
         unreadableReason = nil
         wroteThisSession = false

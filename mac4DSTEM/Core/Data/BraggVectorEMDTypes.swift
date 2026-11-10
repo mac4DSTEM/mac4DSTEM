@@ -272,16 +272,36 @@ package nonisolated struct SessionSourceStamp: Codable, Equatable, Sendable {
         case refused(String)
     }
 
-    /// The restore rule. A stamp that names another file is refused. A sidecar with no stamp is restored only when no
-    /// sibling shares the source's stem with another extension (`siblings`, the names in the source's folder); with one,
-    /// nothing says which file wrote it, so it is refused too, naming the candidates. Names compare exactly (the stamp is
-    /// what this app wrote for that file).
+    /// Whether this stamp and `other` name one source. The same name does. So does a renamed or moved file: the same byte
+    /// size, with no file of the stamped name left beside it (`stampedFileExists`). `scan.h5` beside `scan.dm4` is neither.
+    package func isSameSource(as other: SessionSourceStamp, stampedFileExists: Bool) -> Bool {
+        if name == other.name { return true }
+        guard let bytes, let otherBytes = other.bytes else { return false }
+        return bytes == otherBytes && !stampedFileExists
+    }
+
+    /// Whether a file of the stamped name sits in `folder`. Asked of the file system by name, which a sandboxed app may
+    /// do where it may not list the folder.
+    package func stampedFileExists(in folder: URL) -> Bool {
+        FileManager.default.fileExists(atPath: folder.appendingPathComponent(name, isDirectory: false).path)
+    }
+
+    /// The restore rule. A stamp that names another file is refused, unless that file was renamed to this one
+    /// (`isSameSource`). A sidecar with no stamp is restored only when no sibling shares the source's stem with another
+    /// extension (`siblings`, the names in the source's folder); with one, nothing says which file wrote it, so it is
+    /// refused too, naming the candidates. Names compare exactly (the stamp is what this app wrote for that file).
     package static func check(_ stamp: SessionSourceStamp?, sourcePath: String, sidecarName: String,
                               siblings: [String]) -> Check {
         let source = URL(fileURLWithPath: sourcePath)
         let name = source.lastPathComponent
         if let stamp {
-            return stamp.name == name ? .matches : .refused(
+            let stampedFileExists = siblings.contains(stamp.name)
+                || stamp.stampedFileExists(in: source.deletingLastPathComponent())
+            if stamp.isSameSource(as: SessionSourceStamp(sourcePath: sourcePath, shape: []),
+                                  stampedFileExists: stampedFileExists) {
+                return .matches
+            }
+            return .refused(
                 "\(sidecarName) belongs to \(stamp.name), not to \(name), so its session is not restored here. "
                 + "Open \(stamp.name) to use it.")
         }
@@ -294,6 +314,19 @@ package nonisolated struct SessionSourceStamp: Codable, Equatable, Sendable {
             "\(sidecarName) was saved before sessions recorded their source, and \(([name] + others).joined(separator: " and ")) "
             + "share its name, so it is not restored: it may belong to the other file. To use it with \(name), "
             + "move the other file out of the folder and reopen.")
+    }
+
+    /// Why a save for `source` may not be written into a sidecar stamped `existing`: the file holds another source's
+    /// session, and a merge would mix the two. nil when the save may go ahead (no stamp on either side, or one source).
+    package static func saveRefusal(existing: SessionSourceStamp?, saving source: SessionSourceStamp?,
+                                    sidecar: URL) -> String? {
+        guard let existing, let source,
+              !existing.isSameSource(as: source,
+                                     stampedFileExists: existing.stampedFileExists(in: sidecar.deletingLastPathComponent()))
+        else { return nil }
+        let sidecarName = sidecar.lastPathComponent
+        return "\(sidecarName) holds the session of \(existing.name), so the session of \(source.name) is not saved into it. "
+            + "Choose another file name for this dataset's session."
     }
 
     /// The names in the folder that holds `sourcePath`; empty when the folder cannot be listed (a sandboxed app may only

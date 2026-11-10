@@ -1464,9 +1464,6 @@ final class AppState {
         // independent derivation. Gate D's mutation of this line was invisible
         // while the guard re-derived the path on its own: the call site could
         // read one file and test another. // v2 S1
-        let url = sessionSidecar.location(forSourcePath: path)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-
         // NOT `try?`. A refused read and "this session recorded no crop" are
         // different facts, and collapsing them is what made this defect quiet:
         // the sidecar says the session was a cropped view, the read is refused,
@@ -1474,14 +1471,9 @@ final class AppState {
         // Right numbers, wrong extent. Measured cause is EPERM from the sandbox
         // (docs/open-items.md, 2026-08-19), which no amount of retrying fixes —
         // so it is said out loud instead. // v2 S1
-        let read: Result<LoadSpecification?, Error>
-        do {
-            read = .success(try await Task.detached(priority: .utility) {
-                try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: path)
-            }.value.loadSpecification)
-        } catch {
-            read = .failure(error)
-        }
+        guard let session = await readSession(forSourcePath: path) else { return nil }
+        let url = session.url
+        let read = session.read.map(\.loadSpecification)
 
         let specification: LoadSpecification
         switch SessionSidecarLocator.recordedOutcome(
@@ -1517,6 +1509,34 @@ final class AppState {
             return nil
         }
         return specification
+    }
+
+    /// Reads the session of the source at `path` from where the locator says it is; nil when no file is there. A
+    /// sidecar stamped for another source (`scan.h5`'s `scan.mac4dstem.h5`, with `scan.dm4` being opened) is left
+    /// alone: this source's session moves to its own name (`SessionSidecarLocator.keepApart`), the log says so, and
+    /// that file is read instead when it exists. Both open-path reads go through here, so they agree on the file.
+    func readSession(forSourcePath path: String) async -> (url: URL, read: Result<SessionSidecarSnapshot, Error>)? {
+        var url = sessionSidecar.location(forSourcePath: path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        var read = await Self.loadSession(from: url, forSourcePath: path)
+        if case .failure(let error) = read,
+           case BraggVectorEMDWriter.WriterError.belongsToAnotherSource(let sentence) = error,
+           sessionSidecar.keepApart(forSourcePath: path, from: url) {
+            url = sessionSidecar.location(forSourcePath: path)
+            activityLog.record("\(sentence) This dataset's session is kept in \(url.lastPathComponent).")
+            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            read = await Self.loadSession(from: url, forSourcePath: path)
+        }
+        return (url, read)
+    }
+
+    private nonisolated static func loadSession(
+        from url: URL, forSourcePath path: String
+    ) async -> Result<SessionSidecarSnapshot, Error> {
+        await Task.detached(priority: .utility) { () -> Result<SessionSidecarSnapshot, Error> in
+            do { return .success(try BraggVectorEMDWriter.loadSession(from: url, forSourcePath: path)) }
+            catch { return .failure(error) }
+        }.value
     }
 
     /// The load specification recorded by the session sidecar for the open
