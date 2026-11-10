@@ -1,6 +1,6 @@
 {
   "Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(0.0015393428038805723), rUnits: Optional(\"µm\"), qSize: Optional(0.045741477608680726), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: nil, qy0Mean: nil, ellipseA: Optional(21.1647), ellipseB: Optional(19.5013), ellipseTheta: Optional(0.35779249665883756), qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(0.0015393428038805723), rUnits: Optional(\"µm\"), qSize: Optional(0.045741477608680726), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: nil, qy0Mean: nil, ellipseA: Optional(21.1647), ellipseB: Optional(19.5013), ellipseTheta: Optional(0.35779249665883756), qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "nil",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (330, 0) is outside the loaded view\")",

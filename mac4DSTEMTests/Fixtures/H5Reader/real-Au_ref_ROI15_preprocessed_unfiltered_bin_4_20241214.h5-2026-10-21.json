@@ -1,6 +1,6 @@
 {
   "Au_ref_ROI15_preprocessed_unfiltered_bin_4_20241214.h5" : {
-    "calibration" : "PixelCalibration(rSize: Optional(0.002033994998782873), rUnits: Optional(\"µm\"), qSize: Optional(0.045741477608680726), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, probeSemiangle: nil, originMaps: nil)",
+    "calibration" : "PixelCalibration(rSize: Optional(0.002033994998782873), rUnits: Optional(\"µm\"), qSize: Optional(0.045741477608680726), qUnits: Optional(\"A^-1\"), qrFlip: Optional(false), qx0Mean: nil, qy0Mean: nil, ellipseA: nil, ellipseB: nil, ellipseTheta: nil, qrRotationRad: nil, qrRotationConvention: nil, qrRotationNote: nil, ellipseRefusalNote: nil, probeSemiangle: nil, originMaps: nil)",
     "chunk" : "nil",
     "dtype" : "float32",
     "full.outside" : "readFailed(\"scan position (205, 0) is outside the loaded view\")",
