@@ -84,7 +84,7 @@ extension AppState {
     /// Set once; the products hold nothing of the room.
     func wirePoolHooks() {
         phaseMapping.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
-        edx.onQuantMapsChange = { [weak self] in self?.refreshPrecipitateJoins() }
+        watchEDSQuantificationForObjectJoins()   // composition per object is fitted with the room's method
         diffractionGroups.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
     }
 
