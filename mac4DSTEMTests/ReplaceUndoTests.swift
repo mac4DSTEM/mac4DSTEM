@@ -190,7 +190,7 @@ final class ReplaceUndoTests: XCTestCase {
         let m = manager()
 
         act(m) { state.applyAlMgSiPreset(precipitateCIF: cif, undoManager: m) }
-        XCTAssertEqual(state.phaseMapping.phases.count, 3)
+        XCTAssertEqual(state.phaseMapping.phases.count, 5, "Al and the four beta'' zones")
         XCTAssertEqual(state.phaseMapping.matching.classificationRule, .knownVariants)
         let after = state.phaseMapping.listSnapshot
         XCTAssertEqual(m.undoActionName, "Al–Mg–Si Preset")

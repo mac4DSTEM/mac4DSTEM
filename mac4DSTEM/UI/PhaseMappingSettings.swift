@@ -439,8 +439,8 @@ struct PhaseMappingSections: View {
     /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
     /// plus this session's already-imported models (CIF or Materials Project).
     private static let alMgSiPresetHelp = """
-        Replaces the phase list (Edit › Undo brings it back) with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF twice, at zones \
-        [0 1 0] (needles end-on) and [0 0 1] (in-plane), and selects the Known variants classifier. \
+        Replaces the phase list (Edit › Undo brings it back) with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF four times, at zones \
+        [0 1 0] and [0 -1 0] (needles end-on) and [1 0 -6] and [3 0 4] (needles in the foil plane), and selects the Known variants classifier. \
         "Parallel to matrix" stays empty and the tolerances stay as they are. Calibration (ellipse, Q, R) \
         is per dataset and is not set — calibrate from this scan's own lattice.
         """
@@ -452,7 +452,7 @@ struct PhaseMappingSections: View {
             Divider()
             Section("Presets") {
                 Button("Al–Mg–Si (β″ needles)…") { importsAlMgSiPreset = true; showCIFImporter = true }
-                    .tooltip(Self.alMgSiPresetHelp, hint: "Replaces the phase list with Al and your β″ CIF at two zones")
+                    .tooltip(Self.alMgSiPresetHelp, hint: "Replaces the phase list with Al and your β″ CIF at four zones")
             }
             if !appState.acomSession.importedCrystalModels.isEmpty {
                 Divider()

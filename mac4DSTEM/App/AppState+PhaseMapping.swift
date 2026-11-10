@@ -773,7 +773,7 @@ extension AppState {
             }
             let before = phaseMapping.listSnapshot
             phaseMapping.applyAlMgSiPreset(precipitate: model)
-            statusText = "Al–Mg–Si preset: Al (matrix) + \"\(model.displayName)\" at [0 1 0] and [0 0 1], "
+            statusText = "Al–Mg–Si preset: Al (matrix) + \"\(model.displayName)\" at [0 1 0], [0 -1 0], [1 0 -6] and [3 0 4], "
                 + "Known variants. Calibrate this dataset yourself."
             // It replaces the whole phase list: Edit > Undo puts the old one back (UI audit 2026-10-14).
             let product = phaseMapping

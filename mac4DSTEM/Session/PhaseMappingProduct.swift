@@ -577,8 +577,13 @@ package final class PhaseMappingProduct {
     /// Al–Mg–Si preset: the DATASET-INDEPENDENT phase setup only (owner
     /// decision 2026-09-30, from archived the archived notes
     /// "The app recipe for this cube"). Replaces the phase list with
-    /// Al (matrix, zone [0 0 1]) and the given β″ (Mg5Si6) structure twice —
-    /// zone [0 1 0] (needles end-on) and [0 0 1] (in-plane) — with
+    /// Al (matrix, zone [0 0 1]) and the given β″ (Mg5Si6) structure four times,
+    /// at the zones the Andersen 1998 relationship gives with Al [0 0 1] along the
+    /// beam (mac4DSTEM#115): [0 1 0] and [0 -1 0] (needles end-on; the two are
+    /// mirror hands, and one zone at every in-plane angle holds only one of
+    /// them) and [1 0 -6] and [3 0 4] (needles in the foil plane: the beam lies
+    /// 0.18 and 0.44 degrees from these for the Andersen cell; [0 0 1], which
+    /// the preset used before, is not a variant) — with
     /// "Parallel to matrix" empty, and selects the Known-variants classifier
     /// (with that rule's own intensity-floor default, exactly what the picker
     /// does on a switch). It touches NOTHING else: not the tolerances, not
@@ -594,7 +599,9 @@ package final class PhaseMappingProduct {
         phases = [
             PhaseMappingSlot(model: matrix, isMatrix: true, u: 0, v: 0, w: 1),
             PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 1, w: 0),
-            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 0, w: 1),
+            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: -1, w: 0),
+            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 1, v: 0, w: -6),
+            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 3, v: 0, w: 4),
         ]
         if matching.classificationRule != .knownVariants {
             matching.classificationRule = .knownVariants

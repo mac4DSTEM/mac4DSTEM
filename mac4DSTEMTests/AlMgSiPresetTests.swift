@@ -1,12 +1,12 @@
 //
 //  AlMgSiPresetTests.swift
-//  The Al–Mg–Si phase-mapping preset (Add Phase ▸ Presets): exactly three
+//  The Al–Mg–Si phase-mapping preset (Add Phase ▸ Presets): exactly five
 //  slots, their zones, the classifier — and nothing else. The cube's
 //  calibration (ellipse, Q, R) is a property of that dataset and is never
 //  part of a preset (the threshold rule).
 //
 //  Mutations these were broken against (each must turn a test red):
-//   1. flip the two β″ zones ([0 1 0] / [0 0 1] swapped)       -> testSlotsAndZones
+//   1. drop or change a β″ zone ([0 1 0], [0 -1 0], [1 0 -6], [3 0 4]) -> testSlotsAndZones
 //   2. mark a β″ slot as the matrix, or drop the Al matrix      -> testSlotsAndZones
 //   3. leave the classifier at .search                          -> testSlotsAndZones
 //   4. also reset `matching` to defaults / write Q or an
@@ -29,11 +29,11 @@ final class AlMgSiPresetTests: XCTestCase {
         let product = PhaseMappingProduct()
         product.applyAlMgSiPreset(precipitate: beta)
 
-        XCTAssertEqual(product.phases.count, 3)
-        XCTAssertEqual(product.phases.map(\.isMatrix), [true, false, false])
-        XCTAssertEqual(product.phases.map(\.model.id), ["al_fcc", beta.id, beta.id])
+        XCTAssertEqual(product.phases.count, 5)
+        XCTAssertEqual(product.phases.map(\.isMatrix), [true, false, false, false, false])
+        XCTAssertEqual(product.phases.map(\.model.id), ["al_fcc", beta.id, beta.id, beta.id, beta.id])
         XCTAssertEqual(product.phases.map(\.zoneAxis),
-                       [SIMD3(0, 0, 1), SIMD3(0, 1, 0), SIMD3(0, 0, 1)])
+                       [SIMD3(0, 0, 1), SIMD3(0, 1, 0), SIMD3(0, -1, 0), SIMD3(1, 0, -6), SIMD3(3, 0, 4)])
         XCTAssertTrue(product.phases.allSatisfy { $0.orientationRelationshipText.isEmpty },
                       "\"Parallel to matrix\" stays empty")
         XCTAssertTrue(product.phases.allSatisfy { $0.excitationSlabInvAngstrom == nil })
@@ -79,7 +79,7 @@ final class AlMgSiPresetTests: XCTestCase {
         _ = product.add(CrystalModelLibrary.model(id: "cu_fcc")!)
         _ = product.add(CrystalModelLibrary.model(id: "fe_bcc")!)
         product.applyAlMgSiPreset(precipitate: beta)
-        XCTAssertEqual(product.phases.map(\.model.id), ["al_fcc", beta.id, beta.id],
+        XCTAssertEqual(product.phases.map(\.model.id), ["al_fcc", beta.id, beta.id, beta.id, beta.id],
                        "the preset replaces the list; it does not extend it")
     }
 }
