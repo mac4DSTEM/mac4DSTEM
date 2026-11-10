@@ -218,6 +218,18 @@ jobs:
         # Decision D15. Plain grep, no build; also part of `inventory`, kept as its own job so the red is named.
         run: tools/check-kit-boundary.sh
 
+  agent-bridge:
+    name: agent bridge (mac4dstem-mcp build and tests)
+    if: github.event_name != 'schedule'
+    # AgentBridge/ is a package of its own on Foundation alone: Linux builds and tests it, off the macOS queue.
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and test the bridge
+        run: swift test --package-path AgentBridge
+
   lint:
     name: Lint (shared SwiftLint and SwiftFormat config)
     if: github.event_name != 'schedule'

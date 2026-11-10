@@ -167,6 +167,7 @@ Placement is wiring.
 | Putting in… | goes under… |
 |---|---|
 | App entry, window state (`AppState`), pending load, workspace vocabulary | `mac4DSTEM/App/` |
+| The agent door: the local, read-only API an agent on this Mac looks through (`docs/agent-door.md`) | `mac4DSTEM/App/AgentDoor/`; its MCP bridge, a package of its own outside the app, in `AgentBridge/` |
 | Session state with no UI: replay, sidecars, gates, products, residency, recovery | `mac4DSTEM/Session/` (package `DSTEMSession`) |
 | App-side reader adapters over FormatoKit, calibration model, EMD writer, product model | `mac4DSTEM/Core/Data/` |
 | Cancellation (the Metal engine is MacEMUI's `ShellMetal`, the FFTs ImagoKit's) | `mac4DSTEM/Core/Compute/` |

@@ -33,6 +33,9 @@ enum FigureOverlay {
     /// The active virtual detector, outlined as the pane draws it (no drag handles: they are controls, not part of a figure), in the
     /// colours of the given appearance (`FigureColors.scheme`).
     case detector(Aperture, VirtualShapeMode, ColorScheme)
+    /// The detected Bragg disks of the pattern, as the Disks task draws them (`PeakOverlay`): a circle at the probe radius, or a
+    /// cross at the centre when no probe kernel gives a radius. Drawn for an agent's look at the pattern (`agentPatternImage`).
+    case peaks([BraggPeak], probeRadius: Float?, ColorScheme)
 }
 
 /// Which of the app's two scale bars a panel carries.
@@ -149,6 +152,9 @@ enum FigureRendering {
                 switch overlay {
                 case .detector(let aperture, let shape, let scheme):
                     drawDetector(aperture, shape, scheme: scheme, patternWidth: panel.image.width, patternHeight: panel.image.height, box: box, in: ctx)
+                case .peaks(let peaks, let probeRadius, let scheme):
+                    drawPeaks(peaks, probeRadius: probeRadius, scheme: scheme, patternWidth: panel.image.width, patternHeight: panel.image.height,
+                              box: box, in: ctx)
                 }
             }
             ctx.restoreGState()
@@ -228,6 +234,30 @@ enum FigureRendering {
             stroke(cross, halo, width: ApertureOutline.haloWidth)
             stroke(cross, yellow, width: ApertureOutline.lineWidth)
         }
+    }
+
+    // MARK: Detected disks
+
+    /// The detected disks the Disks task draws, stroked in `box` (view points, y down) with `PeakOverlay`'s colour, width and
+    /// geometry: one circle per disk at the probe radius, or a cross of `PeakOverlay.markerHalfSize` when there is no radius to draw.
+    static func drawPeaks(_ peaks: [BraggPeak], probeRadius: Float?, scheme: ColorScheme, patternWidth: Int, patternHeight: Int,
+                          box: CGSize, in ctx: CGContext) {
+        let radius = PeakOverlayGeometry.radius(probeRadius: probeRadius, patternWidth: patternWidth, patternHeight: patternHeight, box: box)
+        let path = CGMutablePath()
+        for peak in peaks {
+            let center = PeakOverlayGeometry.center(x: peak.x, y: peak.y, patternWidth: patternWidth, patternHeight: patternHeight, box: box)
+            if let radius {
+                path.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: 2 * radius, height: 2 * radius))
+            } else {
+                let h = PeakOverlay.markerHalfSize
+                path.move(to: CGPoint(x: center.x - h, y: center.y)); path.addLine(to: CGPoint(x: center.x + h, y: center.y))
+                path.move(to: CGPoint(x: center.x, y: center.y - h)); path.addLine(to: CGPoint(x: center.x, y: center.y + h))
+            }
+        }
+        ctx.saveGState()
+        ctx.setStrokeColor(PeakOverlay.color.cgColor(scheme: scheme)); ctx.setLineWidth(PeakOverlay.lineWidth)
+        ctx.addPath(path); ctx.strokePath()
+        ctx.restoreGState()
     }
 
     // MARK: Figure

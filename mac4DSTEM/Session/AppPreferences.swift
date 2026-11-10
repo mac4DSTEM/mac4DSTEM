@@ -179,6 +179,12 @@ package final class AppPreferences {
         didSet { persist(offerLearnedDetector, forKey: Keys.offerLearnedDetector) }
     }
 
+    /// Whether the agent door is open (`App/AgentDoor`): a local API on this Mac's loopback address through which an agent
+    /// looks at what the windows show. `false` is the shipped behaviour: the app listens to nothing until the person asks.
+    package var agentDoorEnabled: Bool {
+        didSet { persist(agentDoorEnabled, forKey: Keys.agentDoorEnabled) }
+    }
+
     package init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.appearance = Self.decode(Keys.appearance, from: defaults) ?? .system
@@ -191,6 +197,7 @@ package final class AppPreferences {
         self.figureFormat = Self.decode(Keys.figureFormat, from: defaults) ?? .png
         self.keepAwake = defaults.object(forKey: Keys.keepAwake) as? Bool ?? false
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
+        self.agentDoorEnabled = defaults.object(forKey: Keys.agentDoorEnabled) as? Bool ?? false
     }
 
     /// Restore every key to its shipped default. `removeObject`, not a
@@ -209,6 +216,7 @@ package final class AppPreferences {
         figureFormat = .png
         keepAwake = false
         offerLearnedDetector = true
+        agentDoorEnabled = false
         suppressPersistence = false
     }
 
@@ -239,11 +247,12 @@ package final class AppPreferences {
         static let figureFormat = "prefs.figureFormat"
         static let keepAwake = "prefs.keepAwake"
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
+        static let agentDoorEnabled = "prefs.agentDoorEnabled"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
             showScaleBar, openBehaviour, exportScale, figureFormat, keepAwake,
-            offerLearnedDetector,
+            offerLearnedDetector, agentDoorEnabled,
         ]
     }
 }

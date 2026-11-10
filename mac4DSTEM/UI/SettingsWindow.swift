@@ -24,7 +24,7 @@ import DSTEMSession
 #endif
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, analysis, materialsProject, advanced
+    case general, appearance, analysis, materialsProject, agents, advanced
 
     var id: String { rawValue }
 
@@ -34,6 +34,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return "Appearance"
         case .analysis: return "Analysis"
         case .materialsProject: return "Materials Project"
+        case .agents: return "Agents"
         case .advanced: return "Advanced"
         }
     }
@@ -44,6 +45,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return "paintbrush"
         case .analysis: return "cpu"
         case .materialsProject: return "cube.transparent"
+        case .agents: return "door.left.hand.open"
         case .advanced: return "wrench.and.screwdriver"
         }
     }
@@ -58,6 +60,7 @@ struct SettingsWindow: View {
     /// switch does not rebuild, so a typed-but-not-yet-saved key survives
     /// the round trip.
     @State private var materialsProjectKeyDraft = ""
+    @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
         NavigationSplitView {
@@ -77,6 +80,7 @@ struct SettingsWindow: View {
                 case .appearance: AppearanceSettingsSection()
                 case .analysis: AnalysisSettingsSection()
                 case .materialsProject: MaterialsProjectSettingsView(keyDraft: $materialsProjectKeyDraft)
+                case .agents: AgentSettingsSection()
                 case .advanced: AdvancedSettingsSection()
                 }
             }
@@ -86,6 +90,8 @@ struct SettingsWindow: View {
         // The category list stands; there is nothing to toggle in a
         // settings window — matches System Settings' own shape.
         .toolbar(removing: .sidebarToggle)
+        // Here, not on the Agents section: Reset All Settings (Advanced) turns the preference off too, and the door must follow.
+        .onChange(of: preferences.agentDoorEnabled) { _, enabled in AgentDoor.shared.setEnabled(enabled) }
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,
             idealWidth: LayoutPolicy.settingsWindow.ideal.width,
@@ -212,6 +218,40 @@ private struct AnalysisSettingsSection: View {
             Text("Turning this off only hides the option; it does not change the classical detector's threshold, radius, or any other per-dataset setting.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Agents
+
+/// The agent door's one switch and what it is doing (`App/AgentDoor/AgentDoor.swift`). The sentence under it says what an agent
+/// can and cannot do, because the switch opens a listener and the person should know its reach before turning it on.
+struct AgentSettingsSection: View {   // internal: AgentDoorTests reads `statusText`
+    @Environment(AppPreferences.self) private var preferences
+
+    var body: some View {
+        @Bindable var preferences = preferences
+        let door = AgentDoor.shared
+        Section("Agent access") {
+            Toggle("Let agents on this Mac look at open windows", isOn: $preferences.agentDoorEnabled)
+                .accessibilityIdentifier("settings.agents.enabled")
+            LabeledContent("Status", value: Self.statusText(door.status, requests: door.requestCount))
+                .accessibilityIdentifier("settings.agents.status")
+            Text("While this is on, an agent you run on this Mac (Claude, Codex) can read what mac4DSTEM's windows show through the mac4DSTEM MCP bridge: the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks and the recipe. It cannot change anything. Nothing leaves this Mac, and other computers cannot reach the app.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The status row's words. Pure, so it is tested.
+    static func statusText(_ status: AgentDoor.Status, requests: Int) -> String {
+        switch status {
+        case .off: return "Off"
+        case .starting: return "Opening\u{2026}"
+        case .listening(let port):
+            if requests == 0 { return "On (port \(port)), no agent has asked yet" }
+            return "On (port \(port)), \(requests) \(requests == 1 ? "request" : "requests") answered"
+        case .failed(let why): return "Could not open: \(why)"
         }
     }
 }
