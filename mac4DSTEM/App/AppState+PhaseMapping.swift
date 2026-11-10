@@ -248,6 +248,14 @@ extension AppState {
         return .published
     }
 
+    /// The note for a reopened session whose phase-mapping run stands in the lineage while this window holds no map
+    /// (`PhaseMappingProduct.savedRunNote`, #128), or nil: a map in hand, or no such run.
+    var savedPhaseMappingRunNote: String? {
+        guard phaseMapping.map == nil,
+              let node = replay.lineage.activeNodes().last(where: { $0.kind == "phase_mapping" }) else { return nil }
+        return PhaseMappingProduct.savedRunNote(parameters: node.parameters, hasPhases: !phaseMapping.phases.isEmpty)
+    }
+
     /// The phase map itself: an RGBA image, categorical, with the legend and
     /// the numbers that produced it in provenance.
     func publishPhaseMapProduct() {

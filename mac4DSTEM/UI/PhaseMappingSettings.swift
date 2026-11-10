@@ -61,6 +61,10 @@ struct PhaseMappingSections: View {
         InspectorSection("Phases") {
             // An empty list is named once, by the Requirements section (the
             // phases are a prerequisite since 2026-09-30), not again here.
+            // A reopened session's run, when this window holds no map of it (#128).
+            if let saved = appState.savedPhaseMappingRunNote {
+                InspectorNote(saved).accessibilityIdentifier("phaseMapping.savedRun")
+            }
             ForEach(Array(product.phases.enumerated()), id: \.element.id) { index, slot in
                 PhaseRow(index: index, slot: slot)
             }
