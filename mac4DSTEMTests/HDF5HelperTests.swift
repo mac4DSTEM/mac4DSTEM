@@ -1,6 +1,6 @@
 //
 //  HDF5HelperTests.swift
-//  The HDF5 helper, slice 1 (docs/hdf5-helper.md): open, describe and close over XPC give what the in-process reader
+//  The HDF5 helper, slices 1 and 2 (docs/hdf5-helper.md): open, describe and close over XPC give what the in-process reader
 //  gives, and a helper that crashes or hangs is an error the app receives, never the end of the app.
 //  The in-process cases vend `HDF5HelperService` on an anonymous listener; the isolation cases talk to the embedded
 //  `HDF5Helper.xpc` (the test host is the app, so its Contents/XPCServices is where the service is found).
@@ -66,6 +66,36 @@ final class HDF5HelperTests: XCTestCase {
             XCTFail("the helper opened a file that is not HDF5")
         } catch let error as HDF5HelperError {
             XCTAssertEqual(error, .refused(inProcess))
+        }
+    }
+
+    // MARK: The open path's first look (slice 2)
+
+    func testTheSignatureIsReadWithoutLibhdf5() {
+        XCTAssertTrue(HDF5HelperClient.hasHDF5Signature(path: cube.path))
+        XCTAssertFalse(HDF5HelperClient.hasHDF5Signature(path: notHDF5.path))
+        XCTAssertFalse(HDF5HelperClient.hasHDF5Signature(path: "/nonexistent/file.h5"))
+    }
+
+    /// A good cube passes. A file the helper only refuses passes too: the app's routing says what it is.
+    func testThePreflightPassesAGoodFileAndARefusedOne() async throws {
+        let host = AnonymousHelperListener()
+        let client = host.client()
+        defer { client.invalidate() }
+        try await client.preflight(cube)
+        try await client.preflight(notHDF5)
+    }
+
+    /// A helper that cannot be reached is not a refusal: the open stops with the sentence.
+    func testThePreflightStopsWhenTheHelperIsNotThere() async throws {
+        let client = HDF5HelperClient(seconds: 5) { NSXPCConnection(serviceName: "com.mac4dstem.mac4DSTEM.NoSuchHelper") }
+        defer { client.invalidate() }
+        do {
+            try await client.preflight(cube)
+            XCTFail("a preflight with no helper passed")
+        } catch let error as HDF5HelperError {
+            if case .refused = error { XCTFail("a helper that is not there read as a refusal, which the preflight lets pass") }
+            XCTAssertFalse(error.localizedDescription.isEmpty)
         }
     }
 

@@ -3,7 +3,7 @@
 //  Role: the app side of `HDF5HelperXPC`. Every call answers: with the helper's value, with the helper's own sentence,
 //        or with `HDF5HelperError` when the helper crashed, hung or could not be reached. Nothing the helper does can
 //        end the app (docs/hdf5-helper.md).
-//        Off by default (`isEnabled`); slice 2 routes the HDF5 open path through it when the flag is on.
+//        Off by default (`isEnabled`). With the flag on, the open path looks at an HDF5 file here first (`preflight`).
 //
 
 import Darwin
@@ -50,6 +50,8 @@ package nonisolated final class HDF5HelperClient: @unchecked Sendable {
     /// The user default that turns the helper on. Off by default: the in-process path is unchanged.
     package static let defaultsKey = "HDF5ReadsInHelper"
     package static var isEnabled: Bool { UserDefaults.standard.bool(forKey: defaultsKey) }
+    /// The app's one client of the embedded service; every window shares the one helper (docs/hdf5-helper.md).
+    package static let shared = HDF5HelperClient()
 
     /// Seconds the helper's watchdog allows one call. The client waits `grace` longer before it gives up itself.
     package let seconds: Double
@@ -165,6 +167,29 @@ package nonisolated final class HDF5HelperClient: @unchecked Sendable {
             }
         }
         return dataset.descriptor(filePath: filePath)
+    }
+
+    /// Whether the file starts with the HDF5 signature at offset 0, read as plain bytes: no libhdf5 call. (A user
+    /// block can move the signature; such a file is not checked here and takes the in-process path as before.)
+    package static func hasHDF5Signature(path: String) -> Bool {
+        guard let file = FileHandle(forReadingAtPath: path) else { return false }
+        defer { try? file.close() }
+        let head = (try? file.read(upToCount: 8)) ?? Data()
+        return head == Data([0x89, 0x48, 0x44, 0x46, 0x0D, 0x0A, 0x1A, 0x0A])
+    }
+
+    /// The open path's first look at an HDF5 file, in the helper: open it and describe its datacube there, then let
+    /// go. A file that crashes or hangs libhdf5 on open ends the helper and throws its sentence, before any libhdf5
+    /// call in the app touches the file. A file the helper only refuses (no datacube, a Velox file, a session
+    /// sidecar) passes: the app's own routing says what it is, in its own words.
+    package func preflight(_ url: URL) async throws {
+        do {
+            let handle = try await open(url)
+            defer { Task { await self.close(handle: handle) } }
+            _ = try await describePrimaryDataset(handle: handle, filePath: url.path)
+        } catch HDF5HelperError.refused {
+            return
+        }
     }
 
     /// Releases the handle. A helper that is gone has released it already, so failures are ignored.

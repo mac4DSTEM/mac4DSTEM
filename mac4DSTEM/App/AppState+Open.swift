@@ -221,6 +221,11 @@ extension AppState {
         // By content (FormatoKit's sniff): the extension picks the candidates, the first bytes confirm them.
         // The sniff opens an HDF5 file under the HDF5 lock: off the main actor, like the readers.
         let path = url.path
+        // With `HDF5ReadsInHelper` on, the helper process opens an HDF5 file before any libhdf5 call here does, the
+        // sniff below included: a file that crashes or hangs libhdf5 on open is refused with a sentence.
+        if HDF5HelperClient.isEnabled, HDF5HelperClient.hasHDF5Signature(path: path) {
+            try await HDF5HelperClient.shared.preflight(url)
+        }
         let route = await Task.detached(priority: .userInitiated) { FileRouting.route(path: path) }.value
         switch route {
         case .digitalMicrograph: return try await DM4Reader(path: url.path)
