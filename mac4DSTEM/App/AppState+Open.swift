@@ -35,7 +35,7 @@ extension AppState {
             defer { finishDatasetLoading(owner: load) }
             let accessed = url.startAccessingSecurityScopedResource()
             do {
-                try await MerlinSetAccess.grantFolderIfNeeded(for: url)   // a Merlin multi-file save needs its folder (#120)
+                try await CompanionFolderAccess.grantFolderIfNeeded(for: url)   // companions of other names need the folder (#120)
                 let reader = try await Self.makeReader(for: url)
                 beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
                 let source = try await reader.discoverPrimaryDataset()
@@ -341,7 +341,7 @@ extension AppState {
         let accessed = url.startAccessingSecurityScopedResource()
 
         do {
-            try await MerlinSetAccess.grantFolderIfNeeded(for: url)   // a Merlin multi-file save needs its folder (#120)
+            try await CompanionFolderAccess.grantFolderIfNeeded(for: url)   // companions of other names need the folder (#120)
             let reader = try await Self.makeReader(for: url)
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
