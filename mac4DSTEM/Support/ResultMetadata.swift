@@ -97,7 +97,11 @@ extension AppState {
             // otherwise indistinguishable in Results and in the sidecar
             // (`drive-groups` defect 5). Same helper the run itself publishes
             // through, so the fallback and the real product cannot drift.
-            let candidates = max(0, (phaseMapping.map?.phaseNames.count ?? 1) - 1)
+            // Without a map in hand (a reopened session, or before the first
+            // run) the count is the list's own candidates, so the pane never
+            // reads "0 candidates" above a list that holds some (#175).
+            let candidates = phaseMapping.map.map { max(0, $0.phaseNames.count - 1) }
+                ?? phaseMapping.phases.filter { !$0.isMatrix }.count
             return ("phase_map",
                     PhaseMappingProduct.mapDisplayName(candidatePhases: candidates),
                     "phase")

@@ -167,8 +167,11 @@ final class QCalibrationOriginGateTests: XCTestCase {
 
         await state.calibrateQFromCrystal()
 
+        // CHANGED with DiffractoKit 0.12.1: the two rings fit several first shells at the same ratios; the kit names them, and with no
+        // pixel size from the file the app writes no scale and says which shells fit (it used to be the kit's own refusal).
         let refusal = try XCTUnwrap(state.qCalibration.refusal, "expected a refusal: \(state.statusText)")
-        XCTAssertTrue(refusal.contains("Two assignments fit equally well"), refusal)
+        XCTAssertTrue(refusal.contains("as the first ring equally well") && refusal.contains(" or "), refusal)
+        XCTAssertTrue(refusal.contains("no scale was written"), refusal)
         XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "a refusal writes no scale")
         XCTAssertNil(state.calibrationSession.provenance.qScale)
         XCTAssertNil(state.qCalibration.estimate)

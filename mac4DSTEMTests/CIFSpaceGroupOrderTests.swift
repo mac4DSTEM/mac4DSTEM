@@ -189,17 +189,15 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
             symbol: "F m -3 m", listed: 48, required: 192))
     }
 
-    /// A primitive (60°) cell of Fm-3m legitimately lists the 48 centring-free operations:
-    /// the check must not refuse it (it imports as an unreduced 2-atom cell).
-    func testPrimitiveCellOfACentredGroupIsNotRefusedForLackingTheCentring() throws {
-        let model = try CIFModelImport.crystalModel(
-            from: mgo(ops: Self.pointOps, itNumber: 225, angle: 60), fileBaseName: "t")
-        XCTAssertEqual(model.structure.sites.count, 2)
-        // The kit reads this cell's Laue class as m-3m, but its frame is rhombohedral (α = β = γ = 60°), not the cubic
-        // axes: `.cubic` would draw a wrong fundamental zone, so it stays Unreduced, as before the kit
-        // (`ACOMCrystalSymmetry.reduction(for:)` tests the cell as well as the class; registration P4).
-        XCTAssertEqual(model.structure.laueClass, .mThreeBarM)
-        XCTAssertEqual(model.symmetry, .identity)
+    /// A primitive (60°) cell that lists the 48 point operations written for the CUBIC axes ("-x,y,z" and the like). CHANGED with
+    /// DiffractoKit 0.12.0: those operations do not map a 60° rhombohedral cell onto itself, so the list belongs to another setting and
+    /// the kit refuses the file instead of expanding the sites with it (before, it imported as an unreduced 2-atom cell, built from
+    /// operations that are not this cell's). The refusal names the operation and says what to do.
+    func testCubicAxisOperationsOnAPrimitiveCellAreRefusedAsAnotherSetting() {
+        XCTAssertThrowsError(try CIFModelImport.crystalModel(from: mgo(ops: Self.pointOps, itNumber: 225, angle: 60), fileBaseName: "t")) { error in
+            guard case .cif? = error as? CIFModelImportError else { return XCTFail("\(error)") }
+            XCTAssertTrue("\(error)".contains("does not map the cell onto itself"), "\(error)")
+        }
     }
 
     /// An operation coefficient too large for an Int (and NaN-adjacent garbage) must be

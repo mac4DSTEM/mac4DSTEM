@@ -44,10 +44,10 @@ package final class ACOMSession {
     /// file itself cannot be read again later.
     package var importedCIFSources: [String: PhaseSetupRecord.CIFSource] = [:]
     /// A different scale changes the match and the plan's k range (the detector's reach in Å⁻¹); `runACOM` rebuilds a plan
-    /// whose range no longer fits, so only the result is invalidated here.
-    package var exploratoryScale: Double = 0.01 {
-        didSet { if exploratoryScale != oldValue { invalidateResult() } }
-    }
+    /// whose range no longer fits. A kept map is not deleted: it reads stale, as after a Q edit (`setManualQPixelSize`),
+    /// because the scale is a compared key of its run (`scale_inv_angstrom_per_pixel`), and its templates are drawn at
+    /// the scale it was matched at (`lastRunSemantics`).
+    package var exploratoryScale: Double = 0.01
     package var backend: ACOMMatchingBackend = .automatic
     /// DiffractoKit 0.9 `ACOMMatcher(refinesInPlaneAngle:)`: the in-plane angle at the vertex of the parabola through the correlation peak
     /// instead of the 128-bin step. Off by default (the kit's default); CPU scan only. A change invalidates the result.

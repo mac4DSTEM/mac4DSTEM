@@ -49,11 +49,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let perimeterPx: Double?
         package let equivalentDiameterPx: Double?
         package let solidity: Double?
-        /// Mean composition under the object from the quantified maps (suite task 42): per element, the EDX pixels averaged and
-        /// those the maps could not give a value for. Nil without the join; `compositionNote` says why an object has none.
+        /// The object's composition (suite task 42): one pooled fit of the summed spectrum of its EDS pixels, per element with the
+        /// fit's sigma; the pixels and counts summed. Nil without the join; `compositionNote` says why an object has none.
         package let composition: [ObjectComposition]?
         package let compositionPixels: Int?
-        package let compositionExcluded: Int?
+        package let compositionCounts: UInt64?
         package let compositionNote: String?
         /// Mean strain under the object (rows and columns) and its spread, or `strainNote`.
         package let strain: ObjectStrain?
@@ -96,10 +96,16 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
 
         /// The table's one-cell texts for the joins (suite task 42): the object's own mean, or the reason it has none ("" without the join).
-        package var compositionSummary: String {
+        package var compositionSummary: String { compositionText { Self.fixed($0, $1) } }
+
+        /// The composition cell with the caller's number format (value, decimals): the table passes the user's locale, and
+        /// `compositionSummary` is the same text with the report's own point, for copies and tests.
+        package func compositionText(_ number: (Double, Int) -> String) -> String {
             guard let composition else { return compositionNote ?? "" }
-            let parts = composition.compactMap { e in e.atomicPercent.map { "\(e.symbol) " + Self.fixed($0, 1) } }
-            return parts.joined(separator: " · ") + " at%" + ((compositionExcluded ?? 0) > 0 ? " (\(compositionPixels ?? 0) px, \(compositionExcluded ?? 0) failed or masked)" : "")
+            let parts = composition.compactMap { e in
+                e.atomicPercent.map { "\(e.symbol) " + number($0, 1) + (e.atomicSigma.map { " ± " + number($0, 1) } ?? "") }
+            }
+            return parts.joined(separator: " · ") + " at%" + (compositionPixels.map { " (\($0) px)" } ?? "")
         }
         package var strainSummary: String {
             guard let strain else { return strainNote ?? "" }
@@ -289,7 +295,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                     equivalentDiameterPx: object.equivalentDiameterPx, solidity: object.solidity,
                     composition: compositionJoin?.perObject[object.id]?.elements,
                     compositionPixels: compositionJoin?.perObject[object.id]?.pixels,
-                    compositionExcluded: compositionJoin?.perObject[object.id]?.excluded,
+                    compositionCounts: compositionJoin?.perObject[object.id]?.counts,
                     compositionNote: compositionJoin?.reasons[object.id],
                     strain: strainJoin?.perObject[object.id], strainNote: strainJoin?.reasons[object.id],
                     variant: variantJoin?.perObject[object.id],
@@ -484,7 +490,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 + "), assuming the objects span the foil")
         }
         if !compositionElements.isEmpty {
-            lines.append("# composition: the mean of the per-pixel at% and wt% maps over the object's EDS pixels (no sigma; not the pooled fit); objects under the minimum EDS pixels have none")
+            lines.append("# composition: one pooled fit per object: the summed spectrum of the object's EDS pixels fitted with the Spectroscopy room's method; *_sigma is that fit's; objects under the minimum EDS pixels have none")
         } else if let why = compositionUnavailable { lines.append("# composition: not available: \(why)") }
         if strainAvailable {
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
@@ -535,8 +541,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         names += ["axis_major_length_px", "perimeter_px", "equivalent_diameter_px", "solidity"]
         names += ["axis_major_length_\(unit)", "perimeter_\(unit)", "equivalent_diameter_\(unit)"]
         if !compositionElements.isEmpty {
-            names.append("composition_px")
-            for symbol in compositionElements { names.append(Self.csvName(symbol) + "_at_pct"); names.append(Self.csvName(symbol) + "_wt_pct") }
+            names += ["composition_px", "composition_counts"]
+            for symbol in compositionElements {
+                let name = Self.csvName(symbol)
+                names += [name + "_at_pct", name + "_at_pct_sigma", name + "_wt_pct", name + "_wt_pct_sigma"]
+            }
         }
         if variantGroups != nil { names += ["variant", "direction", "variant_status", "variant_agreement", "variant_angle_deg"] }
         if strainAvailable {
@@ -556,10 +565,10 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         f += [n(r.axisMajorLengthPx), n(r.perimeterPx), n(r.equivalentDiameterPx), n(r.solidity)]
         f += [n(r.axisMajorLength), n(r.perimeter), n(r.equivalentDiameter)]
         if !compositionElements.isEmpty {
-            f.append(r.compositionPixels.map(String.init) ?? "")
+            f.append(r.compositionPixels.map(String.init) ?? ""); f.append(r.compositionCounts.map(String.init) ?? "")
             for symbol in compositionElements {
                 let e = r.composition?.first { $0.symbol == symbol }
-                f.append(n(e?.atomicPercent)); f.append(n(e?.weightPercent))
+                f += [n(e?.atomicPercent), n(e?.atomicSigma), n(e?.weightPercent), n(e?.weightSigma)]
             }
         }
         if variantGroups != nil {

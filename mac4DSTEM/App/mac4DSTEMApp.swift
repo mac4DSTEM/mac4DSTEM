@@ -64,6 +64,8 @@ private struct DatasetWindow: View {
     /// A file is being dragged over the window (File > drop-to-open).
     @State private var dropTargeted = false
     @Environment(\.openWindow) private var openWindow
+    /// Open object tables follow their run through this relay; optional so the window also runs without it.
+    @Environment(PrecipitateReportUpdates.self) private var reportUpdates: PrecipitateReportUpdates?
 
     /// `preferences` is handed in (not `AppPreferences()` as a default, the
     /// `materialsProject`/`sessionSidecar` shape) because it must be the
@@ -78,6 +80,11 @@ private struct DatasetWindow: View {
         self.recents = recents
         self.menuRelay = menuRelay
         _holder = State(initialValue: LazyAppState { AppState(preferences: preferences, recents: recents) })
+    }
+
+    private var externalOpenPatterns: Set<String> {
+        ExternalOpen.patterns(holdsDocument: appState.hasDocument, isOpening: appState.datasetSession.isLoading,
+                              heldPath: appState.descriptor?.filePath)
     }
 
     var body: some View {
@@ -112,7 +119,16 @@ private struct DatasetWindow: View {
         // double-click during a load is declined with a reason rather than
         // reaching HDF5 twice.
         // UNVERIFIED ON SCREEN: not yet driven from Finder.
-        .onOpenURL { appState.openFile(url: $0) }
+        .onOpenURL { url in
+            // The file this window holds, opened again from Finder: the window comes forward and nothing reloads.
+            if ExternalOpen.isHeld(url, heldPath: appState.descriptor?.filePath) {
+                appState.statusText = "\(url.lastPathComponent) is open in this window"
+                return
+            }
+            appState.openFile(url: url)
+        }
+        // An empty window takes the Finder open; one with a dataset leaves it to a new window (#163).
+        .handlesExternalEvents(preferring: externalOpenPatterns, allowing: externalOpenPatterns)
         // Review a6 / owner card D2 (a): a closed window lets go of its dataset at once, even if something still
         // retains its state; a window that appears again is known again (`OpenDatasetRegistry`).
         .onAppear {
@@ -126,6 +142,7 @@ private struct DatasetWindow: View {
                 menuRelay.request(.openFile(url, configure: configure))
                 openWindow(id: "dataset")
             }
+            appState.onPrecipitateReportChange = { [reportUpdates] report in reportUpdates?.publish(report) }
         }
         // The same event stops the window's running job (`windowClosed`): a closed window must not keep computing
         // for a dataset nobody can see. `onDisappear` fires when the hosting view leaves its window; a window
@@ -440,6 +457,8 @@ struct mac4DSTEMApp: App {
     // (`PrecipitateTableSelection`). App-scoped because the table is a separate
     // scene holding a snapshot, not a link to any one window's AppState.
     @State private var tableSelection = PrecipitateTableSelection()
+    // The other way: a dataset window's report to the object tables of the same run (`PrecipitateReportUpdates`).
+    @State private var reportUpdates = PrecipitateReportUpdates()
     init() {
         UITestingLaunch.resetSavedState()
         UITestingPlacement.installIfTesting()
@@ -452,6 +471,7 @@ struct mac4DSTEMApp: App {
         WindowGroup("mac4DSTEM", id: "dataset") {
             DatasetWindow(preferences: preferences, recents: recents, menuRelay: menuRelay)
                 .environment(tableSelection)
+                .environment(reportUpdates)
         }
             .defaultSize(width: UITestingLaunch.isActive ? UITestingLaunch.windowWidth : LayoutPolicy.datasetWindowIdealSize.width,
                          height: UITestingLaunch.isActive ? UITestingLaunch.windowHeight : LayoutPolicy.datasetWindowIdealSize.height)
@@ -472,6 +492,7 @@ struct mac4DSTEMApp: App {
             if let report {
                 PrecipitateObjectsWindow(report: report)
                     .environment(tableSelection)
+                    .environment(reportUpdates)
                     .preferredColorScheme(preferences.appearance.colorScheme)
             }
         }

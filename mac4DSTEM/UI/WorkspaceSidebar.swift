@@ -250,14 +250,19 @@ struct SessionSection: View {
                 .accessibilityIdentifier("sidebar.dataset")
             }
 
-            Section("Session") {
+            Section {
                 warnings
                 inventory
+            } header: {
+                // The identifier is the heading's alone (#164): on the Section it reached every row and replaced
+                // the rows' own, so a press on "sidebar.session.allowAccess" found no button and landed on the
+                // heading.
+                Text("Session")
+                    .accessibilityIdentifier("sidebar.session")
             }
             // Contents, not navigation. NOTE: a `.sidebar` List re-applies its
             // own font to every Label, so a `.font()` here does nothing — it
             // has to go on each row, which is why they carry it individually.
-            .accessibilityIdentifier("sidebar.session")
         }
     }
 

@@ -295,12 +295,22 @@ final class AppState {
     /// strain map; the object report reads them. Recomputed by `refreshPrecipitateJoins`.
     private(set) var precipitateJoins = PrecipitateJoins()
     @ObservationIgnored var precipitateJoinGeneration = 0
+    /// The running join (one pooled fit per object can take a while): a newer request cancels it.
+    @ObservationIgnored var precipitateJoinTask: Task<Void, Never>?
+    /// What the standing composition per object was fitted with (the room's method hash; nil: not quantified).
+    @ObservationIgnored var precipitateCompositionKey: String?
     /// The variant run's settings (suite task 40); nil is off. Recorded on the objects run's lineage node like the thickness; set through
     /// `setPrecipitateVariantSettings`. Nothing is computed without them.
     private(set) var precipitateVariantSettings: VariantSettings?
     func assignPrecipitateVariantSettings(_ settings: VariantSettings?) { precipitateVariantSettings = settings }
     func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
-    func assignPrecipitateJoins(_ joins: PrecipitateJoins) { precipitateJoins = joins }
+    func assignPrecipitateJoins(_ joins: PrecipitateJoins) {
+        precipitateJoins = joins
+        // An object table that is already open follows its run (`PrecipitateReportUpdates`): the joins land after it opened.
+        if let report = precipitateObjectReport { onPrecipitateReportChange?(report) }
+    }
+    /// Set by the dataset window: hands the report to the app's relay for open object tables.
+    @ObservationIgnored var onPrecipitateReportChange: ((PrecipitateObjectReport) -> Void)?
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
     var precipitateOverlay = PrecipitateOverlaySettings()
     /// The object under the pointer on a scan pane (the overlay writes its readout beside it).

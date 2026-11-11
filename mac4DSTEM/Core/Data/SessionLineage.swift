@@ -220,6 +220,9 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                           Dependency(role: "calibration", kind: "calibration_origin"),
                           Dependency(role: "calibration", kind: "calibration_ellipse"),
                           Dependency(role: "calibration", kind: "calibration_q")],
+        // Single-slice ptychography reads the origin and the Q scale (with rotation and voltage, which have no node).
+        "ptychography": [Dependency(role: "calibration", kind: "calibration_origin"),
+                         Dependency(role: "calibration", kind: "calibration_q")],
         "precipitate_objects": [Dependency(role: "phases", kind: "phase_mapping")],
         // Pooling by phase or object reads those 4D products through the registration record M2
         // (`QuantificationStep`); a whole-map or drawn-region quantification has neither edge. No
@@ -245,7 +248,19 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                 || node.parameters["source"] == clearedCalibrationValue)
     }
 
-    package static let calibrationJudgedKinds: Set<String> = ["strain", "acom", "phase_mapping", "dpc"]
+    package static let calibrationJudgedKinds: Set<String> = ["strain", "acom", "phase_mapping", "dpc", "ptychography"]
+
+    /// Whether a run of `kind` with these parameters consumes a dependency its policy lists. One exception: a Q scale
+    /// that was typed or cleared was not measured on the disks, so it takes no `peaks` edge. With one, a rewind to an
+    /// older detection took the cleared node off the path and brought back a Q measured on that detection: a scale
+    /// the user had cleared, applied again.
+    package static func consumes(_ dependency: Dependency, kind: String, parameters: [String: String]) -> Bool {
+        guard kind == "calibration_q", dependency.role == "peaks" else { return true }
+        return parameters["source"] != clearedCalibrationValue && parameters["source"] != typedCalibrationValue
+    }
+
+    /// The `source` of a calibration the user typed (`CalibrationValueProvenance.manual`, as the recording sites spell it).
+    package static let typedCalibrationValue = "manual"
 
     /// One calibration kind a run's policy lists: the node the run used (nil:
     /// none was active then) and the node of that kind active now (nil: none).
@@ -357,6 +372,8 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         /// cannot be restored (only its mean is recorded): the path would claim
         /// a calibration the app is not applying.
         case originRefitted(step: String, origin: String)
+        /// The same, when the origin in use is none: Clear Calibration took it away since.
+        case originCleared(step: String, origin: String)
         /// A calibration (or run) of a kind this run's step lists as an input was
         /// made AFTER it and is applied now, but the run never used it. Rewinding
         /// and running again would compute with `held`, not as `step` did.
@@ -372,6 +389,8 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                 "\(step) is an export — a file that left the session, not a state to return to."
             case .appliedSince(let step, let held, let kind):
                 "\(held) (\(kind.replacingOccurrences(of: "calibration_", with: "").replacingOccurrences(of: "_", with: " "))) was made after \(step) and is applied now, but \(step) did not use it — running again from \(step) would compute with \(held), not as \(step) did. Clear that calibration first, or rewind to a run made after it."
+            case .originCleared(let step, let origin):
+                "\(step) was computed on origin calibration \(origin), and the origin calibration was cleared since. A fit cannot be put back (only its mean is recorded), so a rewind would show a calibration the app is not applying. Fit the origin again, then run from there."
             case .originRefitted(let step, let origin):
                 "\(step) was computed on origin calibration \(origin), and the origin was fitted again since. A fit cannot be put back (only its mean is recorded), so a rewind would show a calibration the app is not applying."
             }
@@ -421,9 +440,12 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         }
         // The origin fit cannot be restored. If the one this run stood on is not
         // the one in use, the rewound path would name a calibration nobody applies.
-        if let origin = chosen["calibration_origin"],
-           activeNodes().first(where: { $0.kind == "calibration_origin" })?.id != origin {
-            return .failure(.originRefitted(step: id, origin: origin))
+        if let origin = chosen["calibration_origin"] {
+            let inUse = activeNodes().first(where: { $0.kind == "calibration_origin" })
+            if let inUse, inUse.id != origin, Self.isClearedCalibration(inUse) {
+                return .failure(.originCleared(step: id, origin: origin))
+            }
+            if inUse?.id != origin { return .failure(.originRefitted(step: id, origin: origin)) }
         }
         var path = Set(chosen.values)
         // Farthest ancestor first, the target (depth 0) last.
@@ -557,7 +579,8 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     ) -> String {
         let active = activeNodes()
         var inputs: [Input] = []
-        for dependency in Self.inputPolicy[kind] ?? [] {
+        for dependency in Self.inputPolicy[kind] ?? []
+        where Self.consumes(dependency, kind: kind, parameters: parameters) {
             if let upstream = active.first(where: { $0.kind == dependency.kind }) {
                 inputs.append(Input(step: upstream.id, role: dependency.role))
             }

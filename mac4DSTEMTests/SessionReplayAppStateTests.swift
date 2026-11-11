@@ -984,6 +984,41 @@ extension SessionReplayAppStateTests {
         XCTAssertNotNil(productState(state, .acom).staleReason, "and it still reads stale")
     }
 
+    /// The exploratory-scale slider (no Q calibration) keeps the orientation map
+    /// and reads it stale, as a Q edit does: the scale is a compared key of the
+    /// run. Red before: the slider's `didSet` called `invalidateResult`, which
+    /// deleted the map. Mutation it catches: putting that call back.
+    func testTheExploratoryScaleSliderKeepsTheOrientationMapAndReadsItStale() async throws {
+        let (state, kernel) = try await handSession()
+        state.setManualQPixelSize(0)   // no Q: ACOM matches on the exploratory scale
+        XCTAssertFalse(state.acomScaleSemantics.provenance.isPhysical, "precondition: exploratory")
+        state.acomSession.modelSelection = .library("au_fcc")
+        handRecord(state, "disk_detection", detectionRecord(state.diskDetection.diskParams, kernel: kernel))
+        let signature = try XCTUnwrap(state.currentReplaySignature(for: .acom), "a resolved model has a signature")
+        let a1 = handRecord(state, "acom", signature)
+        state.acomSession.orientationMap = OrientationMap(width: 2, height: 2)
+        state.acomSession.hasOrientationMap = true
+        let matchedScale = state.acomScale
+        state.acomSession.lastRunSemantics = ACOMRunSemantics(
+            materialModelID: "au_fcc", materialDescription: "Au", scale: state.acomScaleSemantics)
+        XCTAssertEqual(productState(state, .acom), .current, "precondition")
+
+        state.acomSession.exploratoryScale = matchedScale * 2
+        XCTAssertNotEqual(state.acomScale, matchedScale, "precondition: the scale in force moved")
+        XCTAssertTrue(state.acomSession.hasOrientationMap, "the map stays")
+        XCTAssertNotNil(state.acomSession.orientationMap)
+        XCTAssertEqual(state.fitOverlays.invAngstromPerPixel, matchedScale,
+                       "the kept map's templates are drawn at the scale they were matched at")
+        let reason = try XCTUnwrap(productState(state, .acom).staleReason, "a new scale reads the map stale")
+        XCTAssertTrue(reason.contains("scale_inv_angstrom_per_pixel"), reason)
+        // The lineage pane judges a node by the path and the calibration nodes it read, not by task settings; the
+        // exploratory scale is a task setting with no node, so a1 stays on the path as it would after a quality change.
+        XCTAssertNotEqual(graphState(state, a1), .stale)
+
+        state.acomSession.exploratoryScale = matchedScale
+        XCTAssertEqual(productState(state, .acom), .current, "back at the matched scale it reads current again")
+    }
+
     /// A map restored from the session file has a task-row verdict, judged by
     /// the run it names: current on the path, stale off it or after a
     /// calibration it read was replaced; a map naming no run reads current.

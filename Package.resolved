@@ -1,5 +1,5 @@
 {
-  "originHash" : "546cb4a614de5f75e2bb9d9405cc35d3b3aee7eadc335a22c9e1e7252c0c0a6e",
+  "originHash" : "3870f4063a4706f865a6e13025f540bcda692f13fb01ca3db9e796249e37302a",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/DiffractoKit",
       "state" : {
-        "revision" : "8ce71cff3a1df943ad9617fad325199a154edefa",
-        "version" : "0.11.0"
+        "revision" : "1331be01ad5dbe30a7688566a26b1caccce7bf72",
+        "version" : "0.12.1"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/MacEMUI",
       "state" : {
-        "revision" : "7abd010de8868cbe7be326ba96542f7ff9ae9bac",
-        "version" : "0.5.1"
+        "revision" : "b8d3c7c7dc868ab5c306dc427700553c69beaf6a",
+        "version" : "0.6.0"
       }
     },
     {

@@ -77,16 +77,18 @@ final class ShellAssignmentTests: XCTestCase {
         XCTAssertEqual(result.matchedRings, 3)
     }
 
-    /// Case 3: shells [1, √2, 2, 2√2] and rings in the ratio 1 : √2: H0 and H1 both match both rings with no misfit, so it refuses
-    /// and names both.
-    func testTwoEquallyGoodAssignmentsAreRefusedAndNamed() {
+    /// Case 3: shells [1, √2, 2, 2√2] and rings in the ratio 1 : √2: {A}, {B} and {C} all predict that ratio, so the rings cannot tell
+    /// them apart. CHANGED with DiffractoKit 0.12.1: the kit no longer refuses here; it gives the lowest shell and names the others in
+    /// `equallyFitting`, and the adapter carries them (the scale is then decided by a pixel size already set, or not written:
+    /// `ShellAssignmentEndToEndTests`). Mutation: the adapter dropping `equallyFitting` - red.
+    func testShellsThatPredictTheSameRatiosAreNamedAsEquallyFitting() throws {
         let shells = [1.0, 2.0.squareRoot(), 2.0, 8.0.squareRoot()]
         let radii = positions([40, 40 * 2.0.squareRoot()])
-        guard case .refused(let sentence)? = assign(radii, shells: shells, labels: ["{A}", "{B}", "{C}", "{D}"]) else {
-            return XCTFail("expected a refusal")
-        }
-        XCTAssertTrue(sentence.contains("Two assignments fit equally well"), sentence)
-        XCTAssertTrue(sentence.contains("{A}") && sentence.contains("{B}"), sentence)
+        let result = try assigned(assign(radii, shells: shells, labels: ["{A}", "{B}", "{C}", "{D}"]))
+        XCTAssertEqual(result.label, "{A}")
+        XCTAssertEqual(result.equallyFitting, ["{B}", "{C}"])
+        XCTAssertFalse(result.decidedByPixelSize)
+        XCTAssertTrue(try assigned(assign(positions(Self.plantedRadii))).equallyFitting.isEmpty, "three rings decide")
     }
 
     /// Case 4: ratios 1 : 1.3 match no starting shell of Al.

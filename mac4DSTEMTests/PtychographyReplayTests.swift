@@ -133,4 +133,41 @@ final class PtychographyReplayTests: XCTestCase {
         XCTAssertEqual(replayed, .published, state.statusText)
         XCTAssertEqual(state.replay.record, before, "a replayed run records nothing")
     }
+
+    /// A rewind to an earlier ptychography run puts its controls and its probe
+    /// radius back, as a rewind does for detection, strain and ACOM; the later
+    /// run's product then reads stale. Red before: `preparedRestore` returned no write for
+    /// a ptychography node, so the controls stayed the later run's. Mutation it catches: dropping the restore.
+    func testARewindPutsTheRecordedPtychographyControlsBack() async throws {
+        let state = AppState()
+        await state.openDemoFixture()
+        var later = settings
+        later.iterations = 7; later.stepSize = 0.5; later.defocusAngstrom = -200; later.fixProbe = true
+        XCTAssertNotEqual(later, settings, "precondition")
+        let p1 = state.replay.record(
+            kind: "ptychography",
+            parameters: Plan.recordedParameters(settings: settings, probeRadiusPixels: 9, calibration: physical()),
+            under: .detectorIdentity)
+        // A run that published keeps its node; without a product the next run would replace it in place.
+        state.replay.markProduct(step: p1, as: "ptychography")
+        let p2 = state.replay.record(
+            kind: "ptychography",
+            parameters: Plan.recordedParameters(settings: later, probeRadiusPixels: 12, calibration: physical()),
+            under: .detectorIdentity)
+        XCTAssertNotEqual(p1, p2)
+        state.ptychography.apply(later)
+        state.aperture.inner = 0
+        state.aperture.outer = 12
+
+        let refusal = await state.rewindLineage(to: p1)
+        XCTAssertNil(refusal, state.statusText)
+        XCTAssertEqual(state.ptychography.replaySettings, settings, "every control is the earlier run's")
+        XCTAssertEqual(state.aperture.outer, 9, "and so is the probe radius")
+        // The reconstruction in memory is the later run's (p2 made it): judged by p2's settings against the
+        // restored controls, it reads stale, as a strain map does after a rewind.
+        XCTAssertNotEqual(ProductWorkflow.stalenessVerdict(
+            recordedStep: state.recordedReplayStep(for: .singleslicePtychography),
+            currentSignature: state.currentReplaySignature(for: .singleslicePtychography), hasProduct: true), .current,
+            "the later run's product reads stale against the restored controls")
+    }
 }

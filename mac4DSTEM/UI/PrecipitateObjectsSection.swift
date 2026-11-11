@@ -215,6 +215,12 @@ enum PrecipitateFormat {
         return value.formatted(.number.precision(.significantDigits(3)))
     }
 
+    /// A value with a fixed number of decimals in the user's number format ("25,2" on a German Mac): the composition cell's at% and sigma.
+    static func fixed(_ value: Double, _ decimals: Int, locale: Locale = .current) -> String {
+        guard value.isFinite else { return "—" }
+        return value.formatted(.number.precision(.fractionLength(decimals)).locale(locale))
+    }
+
     /// µm² reads better than nm² for a precipitate density; converted only
     /// for nm, the unit the loader normalizes to.
     static func density(_ perUnit2: Double, unit: String) -> String {

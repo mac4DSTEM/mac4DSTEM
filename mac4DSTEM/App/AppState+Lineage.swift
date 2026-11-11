@@ -416,6 +416,7 @@ extension AppState {
         case diskDetection(DiskDetectionParams, detector: ReplayStepPlan.DiskDetectorReplay, kernel: KernelRestore)
         case strain(ReplayStepPlan.StrainReplayPlan)
         case acom(ReplayStepPlan.ACOMReplayPlan)
+        case ptychography(ReplayStepPlan.PtychographyReplayPlan)
         case ellipse(a: Double, b: Double, thetaDegrees: Double, provenance: CalibrationValueProvenance?)
         case qScale(size: Double, units: String?, provenance: CalibrationValueProvenance?)
         /// A Clear Calibration node: no ellipse / no Q scale.
@@ -526,6 +527,12 @@ extension AppState {
                 _ = selectReplayMaterial(acomPlan)   // checked resolvable above
                 acomSession.scope = acomPlan.scope
                 acomSession.quality = acomPlan.quality
+            case .ptychography(let ptychographyPlan):
+                // The task's controls and the probe radius (the aperture's outer radius), as the replay puts them back
+                // (`executeReplay`). The calibration it ran with is not a control and stays as it is now.
+                ptychography.apply(ptychographyPlan.settings)
+                aperture.outer = ptychographyPlan.probeRadiusPixels
+                aperture.inner = min(aperture.inner, aperture.outer)
             case .ellipse(let a, let b, let thetaDegrees, let provenance):
                 calibrationSession.calibration.ellipseA = a
                 calibrationSession.calibration.ellipseB = b
@@ -555,6 +562,11 @@ extension AppState {
                 calibrationSession.provenance.ellipse = nil
                 calibrationSession.lastEllipseFit = nil
                 calibrationSession.ellipseFitAnywayOffer = nil
+                // As restoring an ellipse does: the Bragg map on screen is drawn with the ellipse, so it is drawn again without it.
+                if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors,
+                   let descriptor {
+                    showBraggMap(vectors, descriptor: descriptor)
+                }
             case .clearQScale:
                 calibrationSession.calibration.qPixelSize = nil
                 calibrationSession.calibration.qPixelUnits = nil
@@ -657,7 +669,7 @@ extension AppState {
         let step = SessionReplayRecord.Step(kind: node.kind, parameters: parameters, recorded: node.recorded)
         let p = node.parameters
         switch node.kind {
-        case "virtual_detector", "disk_detection", "strain", "acom":
+        case "virtual_detector", "disk_detection", "strain", "acom", "ptychography":
             let plan: ReplayStepPlan
             switch ReplayPlanner.parse(step) {
             case .failure(let refusal): return failure(refusal.reason)
@@ -682,7 +694,9 @@ extension AppState {
             case .acom(let acomPlan):
                 if let reason = replayMaterialRefusal(acomPlan) { return failure(reason) }
                 return .success(.acom(acomPlan))
-            case .dpc, .ptychography, .parallax:
+            case .ptychography(let ptychographyPlan):
+                return .success(.ptychography(ptychographyPlan))
+            case .dpc, .parallax:
                 return .success(nil)
             }
         case "calibration_ellipse" where p["source"] == Self.clearedCalibrationValue:

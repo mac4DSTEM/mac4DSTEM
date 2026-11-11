@@ -24,7 +24,11 @@ import DSTEMSession
 #endif
 
 struct PrecipitateObjectsWindow: View {
-    let report: PrecipitateObjectReport
+    /// The report the window was opened with. What it shows is `report`: the newest one of the same run.
+    private let opened: PrecipitateObjectReport
+    /// The relay from the dataset window: the joins (one pooled fit per object) land after the table may already be open.
+    @Environment(PrecipitateReportUpdates.self) private var updates: PrecipitateReportUpdates?
+    private var report: PrecipitateObjectReport { updates?.report(for: opened) ?? opened }
     /// The relay to the dataset windows' scan panes: a selected row outlines
     /// its object on the map. Optional so the window also runs without it.
     @Environment(PrecipitateTableSelection.self) private var relay: PrecipitateTableSelection?
@@ -39,7 +43,7 @@ struct PrecipitateObjectsWindow: View {
     @State private var rows: [PrecipitateObjectReport.Row]
 
     init(report: PrecipitateObjectReport) {
-        self.report = report
+        self.opened = report
         let order = [KeyPathComparator(\PrecipitateObjectReport.Row.id)]
         _sortOrder = State(initialValue: order)
         _rows = State(initialValue: report.visibleRows(phase: nil, countedOnly: false, sortedUsing: order))
@@ -75,6 +79,8 @@ struct PrecipitateObjectsWindow: View {
             .onChange(of: phaseFilter) { refreshRows(); pushSelection() }
             .onChange(of: countedOnly) { refreshRows(); pushSelection() }
             .onChange(of: sortOrder) { refreshRows() }
+            // The run's report changed (its joins landed): the rows are rebuilt, the filter, sort and selection stay.
+            .onChange(of: report) { refreshRows(); pushSelection() }
             .onDisappear { relay?.clear(ifOwnedBy: report.sourceID) }
             .copyable(copyPayload))
     }
@@ -218,14 +224,16 @@ struct PrecipitateObjectsWindow: View {
             // 2026-09-28 drive).
             .width(min: 160, ideal: 250)
             // The joins (suite task 42) beside the phase, not past the shape columns: at the window's default width they were off screen
-            // (#106). Wide enough for "rr -0.21 · cc 0.59 · rc 0.12 %, 0.50°" and a composition with its pixel note ("Al 96.0 · Si 4.0 at% (172 px, 548 failed or masked)").
+            // (#106). Wide enough for "rr -0.21 · cc 0.59 · rc 0.12 %, 0.50°" and for a composition of four elements with their sigmas and the
+            // pixel note ("Mg 25,2 ± 5,2 · Al 51,5 ± 5,2 · Si 22,9 ± 4,9 · Cu 0,3 ± 0,4 at% (9 px)", #173); the tooltip holds the whole text.
             Group {
-                TableColumn("Composition (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
-                    Text(row.compositionSummary).monospacedDigit()
+                TableColumn("Composition (pooled fit)") { (row: PrecipitateObjectReport.Row) in
+                    Text(compositionText(row)).monospacedDigit()
+                        .lineLimit(1)
                         .foregroundStyle(row.composition == nil ? .secondary : .primary)
-                        .help(report.compositionUnavailable ?? "The mean of the per-pixel at% maps under the object. Not the pooled fit's value, no sigma.")
+                        .help(compositionHelp(row))
                 }
-                .width(min: 140, ideal: 340)
+                .width(min: 160, ideal: 520)
                 TableColumn("Strain (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
                     Text(row.strainSummary).monospacedDigit()
                         .foregroundStyle(row.strain == nil ? .secondary : .primary)
@@ -343,6 +351,18 @@ struct PrecipitateObjectsWindow: View {
     }
 
     private func format(_ value: Double) -> String { PrecipitateFormat.number(value) }
+
+    /// The composition cell in the user's number format, as the other columns are.
+    private func compositionText(_ row: PrecipitateObjectReport.Row) -> String {
+        row.compositionText { PrecipitateFormat.fixed($0, $1) }
+    }
+
+    /// The whole cell (it can be longer than the column) and what the number is; for an object without one, why.
+    private func compositionHelp(_ row: PrecipitateObjectReport.Row) -> String {
+        let what = "One pooled fit of the summed spectrum of the object's EDS pixels, with the Spectroscopy room's method. ± is the fit's sigma."
+        if let unavailable = report.compositionUnavailable { return unavailable }
+        return row.composition == nil ? compositionText(row) : compositionText(row) + "\n" + what
+    }
 }
 
 /// What a finished CSV save says when it failed. Cancelling the panel is not a failure.

@@ -113,6 +113,22 @@ final class OpeningAnalysisTests: XCTestCase {
                       "the title was \(state.displayedResultName)")
     }
 
+    /// #175: a saved session reopened with three phases in the list titled its
+    /// map pane "Phase map (0 candidates)". Without a map the title counts the
+    /// list's candidates. Mutation it catches: the count taken from the map only.
+    func testThePhaseMapTitleCountsTheListedCandidatesWithoutAMap() {
+        let state = AppState()
+        state.navigation.analysisMode = .phaseMapping
+        XCTAssertNil(state.phaseMapping.map)
+        XCTAssertEqual(state.currentScalarResultMetadata.displayName, "Phase map (0 candidates)", "an empty list has none")
+
+        state.addPhaseMappingSlot(CrystalModelLibrary.models[0])
+        state.addPhaseMappingSlot(CrystalModelLibrary.models[1])
+        state.addPhaseMappingSlot(CrystalModelLibrary.models[1])
+        XCTAssertEqual(state.phaseMapping.phases.filter(\.isMatrix).count, 1, "precondition: the first phase is the matrix")
+        XCTAssertEqual(state.currentScalarResultMetadata.displayName, "Phase map (2 candidates)")
+    }
+
     /// Drive 2B: after promote the footer said "Virtual detector ✓ …" and the
     /// selected position was readable only from the marker. Mutation it
     /// catches: promote ending on the analysis line.

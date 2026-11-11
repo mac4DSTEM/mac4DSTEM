@@ -783,6 +783,68 @@ final class SessionLineageTests: XCTestCase {
         XCTAssertTrue(lineage.rewindPlan(to: "s2").failureValue?.description.contains("s2") == true)
     }
 
+    /// The origin in use is a cleared one: the refusal says cleared, not "fitted again". Mutation it catches: drop the
+    /// cleared branch (the sentence names a refit that never happened).
+    func testARewindPastAClearedOriginSaysCleared() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "com"], frame: identity, at: date(1))    // s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(2))        // s2 <- s1
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": SessionLineage.clearedCalibrationValue],
+                          frame: identity, at: date(3))                                                               // s3
+        let refusal = lineage.rewindPlan(to: "s2").failureValue
+        XCTAssertEqual(refusal, .originCleared(step: "s2", origin: "s1"))
+        XCTAssertTrue(refusal?.description.contains("cleared") == true)
+        XCTAssertFalse(refusal?.description.contains("fitted again") == true)
+    }
+
+    /// A Q scale measured on the disks takes the `peaks` edge; a typed or cleared one does not. Mutation it catches:
+    /// drop `consumes` from the recording loop (every Q node takes the edge again).
+    func testATypedOrClearedQScaleTakesNoPeaksEdge() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(1))     // s1
+        let measured = lineage.recordRun(kind: "calibration_q", parameters: ["q_pixel_size": "0.01", "source": "measuredInApp"],
+                                         frame: identity, at: date(2))
+        XCTAssertEqual(lineage.node(id: measured)?.inputs?.map(\.role), ["peaks"])
+        let typed = lineage.recordRun(kind: "calibration_q", parameters: ["q_pixel_size": "0.02", "source": "manual"],
+                                      frame: identity, at: date(3))
+        XCTAssertEqual(lineage.node(id: typed)?.inputs, [])
+        let cleared = lineage.recordRun(kind: "calibration_q", parameters: ["source": SessionLineage.clearedCalibrationValue],
+                                        frame: identity, at: date(4))
+        XCTAssertEqual(lineage.node(id: cleared)?.inputs, [])
+    }
+
+    /// The defect behind it: the Q measured on the first detection is cleared, the disks are detected again, and a
+    /// rewind to the first detection must leave the scale cleared. With a `peaks` edge the cleared node rested on the
+    /// second detection, left the path with it, and the measured Q came back.
+    func testARewindToAnOlderDetectionKeepsAClearedQScaleCleared() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(1))     // s1
+        lineage.recordRun(kind: "calibration_q", parameters: ["q_pixel_size": "0.01", "source": "measuredInApp"],
+                          frame: identity, at: date(2))                                                            // s2 <- s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(3))     // s3
+        let cleared = lineage.recordRun(kind: "calibration_q", parameters: ["source": SessionLineage.clearedCalibrationValue],
+                                        frame: identity, at: date(4))
+        lineage.apply(try lineage.rewindPlan(to: "s1").get())
+        XCTAssertEqual(lineage.activeNodes().first { $0.kind == "calibration_q" }?.id, cleared,
+                       "the cleared scale stays the one in force")
+    }
+
+    /// Single-slice ptychography reads the origin and the Q scale, so its run records both and is judged by them.
+    /// Mutation it catches: remove the `ptychography` policy row (no edges, a changed origin reads current).
+    func testPtychographyRecordsTheOriginAndQScaleItRead() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "com"], frame: identity, at: date(1))   // s1
+        lineage.recordRun(kind: "calibration_q", parameters: ["q_pixel_size": "0.01", "source": "manual"],
+                          frame: identity, at: date(2))                                                              // s2
+        let run = lineage.recordRun(kind: "ptychography", parameters: ["iterations": "8"], frame: identity, at: date(3))
+        XCTAssertEqual(lineage.node(id: run)?.inputs?.map(\.step), ["s1", "s2"])
+        let node = try? XCTUnwrap(lineage.node(id: run))
+        XCTAssertEqual(node.map { lineage.calibrationUses(of: $0).contains(where: \.changed) }, false)
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "friedel"], frame: identity, at: date(4))
+        XCTAssertEqual(node.map { lineage.calibrationUses(of: $0).contains(where: \.changed) }, true,
+                       "a new origin makes the reconstruction read stale")
+    }
+
     /// A run after a rewind never collapses into an older node: it branches, and the
     /// run the user went back to keeps its settings. (The refuter's case B.)
     /// Mutation it catches: drop the "newest node of its kind" condition from the

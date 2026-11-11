@@ -47,7 +47,8 @@ final class PrecipitateJoinsJourney: Journey {
     /// The object table's window (its title carries the subtitle: "Precipitate Objects – 11 counted of 12 · …").
     private var table: XCUIElement { app.windows.matching(NSPredicate(format: "title BEGINSWITH 'Precipitate Objects'")).firstMatch }
 
-    /// Spectroscopy ▸ Maps ▸ at%: the per-pixel composition maps the object join reads are made only while wt% or at% is shown.
+    /// Spectroscopy ▸ Maps ▸ at%: the composition maps. The object join no longer reads them (an object's composition is one pooled fit
+    /// of its summed spectrum since 5.2.1); the step stays because the journey also looks at the maps.
     private func showAtomicPercentMaps() {
         wait(for: "workspace.spectroscopy").click()
         let picker = wait(for: "edx.mapMode", timeout: 30)

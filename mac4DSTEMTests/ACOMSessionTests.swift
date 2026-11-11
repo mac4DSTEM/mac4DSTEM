@@ -40,11 +40,17 @@ final class ACOMSessionTests: XCTestCase {
         }
     }
 
-    func testADifferentScaleInvalidatesTheMapButKeepsThePlan() {
+    /// The exploratory-scale slider keeps the map (it reads stale in AppState, as after a Q edit) and the plan.
+    /// Red before: the slider's `didSet` called `invalidateResult`, which deleted the map.
+    func testADifferentScaleKeepsTheMapAndThePlan() {
         let session = sessionWithPlanAndMap()
+        var invalidations = 0
+        session.onResultInvalidated = { invalidations += 1 }
         session.exploratoryScale = 0.02
         XCTAssertTrue(session.hasOrientationPlan, "the template library does not depend on the scale")
-        XCTAssertFalse(session.hasOrientationMap)
+        XCTAssertTrue(session.hasOrientationMap, "the map stays")
+        XCTAssertEqual(session.lastMatchedPositionCount, 12, "and so do the facts of its run")
+        XCTAssertEqual(invalidations, 0, "nothing is cleared from the window")
     }
 
     /// The setters this replaces were silent on same-value writes; a picker

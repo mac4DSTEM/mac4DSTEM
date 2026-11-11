@@ -78,6 +78,38 @@ final class ObjectVariantsTests: XCTestCase {
         return Scene(objects: objects, results: results, orientations: orientations, idAt: idAt)
     }
 
+    /// mac4DSTEM#155. Al [001] gives the same pattern at in-plane 12, 102, 192 and 282 degrees, and the matcher may return any of them
+    /// as the matrix entry. The same twelve planted needles (planted against 12 degrees) must get the same variant numbers and needle
+    /// directions whichever one it returns: the matrix frame is the canonical one, the smallest non-negative angle. Before the rule the
+    /// frame at 282 degrees renumbered them (variant 1 read as another, [100] and [010] swapped), which the last assertions pin as the
+    /// defect. Mutation: `canonicalMatrixOrientation` returning its argument - red.
+    func testTheSameNeedlesGetTheSameVariantsUnderEveryEquivalentMatrixAngle() throws {
+        let set = try setup.set, habit = try setup.habitFamily
+        let n = PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: al)!
+        let basis = ZoneAxisFrame.detectorBasis(zoneAxis: n)
+        let frames = [12.0, 102, 192, 282].map { ZoneAxisFrame.matrix(detectorBasis: basis, inPlaneAngle: Float($0 * .pi / 180)) }
+        let needles = (0..<12).map { set.variants[$0].transpose * frames[0] }
+        for (frame, degrees) in zip(frames, [12, 102, 192, 282]) {
+            let canonical = ObjectVariantAssigner.canonicalMatrixOrientation(frame, crystal: al)
+            for c in 0..<3 { for r in 0..<3 { XCTAssertEqual(canonical[c][r], frames[0][c][r], accuracy: 1e-5, "matrix at \(degrees) degrees") } }
+            for k in 0..<12 {
+                let hit = try XCTUnwrap(set.nearestVariant(matrixOrientation: canonical, precipitateOrientation: needles[k]))
+                XCTAssertEqual(hit.index, k, "needle \(k), matrix at \(degrees) degrees")
+                XCTAssertEqual(habit[hit.index], habit[k])
+                XCTAssertLessThan(hit.disorientationRad * 180 / .pi, 0.01)
+            }
+        }
+        // The defect, without the rule: the frame at 282 degrees gives other numbers and swaps the in-plane needle directions.
+        let raw = (0..<12).map { set.nearestVariant(matrixOrientation: frames[3], precipitateOrientation: needles[$0])!.index }
+        XCTAssertNotEqual(raw, Array(0..<12))
+        XCTAssertEqual(Set(raw), Set(0..<12), "a relabelling, not a loss")
+        XCTAssertTrue((0..<12).contains { habit[raw[$0]] != habit[$0] }, "a needle direction changes name")
+        // A beam along no symmetry axis has one frame only, and a frame already canonical stays.
+        let oblique = ZoneAxisFrame.matrix(detectorBasis: ZoneAxisFrame.detectorBasis(zoneAxis: simd_normalize(SIMD3(1, 2, 3))), inPlaneAngle: 4)
+        let same = ObjectVariantAssigner.canonicalMatrixOrientation(oblique, crystal: al)
+        for c in 0..<3 { for r in 0..<3 { XCTAssertEqual(same[c][r], oblique[c][r], accuracy: 1e-12) } }
+    }
+
     /// The planted truth. Twelve needles, one per variant (each seen through a different precipitate symmetry operator and 0.3 degrees off),
     /// give twelve assigned objects, four per needle direction, each in its own variant. Then the refusals: 60 % and 40 % of the pixels for two
     /// variants (assigned to the majority), a tie, 30 % agreement, a needle 5 degrees from every variant, and an object with no orientation.
