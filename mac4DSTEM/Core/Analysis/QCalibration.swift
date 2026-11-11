@@ -199,7 +199,28 @@ package nonisolated enum KnownCrystalQCalibration {
         switch outcome {
         case .refused(let sentence):
             return .refused(sentence)
-        case .assigned(let assigned):
+        case .assigned(let found):
+            // Shells that predict the same ratios cannot be told apart by the rings. The scale is then not guessed (Velox and GMS take it
+            // from the file and never from the pattern): a pixel size already set, the file's or a typed one, picks the shell whose scale
+            // is nearest to it (within the kit's 10 % for a prior); without one, or with one that fits none, nothing is written.
+            var assigned = found
+            if !found.equallyFitting.isEmpty {
+                let candidates = [found.label] + found.equallyFitting
+                guard let prior = priorScale, prior.isFinite, prior > 0, let r1 = found.observedRadiiPixels.first, r1 > 0 else {
+                    return .refused(ShellAssignment.undecidedSentence(candidates))
+                }
+                let indexed = candidates.compactMap { label in labels.firstIndex(of: label).map { (label: label, index: $0) } }
+                func miss(_ c: (label: String, index: Int)) -> Double { abs(shells[c.index] / r1 / prior - 1) }
+                guard let best = indexed.min(by: { miss($0) < miss($1) }), miss(best) <= 0.10 else {
+                    return .refused(ShellAssignment.undecidedSentence(candidates, pixelSizeFitsNone: true))
+                }
+                let ratio = shells[best.index] / found.referenceRadiusInvAngstrom   // the same prediction at another scale
+                assigned = ShellAssignment.Assigned(
+                    shellIndex: best.index, label: best.label, referenceRadiusInvAngstrom: shells[best.index],
+                    nextShellInvAngstrom: found.nextShellInvAngstrom.map { $0 * ratio }, observedRadiiPixels: found.observedRadiiPixels,
+                    matchedRings: found.matchedRings, observedRings: found.observedRings, rmsMisfit: found.rmsMisfit,
+                    equallyFitting: candidates.filter { $0 != best.label }, decidedByPixelSize: true)
+            }
             guard let scale = LinearScale.estimate(
                 radiiPerPosition: radii, referenceRadiusInvAngstrom: assigned.referenceRadiusInvAngstrom,
                 secondShellRadiusInvAngstrom: assigned.nextShellInvAngstrom,
@@ -238,8 +259,21 @@ package nonisolated enum ShellAssignment {
         package let observedRings: Int
         /// RMS relative misfit over the matched rings after the first (0 when there are none).
         package let rmsMisfit: Double
+        /// The other starting shells that predict the same ring ratios and so fit these rings exactly as well (Al {200}, {220} and {220},
+        /// {400}); empty for a decided assignment. The rings cannot tell them apart.
+        package var equallyFitting: [String] = []
+        /// True when `equallyFitting` was not empty and a pixel size already set (the file's or a typed one) picked this shell.
+        package var decidedByPixelSize = false
         /// False with one observed ring: nothing could be tested and the first ring is assumed to be the first shell.
         package var isChecked: Bool { observedRings >= 2 }
+    }
+
+    /// What is said when the rings fit several first shells equally and no pixel size is there to decide. Nothing is written.
+    package static func undecidedSentence(_ labels: [String], pixelSizeFitsNone: Bool = false) -> String {
+        let list = labels.count == 2 ? labels.joined(separator: " or ") : labels.dropLast().joined(separator: ", ") + " or " + (labels.last ?? "")
+        return "The rings fit \(list) as the first ring equally well, and "
+            + (pixelSizeFitsNone ? "the reciprocal pixel size already set agrees with none of them" : "there is no reciprocal pixel size from the file to decide between them")
+            + ". Type the reciprocal pixel size (Prepare); no scale was written."
     }
 
     package nonisolated enum Outcome: Sendable, Equatable {
@@ -266,7 +300,8 @@ package nonisolated enum ShellAssignment {
             return .assigned(Assigned(
                 shellIndex: found.shellIndex, label: found.label, referenceRadiusInvAngstrom: found.referenceRadiusInvAngstrom,
                 nextShellInvAngstrom: found.nextShellInvAngstrom, observedRadiiPixels: found.observedRadiiPixels,
-                matchedRings: found.matchedRings, observedRings: found.observedRings, rmsMisfit: found.rmsMisfit))
+                matchedRings: found.matchedRings, observedRings: found.observedRings, rmsMisfit: found.rmsMisfit,
+                equallyFitting: found.equallyFitting))
         } catch {
             return .refused((error as? LocalizedError)?.errorDescription ?? "\(error)")
         }
