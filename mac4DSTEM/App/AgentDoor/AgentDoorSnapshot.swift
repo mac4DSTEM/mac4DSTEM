@@ -36,8 +36,12 @@ extension AppState {
     func agentPatternImage(scale: Int) throws -> CGImage {
         let raster = try patternExportRaster()
         return Self.burnScaleBar(on: raster.image, unitsPerDataPixel: raster.sampling, unitLabel: raster.unit,
-                                 pixelScale: scale, overlays: agentPatternOverlays)
+                                 pixelScale: max(scale, Self.agentPatternMinimumScale), overlays: agentPatternOverlays)
     }
+
+    /// The pattern picture has at least a Retina screen's two pixels per point, because the pane is seen that way. At one pixel per
+    /// point the 1.2 pt rings of the detected disks blur into the disks' own colour, and an agent can miss them (#185).
+    static let agentPatternMinimumScale = 2
 
     /// What the diffraction pane strokes over the pattern, under the pane's own conditions (`UI/ImagePanes.swift`).
     var agentPatternOverlays: [FigureOverlay] {
