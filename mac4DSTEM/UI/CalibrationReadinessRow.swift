@@ -171,13 +171,6 @@ enum CalibrationReadinessRow {
         return kind == .originProbe && offersRemeasure && !canRestoreFittedOrigin
     }
 
-    /// The first-ring buttons, two to a row (control placement 3: actions are a width set, two per row).
-    static func firstRingRows(_ shells: [String]) -> [[String]] {
-        stride(from: 0, to: shells.count, by: 2).map { Array(shells[$0..<min($0 + 2, shells.count)]) }
-    }
-
-    static func firstRingTitle(_ shell: String) -> String { "First Ring Is \(shell)" }
-
     @ViewBuilder
     static func action(
         appState: AppState,
@@ -220,22 +213,6 @@ enum CalibrationReadinessRow {
                     .accessibilityIdentifier("calibration.action.qCrystal")
                     .tooltip("Selected ACOM phase model: \(model.displayName)",
                              hint: "Calibrates the Q scale from \(model.displayName)")
-                }
-                // mac4DSTEM#169: the rings fit several first rings and no pixel size is set. One button per shell the refusal names;
-                // a click says which shell the first ring is and the rings measure the scale against it.
-                let picks = appState.qCalibration.firstRingCandidates
-                ForEach(firstRingRows(picks), id: \.self) { row in
-                    InspectorActionRow {
-                        ForEach(row, id: \.self) { shell in
-                            Button(firstRingTitle(shell)) {
-                                PendingEdits.run { await appState.calibrateQFromCrystal(firstRing: shell) }
-                            }
-                            .disabled(appState.isBusy)
-                            .accessibilityIdentifier("calibration.action.qFirstRing.\(shell)")
-                            .tooltip("The innermost ring is \(model.displayName) \(shell)",
-                                     hint: "Writes the Q scale the rings measure against \(shell)")
-                        }
-                    }
                 }
                 manualScale(
                     name: "Q pixel size",
