@@ -63,5 +63,20 @@ done
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$APP/Contents/Info.plist" 2>/dev/null)" == false ]] \
   || { echo "FAIL: Info.plist does not answer the export-compliance question" >&2; exit 1; }
 [[ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ]] || { echo "FAIL: Sparkle is in the store build" >&2; exit 1; }
+# Nor any trace of it: no load command or symbol in the executable, no feed in Info.plist, no installer exception.
+if otool -L "$APP/Contents/MacOS/mac4DSTEM" | grep -i sparkle >/dev/null || nm -u "$APP/Contents/MacOS/mac4DSTEM" | grep -E '_OBJC_CLASS_\$_SPU|Sparkle' >/dev/null; then
+  echo "FAIL: the store executable links Sparkle" >&2; exit 1
+fi
+# The store build drops unused load commands (-dead_strip_dylibs); the HDF5 frameworks are kept as needed, so it links what
+# the download links, Sparkle aside.
+for library in FormatoLibHDF5 FormatoLibSZ FormatoLibAEC; do
+  otool -L "$APP/Contents/MacOS/mac4DSTEM" | grep "@rpath/$library.framework" >/dev/null \
+    || { echo "FAIL: the store executable lost its $library load command" >&2; exit 1; }
+done
+! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$APP/Contents/Info.plist" >/dev/null 2>&1 \
+  || { echo "FAIL: the store build's Info.plist names an update feed (it read Info-Direct.plist)" >&2; exit 1; }
+if grep -q 'temporary-exception' "$OUT/store-entitlements.plist"; then
+  echo "FAIL: the store build carries a temporary entitlement exception (it read mac4DSTEM-Direct.entitlements)" >&2; exit 1
+fi
 
 echo "$PKG"
