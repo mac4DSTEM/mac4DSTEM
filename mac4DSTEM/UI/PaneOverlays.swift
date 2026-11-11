@@ -651,6 +651,9 @@ struct PeakOverlay: View {
     /// Half-size of the marker drawn without a kernel, in view points — a
     /// screen-space cross, so it cannot be read as a disk radius.
     static let markerHalfSize: CGFloat = 4
+    /// The stroke of a disk's circle or cross: the pane and the drawn copy (`FigureRendering.drawPeaks`) take the same two.
+    static let color = Color.green
+    static let lineWidth: CGFloat = 1.2
 
     var body: some View {
         let r = PeakOverlayGeometry.radius(
@@ -667,7 +670,7 @@ struct PeakOverlay: View {
                 )
                 if let r {
                     Circle()
-                        .stroke(Color.green, lineWidth: 1.2)
+                        .stroke(Self.color, lineWidth: Self.lineWidth)
                         .frame(width: 2 * r, height: 2 * r)
                         .position(center)
                 } else {
@@ -678,7 +681,7 @@ struct PeakOverlay: View {
                         path.move(to: CGPoint(x: center.x, y: center.y - h))
                         path.addLine(to: CGPoint(x: center.x, y: center.y + h))
                     }
-                    .stroke(Color.green, lineWidth: 1.2)
+                    .stroke(Self.color, lineWidth: Self.lineWidth)
                 }
             }
         }

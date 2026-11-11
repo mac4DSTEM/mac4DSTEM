@@ -1,0 +1,47 @@
+# The agent door
+
+A local API through which an agent on the same Mac (Claude, Codex, a script) looks at what mac4DSTEM's windows show, and
+the MCP bridge that hands it to the agent as tools. This version is read-only: the agent looks, the person drives.
+
+The door itself (listener, token, Settings section, window list, routes) and the bridge `macem-mcp` are MacEMUI's
+`ShellAgentDoor` and `AgentBridge/` (MacEMUI `docs/agent-door.md`), shared with macTEM. This app hands the door its tools.
+
+## What an agent can do
+
+| Tool | Answer |
+|---|---|
+| `list_windows` | the open windows: id, file, workspace and task, whether a run is in progress (the door's own tool) |
+| `get_window` | dataset and loaded view, calibration and its verdict, task and its settings, running operation, displayed result with provenance, disk-detection parameters and statistics, saved results, recipe steps |
+| `get_result_image` | the result figure File > Export writes: colour scale, scale bar, caption |
+| `get_pattern_image` | the diffraction pattern as its pane shows it; the detector outlined in the Virtual Detector task, the detected disks drawn in the Disks task |
+| `get_detected_disks` | the detected disks of the pattern on screen |
+| `get_lineage` | the recipe and its run graph |
+| `get_precipitate_objects` | the precipitate object table |
+| `get_log` | the Output lines |
+
+A window is `w1`, `w2`, ... (or none while one window is open). Pictures take `scale` 1...3.
+Every picture and number comes from the code that draws or exports it for the person, so the agent judges what the person sees.
+
+## Turning it on
+
+1. In mac4DSTEM: Settings > Agents > "Let agents on this Mac look at open windows". Off by default.
+2. Press Copy Connection Command and paste it into Terminal once. It registers `macem-mcp` with Claude Code, with the port
+   (mac4DSTEM asks for 47811) and the token.
+3. New Token shuts out whoever had the old one; copy the command again after it.
+
+## How it is kept local
+
+- The app listens on the loopback address (127.0.0.1) only, and only while the switch is on.
+- A request needs the token, kept in the app's preferences until New Token. Requests from web pages (an `Origin` header) and
+  requests whose `Host` is not the door's own are refused.
+- The sandboxed app needs `com.apple.security.network.server` to listen at all. The app still sends nothing by itself.
+
+## Code
+
+`mac4DSTEM/App/AgentDoor/`: `Mac4DSTEMAgentDoor` (the door and the tools), `AgentDoorSnapshot` (what a window says).
+Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
+
+## Not yet
+
+Running and tuning analyses and batches over several files (5.4.0). Both go through the actions the buttons use and are
+recorded in the lineage as run by an agent.

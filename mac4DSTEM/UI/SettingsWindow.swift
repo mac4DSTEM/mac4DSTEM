@@ -15,6 +15,7 @@
 //  `tools/run-tests.sh inventory`).
 //
 
+import ShellAgentDoor
 import ShellLayout
 import SwiftUI
 import ShellMetal
@@ -24,7 +25,7 @@ import DSTEMSession
 #endif
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, analysis, materialsProject, advanced
+    case general, appearance, analysis, materialsProject, agents, advanced
 
     var id: String { rawValue }
 
@@ -34,6 +35,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return "Appearance"
         case .analysis: return "Analysis"
         case .materialsProject: return "Materials Project"
+        case .agents: return "Agents"
         case .advanced: return "Advanced"
         }
     }
@@ -44,6 +46,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: return "paintbrush"
         case .analysis: return "cpu"
         case .materialsProject: return "cube.transparent"
+        case .agents: return "door.left.hand.open"
         case .advanced: return "wrench.and.screwdriver"
         }
     }
@@ -58,6 +61,7 @@ struct SettingsWindow: View {
     /// switch does not rebuild, so a typed-but-not-yet-saved key survives
     /// the round trip.
     @State private var materialsProjectKeyDraft = ""
+    @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
         NavigationSplitView {
@@ -77,6 +81,7 @@ struct SettingsWindow: View {
                 case .appearance: AppearanceSettingsSection()
                 case .analysis: AnalysisSettingsSection()
                 case .materialsProject: MaterialsProjectSettingsView(keyDraft: $materialsProjectKeyDraft)
+                case .agents: AgentSettingsSection()
                 case .advanced: AdvancedSettingsSection()
                 }
             }
@@ -86,6 +91,8 @@ struct SettingsWindow: View {
         // The category list stands; there is nothing to toggle in a
         // settings window — matches System Settings' own shape.
         .toolbar(removing: .sidebarToggle)
+        // Here, not on the Agents section: Reset All Settings (Advanced) turns the preference off too, and the door must follow.
+        .onChange(of: preferences.agentDoorEnabled) { _, enabled in Mac4DSTEMAgentDoor.setEnabled(enabled) }
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,
             idealWidth: LayoutPolicy.settingsWindow.ideal.width,
@@ -240,6 +247,21 @@ private struct ModelCacheSection: View {
                     ?? ModelCacheUsage(coreML: nil, compiledModels: nil)
             }.value
         }
+    }
+}
+
+// MARK: - Agents
+
+/// The agent door's switch, status, connection command and new-token button: MacEMUI's shared section on mac4DSTEM's door
+/// (`App/AgentDoor/Mac4DSTEMAgentDoor.swift`), with this app's words for what an agent can read.
+private struct AgentSettingsSection: View {
+    @Environment(AppPreferences.self) private var preferences
+
+    var body: some View {
+        @Bindable var preferences = preferences
+        AgentDoorSettingsSection(door: Mac4DSTEMAgentDoor.shared, isOn: $preferences.agentDoorEnabled,
+                                 canSee: "the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks, "
+                                     + "the precipitate objects and the recipe")
     }
 }
 
