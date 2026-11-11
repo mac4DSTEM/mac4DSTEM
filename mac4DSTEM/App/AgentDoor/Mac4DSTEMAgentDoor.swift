@@ -69,7 +69,7 @@ enum Mac4DSTEMAgentDoor {
         AgentTool(name: "get_pattern_image", title: "Diffraction pattern picture",
                   summary: "The diffraction pattern as its pane shows it (current scan position, mean or max), with its scale bar. In the "
                       + "Virtual Detector task the detector is outlined; in the Disks task the detected Bragg disks are drawn over the "
-                      + "pattern, which is how to judge a detection.",
+                      + "pattern, which is how to judge a detection. Drawn at 2 pixels per point or more, as a Retina screen shows the pane.",
                   input: .windowPicture) { call in
             guard let state = call.window?.state as? AppState else { return Mac4DSTEMAgentDoor.notAWindow }
             do { return AgentJSON.picture(try state.agentPatternImage(scale: call.scale)) } catch {

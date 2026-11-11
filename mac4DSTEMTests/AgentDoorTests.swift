@@ -138,8 +138,9 @@ final class AgentDoorTests: XCTestCase {
         withExtendedLifetime((empty, state)) {}
     }
 
-    /// In the Disks task the pattern carries the detected disks where the pane draws them, and in no other task.
-    /// Mutation: `agentPatternOverlays` drops the peaks, or ignores the task - red.
+    /// In the Disks task the pattern carries the detected disks where the pane draws them, and in no other task, at a Retina
+    /// screen's two pixels per point (#185: at one the rings blurred into the disks).
+    /// Mutation: `agentPatternOverlays` drops the peaks, or ignores the task, or the picture drops to one pixel per point - red.
     func testThePatternPictureCarriesTheDetectedDisksInTheDisksTask() async throws {
         let state = windowWithResultAndPattern()
         state.currentPeaks = [BraggPeak(x: 8, y: 24, intensity: 1)]
@@ -148,7 +149,7 @@ final class AgentDoorTests: XCTestCase {
         let bare = try decoded(try await ask("get_pattern_image"))
         state.navigation.analysisMode = .disks
         let marked = try decoded(try await ask("get_pattern_image"))
-        XCTAssertEqual(marked.width, 512, "a 32 px pattern is enlarged 16x")
+        XCTAssertEqual(marked.width, 1024, "a 32 px pattern is enlarged 16x, at 2 pixels per point although the agent asked for 1")
         XCTAssertEqual(bare.rgba.count, marked.rgba.count)
         // The pixels the Disks task added: the cross at the disk's centre (no probe kernel, so no radius to draw).
         var count = 0, sumX = 0.0, sumY = 0.0, greenest = 0
@@ -161,9 +162,9 @@ final class AgentDoorTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(count, 10, "the detected disk is drawn")
-        XCTAssertLessThan(count, 400, "a cross, not a filled disc")
-        XCTAssertEqual(sumX / Double(max(count, 1)), 8.5 * 16, accuracy: 1.5)
-        XCTAssertEqual(sumY / Double(max(count, 1)), 24.5 * 16, accuracy: 1.5, "y down, as the pane draws it")
+        XCTAssertLessThan(count, 800, "a cross, not a filled disc")
+        XCTAssertEqual(sumX / Double(max(count, 1)), 8.5 * 32, accuracy: 3)
+        XCTAssertEqual(sumY / Double(max(count, 1)), 24.5 * 32, accuracy: 3, "y down, as the pane draws it")
         XCTAssertGreaterThan(greenest, 30, "in the pane's green")
         state.navigation.analysisMode = .virtualDetector
         let detector = try decoded(try await ask("get_pattern_image"))
