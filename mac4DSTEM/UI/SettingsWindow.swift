@@ -218,7 +218,7 @@ private struct AnalysisSettingsSection: View {
 }
 
 /// How much the learned detector's caches hold on this Mac (mac4DSTEM#179): Core ML's cache of device-specialised models,
-/// which grew to 26 GB before 5.2.1 (macEM-suite#87), and the app's compiled models. The app is sandboxed, so these are in
+/// which grew to 26 GB before 5.2.1, and the app's compiled models. The app is sandboxed, so these are in
 /// its container, where Finder and Terminal do not look. Read-only; measured off the main actor each time the section
 /// appears.
 private struct ModelCacheSection: View {

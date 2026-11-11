@@ -2,7 +2,7 @@
 //  ModelCacheUsage.swift
 //  Role: how much the learned detector's two caches hold (mac4DSTEM#179). The app is sandboxed, so a signed build keeps
 //        both in its container, where neither Terminal nor another app may look: Core ML's cache of device-specialised
-//        models (`Caches/<bundle id>/com.apple.e5rt.e5bundlecache`, 26 GB on the development Mac, macEM-suite#87) and the
+//        models (`Caches/<bundle id>/com.apple.e5rt.e5bundlecache`, 26 GB on the development Mac) and the
 //        app's own compiled models (`CompiledModelCache`, `Caches/<bundle id>/DiskDetectorCompiled`). Settings shows the
 //        two numbers. Read-only: nothing here deletes or writes.
 //
