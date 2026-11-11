@@ -64,6 +64,8 @@ private struct DatasetWindow: View {
     /// A file is being dragged over the window (File > drop-to-open).
     @State private var dropTargeted = false
     @Environment(\.openWindow) private var openWindow
+    /// Open object tables follow their run through this relay; optional so the window also runs without it.
+    @Environment(PrecipitateReportUpdates.self) private var reportUpdates: PrecipitateReportUpdates?
 
     /// `preferences` is handed in (not `AppPreferences()` as a default, the
     /// `materialsProject`/`sessionSidecar` shape) because it must be the
@@ -137,6 +139,7 @@ private struct DatasetWindow: View {
                 menuRelay.request(.openFile(url, configure: configure))
                 openWindow(id: "dataset")
             }
+            appState.onPrecipitateReportChange = { [reportUpdates] report in reportUpdates?.publish(report) }
         }
         // The same event stops the window's running job (`windowClosed`): a closed window must not keep computing
         // for a dataset nobody can see. `onDisappear` fires when the hosting view leaves its window; a window
@@ -450,6 +453,8 @@ struct mac4DSTEMApp: App {
     // (`PrecipitateTableSelection`). App-scoped because the table is a separate
     // scene holding a snapshot, not a link to any one window's AppState.
     @State private var tableSelection = PrecipitateTableSelection()
+    // The other way: a dataset window's report to the object tables of the same run (`PrecipitateReportUpdates`).
+    @State private var reportUpdates = PrecipitateReportUpdates()
     init() {
         UITestingLaunch.resetSavedState()
         UITestingPlacement.installIfTesting()
@@ -462,6 +467,7 @@ struct mac4DSTEMApp: App {
         WindowGroup("mac4DSTEM", id: "dataset") {
             DatasetWindow(preferences: preferences, recents: recents, menuRelay: menuRelay)
                 .environment(tableSelection)
+                .environment(reportUpdates)
         }
             .defaultSize(width: UITestingLaunch.isActive ? UITestingLaunch.windowWidth : LayoutPolicy.datasetWindowIdealSize.width,
                          height: UITestingLaunch.isActive ? UITestingLaunch.windowHeight : LayoutPolicy.datasetWindowIdealSize.height)
@@ -482,6 +488,7 @@ struct mac4DSTEMApp: App {
             if let report {
                 PrecipitateObjectsWindow(report: report)
                     .environment(tableSelection)
+                    .environment(reportUpdates)
                     .preferredColorScheme(preferences.appearance.colorScheme)
             }
         }

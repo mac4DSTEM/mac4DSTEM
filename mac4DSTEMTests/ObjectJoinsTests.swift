@@ -269,4 +269,62 @@ extension ObjectJoinsTests {
         XCTAssertEqual(none.strainUnavailable, ObjectStrainJoin.noStrainSentence)
         XCTAssertTrue(none.csv().contains("# composition: not available"))
     }
+
+    /// #173: the composition cell in the user's number format. The report's own summary keeps the point (copies, CSV); the table
+    /// passes the locale's format, so a German Mac reads a decimal comma in the value and in the sigma.
+    func testTheCompositionCellTakesTheCallersNumberFormat() throws {
+        let id = ids()
+        let comp = ObjectCompositionJoin.run(objects: objects(), quantified: quantified(), registration: identity)
+        let report = PrecipitateObjectReport.make(
+            objects: objects(), phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1,
+            compositionJoin: comp)
+        let a = try XCTUnwrap(report.rows.first { $0.id == id.a }), c = try XCTUnwrap(report.rows.first { $0.id == id.c })
+        let german = a.compositionText { PrecipitateFormat.fixed($0, $1, locale: Locale(identifier: "de_DE")) }
+        let english = a.compositionText { PrecipitateFormat.fixed($0, $1, locale: Locale(identifier: "en_US")) }
+        XCTAssertTrue(german.contains(","), german); XCTAssertFalse(german.contains("."), german)
+        XCTAssertEqual(english, a.compositionSummary, "the report's own summary is the point form")
+        XCTAssertEqual(german.replacingOccurrences(of: ",", with: "."), english)
+        XCTAssertEqual(c.compositionText { PrecipitateFormat.fixed($0, $1, locale: Locale(identifier: "de_DE")) }, "under 4 EDS px")
+    }
+}
+
+/// #173: an open object table follows its own run. The dataset window publishes its report when the joins land; a table shows the
+/// newest report of the run it was opened for and never another run's.
+@MainActor
+final class PrecipitateReportUpdatesTests: XCTestCase {
+    private func report(labels: [Int32], run: UUID, composition: ObjectJoinResult<ObjectCompositionValue>? = nil) -> PrecipitateObjectReport {
+        let objects = PrecipitateSegmentation.classObjects(labels: labels, width: 4, height: 4,
+                                                           roles: .init(precipitateClasses: [1], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil)
+        return PrecipitateObjectReport.make(objects: objects, phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil,
+                                            minimumAreaPx: 1, sourceID: run, compositionJoin: composition)
+    }
+
+    func testATableShowsTheNewestReportOfItsOwnRunOnly() {
+        var labels = [Int32](repeating: 0, count: 16); labels[5] = 1
+        let run = UUID()
+        let opened = report(labels: labels, run: run)
+        let updates = PrecipitateReportUpdates()
+        XCTAssertEqual(updates.report(for: opened), opened, "nothing published: the table shows what it was opened with")
+
+        // The same run after its composition join landed (here: with the join's sentence).
+        let landed = report(labels: labels, run: run, composition: .init(unavailable: "landed"))
+        XCTAssertNotEqual(landed, opened)
+        updates.publish(landed)
+        XCTAssertEqual(updates.report(for: opened), landed, "the open table follows its run")
+        XCTAssertEqual(updates.report(for: opened).compositionUnavailable, "landed")
+
+        // Another run does not reach this table.
+        var others = [Int32](repeating: 0, count: 16); others[10] = 1
+        updates.publish(report(labels: others, run: UUID()))
+        XCTAssertEqual(updates.report(for: opened), landed)
+        // A report without a run id is not kept, and a forgotten run leaves the table with what it was opened with.
+        let anonymous = PrecipitateObjectReport.make(
+            objects: PrecipitateSegmentation.classObjects(labels: others, width: 4, height: 4,
+                                                          roles: .init(precipitateClasses: [1], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil),
+            phaseNames: ["Al", "beta"], matrixPhaseIndex: 0, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1)
+        updates.publish(anonymous)
+        XCTAssertEqual(updates.latest.count, 2)
+        updates.forget(run)
+        XCTAssertEqual(updates.report(for: opened), opened)
+    }
 }
