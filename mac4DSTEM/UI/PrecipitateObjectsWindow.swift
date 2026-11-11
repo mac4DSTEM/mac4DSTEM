@@ -220,7 +220,7 @@ struct PrecipitateObjectsWindow: View {
             // The joins (suite task 42) beside the phase, not past the shape columns: at the window's default width they were off screen
             // (#106). Wide enough for "rr -0.21 · cc 0.59 · rc 0.12 %, 0.50°" and a composition with its pixel note ("Al 96.0 · Si 4.0 at% (172 px, 548 failed or masked)").
             Group {
-                TableColumn("Composition (mean of pixels)") { (row: PrecipitateObjectReport.Row) in
+                TableColumn("Composition (pooled fit)") { (row: PrecipitateObjectReport.Row) in
                     Text(row.compositionSummary).monospacedDigit()
                         .foregroundStyle(row.composition == nil ? .secondary : .primary)
                         .help(report.compositionUnavailable ?? "One pooled fit of the summed spectrum of the object's EDS pixels, with the Spectroscopy room's method. ± is the fit's sigma.")
