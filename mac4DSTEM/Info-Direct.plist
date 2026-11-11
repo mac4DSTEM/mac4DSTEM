@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- THE WEBSITE DOWNLOAD'S Info.plist (#122): Info.plist, line for line, plus the four Sparkle keys at the end. The build picks
+	     this file when MACEM_STORE_BUILD is NO (every build but the App Store's); the store build reads Info.plist and carries
+	     no updater. AppStoreReleaseTests checks that the two differ by exactly those keys, so edit Info.plist and copy the change here. -->
+	<!-- Base only. GENERATE_INFOPLIST_FILE stays YES and the build injects
+	     CFBundleIdentifier, the versions, LSMinimumSystemVersion (from
+	     MACOSX_DEPLOYMENT_TARGET, 26.0 since 2026-10-28, 27.0 from v4.0.0; 14.0 was v2.5.1's point) and the copyright on top of this. Verified
+	     after the change by reading the BUILT Info.plist, not assumed.
+
+	     The extensions mirror `ContentView.datasetTypes` exactly, minus
+	     `raw` and `xml`: those are too generic to claim, and declaring them
+	     would put mac4DSTEM in the Open With menu of every XML file on the
+	     machine. LSHandlerRank Alternate throughout — the app never takes a
+	     format away from whatever already owns it. Until 2026-09-09 no
+	     document type was declared at all, so a .h5 could not be opened by
+	     double-click, the app was absent from Open With, and the window had
+	     no proxy icon (docs/open-items.md). -->
+	<!-- HDF5 has no system content type, and Quick Look matches on content type: the app imports one for h5 and hdf5 (the
+	     QuickLook extensions name it). Imported, not exported: the HDF Group's type, declared by any app that reads the format. -->
+	<!-- App Store export compliance (mac4DSTEM#119): the only encryption is HTTPS through URLSession, which is exempt. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.hdfgroup.hdf5</string>
+			<key>UTTypeDescription</key>
+			<string>HDF5 file</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>h5</string>
+					<string>hdf5</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>4D-STEM dataset</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>h5</string>
+				<string>hdf5</string>
+				<string>emd</string>
+				<string>dm4</string>
+				<string>dm3</string>
+				<string>mib</string>
+			</array>
+		</dict>
+		<!-- Companion files (mac4DSTEM#120): a .mib's .hdr, an EMPAD .xml/.raw pair. NSIsRelatedItemType lets the sandboxed
+		     app read the sibling of a file the user picked (App/RelatedFileAccess.swift). Role and rank None: this claims
+		     nothing, so mac4DSTEM still stays out of the Open With menu of every XML and raw file. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>4D-STEM companion file</string>
+			<key>CFBundleTypeRole</key>
+			<string>None</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>NSIsRelatedItemType</key>
+			<true/>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>hdr</string>
+				<string>xml</string>
+				<string>raw</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Sparkle 2 (App/SoftwareUpdate.swift). The feed is the website's (one URL that outlives the GitHub organisation's name);
+	     the key is the public half of the EdDSA pair whose private half stays in Paul's login keychain and signs each DMG
+	     (tools/release/appcast.sh). The installer launcher is the sandboxed app's way to install. No SUEnableAutomaticChecks:
+	     Sparkle asks the person once, on the second launch, before it checks by itself. No system profile is sent. -->
+	<key>SUFeedURL</key>
+	<string>https://mac4dstem.com/appcast/mac4dstem.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>dU+yajVjFHMCk3n1gU2yg9vdRWQuiZf8pqbHNgfCkz0=</string>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+</dict>
+</plist>

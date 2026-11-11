@@ -57,6 +57,40 @@ and a byte-identical `mac4DSTEM.dmg` for the
 and size. It pushes and uploads nothing. The sections below describe the
 same steps one at a time.
 
+## Updates in the download: Sparkle (#122)
+
+The website DMG updates itself with Sparkle 2 (mac4DSTEM > Check for Updates…, `App/SoftwareUpdate.swift`); the App Store
+build has no updater, because the store updates it and refuses an app that updates itself. Decided 2026-11-11:
+
+- **One switch.** `MACEM_STORE_BUILD` (NO unless the store script sets YES) picks `Info.plist` or `Info-Direct.plist`,
+  `mac4DSTEM.entitlements` or `mac4DSTEM-Direct.entitlements`, and the `SPARKLE` compile condition. The store build links
+  with `-dead_strip_dylibs` (the three HDF5 frameworks kept with `-needed_framework`, because FormatoKit opens them by path
+  and dead-stripping dropped their load commands too) and its last build phase removes the framework Xcode embeds for the package, so the store app
+  has no Sparkle code, load command, plist key or entitlement exception; `build-app-store.sh` checks all four.
+  `SoftwareUpdateTests` holds each Direct file to be its store twin plus exactly the updater's keys: edit `Info.plist`
+  and copy the change to `Info-Direct.plist`.
+- **Sandboxed.** The installer launcher service (`SUEnableInstallerLauncherService`) with its mach-lookup exception;
+  no downloader service, because the app already has `network.client`. No system profile; Sparkle asks the person on the
+  second launch before it checks by itself (daily).
+- **Feed on the website**, `https://mac4dstem.com/appcast/mac4dstem.xml`: one URL that outlives the GitHub organisation's
+  name. `tools/release.sh` writes it (`tools/release/appcast.sh`, one item: the new DMG on the GitHub release, its EdDSA
+  signature, the CHANGELOG section as plain text), and it is committed to the website as `appcast/mac4dstem.xml` in the
+  PR that sets the download's version and size.
+- **Build number = version** in the download (`CURRENT_PROJECT_VERSION` set from `Config/Version.xcconfig` by
+  `build-developer-id.sh`), because Sparkle compares `sparkle:version` with `CFBundleVersion`; the store build keeps
+  the project's build number.
+- **Signing.** `build-developer-id.sh` signs Sparkle's helpers (Installer.xpc, Downloader.xpc, Autoupdate,
+  Updater.app) and the framework with the Developer ID, inside out, then the app again keeping its entitlements, and
+  checks each one before notarization.
+
+**The key, once, on Paul's Mac.** After one `tools/release.sh` (or any build that resolves the packages into
+`build/SourcePackages`), run `build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It makes the EdDSA pair,
+keeps the private half in the login keychain and prints the public half, which replaces `SET-BEFORE-RELEASE` under
+`SUPublicEDKey` in `mac4DSTEM/Info-Direct.plist` (it is public; it may be committed and pasted). The private half never
+leaves the keychain: back it up with `generate_keys -x <file>` to a safe place outside every repo, because a lost key
+means no copy in the field can be updated again. Until the key is in, the updater stays off and `build-developer-id.sh`
+refuses to build a download.
+
 ## App Store package: `tools/release.sh --store`
 
 One tag, two builds (decision of 2026-11-04). From the same checked-out release tag, `tools/release.sh --store` runs

@@ -467,6 +467,10 @@ struct mac4DSTEMApp: App {
     // File-menu actions asked for while no dataset window is focused (`MenuActionRelay`): read by the
     // commands, taken by the window they open.
     @State private var menuRelay = MenuActionRelay()
+    #if SPARKLE
+    // The website download's updater (App/SoftwareUpdate.swift); the App Store build has none.
+    @State private var softwareUpdate = SoftwareUpdate()
+    #endif
 
     var body: some Scene {
         WindowGroup("mac4DSTEM", id: "dataset") {
@@ -485,6 +489,9 @@ struct mac4DSTEMApp: App {
             .commands {
                 DatasetCommands(menuRelay: menuRelay, recents: recents)
                 ZoomCommands()   // View > Zoom In / Zoom Out / Zoom to Fit (lane H1, UI/ZoomCommands.swift)
+                #if SPARKLE
+                SoftwareUpdateCommands(update: softwareUpdate)   // mac4DSTEM > Check for Updates…
+                #endif
             }
         // The object table (`UI/PrecipitateObjectsWindow.swift`): a snapshot
         // value, so it needs no reference to the dataset window's AppState and
@@ -509,6 +516,9 @@ struct mac4DSTEMApp: App {
             SettingsWindow()
                 .environment(preferences)
                 .environment(recents)
+                #if SPARKLE
+                .environment(softwareUpdate)
+                #endif
         }
     }
 }
