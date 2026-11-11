@@ -90,7 +90,7 @@
 	<key>SUFeedURL</key>
 	<string>https://mac4dstem.com/appcast/mac4dstem.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>SET-BEFORE-RELEASE</string>
+	<string>dU+yajVjFHMCk3n1gU2yg9vdRWQuiZf8pqbHNgfCkz0=</string>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 	<key>SUEnableSystemProfiling</key>
