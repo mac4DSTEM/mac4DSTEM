@@ -213,6 +213,33 @@ private struct AnalysisSettingsSection: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        ModelCacheSection()
+    }
+}
+
+/// How much the learned detector's caches hold on this Mac (mac4DSTEM#179): Core ML's cache of device-specialised models,
+/// which grew to 26 GB before 5.2.1 (macEM-suite#87), and the app's compiled models. The app is sandboxed, so these are in
+/// its container, where Finder and Terminal do not look. Read-only; measured off the main actor each time the section
+/// appears.
+private struct ModelCacheSection: View {
+    @State private var usage: ModelCacheUsage?
+
+    var body: some View {
+        Section("Model caches") {
+            LabeledContent("Core ML cache", value: usage.map { ModelCacheUsage.text($0.coreML) } ?? "Measuring…")
+                .accessibilityIdentifier("settings.analysis.coreMLCache")
+            LabeledContent("Compiled detector models", value: usage.map { ModelCacheUsage.text($0.compiledModels) } ?? "Measuring…")
+                .accessibilityIdentifier("settings.analysis.compiledModels")
+            Text("Kept by macOS and the learned detector in the app's own Caches folder. Shown only; nothing is removed here.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .task {
+            usage = await Task.detached(priority: .utility) {
+                ModelCacheUsage.appCachesDirectory().map(ModelCacheUsage.measure(appCaches:))
+                    ?? ModelCacheUsage(coreML: nil, compiledModels: nil)
+            }.value
+        }
     }
 }
 
