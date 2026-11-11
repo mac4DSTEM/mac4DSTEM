@@ -87,6 +87,47 @@ final class EDSFourDLinkTests: XCTestCase {
         XCTAssertNotEqual(session.autoID, .running, "the same pool again: nothing new to search")
     }
 
+    /// Seen on screen after #158 (2026-11-11): every object's composition cell read "No element is switched on". The EDS session puts
+    /// the picked elements into its `method` only while a fit runs and empties the list afterwards, and the join fitted each object with
+    /// that emptied method. It must take the method the room's fit ran with. Here the real session quantifies the demo image, and the
+    /// join is run both ways on the image's Mg-Si blob as one object. Mutation: `objectCompositionInputs` returning the session's
+    /// method - the object has no composition and this is red.
+    func testObjectCompositionIsFittedWithTheMethodTheRoomsFitRanWith() async throws {
+        let session = EDXSession(host: .mac4DSTEM)
+        let source = DemoSpectrumImageSource.make(beamEnergyKeV: 200)
+        await session.bind(source).value
+        if session.autoID == .idle { await session.runAutoID()?.value }
+        await session.settled()
+        for symbol in ["Mg", "Al", "Si"] where !session.picks.contains(where: { $0.symbol == symbol }) { session.toggle(symbol) }
+        await session.settled()
+        await session.quantify()?.value
+        await session.pendingCheck?.value
+        let fit = try XCTUnwrap(session.fit, session.fitFailure ?? "no fit")
+        XCTAssertTrue(session.method.elements.isEmpty, "the trap: after the fit the session's method lists no element")
+        XCTAssertFalse(fit.method.elements.isEmpty, "the fit's own method carries them")
+
+        var labels = [Int32](repeating: 0, count: 32 * 32)
+        for i in labels.indices { let x = i % 32 - 16, y = i / 32 - 16; if x * x + y * y < 64 { labels[i] = 1 } }
+        let objects = PrecipitateSegmentation.classObjects(labels: labels, width: 32, height: 32,
+                                                           roles: .init(precipitateClasses: [1], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil)
+        let id = try XCTUnwrap(objects.classes.first?.objects.first?.id)
+        let registration = PoolCatalogue.identityRegistration(width: 32, height: 32)
+        let tables = QuantificationTables.bundled()
+
+        let inputs = try XCTUnwrap(AppState.objectCompositionInputs(fit: session.fit, source: session.source))
+        XCTAssertEqual(inputs.method, fit.method)
+        let joined = ObjectCompositionJoin.run(objects: objects, quantified: .init(source: inputs.source, method: inputs.method, tables: tables),
+                                               registration: registration)
+        let value = try XCTUnwrap(joined.perObject[id], joined.reasons[id] ?? joined.unavailable ?? "no value")
+        XCTAssertNotNil(value.elements.first { $0.symbol == "Mg" }?.atomicPercent)
+        XCTAssertNotNil(value.elements.first { $0.symbol == "Mg" }?.atomicSigma)
+
+        let trapped = ObjectCompositionJoin.run(objects: objects, quantified: .init(source: source, method: session.method, tables: tables),
+                                                registration: registration)
+        XCTAssertNil(trapped.perObject[id], "with the session's emptied method the kit refuses the object")
+        XCTAssertNil(AppState.objectCompositionInputs(fit: nil, source: session.source), "nothing quantified, nothing to fit with")
+    }
+
     /// The step's region keys are the old room's kinds, so Results rows label them as before ("A · phase pool").
     /// Mutation: the shape name ("rectangle", "whole") recorded instead - red.
     func testTheReplayRegionKeysAreTheOldRoomsKinds() {

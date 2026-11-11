@@ -9,6 +9,7 @@ import Foundation
 import DSTEMCore
 import DSTEMSession
 import ImagoCore
+import SpectroCore
 import SpectroEDX
 import ShellEDXModel
 
@@ -28,13 +29,14 @@ extension AppState {
         precipitateJoinGeneration += 1
         let generation = precipitateJoinGeneration
         precipitateJoinTask?.cancel()
-        precipitateCompositionKey = edx.fit != nil ? edx.method.hash : nil
+        let quantification = Self.objectCompositionInputs(fit: edx.fit, source: edx.source)
+        precipitateCompositionKey = quantification?.method.hash
         guard let objects = precipitateClassification.result else {
             assignPrecipitateJoins(PrecipitateJoins())
             return
         }
-        // The room has quantified (a fit stands): each object's summed spectrum is fitted with the room's method.
-        let source = edx.fit != nil ? edx.source : nil, method = edx.method
+        // The room has quantified (a fit stands): each object's summed spectrum is fitted with the method that fit ran with.
+        let source = quantification?.source, method = quantification?.method ?? edx.method
         let registration = spectroscopy.registration
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
         let variantSettings = precipitateVariantSettings
@@ -56,17 +58,28 @@ extension AppState {
         }
     }
 
+    /// What the per-object fits take from the room once it has quantified: the spectrum image and the method THE ROOM'S FIT RAN WITH
+    /// (`fit.method`). Not the session's `method`: the EDS session puts the picked elements into the method only while a fit runs and
+    /// empties the list afterwards, so a fit with `session.method` is refused for every object ("No element is switched on"), which is
+    /// what the object table showed on screen after #158. Nil until a fit stands.
+    nonisolated static func objectCompositionInputs(fit: PooledQuantification?, source: (any SpectrumImageSource)?)
+        -> (source: any SpectrumImageSource, method: QuantificationMethod)? {
+        guard let fit, let source else { return nil }
+        return (source, fit.method)
+    }
+
     /// The composition per object is fitted with the Spectroscopy room's method, so it follows the room: when a fit first stands, goes
     /// away, or the method changes (elements, k-factors, absorption), the joins are recomputed. A new region's fit with the same method
     /// changes nothing here. Set once (`wirePoolHooks`); each change re-arms the watch.
     func watchEDSQuantificationForObjectJoins() {
         withObservationTracking {
-            _ = edx.fit == nil
-            _ = edx.method
+            _ = edx.fit?.method
+            _ = edx.source == nil
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if (self.edx.fit != nil ? self.edx.method.hash : nil) != self.precipitateCompositionKey { self.refreshPrecipitateJoins() }
+                let key = Self.objectCompositionInputs(fit: self.edx.fit, source: self.edx.source)?.method.hash
+                if key != self.precipitateCompositionKey { self.refreshPrecipitateJoins() }
                 self.watchEDSQuantificationForObjectJoins()
             }
         }
