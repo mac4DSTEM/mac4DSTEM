@@ -304,7 +304,13 @@ final class AppState {
     private(set) var precipitateVariantSettings: VariantSettings?
     func assignPrecipitateVariantSettings(_ settings: VariantSettings?) { precipitateVariantSettings = settings }
     func assignPrecipitateThickness(_ entry: ThicknessEntry?) { precipitateThickness = entry }
-    func assignPrecipitateJoins(_ joins: PrecipitateJoins) { precipitateJoins = joins }
+    func assignPrecipitateJoins(_ joins: PrecipitateJoins) {
+        precipitateJoins = joins
+        // An object table that is already open follows its run (`PrecipitateReportUpdates`): the joins land after it opened.
+        if let report = precipitateObjectReport { onPrecipitateReportChange?(report) }
+    }
+    /// Set by the dataset window: hands the report to the app's relay for open object tables.
+    @ObservationIgnored var onPrecipitateReportChange: ((PrecipitateObjectReport) -> Void)?
     /// The precipitate glyph overlay's switches (Precipitates section): a view choice of this window, never persisted or published.
     var precipitateOverlay = PrecipitateOverlaySettings()
     /// The object under the pointer on a scan pane (the overlay writes its readout beside it).

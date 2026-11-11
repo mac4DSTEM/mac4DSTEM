@@ -96,10 +96,14 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
 
         /// The table's one-cell texts for the joins (suite task 42): the object's own mean, or the reason it has none ("" without the join).
-        package var compositionSummary: String {
+        package var compositionSummary: String { compositionText { Self.fixed($0, $1) } }
+
+        /// The composition cell with the caller's number format (value, decimals): the table passes the user's locale, and
+        /// `compositionSummary` is the same text with the report's own point, for copies and tests.
+        package func compositionText(_ number: (Double, Int) -> String) -> String {
             guard let composition else { return compositionNote ?? "" }
             let parts = composition.compactMap { e in
-                e.atomicPercent.map { "\(e.symbol) " + Self.fixed($0, 1) + (e.atomicSigma.map { " ± " + Self.fixed($0, 1) } ?? "") }
+                e.atomicPercent.map { "\(e.symbol) " + number($0, 1) + (e.atomicSigma.map { " ± " + number($0, 1) } ?? "") }
             }
             return parts.joined(separator: " · ") + " at%" + (compositionPixels.map { " (\($0) px)" } ?? "")
         }
