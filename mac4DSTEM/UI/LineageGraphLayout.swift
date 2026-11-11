@@ -604,7 +604,7 @@ nonisolated struct LineageGraphModel {
 
     /// The kinds whose recorded settings go back into live controls on a rewind.
     private static let restorable: Set<String> = [
-        "virtual_detector", "disk_detection", "strain", "acom", "calibration_ellipse", "calibration_q",
+        "virtual_detector", "disk_detection", "strain", "acom", "ptychography", "calibration_ellipse", "calibration_q",
     ]
 
     private static func productName(_ kind: String) -> String {
