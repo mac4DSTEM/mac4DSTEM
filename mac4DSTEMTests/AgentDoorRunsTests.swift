@@ -88,6 +88,7 @@ final class AgentDoorRunsTests: XCTestCase {
         XCTAssertEqual(params.maxNumPeaks, 40)
         XCTAssertEqual(params.upsampleFactor, before.upsampleFactor, "a setting not named stays as it was")
         XCTAssertTrue(tuned.text.contains("\"max_peaks\":40"), "the answer says the settings now in force")
+        XCTAssertTrue(tuned.text.contains("Build Kernel"), "without a probe kernel the answer says why nothing is detected yet")
 
         let outOfRange = try await call("set_disk_detection", ["min_relative_intensity": 3])
         XCTAssertTrue(outOfRange.refused)

@@ -55,7 +55,12 @@ extension Mac4DSTEMAgentDoor {
                 if let text = call.arguments[setting.parameter.name], let value = Double(text) { setting.apply(value, &params) }
             }
             state.diskDetection.diskParams = params
-            return .json(diskSettings(of: state))
+            var answer = diskSettings(of: state)
+            if state.probeKernel == nil {
+                answer["note"] = "The settings are kept, but no disks are detected yet: this window has no probe kernel. "
+                    + "Ask the person to press Build Kernel in the Disks task; the detection then follows these settings."
+            }
+            return .json(answer)
         },
         AgentTool(name: "run_task", title: "Run",
                   summary: "Presses the window's Run for its current task (Compute Image, Detect Disks on the whole scan, Map Strain, ...), "
