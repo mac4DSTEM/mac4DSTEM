@@ -45,7 +45,7 @@ let package = Package(
     // (this package's and the Xcode workspace's) hold the versions built, and a package update moves them.
     dependencies: [
         .package(url: "https://github.com/mac4DSTEM/SpectroKit", from: "0.13.2"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", from: "0.12.1"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", from: "0.13.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", from: "0.11.0"),
