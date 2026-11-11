@@ -193,12 +193,37 @@ package nonisolated enum KnownCrystalQCalibration {
                 return Double((dx * dx + dy * dy).squareRoot())
             }
         }
-        guard let outcome = ShellAssignment.assign(radiiPerPosition: radii, shellLengths: shells, labels: labels,
-                                                   crystalName: crystalName, priorScale: priorScale,
-                                                   minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
-        switch outcome {
+        guard let named = ShellAssignment.assignNamingCandidates(radiiPerPosition: radii, shellLengths: shells, labels: labels,
+                                                                 crystalName: crystalName, priorScale: priorScale,
+                                                                 minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+        switch named.outcome {
         case .refused(let sentence):
-            return .refused(sentence)
+            // Two first rings fit and predict different scales (or the two readings disagree). As with the equal-ratio tie, the scale is
+            // not guessed: a pixel size already set decides when exactly ONE candidate's scale lies within 10 % of it. The scale is each
+            // candidate's shell over the first ring `LinearScale.estimate` measures. With no pixel size, none within reach, or both
+            // within reach, the kit's refusal stands as it is (it names the candidates).
+            guard named.candidates.count == 2, let prior = priorScale, prior.isFinite, prior > 0 else { return .refused(sentence) }
+            var fits: [(label: String, index: Int, scale: LinearScaleEstimate)] = []
+            for label in named.candidates {
+                guard let index = labels.firstIndex(of: label), index < shells.count,
+                      let scale = LinearScale.estimate(radiiPerPosition: radii, referenceRadiusInvAngstrom: shells[index],
+                                                       secondShellRadiusInvAngstrom: nil, minimumRadiusPixels: Double(minimumRadiusPixels)),
+                      abs(scale.invAngstromPerPixel / prior - 1) <= 0.10 else { continue }
+                fits.append((label, index, scale))
+            }
+            guard fits.count == 1, let best = fits.first else { return .refused(sentence) }
+            // The second shell is not handed to the estimate: which ring is second is what the rings could not say, so the ratio stays
+            // unchecked and the row says so.
+            let assigned = ShellAssignment.Assigned(
+                shellIndex: best.index, label: best.label, referenceRadiusInvAngstrom: shells[best.index], nextShellInvAngstrom: nil,
+                observedRadiiPixels: [best.scale.observedRadiusPixels], matchedRings: 1, observedRings: 1, rmsMisfit: 0,
+                equallyFitting: named.candidates.filter { $0 != best.label }, decidedByPixelSize: true, decidedARefusal: true)
+            return .estimate(QCalibrationEstimate(
+                invAngstromPerPixel: best.scale.invAngstromPerPixel, observedRadiusPixels: best.scale.observedRadiusPixels,
+                referenceRadiusInvAngstrom: best.scale.referenceRadiusInvAngstrom,
+                medianAbsoluteDeviationPixels: best.scale.medianAbsoluteDeviationPixels, sampleCount: best.scale.sampleCount,
+                secondShellRadiusPixels: best.scale.secondShellRadiusPixels, shellCheck: best.scale.shellCheck,
+                sameShellPeaksPerPosition: best.scale.sameShellPeaksPerPosition, assignment: assigned))
         case .assigned(let found):
             // Shells that predict the same ratios cannot be told apart by the rings. The scale is then not guessed (Velox and GMS take it
             // from the file and never from the pattern): a pixel size already set, the file's or a typed one, picks the shell whose scale
@@ -264,6 +289,9 @@ package nonisolated enum ShellAssignment {
         package var equallyFitting: [String] = []
         /// True when `equallyFitting` was not empty and a pixel size already set (the file's or a typed one) picked this shell.
         package var decidedByPixelSize = false
+        /// True when the rings were refused between two first rings with DIFFERENT predictions and the pixel size already set agreed with
+        /// this one only: `equallyFitting` then names the other candidate, which fits the rings too but at another scale.
+        package var decidedARefusal = false
         /// False with one observed ring: nothing could be tested and the first ring is assumed to be the first shell.
         package var isChecked: Bool { observedRings >= 2 }
     }
@@ -293,17 +321,38 @@ package nonisolated enum ShellAssignment {
         radiiPerPosition: [[Double]], shellLengths: [Double], labels: [String]? = nil, crystalName: String = "the crystal",
         priorScale: Double? = nil, minimumRadiusPixels: Double = 2
     ) -> Outcome? {
+        assignNamingCandidates(radiiPerPosition: radiiPerPosition, shellLengths: shellLengths, labels: labels, crystalName: crystalName,
+                               priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels)?.outcome
+    }
+
+    /// `assign`, and for a refusal between two first rings their labels (the kit's `ambiguous`: both fit at different predictions;
+    /// `readingsDisagree`: the two readings of the rings start at different shells or scales). Empty for an assignment and for
+    /// "no shell matches".
+    package static func assignNamingCandidates(
+        radiiPerPosition: [[Double]], shellLengths: [Double], labels: [String]? = nil, crystalName: String = "the crystal",
+        priorScale: Double? = nil, minimumRadiusPixels: Double = 2
+    ) -> (outcome: Outcome, candidates: [String])? {
         do {
             guard let found = try LinearScale.assign(
                 radiiPerPosition: radiiPerPosition, shellLengths: shellLengths, labels: labels, crystalName: crystalName,
                 priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels) else { return nil }
-            return .assigned(Assigned(
+            return (.assigned(Assigned(
                 shellIndex: found.shellIndex, label: found.label, referenceRadiusInvAngstrom: found.referenceRadiusInvAngstrom,
                 nextShellInvAngstrom: found.nextShellInvAngstrom, observedRadiiPixels: found.observedRadiiPixels,
                 matchedRings: found.matchedRings, observedRings: found.observedRings, rmsMisfit: found.rmsMisfit,
-                equallyFitting: found.equallyFitting))
+                equallyFitting: found.equallyFitting)), [])
         } catch {
-            return .refused((error as? LocalizedError)?.errorDescription ?? "\(error)")
+            var candidates: [String] = []
+            switch error as? LinearScaleAssignmentError {
+            case .ambiguous(let first, let second)?: candidates = [first, second]
+            // "{311} at 21.6 px": the label is what stands before " at ".
+            case .readingsDisagree(let perPosition, let pooled)?:
+                candidates = [perPosition, pooled].map { $0.components(separatedBy: " at ").first ?? $0 }
+            default: break
+            }
+            var distinct: [String] = []
+            for c in candidates where !distinct.contains(c) { distinct.append(c) }
+            return (.refused((error as? LocalizedError)?.errorDescription ?? "\(error)"), distinct)
         }
     }
 

@@ -93,4 +93,43 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
         XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.0100, "a size that fits neither shell is left as it was")
         XCTAssertTrue(try XCTUnwrap(state.qCalibration.refusal).contains("agrees with none of them"))
     }
+
+    /// mac4DSTEM#169. Two Al rings at 1 : 1.645 fit {111}, {220} (1.633) and {200}, {311} (1.658): two first rings with DIFFERENT
+    /// predictions, which the kit refuses and names. A pixel size already set decides when exactly one of the two scales lies within
+    /// 10 % of it; the measured scale is written and the line says what decided. Near neither, near both, or with no pixel size, the
+    /// kit's refusal stands and nothing is written. Mutation: taking the nearer candidate without the "exactly one" rule - the
+    /// near-both case writes a scale and is red; ignoring the pixel size - the first two cases are red.
+    func testAPixelSizeAlreadySetDecidesBetweenTwoFirstRingsThatPredictDifferentScales() async throws {
+        let g111 = sqrt(3.0) / Self.a, g200 = 2 / Self.a
+        let r1 = g111 / Self.deltaQ                       // read as {111} the scale is 0.0320; read as {200} it is 0.03695
+        func run(pixelSize: Double?) async throws -> AppState {
+            let state = try await plantedState(radii: [r1, 1.645 * r1])
+            state.acomSession.modelSelection = .library("al_fcc")
+            if let pixelSize {
+                state.calibrationSession.calibration.qPixelSize = pixelSize
+                state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+                state.calibrationSession.provenance.qScale = .manual
+            }
+            await state.calibrateQFromCrystal()
+            return state
+        }
+        for (set, label, other, expected) in [(0.0315, "{111}", "{200}", Self.deltaQ), (0.0375, "{200}", "{111}", Self.deltaQ * g200 / g111)] {
+            let state = try await run(pixelSize: set)
+            let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+            XCTAssertEqual(q, expected, accuracy: 1e-6 * expected, "set \(set): \(state.statusText)")
+            XCTAssertEqual(state.qCalibration.estimate?.assignment?.label, label)
+            XCTAssertTrue(state.statusText.contains("assigned to \(label) by the pixel size already set (\(other) fits the rings too, at another scale)"),
+                          state.statusText)
+            XCTAssertTrue(state.statusText.contains("shell ratio unchecked"), state.statusText)
+        }
+        // 0.0345 is 7.2 % from the {111} scale and 6.6 % from the {200} scale: both within reach, so it does not decide.
+        for set in [0.0345, 0.0100] {
+            let state = try await run(pixelSize: set)
+            XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, set, "left as it was: \(state.statusText)")
+            XCTAssertTrue(try XCTUnwrap(state.qCalibration.refusal).contains("Two assignments fit equally well ({111} and {200} first)"))
+        }
+        let none = try await run(pixelSize: nil)
+        XCTAssertNil(none.calibrationSession.calibration.qPixelSize)
+        XCTAssertTrue(try XCTUnwrap(none.qCalibration.refusal).contains("Two assignments fit equally well ({111} and {200} first)"))
+    }
 }

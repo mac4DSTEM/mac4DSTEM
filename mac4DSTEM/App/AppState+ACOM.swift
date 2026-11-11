@@ -151,7 +151,8 @@ extension AppState {
             status += " · assigned to \(assigned.label)"
             // The rings alone fitted several first shells; the pixel size already set decided, and the line says so.
             if assigned.decidedByPixelSize {
-                status += " by the pixel size already set (\(assigned.equallyFitting.joined(separator: ", ")) fits the rings equally)"
+                status += " by the pixel size already set (\(assigned.equallyFitting.joined(separator: ", ")) "
+                    + (assigned.decidedARefusal ? "fits the rings too, at another scale)" : "fits the rings equally)")
             }
         }
         switch estimate.shellCheck {
@@ -171,7 +172,8 @@ extension AppState {
         var parts: [String] = []
         if let note = estimate.shellCheck.uncheckedNote {
             if let assigned = estimate.assignment, !assigned.isChecked {
-                parts.append(note + "; first ring assumed to be \(assigned.label)")
+                parts.append(note + (assigned.decidedByPixelSize ? "; first ring is \(assigned.label) by the pixel size already set"
+                                                                 : "; first ring assumed to be \(assigned.label)"))
             } else { parts.append(note) }
         }
         if let assigned = estimate.assignment, assigned.isChecked, assigned.shellIndex > 0 {
