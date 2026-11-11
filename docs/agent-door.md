@@ -1,10 +1,11 @@
 # The agent door
 
-A local API through which an agent on the same Mac (Claude, Codex, a script) looks at what mac4DSTEM's windows show, and
-the MCP bridge that hands it to the agent as tools. This version is read-only: the agent looks, the person drives.
+A local API through which an agent on the same Mac (Claude, Codex, a script) looks at what mac4DSTEM's windows show. The app
+is the MCP server itself, over HTTP at `http://127.0.0.1:47811/mcp`; nothing is installed beside it. This version is
+read-only: the agent looks, the person drives.
 
-The door itself (listener, token, Settings section, window list, routes) and the bridge `macem-mcp` are MacEMUI's
-`ShellAgentDoor` and `AgentBridge/` (MacEMUI `docs/agent-door.md`), shared with macTEM. This app hands the door its tools.
+The door itself (listener, token, Settings section, window list, MCP endpoint) is MacEMUI's `ShellAgentDoor` (MacEMUI
+`docs/agent-door.md`), shared with macTEM. This app hands the door its tools.
 
 ## What an agent can do
 
@@ -19,14 +20,16 @@ The door itself (listener, token, Settings section, window list, routes) and the
 | `get_precipitate_objects` | the precipitate object table |
 | `get_log` | the Output lines |
 
-A window is `w1`, `w2`, ... (or none while one window is open). Pictures take `scale` 1...3.
+A window is `w1`, `w2`, ... (or none while one window is open). Pictures take `scale` 1...3; the pattern picture is drawn at
+2 or more, as a Retina screen shows the pane, so the disk rings stand out as they do there (#185).
 Every picture and number comes from the code that draws or exports it for the person, so the agent judges what the person sees.
 
 ## Turning it on
 
 1. In mac4DSTEM: Settings > Agents > "Let agents on this Mac look at open windows". Off by default.
-2. Press Copy Connection Command and paste it into Terminal once. It registers `macem-mcp` with Claude Code, with the port
-   (mac4DSTEM asks for 47811) and the token.
+2. Press Copy Connection Command and paste it into Terminal once. It registers the app with Claude Code as an HTTP MCP
+   server, with the port (mac4DSTEM asks for 47811) and the token. Cursor and VS Code take the same address and header.
+   Claude desktop connects through MacEMUI's extension (`mac4DSTEM.mcpb`, MacEMUI `DesktopExtension/`).
 3. New Token shuts out whoever had the old one; copy the command again after it.
 
 ## How it is kept local
@@ -41,7 +44,8 @@ Every picture and number comes from the code that draws or exports it for the pe
 `mac4DSTEM/App/AgentDoor/`: `Mac4DSTEMAgentDoor` (the door and the tools), `AgentDoorSnapshot` (what a window says).
 Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
 
-## Not yet
+## Not yet (5.3.0, issue #189)
 
-Running and tuning analyses and batches over several files (5.4.0). Both go through the actions the buttons use and are
-recorded in the lineage as run by an agent.
+Run and tune: tools that act, behind a second switch, "Let agents run analyses" (MacEMUI 0.7.0's `AgentTool(acts:)`).
+They select a scan position, tune the disk detection, and press Run and Stop, through the actions the buttons use. Then the
+folder tools for batches (list, open, save in one granted Agent folder), and the CIF-in orientation search as a tool.
