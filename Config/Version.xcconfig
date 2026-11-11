@@ -4,3 +4,9 @@
 // x-release-please-start-version
 MARKETING_VERSION = 5.2.0
 // x-release-please-end
+
+// The app's bundle identifier, which the Quick Look extensions extend (their identifiers must start with the app's). A drive
+// of first-launch behaviour builds with MACEM_APP_ID=com.mac4dstem.mac4DSTEM.drive on the xcodebuild line: its own sandbox
+// container and defaults, so nobody's settings are touched (#122). The HDF5 helper keeps its fixed identifier
+// (HDF5HelperClient.serviceName), so a drive copy opens no HDF5 file.
+MACEM_APP_ID = com.mac4dstem.mac4DSTEM

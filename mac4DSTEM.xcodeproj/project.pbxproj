@@ -1022,7 +1022,7 @@
 				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
@@ -1080,7 +1080,7 @@
 				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
@@ -1136,7 +1136,7 @@
 				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
@@ -1279,7 +1279,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookThumbnail";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1310,7 +1310,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookThumbnail";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1341,7 +1341,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookThumbnail;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookThumbnail";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1372,7 +1372,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookPreview";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1403,7 +1403,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookPreview";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1434,7 +1434,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM.QuickLookPreview;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookPreview";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;

@@ -63,6 +63,11 @@ final class SoftwareUpdateTests: XCTestCase {
         XCTAssertEqual(count(#"MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";"#), 3)
         XCTAssertTrue(project.contains(#"rm -rf \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework\""#))
         XCTAssertTrue(project.contains(#""Info-Direct.plist","#), "the download's plist is not copied as a resource")
+        // The bundle identifier, one setting a drive copy overrides (MACEM_APP_ID): the release value stays the App Store record's.
+        XCTAssertTrue(try text("Config/Version.xcconfig").contains("\nMACEM_APP_ID = com.mac4dstem.mac4DSTEM\n"))
+        XCTAssertEqual(count(#"PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID)";"#), 3)
+        XCTAssertEqual(count(#"PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookPreview";"#), 3)
+        XCTAssertEqual(count(#"PRODUCT_BUNDLE_IDENTIFIER = "$(MACEM_APP_ID).QuickLookThumbnail";"#), 3)
     }
 
     /// Mutation: drop the helper signing, the key check or the feed step from the download; or a store check - red.
