@@ -7,6 +7,6 @@ Why this is correct:
 - No analytics, telemetry, advertising, crash reporting, accounts, licence server or tracking identifiers (privacy.html).
 - Datasets, results and parameters are read from and written to the user's own storage only. The app runs in the macOS App Sandbox and reaches a file only when the user picks it in an Open or Save panel.
 - The one network request: "Materials Project…" in the phase picker sends an HTTPS request to api.materialsproject.org carrying the user's own Materials Project API key and the material ID the user typed. The user starts it; the key is kept in the macOS Keychain. Nothing reaches the developer, and the request is not used for tracking, so under Apple's definition no data is collected by the developer or a third-party partner of the developer. The user deals with Materials Project directly under the account and key they made there.
-- The agent door (Settings > Agents, off by default, entitlement network.server) listens on 127.0.0.1 only, for an AI agent the person runs on the same Mac. It sends nothing and collects nothing.
+- The agent door (Settings > Agents, off by default, entitlement network.server) listens on 127.0.0.1 only, for an AI agent the person runs on the same Mac. The app sends nothing through it and collects nothing; what that agent sends to its own provider is between the person and that agent.
 
 Privacy Policy URL: https://mac4dstem.com/privacy.html
