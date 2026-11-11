@@ -87,18 +87,51 @@ final class EDSFourDLinkTests: XCTestCase {
         XCTAssertNotEqual(session.autoID, .running, "the same pool again: nothing new to search")
     }
 
+    /// A 32 x 32 spectrum image, 512 channels of 10 eV at 200 kV, with a Mg K-alpha and an Al K-alpha line in every pixel (6 and 12
+    /// expected counts, Poisson draws from a seeded LCG) and the kit's detector width: enough for the room to quantify two elements.
+    private static func plantedMgAl() -> LoadedSpectrumImage {
+        let side = 32, channels = 512, dispersion = 0.01
+        func sigma(_ e: Double) -> Double { (2.5 * (e - 5.8987) * 1000 + 130 * 130).squareRoot() / 1000 / 2.3548200450309493 }
+        func profile(_ e0: Double) -> [Double] {
+            let raw = (0..<channels).map { exp(-pow(Double($0) * dispersion - e0, 2) / (2 * sigma(e0) * sigma(e0))) }
+            let total = raw.reduce(0, +)
+            return raw.map { $0 / total }
+        }
+        let mg = profile(1.2536), al = profile(1.4865)
+        var state: UInt64 = 0x2545F4914F6CDD1D
+        func uniform() -> Double {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return (Double(state >> 11) + 0.5) / Double(1 << 53)
+        }
+        func poisson(_ mean: Double) -> UInt32 {
+            let limit = exp(-mean); var k: UInt32 = 0, p = uniform()
+            while p > limit { k += 1; p *= uniform() }
+            return k
+        }
+        var counts = [UInt32](repeating: 0, count: side * side * channels)
+        for p in 0..<side * side { for c in 0..<channels {
+            let mean = 6 * mg[c] + 12 * al[c]
+            if mean > 1e-9 { counts[p * channels + c] = poisson(mean) }
+        } }
+        var meta = SpectrumImageMetadata(fileName: "planted", filePath: "", scanWidth: side, scanHeight: side, channelCount: channels,
+                                         energyOffsetEV: 0, energyDispersionEV: dispersion * 1000, scanPixelSize: 1, scanPixelUnit: "nm")
+        meta.beamEnergyKeV = 200
+        return LoadedSpectrumImage(image: DenseSpectrumImage(ny: side, nx: side, channels: channels, counts: counts), metadata: meta,
+                                   energyAxis: EnergyAxis(offset: 0, scale: dispersion, size: channels))
+    }
+
     /// Seen on screen after #158 (2026-11-11): every object's composition cell read "No element is switched on". The EDS session puts
     /// the picked elements into its `method` only while a fit runs and empties the list afterwards, and the join fitted each object with
-    /// that emptied method. It must take the method the room's fit ran with. Here the real session quantifies the demo image, and the
-    /// join is run both ways on the image's Mg-Si blob as one object. Mutation: `objectCompositionInputs` returning the session's
+    /// that emptied method. It must take the method the room's fit ran with. Here the real session quantifies a planted image, and the
+    /// join is run both ways on a square of a planted Mg + Al image as one object. Mutation: `objectCompositionInputs` returning the session's
     /// method - the object has no composition and this is red.
     func testObjectCompositionIsFittedWithTheMethodTheRoomsFitRanWith() async throws {
         let session = EDXSession(host: .mac4DSTEM)
-        let source = DemoSpectrumImageSource.make(beamEnergyKeV: 200)
+        let source = Self.plantedMgAl()
         await session.bind(source).value
         if session.autoID == .idle { await session.runAutoID()?.value }
         await session.settled()
-        for symbol in ["Mg", "Al", "Si"] where !session.picks.contains(where: { $0.symbol == symbol }) { session.toggle(symbol) }
+        for symbol in ["Mg", "Al"] where !session.picks.contains(where: { $0.symbol == symbol }) { session.toggle(symbol) }
         await session.settled()
         await session.quantify()?.value
         await session.pendingCheck?.value
@@ -107,7 +140,7 @@ final class EDSFourDLinkTests: XCTestCase {
         XCTAssertFalse(fit.method.elements.isEmpty, "the fit's own method carries them")
 
         var labels = [Int32](repeating: 0, count: 32 * 32)
-        for i in labels.indices { let x = i % 32 - 16, y = i / 32 - 16; if x * x + y * y < 64 { labels[i] = 1 } }
+        for y in 1...6 { for x in 1...6 { labels[y * 32 + x] = 1 } }          // 36 px of matrix, clear of the blob
         let objects = PrecipitateSegmentation.classObjects(labels: labels, width: 32, height: 32,
                                                            roles: .init(precipitateClasses: [1], matrix: [0], notIndexed: [9]), pixelSize: nil, pixelUnit: nil)
         let id = try XCTUnwrap(objects.classes.first?.objects.first?.id)
@@ -119,7 +152,8 @@ final class EDSFourDLinkTests: XCTestCase {
         let joined = ObjectCompositionJoin.run(objects: objects, quantified: .init(source: inputs.source, method: inputs.method, tables: tables),
                                                registration: registration)
         let value = try XCTUnwrap(joined.perObject[id], joined.reasons[id] ?? joined.unavailable ?? "no value")
-        XCTAssertNotNil(value.elements.first { $0.symbol == "Mg" }?.atomicPercent)
+        XCTAssertEqual(value.pixels, 36)
+        XCTAssertNotNil(value.elements.first { $0.symbol == "Mg" }?.atomicPercent, "\(value.elements)")
         XCTAssertNotNil(value.elements.first { $0.symbol == "Mg" }?.atomicSigma)
 
         let trapped = ObjectCompositionJoin.run(objects: objects, quantified: .init(source: source, method: session.method, tables: tables),
