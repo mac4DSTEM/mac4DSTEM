@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/FormatoKit",
       "state" : {
-        "revision" : "5103e008420ec72039034bc6add17c8bfbcabfb3",
-        "version" : "0.12.1"
+        "revision" : "8ee0655db9dbc9e298add5e13e329b559154438a",
+        "version" : "0.13.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/MacEMUI",
       "state" : {
-        "revision" : "f8b723c6b66c3035e894af9c9e862ee8d8fc1c54",
-        "version" : "0.5.2"
+        "revision" : "b8d3c7c7dc868ab5c306dc427700553c69beaf6a",
+        "version" : "0.6.0"
       }
     },
     {

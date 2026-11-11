@@ -33,6 +33,7 @@
 		300000000000000000000404 /* ShellControls in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000403 /* ShellControls */; };
 		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
 		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
+		300000000000000000000414 /* ShellAgentDoor in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000413 /* ShellAgentDoor */; };
 		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
 		300000000000000000000412 /* ShellEDXModel in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000411 /* ShellEDXModel */; };
 		300000000000000000000501 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000500 /* Sparkle */; };
@@ -166,6 +167,7 @@
 				Core/Data/CalibratedDataCubeWriter.swift,
 				Core/Data/Calibration.swift,
 				Core/Data/CalibrationReReference.swift,
+				Core/Data/CompanionFolder.swift,
 				Core/Data/CuboCalibrationBridge.swift,
 				Core/Data/CuboCubeSource.swift,
 				Core/Data/DatasetDescriptor.swift,
@@ -203,6 +205,7 @@
 				Core/EDS/EDXQuantMaps.swift,
 				Core/ML/LearnedDiskDetection.swift,
 				Core/ML/LearnedDiskDetector.swift,
+				Core/ML/ModelCacheUsage.swift,
 				Core/Spectroscopy/Registration/QuantificationStep.swift,
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Workflow/AnalysisOperationController.swift,
@@ -359,6 +362,7 @@
 				300000000000000000000408 /* ShellLayout in Frameworks */,
 				300000000000000000000410 /* ShellSpectroscopy in Frameworks */,
 				300000000000000000000412 /* ShellEDXModel in Frameworks */,
+				300000000000000000000414 /* ShellAgentDoor in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -484,6 +488,7 @@
 				300000000000000000000407 /* ShellLayout */,
 				30000000000000000000040F /* ShellSpectroscopy */,
 				300000000000000000000411 /* ShellEDXModel */,
+				300000000000000000000413 /* ShellAgentDoor */,
 				300000000000000000000500 /* Sparkle */,
 			);
 			productName = mac4DSTEM;
@@ -1644,7 +1649,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/FormatoKit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.12.1;
+				minimumVersion = 0.13.0;
 			};
 		};
 		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {
@@ -1660,7 +1665,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.2;
+				minimumVersion = 0.6.0;
 			};
 		};
 		300000000000000000000502 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
@@ -1800,6 +1805,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellEDXModel;
+		};
+		300000000000000000000413 /* ShellAgentDoor */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
+			productName = ShellAgentDoor;
 		};
 		500000000000000000000301 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;

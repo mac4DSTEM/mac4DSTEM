@@ -47,6 +47,7 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.figureFormat, .png)
         XCTAssertFalse(prefs.keepAwake)
         XCTAssertTrue(prefs.offerLearnedDetector)
+        XCTAssertFalse(prefs.agentDoorEnabled, "the app listens to nothing until the person turns the agent door on")
     }
 
     // MARK: Round-trip through a private suite

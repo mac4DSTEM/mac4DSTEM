@@ -35,6 +35,7 @@ extension AppState {
             defer { finishDatasetLoading(owner: load) }
             let accessed = url.startAccessingSecurityScopedResource()
             do {
+                try await CompanionFolderAccess.grantFolderIfNeeded(for: url)   // companions of other names need the folder (#120)
                 let reader = try await Self.makeReader(for: url)
                 beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
                 let source = try await reader.discoverPrimaryDataset()
@@ -289,6 +290,11 @@ extension AppState {
     /// write): raises the window-modal "Something went wrong" alert in
     /// addition to the status bar + log.
     func present(_ error: Error) {
+        // The user's own Cancel at a folder prompt is not a failure: a status line, no alert.
+        if let declined = error as? CompanionFolderAccess.Declined {
+            statusText = declined.message
+            return
+        }
         errorMessage = Self.errorDetail(error)
         statusText = "Error: \(Self.errorDetail(error))"
     }
@@ -346,6 +352,7 @@ extension AppState {
         let accessed = url.startAccessingSecurityScopedResource()
 
         do {
+            try await CompanionFolderAccess.grantFolderIfNeeded(for: url)   // companions of other names need the folder (#120)
             let reader = try await Self.makeReader(for: url)
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
