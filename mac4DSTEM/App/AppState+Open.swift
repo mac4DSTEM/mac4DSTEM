@@ -290,6 +290,11 @@ extension AppState {
     /// write): raises the window-modal "Something went wrong" alert in
     /// addition to the status bar + log.
     func present(_ error: Error) {
+        // The user's own Cancel at a folder prompt is not a failure: a status line, no alert.
+        if let declined = error as? CompanionFolderAccess.Declined {
+            statusText = declined.message
+            return
+        }
         errorMessage = Self.errorDetail(error)
         statusText = "Error: \(Self.errorDetail(error))"
     }
