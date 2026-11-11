@@ -44,6 +44,10 @@ package final class QCalibrationRun {
     /// safe (the archived notes §3.2).
     package var shellCheck: QCalibrationShellCheck? { estimate?.shellCheck }
 
+    /// The shells the first ring may be picked from, when the last attempt was refused because the rings fit several first rings
+    /// and no pixel size is set (mac4DSTEM#169). Empty otherwise: the Prepare row offers the pick only while this holds names.
+    package private(set) var firstRingCandidates: [String] = []
+
     /// One line for the calibration panel, or nil when there is nothing to say.
     /// Deliberately phrased as what WAS checked, not as reassurance.
     /// **Reports; does not judge.** A fixed 3% pass/fail threshold once
@@ -71,11 +75,13 @@ package final class QCalibrationRun {
     package func record(_ estimate: QCalibrationEstimate) {
         self.estimate = estimate
         self.refusal = nil
+        self.firstRingCandidates = []
     }
 
-    package func record(refusal: String) {
+    package func record(refusal: String, firstRingCandidates: [String] = []) {
         self.estimate = nil
         self.refusal = refusal
+        self.firstRingCandidates = firstRingCandidates
     }
 
     /// Cleared on every path that changes what is loaded — an estimate made
@@ -86,5 +92,6 @@ package final class QCalibrationRun {
     package func clear() {
         estimate = nil
         refusal = nil
+        firstRingCandidates = []
     }
 }

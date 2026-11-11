@@ -132,4 +132,60 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
         XCTAssertNil(none.calibrationSession.calibration.qPixelSize)
         XCTAssertTrue(try XCTUnwrap(none.qCalibration.refusal).contains("Two assignments fit equally well ({111} and {200} first)"))
     }
+
+    /// mac4DSTEM#169, the pick. With no pixel size the refusal offers the shells it names; a pick writes the scale the rings measure
+    /// against that shell and the line says it was picked by hand. A shell the refusal did not name is not a pick. With a pixel size
+    /// set nothing is offered. Mutations: the pick ignored (no scale, red); the pick taken for any shell (the {311} case writes a
+    /// scale, red); the offer made beside a pixel size (the last case, red).
+    func testTheFirstRingPickedByHandWritesItsScale() async throws {
+        let g111 = sqrt(3.0) / Self.a, g200 = 2 / Self.a, g220 = sqrt(8.0) / Self.a
+        // Same ratios: {200}, {220} or {220}, {400}.
+        do {
+            let state = try await plantedState(radii: [g200 / Self.deltaQ, g220 / Self.deltaQ])
+            state.acomSession.modelSelection = .library("al_fcc")
+            await state.calibrateQFromCrystal()
+            XCTAssertEqual(state.qCalibration.firstRingCandidates, ["{200}", "{220}"])
+            XCTAssertTrue(try XCTUnwrap(state.qCalibration.refusal).contains("Pick the first ring or type the reciprocal pixel size"))
+
+            await state.calibrateQFromCrystal(firstRing: "{311}")
+            XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "a shell the refusal did not name is not a pick")
+            XCTAssertEqual(state.qCalibration.firstRingCandidates, ["{200}", "{220}"])
+
+            await state.calibrateQFromCrystal(firstRing: "{220}")
+            let expected = Self.deltaQ * g220 / g200
+            let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+            XCTAssertEqual(q, expected, accuracy: 1e-6 * expected, state.statusText)
+            XCTAssertEqual(state.calibrationSession.provenance.qScale, .measuredInApp)
+            XCTAssertEqual(state.qCalibration.estimate?.assignment?.pickedByHand, true)
+            XCTAssertTrue(state.statusText.contains("assigned to {220}, picked by hand ({200} fits the rings equally)"), state.statusText)
+            XCTAssertTrue(state.qCalibration.firstRingCandidates.isEmpty, "the offer ends with the pick")
+            XCTAssertNil(state.qCalibration.refusal)
+        }
+        // Different predictions: {111} or {200} first.
+        do {
+            let r1 = g111 / Self.deltaQ
+            let state = try await plantedState(radii: [r1, 1.645 * r1])
+            state.acomSession.modelSelection = .library("al_fcc")
+            await state.calibrateQFromCrystal()
+            XCTAssertEqual(state.qCalibration.firstRingCandidates, ["{111}", "{200}"])
+            await state.calibrateQFromCrystal(firstRing: "{200}")
+            let expected = Self.deltaQ * g200 / g111
+            let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+            XCTAssertEqual(q, expected, accuracy: 1e-6 * expected, state.statusText)
+            XCTAssertTrue(state.statusText.contains("assigned to {200}, picked by hand ({111} fits the rings too, at another scale)"), state.statusText)
+        }
+        // A pixel size is set and agrees with neither shell: the refusal stands and no pick is offered against it.
+        do {
+            let state = try await plantedState(radii: [g200 / Self.deltaQ, g220 / Self.deltaQ])
+            state.acomSession.modelSelection = .library("al_fcc")
+            state.calibrationSession.calibration.qPixelSize = 0.0100
+            state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+            state.calibrationSession.provenance.qScale = .manual
+            await state.calibrateQFromCrystal()
+            XCTAssertTrue(state.qCalibration.firstRingCandidates.isEmpty)
+            XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.0100)
+        }
+        XCTAssertEqual(CalibrationReadinessRow.firstRingRows(["{200}", "{220}", "{400}"]), [["{200}", "{220}"], ["{400}"]])
+        XCTAssertEqual(CalibrationReadinessRow.firstRingTitle("{200}"), "First Ring Is {200}")
+    }
 }

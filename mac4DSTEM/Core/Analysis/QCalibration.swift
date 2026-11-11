@@ -178,14 +178,20 @@ package nonisolated enum KnownCrystalQCalibration {
     package nonisolated enum AssignedOutcome: Sendable {
         case estimate(QCalibrationEstimate)
         case refused(String)
+        /// Refused because several first rings fit and no pixel size is set to decide: the sentence, and the shells a user may pick
+        /// the first ring from (`estimateAssigned(firstRing:)`). With a pixel size set a refusal stays `.refused`: the pick is not
+        /// offered against a scale the file or the user already stated.
+        case undecided(String, candidates: [String])
     }
 
     /// The estimate with the first ring's shell found, not assumed (`ShellAssignment`): the shells are the crystal's distinct |g|
     /// ascending, `labels` their family names. The radii are measured once; the assigned shell is the reference and the shell the
     /// second ring matched is the check. Nil when no radius is usable (the caller's "no shell" sentence).
+    /// `firstRing`: the shell the user picked as the first ring (mac4DSTEM#169, as one marks a ring of a standard and says which
+    /// spacing it is). It counts only when it is one of the shells the rings left undecided; the rings still measure the scale.
     package static func estimateAssigned(
         bragg: BraggVectors, origin: (x: Float, y: Float), shells: [Double], labels: [String], crystalName: String,
-        priorScale: Double?, minimumRadiusPixels: Float = 2
+        priorScale: Double?, firstRing: String? = nil, minimumRadiusPixels: Float = 2
     ) -> AssignedOutcome? {
         let radii = bragg.peaks.map { peaks in
             peaks.map { peak -> Double in
@@ -196,8 +202,25 @@ package nonisolated enum KnownCrystalQCalibration {
         guard let named = ShellAssignment.assignNamingCandidates(radiiPerPosition: radii, shellLengths: shells, labels: labels,
                                                                  crystalName: crystalName, priorScale: priorScale,
                                                                  minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+        let hasPrior = priorScale.map { $0.isFinite && $0 > 0 } ?? false
         switch named.outcome {
         case .refused(let sentence):
+            // The first ring picked by hand, among the shells the refusal names: its scale is measured as for a pixel-size decision.
+            if let pick = firstRing, named.candidates.contains(pick), let index = labels.firstIndex(of: pick), index < shells.count,
+               let scale = LinearScale.estimate(radiiPerPosition: radii, referenceRadiusInvAngstrom: shells[index],
+                                                secondShellRadiusInvAngstrom: nil, minimumRadiusPixels: Double(minimumRadiusPixels)) {
+                let assigned = ShellAssignment.Assigned(
+                    shellIndex: index, label: pick, referenceRadiusInvAngstrom: shells[index], nextShellInvAngstrom: nil,
+                    observedRadiiPixels: [scale.observedRadiusPixels], matchedRings: 1, observedRings: 1, rmsMisfit: 0,
+                    equallyFitting: named.candidates.filter { $0 != pick }, decidedARefusal: true, pickedByHand: true)
+                return .estimate(QCalibrationEstimate(
+                    invAngstromPerPixel: scale.invAngstromPerPixel, observedRadiusPixels: scale.observedRadiusPixels,
+                    referenceRadiusInvAngstrom: scale.referenceRadiusInvAngstrom,
+                    medianAbsoluteDeviationPixels: scale.medianAbsoluteDeviationPixels, sampleCount: scale.sampleCount,
+                    secondShellRadiusPixels: scale.secondShellRadiusPixels, shellCheck: scale.shellCheck,
+                    sameShellPeaksPerPosition: scale.sameShellPeaksPerPosition, assignment: assigned))
+            }
+            if !hasPrior, named.candidates.count >= 2 { return .undecided(sentence, candidates: named.candidates) }
             // Two first rings fit and predict different scales (or the two readings disagree). As with the equal-ratio tie, the scale is
             // not guessed: a pixel size already set decides when exactly ONE candidate's scale lies within 10 % of it. The scale is each
             // candidate's shell over the first ring `LinearScale.estimate` measures. With no pixel size, none within reach, or both
@@ -231,20 +254,28 @@ package nonisolated enum KnownCrystalQCalibration {
             var assigned = found
             if !found.equallyFitting.isEmpty {
                 let candidates = [found.label] + found.equallyFitting
-                guard let prior = priorScale, prior.isFinite, prior > 0, let r1 = found.observedRadiiPixels.first, r1 > 0 else {
-                    return .refused(ShellAssignment.undecidedSentence(candidates))
-                }
                 let indexed = candidates.compactMap { label in labels.firstIndex(of: label).map { (label: label, index: $0) } }
-                func miss(_ c: (label: String, index: Int)) -> Double { abs(shells[c.index] / r1 / prior - 1) }
-                guard let best = indexed.min(by: { miss($0) < miss($1) }), miss(best) <= 0.10 else {
-                    return .refused(ShellAssignment.undecidedSentence(candidates, pixelSizeFitsNone: true))
+                let best: (label: String, index: Int)
+                let picked = firstRing.flatMap { pick in indexed.first { $0.label == pick } }
+                if let picked {
+                    best = picked
+                } else {
+                    guard let prior = priorScale, hasPrior, let r1 = found.observedRadiiPixels.first, r1 > 0 else {
+                        return hasPrior ? .refused(ShellAssignment.undecidedSentence(candidates))
+                                        : .undecided(ShellAssignment.undecidedSentence(candidates, pickOffered: true), candidates: candidates)
+                    }
+                    func miss(_ c: (label: String, index: Int)) -> Double { abs(shells[c.index] / r1 / prior - 1) }
+                    guard let nearest = indexed.min(by: { miss($0) < miss($1) }), miss(nearest) <= 0.10 else {
+                        return .refused(ShellAssignment.undecidedSentence(candidates, pixelSizeFitsNone: true))
+                    }
+                    best = nearest
                 }
                 let ratio = shells[best.index] / found.referenceRadiusInvAngstrom   // the same prediction at another scale
                 assigned = ShellAssignment.Assigned(
                     shellIndex: best.index, label: best.label, referenceRadiusInvAngstrom: shells[best.index],
                     nextShellInvAngstrom: found.nextShellInvAngstrom.map { $0 * ratio }, observedRadiiPixels: found.observedRadiiPixels,
                     matchedRings: found.matchedRings, observedRings: found.observedRings, rmsMisfit: found.rmsMisfit,
-                    equallyFitting: candidates.filter { $0 != best.label }, decidedByPixelSize: true)
+                    equallyFitting: candidates.filter { $0 != best.label }, decidedByPixelSize: picked == nil, pickedByHand: picked != nil)
             }
             guard let scale = LinearScale.estimate(
                 radiiPerPosition: radii, referenceRadiusInvAngstrom: assigned.referenceRadiusInvAngstrom,
@@ -292,16 +323,19 @@ package nonisolated enum ShellAssignment {
         /// True when the rings were refused between two first rings with DIFFERENT predictions and the pixel size already set agreed with
         /// this one only: `equallyFitting` then names the other candidate, which fits the rings too but at another scale.
         package var decidedARefusal = false
+        /// True when the user picked this shell as the first ring among the shells the rings left undecided (mac4DSTEM#169).
+        package var pickedByHand = false
         /// False with one observed ring: nothing could be tested and the first ring is assumed to be the first shell.
         package var isChecked: Bool { observedRings >= 2 }
     }
 
     /// What is said when the rings fit several first shells equally and no pixel size is there to decide. Nothing is written.
-    package static func undecidedSentence(_ labels: [String], pixelSizeFitsNone: Bool = false) -> String {
+    package static func undecidedSentence(_ labels: [String], pixelSizeFitsNone: Bool = false, pickOffered: Bool = false) -> String {
         let list = labels.count == 2 ? labels.joined(separator: " or ") : labels.dropLast().joined(separator: ", ") + " or " + (labels.last ?? "")
         return "The rings fit \(list) as the first ring equally well, and "
             + (pixelSizeFitsNone ? "the reciprocal pixel size already set agrees with none of them" : "there is no reciprocal pixel size from the file to decide between them")
-            + ". Type the reciprocal pixel size (Prepare); no scale was written."
+            + (pickOffered ? ". Pick the first ring or type the reciprocal pixel size (Prepare); no scale was written."
+                           : ". Type the reciprocal pixel size (Prepare); no scale was written.")
     }
 
     package nonisolated enum Outcome: Sendable, Equatable {

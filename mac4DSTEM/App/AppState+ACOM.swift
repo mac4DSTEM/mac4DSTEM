@@ -29,7 +29,8 @@ extension AppState {
     // MARK: - ACOM (orientation mapping)
 
     /// Build the orientation-plan template library for the selected crystal.
-    func calibrateQFromCrystal() async {
+    /// `firstRing`: the shell picked by hand as the first ring, from `qCalibration.firstRingCandidates` (mac4DSTEM#169).
+    func calibrateQFromCrystal(firstRing: String? = nil) async {
         guard !diskDetectionSettingsAreStale else {
             presentComputeFailure(SimpleError("Detection settings changed — run Detect All Disks again before calibrating reciprocal pixels."))
             return
@@ -107,7 +108,7 @@ extension AppState {
             }
             return KnownCrystalQCalibration.estimateAssigned(
                 bragg: calibrated.vectors, origin: calibrated.origin.point, shells: shells, labels: labels,
-                crystalName: crystalName, priorScale: priorScale)
+                crystalName: crystalName, priorScale: priorScale, firstRing: firstRing)
         }.value
         guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
@@ -123,6 +124,11 @@ extension AppState {
         switch outcome {
         case .refused(let sentence):
             qCalibration.record(refusal: sentence)
+            presentComputeFailure(SimpleError(sentence))
+            return
+        case .undecided(let sentence, let candidates):
+            // The Prepare row offers these shells as the first ring; nothing is written until one is picked or a pixel size typed.
+            qCalibration.record(refusal: sentence, firstRingCandidates: candidates)
             presentComputeFailure(SimpleError(sentence))
             return
         case .estimate(let made):
@@ -150,8 +156,9 @@ extension AppState {
         if let assigned = estimate.assignment {
             status += " · assigned to \(assigned.label)"
             // The rings alone fitted several first shells; the pixel size already set decided, and the line says so.
-            if assigned.decidedByPixelSize {
-                status += " by the pixel size already set (\(assigned.equallyFitting.joined(separator: ", ")) "
+            if assigned.decidedByPixelSize || assigned.pickedByHand {
+                status += (assigned.pickedByHand ? ", picked by hand (" : " by the pixel size already set (")
+                    + "\(assigned.equallyFitting.joined(separator: ", ")) "
                     + (assigned.decidedARefusal ? "fits the rings too, at another scale)" : "fits the rings equally)")
             }
         }
@@ -172,12 +179,14 @@ extension AppState {
         var parts: [String] = []
         if let note = estimate.shellCheck.uncheckedNote {
             if let assigned = estimate.assignment, !assigned.isChecked {
-                parts.append(note + (assigned.decidedByPixelSize ? "; first ring is \(assigned.label) by the pixel size already set"
-                                                                 : "; first ring assumed to be \(assigned.label)"))
+                parts.append(note + (assigned.pickedByHand ? "; first ring is \(assigned.label), picked by hand"
+                                     : assigned.decidedByPixelSize ? "; first ring is \(assigned.label) by the pixel size already set"
+                                     : "; first ring assumed to be \(assigned.label)"))
             } else { parts.append(note) }
         }
-        if let assigned = estimate.assignment, assigned.isChecked, assigned.shellIndex > 0 {
-            parts.append("Assigned to \(assigned.label): \(assigned.matchedRings) of \(assigned.observedRings) rings match")
+        if let assigned = estimate.assignment, assigned.isChecked, assigned.shellIndex > 0 || assigned.pickedByHand {
+            parts.append("Assigned to \(assigned.label): \(assigned.matchedRings) of \(assigned.observedRings) rings match"
+                         + (assigned.pickedByHand ? "; first ring picked by hand" : ""))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
