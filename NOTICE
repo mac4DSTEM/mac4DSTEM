@@ -76,6 +76,15 @@ for the window shell, the inspector, the controls, the Metal image view and the 
 are in its NOTICE.
 
 ================================================================================
+Sparkle (the website download only)
+================================================================================
+
+The website download links Sparkle (https://github.com/sparkle-project/Sparkle, tag 2.10.1, commit
+ab7d71291238df6e0492143b120c9b696a35f603), Copyright (c) 2006-2013 Andy Matuschak and the Sparkle contributors, MIT
+licence, for Check for Updates…. The App Store build does not contain it. Its licence and the licences of the code it
+includes are in Licenses/Sparkle-LICENSE.txt.
+
+================================================================================
 Code copied from macTEM
 ================================================================================
 

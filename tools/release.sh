@@ -12,8 +12,9 @@
 #
 # Needs the "Developer ID Application" certificate in the login keychain, a notarytool keychain profile (default
 # macem-notary; override with NOTARY_PROFILE) and dmgbuild in build/dmg-venv (make-dmg.sh says how to create it).
-# Output: build/release/<stamp>/mac4DSTEM-<version>.dmg and a copy named mac4DSTEM.dmg for the
-# releases/latest/download/mac4DSTEM.dmg link. The steps are tools/release/{build-developer-id,notarize,make-dmg}.sh.
+# Output: build/release/<stamp>/mac4DSTEM-<version>.dmg, a copy named mac4DSTEM.dmg for the
+# releases/latest/download/mac4DSTEM.dmg link, and mac4dstem.xml, the website's update feed (tools/release/appcast.sh).
+# The steps are tools/release/{build-developer-id,notarize,make-dmg,appcast}.sh.
 set -euo pipefail
 
 STORE=0 UPLOAD=0
@@ -83,8 +84,12 @@ echo "== Notarize the DMG"
 "$ROOT/tools/release/notarize.sh" "$DMG"
 cp "$DMG" "$OUT/mac4DSTEM.dmg"
 
+echo "== Update feed (Sparkle, #122)"
+"$ROOT/tools/release/appcast.sh" "$DMG" "$VERSION" "$OUT/mac4dstem.xml"
+
 echo
 echo "Done: $DMG"
 echo "Also: $OUT/mac4DSTEM.dmg (for releases/latest/download/mac4DSTEM.dmg)"
 echo "SHA-256: $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 echo "Size: $(stat -f%z "$DMG") bytes"
+echo "Feed: $OUT/mac4dstem.xml (commit it to the website as appcast/mac4dstem.xml once the DMGs are on the release)"

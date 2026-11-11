@@ -63,5 +63,14 @@ done
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$APP/Contents/Info.plist" 2>/dev/null)" == false ]] \
   || { echo "FAIL: Info.plist does not answer the export-compliance question" >&2; exit 1; }
 [[ ! -d "$APP/Contents/Frameworks/Sparkle.framework" ]] || { echo "FAIL: Sparkle is in the store build" >&2; exit 1; }
+# Nor any trace of it: no load command or symbol in the executable, no feed in Info.plist, no installer exception.
+if otool -L "$APP/Contents/MacOS/mac4DSTEM" | grep -i sparkle >/dev/null || nm -u "$APP/Contents/MacOS/mac4DSTEM" | grep -E '_OBJC_CLASS_\$_SPU|Sparkle' >/dev/null; then
+  echo "FAIL: the store executable links Sparkle" >&2; exit 1
+fi
+! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$APP/Contents/Info.plist" >/dev/null 2>&1 \
+  || { echo "FAIL: the store build's Info.plist names an update feed (it read Info-Direct.plist)" >&2; exit 1; }
+if grep -q 'temporary-exception' "$OUT/store-entitlements.plist"; then
+  echo "FAIL: the store build carries a temporary entitlement exception (it read mac4DSTEM-Direct.entitlements)" >&2; exit 1
+fi
 
 echo "$PKG"
