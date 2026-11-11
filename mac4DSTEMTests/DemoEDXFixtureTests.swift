@@ -53,11 +53,12 @@ final class DemoEDXFixtureTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(calibration.rSize), 5, accuracy: 1e-6)
     }
 
-    /// The full default dataset (archived `tools/demo-edx/run.sh`, 254 MB) when it is on this machine: same checks at scale.
+    /// The full default dataset (archived `tools/demo-edx/run.sh`, 254 MB) when it is on this machine: same checks at scale. Version 3
+    /// of the file (#115: beta'' as variants of the Andersen relationship; #113: the planted k-factors); the layout is version 2's.
     func testTheDefaultSimulatedFileWhenPresent() async throws {
         let path = Self.dir.deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("References/demo-edx/AlMgSi_4D_EDX.dm4").path
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "References/demo-edx not generated")
+            .appendingPathComponent("References/demo-edx-v3/AlMgSi_4D_EDX.dm4").path
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "References/demo-edx-v3 not generated")
         let objects = try DM4Experiment.list(path: path)
         XCTAssertEqual(objects.map(\.role), [.thumbnail, .survey, .scanSignal, .diffraction, .eds])
         XCTAssertEqual(try object(objects, .scanSignal).dimensions, [64, 48])
