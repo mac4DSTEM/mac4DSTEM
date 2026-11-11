@@ -2,7 +2,7 @@
 // through the app's real open path (`--open`) and the Add Phase ▸ Presets ▸ Al–Mg–Si open panel. One pass before Paul's drive,
 // never per session. Run as
 //     tools/run-tests.sh ui PrecipitateJoinsJourney
-// The file is References/demo-edx/AlMgSi_4D_EDX.dm4 (simulated, beside the repo); the β″ CIF is
+// The file is References/demo-edx-v3/AlMgSi_4D_EDX.dm4 (simulated, beside the repo); the β″ CIF is
 // References/crystal-structures/beta_double_prime_Mg5Si6_needle.cif. From a worktree, `References` must be a link to the org's
 // References/mac4DSTEM, or the journey skips (check the xcresult for Skipped).
 
@@ -10,7 +10,7 @@ import XCTest
 
 final class PrecipitateJoinsJourney: Journey {
     private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    private static let fourDEDS = repo.appendingPathComponent("References/demo-edx/AlMgSi_4D_EDX.dm4").path
+    private static let fourDEDS = repo.appendingPathComponent("References/demo-edx-v3/AlMgSi_4D_EDX.dm4").path
     private static let betaCIF = repo.appendingPathComponent("References/crystal-structures/beta_double_prime_Mg5Si6_needle.cif").path
 
     private func waitIdle(_ what: String, timeout: TimeInterval = 300) {
@@ -177,8 +177,9 @@ final class PrecipitateJoinsJourney: Journey {
     }
 
     /// The variant map on the same file (suite task 40): Count variants on, the legend counts needles per direction and per variant,
-    /// and the exported CSV carries the variant columns. It does not assert assignments: the demo plants beta'' at the matrix's in-plane
-    /// angle + 0 or 90 degrees, not in the Andersen relationship, so every object is honestly unassigned here (#115).
+    /// and the exported CSV carries the variant columns. The file is version 3 of the demo, whose beta'' are variants of the Andersen
+    /// relationship (#115; version 2 planted them at the matrix's in-plane angle + 0 or 90 degrees, so every object was unassigned). The
+    /// assignments themselves are pinned without the screen by `DemoV3VariantsTests`; this journey checks the legend, the totals line and the CSV.
     func test4_VariantMapLegendAndCSV() throws {
         try openAndQuantify()
         objectsStrainAndTable()

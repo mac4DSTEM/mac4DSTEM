@@ -1,13 +1,13 @@
 // EDSJourney: the EDS room (macTEM 1.0's, 2026-10-23) on mac4DSTEM's own 4D-STEM + EDS file and on the owner's Velox file, through the
 // app's real open path (`--open`). One pass before Paul's drive, never per session. Run as
 //     tools/run-tests.sh ui EDSJourney
-// The 4D + EDS file is References/demo-edx/AlMgSi_4D_EDX.dm4 (simulated, beside the repo); the Velox file is $MACEM_DATA/stem-edx (default ../data).
+// The 4D + EDS file is References/demo-edx-v3/AlMgSi_4D_EDX.dm4 (simulated, beside the repo); the Velox file is $MACEM_DATA/stem-edx (default ../data).
 
 import XCTest
 
 final class EDSJourney: Journey {
     private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    private static let fourDEDS = repo.appendingPathComponent("References/demo-edx/AlMgSi_4D_EDX.dm4").path
+    private static let fourDEDS = repo.appendingPathComponent("References/demo-edx-v3/AlMgSi_4D_EDX.dm4").path
     private static let velox1339 = (ProcessInfo.processInfo.environment["MACEM_DATA"] ?? repo.deletingLastPathComponent().appendingPathComponent("data").path)
         + "/stem-edx/SI HAADF 1339 65000 x 20260508.emd"
 
