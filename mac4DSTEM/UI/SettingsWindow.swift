@@ -135,6 +135,10 @@ private struct GeneralSettingsSection: View {
             .help(FigureExportSection.formatHelp)
         }
 
+        #if SPARKLE
+        SoftwareUpdateSettingsSection()   // the website download only (App/SoftwareUpdate.swift)
+        #endif
+
         Section("Recents") {
             Button("Clear Recent Datasets", role: .destructive) {
                 confirmingClearRecents = true

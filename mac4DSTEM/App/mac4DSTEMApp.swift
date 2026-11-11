@@ -511,6 +511,9 @@ struct mac4DSTEMApp: App {
             SettingsWindow()
                 .environment(preferences)
                 .environment(recents)
+                #if SPARKLE
+                .environment(softwareUpdate)
+                #endif
         }
     }
 }
