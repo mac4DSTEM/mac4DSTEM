@@ -710,7 +710,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# The App Store build (MACEM_STORE_BUILD=YES) carries no updater (#122): its code is compiled out (no SPARKLE condition),\n# -dead_strip_dylibs drops the unused load command, and this removes the framework Xcode embedded for the package.\nif [ \"${MACEM_STORE_BUILD}\" = YES ]; then\n  rm -rf \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework\"\nfi\n";
+			shellScript = "# The App Store build (MACEM_STORE_BUILD=YES) carries no updater (#122): its code is compiled out (no SPARKLE condition),\n# -dead_strip_dylibs drops the unused load command (the HDF5 frameworks, loaded by path, are kept as needed), and this removes the framework Xcode embedded for the package.\nif [ \"${MACEM_STORE_BUILD}\" = YES ]; then\n  rm -rf \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1019,7 +1019,7 @@
 				MACEM_FLAVOUR_SUFFIX_NO = "-Direct";
 				MACEM_FLAVOUR_SUFFIX_YES = "";
 				MACEM_STORE_BUILD = NO;
-				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs";
+				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
@@ -1077,7 +1077,7 @@
 				MACEM_FLAVOUR_SUFFIX_NO = "-Direct";
 				MACEM_FLAVOUR_SUFFIX_YES = "";
 				MACEM_STORE_BUILD = NO;
-				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs";
+				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;
@@ -1133,7 +1133,7 @@
 				MACEM_FLAVOUR_SUFFIX_NO = "-Direct";
 				MACEM_FLAVOUR_SUFFIX_YES = "";
 				MACEM_STORE_BUILD = NO;
-				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs";
+				MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";
 				MACEM_UPDATER_CONDITION_NO = SPARKLE;
 				OTHER_LDFLAGS = "$(inherited) $(MACEM_STORE_LDFLAGS_$(MACEM_STORE_BUILD))";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mac4dstem.mac4DSTEM;

@@ -58,7 +58,9 @@ final class SoftwareUpdateTests: XCTestCase {
         XCTAssertEqual(count(#"CODE_SIGN_ENTITLEMENTS = "mac4DSTEM/mac4DSTEM$(MACEM_FLAVOUR_SUFFIX_$(MACEM_STORE_BUILD)).entitlements";"#), 3)
         XCTAssertEqual(count(#"SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(MACEM_UPDATER_CONDITION_$(MACEM_STORE_BUILD))";"#), 3)
         XCTAssertEqual(count("MACEM_UPDATER_CONDITION_NO = SPARKLE;"), 3)
-        XCTAssertEqual(count(#"MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs";"#), 3)
+        // -dead_strip_dylibs alone also dropped the three HDF5 frameworks' load commands (FormatoKit opens them by path, so
+        // nothing names their symbols): they are kept as needed, so the store executable differs from the download's only by Sparkle.
+        XCTAssertEqual(count(#"MACEM_STORE_LDFLAGS_YES = "-Wl,-dead_strip_dylibs -Wl,-needed_framework,FormatoLibHDF5 -Wl,-needed_framework,FormatoLibSZ -Wl,-needed_framework,FormatoLibAEC";"#), 3)
         XCTAssertTrue(project.contains(#"rm -rf \"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework\""#))
         XCTAssertTrue(project.contains(#""Info-Direct.plist","#), "the download's plist is not copied as a resource")
     }
@@ -76,7 +78,7 @@ final class SoftwareUpdateTests: XCTestCase {
             XCTAssertTrue(feed.contains(part), "appcast.sh no longer writes \(part)")
         }
         let store = try text("tools/release/build-app-store.sh")
-        for check in ["otool -L", "SUFeedURL", "temporary-exception"] {
+        for check in ["otool -L", "SUFeedURL", "temporary-exception", "FormatoLibHDF5 FormatoLibSZ FormatoLibAEC"] {
             XCTAssertTrue(store.contains(check), "build-app-store.sh no longer checks \(check)")
         }
     }

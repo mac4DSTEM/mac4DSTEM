@@ -64,7 +64,8 @@ build has no updater, because the store updates it and refuses an app that updat
 
 - **One switch.** `MACEM_STORE_BUILD` (NO unless the store script sets YES) picks `Info.plist` or `Info-Direct.plist`,
   `mac4DSTEM.entitlements` or `mac4DSTEM-Direct.entitlements`, and the `SPARKLE` compile condition. The store build links
-  with `-dead_strip_dylibs` and its last build phase removes the framework Xcode embeds for the package, so the store app
+  with `-dead_strip_dylibs` (the three HDF5 frameworks kept with `-needed_framework`, because FormatoKit opens them by path
+  and dead-stripping dropped their load commands too) and its last build phase removes the framework Xcode embeds for the package, so the store app
   has no Sparkle code, load command, plist key or entitlement exception; `build-app-store.sh` checks all four.
   `SoftwareUpdateTests` holds each Direct file to be its store twin plus exactly the updater's keys: edit `Info.plist`
   and copy the change to `Info-Direct.plist`.
