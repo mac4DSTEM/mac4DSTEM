@@ -119,8 +119,7 @@ private struct DatasetWindow: View {
             appState.enrollInOpenDatasetRegistry()
             // The agent door (Settings > Agents) knows this window while it is open, and opens with the first window when the
             // person left it on. Asking again for the state it has does nothing.
-            AgentDoor.shared.enroll(appState)
-            AgentDoor.shared.setEnabled(preferences.agentDoorEnabled)
+            Mac4DSTEMAgentDoor.enroll(appState, enabled: preferences.agentDoorEnabled)
             // A 4D file opened while this window holds only a spectrum image goes to a new window
             // (`AppState.routesOpenToNewWindow`), which takes it through the relay as a menu action.
             appState.openInNewWindow = { [menuRelay, openWindow] url, configure in
@@ -133,7 +132,7 @@ private struct DatasetWindow: View {
         // that merely hides, minimises or loses focus keeps its content in place and does not fire it.
         .onDisappear {
             OpenDatasetRegistry.withdraw(appState)
-            AgentDoor.shared.withdraw(appState)
+            Mac4DSTEMAgentDoor.withdraw(appState)
             appState.windowClosed()
         }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,

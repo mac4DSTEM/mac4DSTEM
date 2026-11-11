@@ -33,6 +33,7 @@
 		300000000000000000000404 /* ShellControls in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000403 /* ShellControls */; };
 		300000000000000000000406 /* ShellInspector in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000405 /* ShellInspector */; };
 		300000000000000000000408 /* ShellLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000407 /* ShellLayout */; };
+		300000000000000000000414 /* ShellAgentDoor in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000413 /* ShellAgentDoor */; };
 		300000000000000000000410 /* ShellSpectroscopy in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000040F /* ShellSpectroscopy */; };
 		300000000000000000000412 /* ShellEDXModel in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000411 /* ShellEDXModel */; };
 		500000000000000000000302 /* DSTEMQuickLook in Frameworks */ = {isa = PBXBuildFile; productRef = 500000000000000000000301 /* DSTEMQuickLook */; };
@@ -357,6 +358,7 @@
 				300000000000000000000408 /* ShellLayout in Frameworks */,
 				300000000000000000000410 /* ShellSpectroscopy in Frameworks */,
 				300000000000000000000412 /* ShellEDXModel in Frameworks */,
+				300000000000000000000414 /* ShellAgentDoor in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -480,6 +482,7 @@
 				300000000000000000000407 /* ShellLayout */,
 				30000000000000000000040F /* ShellSpectroscopy */,
 				300000000000000000000411 /* ShellEDXModel */,
+				300000000000000000000413 /* ShellAgentDoor */,
 			);
 			productName = mac4DSTEM;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -1608,7 +1611,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.1;
+				minimumVersion = 0.6.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1740,6 +1743,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
 			productName = ShellEDXModel;
+		};
+		300000000000000000000413 /* ShellAgentDoor */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 300000000000000000000040 /* XCRemoteSwiftPackageReference "MacEMUI" */;
+			productName = ShellAgentDoor;
 		};
 		500000000000000000000301 /* DSTEMQuickLook */ = {
 			isa = XCSwiftPackageProductDependency;

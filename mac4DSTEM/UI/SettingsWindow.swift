@@ -15,6 +15,7 @@
 //  `tools/run-tests.sh inventory`).
 //
 
+import ShellAgentDoor
 import ShellLayout
 import SwiftUI
 import ShellMetal
@@ -91,7 +92,7 @@ struct SettingsWindow: View {
         // settings window — matches System Settings' own shape.
         .toolbar(removing: .sidebarToggle)
         // Here, not on the Agents section: Reset All Settings (Advanced) turns the preference off too, and the door must follow.
-        .onChange(of: preferences.agentDoorEnabled) { _, enabled in AgentDoor.shared.setEnabled(enabled) }
+        .onChange(of: preferences.agentDoorEnabled) { _, enabled in Mac4DSTEMAgentDoor.setEnabled(enabled) }
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,
             idealWidth: LayoutPolicy.settingsWindow.ideal.width,
@@ -224,35 +225,16 @@ private struct AnalysisSettingsSection: View {
 
 // MARK: - Agents
 
-/// The agent door's one switch and what it is doing (`App/AgentDoor/AgentDoor.swift`). The sentence under it says what an agent
-/// can and cannot do, because the switch opens a listener and the person should know its reach before turning it on.
-struct AgentSettingsSection: View {   // internal: AgentDoorTests reads `statusText`
+/// The agent door's switch, status, connection command and new-token button: MacEMUI's shared section on mac4DSTEM's door
+/// (`App/AgentDoor/Mac4DSTEMAgentDoor.swift`), with this app's words for what an agent can read.
+private struct AgentSettingsSection: View {
     @Environment(AppPreferences.self) private var preferences
 
     var body: some View {
         @Bindable var preferences = preferences
-        let door = AgentDoor.shared
-        Section("Agent access") {
-            Toggle("Let agents on this Mac look at open windows", isOn: $preferences.agentDoorEnabled)
-                .accessibilityIdentifier("settings.agents.enabled")
-            LabeledContent("Status", value: Self.statusText(door.status, requests: door.requestCount))
-                .accessibilityIdentifier("settings.agents.status")
-            Text("While this is on, an agent you run on this Mac (Claude, Codex) can read what mac4DSTEM's windows show through the mac4DSTEM MCP bridge: the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks and the recipe. It cannot change anything. Nothing leaves this Mac, and other computers cannot reach the app.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// The status row's words. Pure, so it is tested.
-    static func statusText(_ status: AgentDoor.Status, requests: Int) -> String {
-        switch status {
-        case .off: return "Off"
-        case .starting: return "Opening\u{2026}"
-        case .listening(let port):
-            if requests == 0 { return "On (port \(port)), no agent has asked yet" }
-            return "On (port \(port)), \(requests) \(requests == 1 ? "request" : "requests") answered"
-        case .failed(let why): return "Could not open: \(why)"
-        }
+        AgentDoorSettingsSection(door: Mac4DSTEMAgentDoor.shared, isOn: $preferences.agentDoorEnabled,
+                                 canSee: "the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks, "
+                                     + "the precipitate objects and the recipe")
     }
 }
 

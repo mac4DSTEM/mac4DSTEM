@@ -1,6 +1,6 @@
 //
 //  AgentDoorSnapshot.swift
-//  Role: What a window tells an agent about itself (`AgentDoorRouter`): the state the person sees, as JSON, and the two pictures
+//  Role: What a window tells an agent about itself (`Mac4DSTEMAgentDoor`): the state the person sees, as JSON, and the two pictures
 //        the panes show, as PNG. Read-only: nothing here writes a property, starts a run or touches a file.
 //
 //  One source per fact. The result picture is `resultExportImage`, the figure File > Export writes; its record is
@@ -13,42 +13,13 @@
 
 import CoreGraphics
 import Foundation
-import ImageIO
+import ShellAgentDoor
 import ShellLayout
 import SwiftUI
-import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
 #endif
-
-nonisolated enum AgentJSON {
-    /// A finite number, or null.
-    static func number<T: BinaryFloatingPoint>(_ value: T?) -> Any {
-        guard let value, value.isFinite else { return NSNull() }
-        return Double(value)
-    }
-
-    static func orNull(_ value: Any?) -> Any { value ?? NSNull() }
-
-    /// A `Codable` value as JSON: sorted keys, ISO 8601 dates, non-finite numbers as the strings "NaN", "Infinity", "-Infinity".
-    static func encoded<T: Encodable>(_ value: T) -> Data? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
-        return try? encoder.encode(value)
-    }
-
-    /// The PNG bytes of `image`; nil when ImageIO cannot write it.
-    static func png(_ image: CGImage) -> Data? {
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data as CFMutableData, UTType.png.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return data as Data
-    }
-}
 
 /// The recipe and the run graph it is the projection of, as the sidecar stores them.
 nonisolated struct AgentLineageAnswer: Encodable {
@@ -79,9 +50,9 @@ extension AppState {
 
     // MARK: The window in one line
 
-    func agentSummary(id: String) -> [String: Any] {
+    /// The door adds the window's `id`.
+    func agentSummary() -> [String: Any] {
         [
-            "id": id,
             "file_name": AgentJSON.orNull(descriptor?.fileName),
             "has_4d_dataset": hasDataset,
             "has_spectrum_image": hasSpectrumImage,
@@ -94,8 +65,8 @@ extension AppState {
 
     // MARK: The window in full
 
-    func agentSnapshot(id: String) -> [String: Any] {
-        var snapshot = agentSummary(id: id)
+    func agentSnapshot() -> [String: Any] {
+        var snapshot = agentSummary()
         snapshot["dataset"] = agentDataset
         snapshot["calibration"] = agentCalibration
         snapshot["view"] = [
@@ -113,8 +84,8 @@ extension AppState {
             "status": statusText,
             "error": AgentJSON.orNull(errorMessage),
         ] as [String: Any]
-        snapshot["result"] = agentResult(id: id)
-        snapshot["pattern"] = agentPattern(id: id)
+        snapshot["result"] = agentResult
+        snapshot["pattern"] = agentPattern
         snapshot["disk_detection"] = agentDiskDetection
         snapshot["session"] = agentSession
         snapshot["has_precipitate_objects"] = precipitateObjectReport != nil
@@ -161,7 +132,7 @@ extension AppState {
         return out
     }
 
-    private func agentResult(id: String) -> Any {
+    private var agentResult: Any {
         guard let product = displayedProduct else { return NSNull() }
         var out: [String: Any] = [
             "kind": product.kind,
@@ -176,7 +147,7 @@ extension AppState {
             "pixel_units": AgentJSON.orNull(product.sampling.units),
             "provenance": product.provenance,
             "caption": publicationCaption,
-            "image": "/v1/windows/\(id)/result.png",
+            "image": "get_result_image",
         ]
         if let range = resultDisplayedValueRange {
             out["display_range"] = ["low": AgentJSON.number(range.low), "high": AgentJSON.number(range.high)]
@@ -184,14 +155,14 @@ extension AppState {
         return out
     }
 
-    private func agentPattern(id: String) -> Any {
+    private var agentPattern: Any {
         guard let pattern = displayedPattern else { return NSNull() }
         return [
             "width": pattern.qx,
             "height": pattern.qy,
             "shown": patternDisplayMode.rawValue,
             "log_scale": logScale,
-            "image": "/v1/windows/\(id)/pattern.png",
+            "image": "get_pattern_image",
         ] as [String: Any]
     }
 
