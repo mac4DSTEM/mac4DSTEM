@@ -62,6 +62,17 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
         XCTAssertNil(state.qCalibration.estimate)
         let refusal = try XCTUnwrap(state.qCalibration.refusal, state.statusText)
         XCTAssertTrue(refusal.contains("{200} or {220}") && refusal.contains("no scale was written"), refusal)
+        // mac4DSTEM#169: the way on is the existing field, said in the refusal. Mutation: the old "Type the reciprocal pixel size" - red.
+        XCTAssertTrue(refusal.contains("Enter an approximate Q pixel size (Prepare, within 10 % is enough) and calibrate again"), refusal)
+
+        // And it is the way on: an approximate value, 4 % off, typed into that field decides; the rings measure the exact scale.
+        state.calibrationSession.calibration.qPixelSize = Self.deltaQ * 1.04
+        state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+        state.calibrationSession.provenance.qScale = .manual
+        await state.calibrateQFromCrystal()
+        let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+        XCTAssertEqual(q, Self.deltaQ, accuracy: 1e-6 * Self.deltaQ, state.statusText)
+        XCTAssertTrue(state.statusText.contains("assigned to {200} by the pixel size already set"), state.statusText)
     }
 
     /// The same two rings with a pixel size already set (the file's or a typed one): the shell whose scale is nearest to it is taken, the
@@ -121,15 +132,27 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
             XCTAssertTrue(state.statusText.contains("assigned to \(label) by the pixel size already set (\(other) fits the rings too, at another scale)"),
                           state.statusText)
             XCTAssertTrue(state.statusText.contains("shell ratio unchecked"), state.statusText)
+            // The Q row and the Q shell check row say why it is unchecked. Mutation: the estimator's own reason kept ("this crystal
+            // has only one allowed shell within range", not true here) - both are red.
+            let note = "Shell ratio unchecked — the first ring, \(label), was chosen by the pixel size already set"
+            XCTAssertEqual(state.calibrationSession.provenance.qShellCaveat?.text, note)
+            XCTAssertEqual(state.qCalibration.selfCheckSummary, note)
         }
         // 0.0345 is 7.2 % from the {111} scale and 6.6 % from the {200} scale: both within reach, so it does not decide.
         for set in [0.0345, 0.0100] {
             let state = try await run(pixelSize: set)
             XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, set, "left as it was: \(state.statusText)")
-            XCTAssertTrue(try XCTUnwrap(state.qCalibration.refusal).contains("Two assignments fit equally well ({111} and {200} first)"))
+            let refusal = try XCTUnwrap(state.qCalibration.refusal)
+            XCTAssertTrue(refusal.contains("Two assignments fit equally well ({111} and {200} first)"))
+            XCTAssertTrue(refusal.contains("The Q pixel size already set does not decide") && refusal.contains("no scale was written"), refusal)
+            XCTAssertFalse(refusal.contains("crystal's list"), refusal)
         }
         let none = try await run(pixelSize: nil)
         XCTAssertNil(none.calibrationSession.calibration.qPixelSize)
-        XCTAssertTrue(try XCTUnwrap(none.qCalibration.refusal).contains("Two assignments fit equally well ({111} and {200} first)"))
+        let refusal = try XCTUnwrap(none.qCalibration.refusal)
+        XCTAssertTrue(refusal.contains("Two assignments fit equally well ({111} and {200} first)"))
+        // mac4DSTEM#169: no list to pick from exists in the app; the refusal points at the Q pixel size field instead.
+        XCTAssertTrue(refusal.contains("Enter an approximate Q pixel size (Prepare, within 10 % is enough) and calibrate again"), refusal)
+        XCTAssertFalse(refusal.contains("crystal's list"), refusal)
     }
 }

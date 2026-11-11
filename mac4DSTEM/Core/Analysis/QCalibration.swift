@@ -202,7 +202,10 @@ package nonisolated enum KnownCrystalQCalibration {
             // not guessed: a pixel size already set decides when exactly ONE candidate's scale lies within 10 % of it. The scale is each
             // candidate's shell over the first ring `LinearScale.estimate` measures. With no pixel size, none within reach, or both
             // within reach, the kit's refusal stands as it is (it names the candidates).
-            guard named.candidates.count == 2, let prior = priorScale, prior.isFinite, prior > 0 else { return .refused(sentence) }
+            guard named.candidates.count == 2 else { return .refused(sentence) }
+            guard let prior = priorScale, prior.isFinite, prior > 0 else {
+                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: false))
+            }
             var fits: [(label: String, index: Int, scale: LinearScaleEstimate)] = []
             for label in named.candidates {
                 guard let index = labels.firstIndex(of: label), index < shells.count,
@@ -211,7 +214,9 @@ package nonisolated enum KnownCrystalQCalibration {
                       abs(scale.invAngstromPerPixel / prior - 1) <= 0.10 else { continue }
                 fits.append((label, index, scale))
             }
-            guard fits.count == 1, let best = fits.first else { return .refused(sentence) }
+            guard fits.count == 1, let best = fits.first else {
+                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: true))
+            }
             // The second shell is not handed to the estimate: which ring is second is what the rings could not say, so the ratio stays
             // unchecked and the row says so.
             let assigned = ShellAssignment.Assigned(
@@ -296,12 +301,40 @@ package nonisolated enum ShellAssignment {
         package var isChecked: Bool { observedRings >= 2 }
     }
 
+    /// Why the shell ratio is unchecked when the pixel size already set chose the first ring between two that predict different scales:
+    /// which ring is second is what the rings could not say. Nil for every other assignment. The estimator's own reason ("only one
+    /// allowed shell within range") is not true there and is replaced by this sentence (seen in the drive of 2026-11-11).
+    package static func chosenUncheckedNote(_ assigned: Assigned?) -> String? {
+        guard let assigned, !assigned.isChecked, assigned.decidedByPixelSize else { return nil }
+        return "Shell ratio unchecked — the first ring, \(assigned.label), was chosen by the pixel size already set"
+    }
+
+    /// The way on that every dataset has (mac4DSTEM#169; Velox, GMS, py4DSTEM and CrysTBox start from a scale the file or the user
+    /// states and let the pattern refine it): an approximate reciprocal pixel size in the existing field decides the shell.
+    package static let approximatePixelSizeAdvice =
+        "Enter an approximate Q pixel size (Prepare, within 10 % is enough) and calibrate again: it decides the first ring and the rings measure the exact scale"
+
+    /// The kit's refusal between two first rings, with its advice replaced by the app's own: the kit speaks of a list to pick from
+    /// that the app does not have. `pixelSizeSet`: a pixel size is set and lies within 10 % of neither scale, or of both.
+    /// A sentence without the kit's advice is returned as it is.
+    package static func pointingAtThePixelSize(_ sentence: String, pixelSizeSet: Bool) -> String {
+        let advice = pixelSizeSet
+            ? "The Q pixel size already set does not decide: it must lie within 10 % of exactly one of the two scales. Correct it (Prepare) and calibrate again"
+            : approximatePixelSizeAdvice
+        return sentence
+            .replacingOccurrences(of: "Pick the first ring in the crystal's list, or measure the pixel size from a distance.",
+                                  with: advice + "; no scale was written.")
+            .replacingOccurrences(of: "Correct the elliptical distortion first, pick the first ring in the crystal's list, or measure the pixel size from a distance.",
+                                  with: "Correct the elliptical distortion first, or: " + advice + "; no scale was written.")
+    }
+
     /// What is said when the rings fit several first shells equally and no pixel size is there to decide. Nothing is written.
     package static func undecidedSentence(_ labels: [String], pixelSizeFitsNone: Bool = false) -> String {
         let list = labels.count == 2 ? labels.joined(separator: " or ") : labels.dropLast().joined(separator: ", ") + " or " + (labels.last ?? "")
         return "The rings fit \(list) as the first ring equally well, and "
             + (pixelSizeFitsNone ? "the reciprocal pixel size already set agrees with none of them" : "there is no reciprocal pixel size from the file to decide between them")
-            + ". Type the reciprocal pixel size (Prepare); no scale was written."
+            + (pixelSizeFitsNone ? ". Correct the Q pixel size (Prepare) and calibrate again; no scale was written."
+                                 : ". " + approximatePixelSizeAdvice + "; no scale was written.")
     }
 
     package nonisolated enum Outcome: Sendable, Equatable {

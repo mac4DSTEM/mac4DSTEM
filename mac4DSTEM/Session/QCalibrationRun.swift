@@ -62,7 +62,7 @@ package final class QCalibrationRun {
             )
         case .notSelfChecked(let reason):
             // "Shell ratio unchecked — <reason>": the wording every surface shares.
-            return QCalibrationShellCheck.notSelfChecked(reason).uncheckedNote
+            return ShellAssignment.chosenUncheckedNote(estimate?.assignment) ?? QCalibrationShellCheck.notSelfChecked(reason).uncheckedNote
         case nil:
             return nil
         }

@@ -171,7 +171,9 @@ extension AppState {
     static func qShellCaveatText(_ estimate: QCalibrationEstimate) -> String? {
         var parts: [String] = []
         if let note = estimate.shellCheck.uncheckedNote {
-            if let assigned = estimate.assignment, !assigned.isChecked {
+            if let chosen = ShellAssignment.chosenUncheckedNote(estimate.assignment) {
+                parts.append(chosen)
+            } else if let assigned = estimate.assignment, !assigned.isChecked {
                 parts.append(note + (assigned.decidedByPixelSize ? "; first ring is \(assigned.label) by the pixel size already set"
                                                                  : "; first ring assumed to be \(assigned.label)"))
             } else { parts.append(note) }
