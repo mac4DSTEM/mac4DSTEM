@@ -47,13 +47,15 @@ final class AgentDoorRunsTests: XCTestCase {
 
     /// A tool call's result: whether it was refused, and its text.
     private func call(_ name: String, _ arguments: [String: Any] = [:]) async throws -> (refused: Bool, text: String) {
-        let result = try XCTUnwrap(try await mcp("tools/call", ["name": name, "arguments": arguments])["result"] as? [String: Any])
+        let answer = try await mcp("tools/call", ["name": name, "arguments": arguments])
+        let result = try XCTUnwrap(answer["result"] as? [String: Any])
         let text = ((result["content"] as? [[String: Any]])?.first?["text"] as? String) ?? ""
         return (result["isError"] as? Bool ?? true, text)
     }
 
     func testTheToolsThatActAreListedAsNotReadOnly() async throws {
-        let tools = try XCTUnwrap((try await mcp("tools/list")["result"] as? [String: Any])?["tools"] as? [[String: Any]])
+        let listed = try await mcp("tools/list")
+        let tools = try XCTUnwrap((listed["result"] as? [String: Any])?["tools"] as? [[String: Any]])
         for name in ["select_scan_position", "set_disk_detection", "run_task", "stop_run"] {
             let tool = try XCTUnwrap(tools.first { $0["name"] as? String == name }, name)
             XCTAssertEqual((tool["annotations"] as? [String: Any])?["readOnlyHint"] as? Bool, false, name)
