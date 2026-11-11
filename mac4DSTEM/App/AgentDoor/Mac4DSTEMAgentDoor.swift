@@ -1,7 +1,8 @@
 //
 //  Mac4DSTEMAgentDoor.swift
 //  Role: mac4DSTEM's half of the agent door (MacEMUI's `ShellAgentDoor`; MacEMUI docs/agent-door.md): the door this app opens and
-//        the tools it hands it. Read-only: each tool looks at what a window shows and answers; none changes the app. What a tool
+//        the tools it hands it. The tools here look at what a window shows and change nothing; the ones that act, behind the
+//        second switch, are in `AgentDoorRuns.swift`. What a tool
 //        reads is in `AgentDoorSnapshot.swift`, from the export code and the readiness report, never a second rendering.
 //
 //  The switch is Settings > Agents (`AgentSettingsSection`), kept in `AppPreferences.agentDoorEnabled`. Each window enrols on
@@ -24,14 +25,20 @@ enum Mac4DSTEMAgentDoor {
     /// The app's one door.
     static let shared: AgentDoor = {
         let door = AgentDoor(appName: "mac4DSTEM", appVersion: FeedbackLinks.appVersion, preferredPort: port)
-        door.register(Mac4DSTEMAgentDoor.tools)
+        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.runTools)
         return door
     }()
 
     /// A window appeared: the door lists it, and opens when the person left it on.
-    static func enroll(_ state: AppState, enabled: Bool) {
+    static func enroll(_ state: AppState, enabled: Bool, runsAllowed: Bool) {
         shared.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+        shared.runsAllowed = runsAllowed
         shared.setEnabled(enabled)
+    }
+
+    /// The second switch changed: whether the tools that act (`AgentDoorRuns.swift`) may run.
+    static func setRunsAllowed(_ allowed: Bool) {
+        shared.runsAllowed = allowed
     }
 
     /// A window closed.
@@ -112,5 +119,5 @@ enum Mac4DSTEMAgentDoor {
         },
     ]
 
-    private static let notAWindow = AgentToolOutput.refusal(status: 500, message: "That window is not a mac4DSTEM window.")
+    static let notAWindow = AgentToolOutput.refusal(status: 500, message: "That window is not a mac4DSTEM window.")
 }

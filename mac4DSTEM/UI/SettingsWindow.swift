@@ -93,6 +93,7 @@ struct SettingsWindow: View {
         .toolbar(removing: .sidebarToggle)
         // Here, not on the Agents section: Reset All Settings (Advanced) turns the preference off too, and the door must follow.
         .onChange(of: preferences.agentDoorEnabled) { _, enabled in Mac4DSTEMAgentDoor.setEnabled(enabled) }
+        .onChange(of: preferences.agentRunsEnabled) { _, allowed in Mac4DSTEMAgentDoor.setRunsAllowed(allowed) }
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,
             idealWidth: LayoutPolicy.settingsWindow.ideal.width,
@@ -261,7 +262,9 @@ private struct AgentSettingsSection: View {
         @Bindable var preferences = preferences
         AgentDoorSettingsSection(door: Mac4DSTEMAgentDoor.shared, isOn: $preferences.agentDoorEnabled,
                                  canSee: "the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks, "
-                                     + "the precipitate objects and the recipe")
+                                     + "the precipitate objects and the recipe",
+                                 runs: $preferences.agentRunsEnabled,
+                                 canRun: "move to a scan position, tune the disk detection, and press Run and Stop")
     }
 }
 
