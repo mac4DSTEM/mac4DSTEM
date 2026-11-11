@@ -202,6 +202,7 @@
 				Core/EDS/EDXQuantMaps.swift,
 				Core/ML/LearnedDiskDetection.swift,
 				Core/ML/LearnedDiskDetector.swift,
+				Core/ML/ModelCacheUsage.swift,
 				Core/Spectroscopy/Registration/QuantificationStep.swift,
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Workflow/AnalysisOperationController.swift,
