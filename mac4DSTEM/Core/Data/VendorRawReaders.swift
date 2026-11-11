@@ -76,6 +76,14 @@ private nonisolated func vendorSlab(
 }
 
 /// The mapped file's disk watch: opened BEFORE the kit maps the file, so it can only belong to the disk the mapping comes from.
+/// The sentence inside a FormatoMIB refusal.
+private nonisolated func mibMessage(_ error: Error) -> String {
+    switch error as? FormatoMIB.MIBError {
+    case .malformed(let message)?, .unsupported(let message)?, .cannotOpen(let message)?: return message
+    case nil: return error.localizedDescription
+    }
+}
+
 private nonisolated func vendorLiveness(path: String) throws -> MappingLiveness {
     do { return try MappingLiveness.descriptor(path: path) } catch { throw VendorRawError.cannotOpen(path) }
 }
@@ -329,6 +337,24 @@ package actor MIBReader: FourDDataSource {
     package private(set) var kitRefusal: String?
 
     package init(path: String) throws {
+        // Merlin's "save to multiple files" (default1.mib … defaultN.mib beside one default.hdr): the kit reads the parts in order
+        // as one scan, and only the kit (the app's own frame reading below is one file). The set is named by its first part, so
+        // a window holding it refuses the same set opened from another part.
+        if let set = FormatoMIB.MerlinSet.containing(path) {
+            self.path = set.parts[0]
+            let watch = try vendorLiveness(path: set.parts[0])
+            let kit: FormatoMIB.MIBReader
+            do { kit = try FormatoMIB.MIBReader(set: set) } catch {
+                let name = URL(fileURLWithPath: set.header).lastPathComponent
+                throw VendorRawError.malformed("This Merlin acquisition (\(set.parts.count) files with \(name)) cannot be read as one scan: \(mibMessage(error)).")
+            }
+            let shape = kit.signal.array.shape
+            guard shape.count == 4 else { throw VendorRawError.malformed("This Merlin acquisition's frames are not scan-shaped.") }
+            (scanHeight, scanWidth, detectorHeight, detectorWidth) = (shape[0], shape[1], shape[2], shape[3])
+            dtype = kit.pixelCode
+            source = .kit(array: kit.signal.array, liveness: watch)
+            return
+        }
         self.path = path
         // try? accepted with a stated limit (v2 S7 audit): this collapses
         // "no .hdr" with "an .hdr the sandbox refused" — the .hdr is a
@@ -339,7 +365,7 @@ package actor MIBReader: FourDDataSource {
         // work (docs/v2-release.md §3), which owns this reader's contract.
         let hdrURL = URL(fileURLWithPath: path).deletingPathExtension().appendingPathExtension("hdr")
         guard let hdr = try? String(contentsOf: hdrURL, encoding: .utf8) else {
-            throw VendorRawError.unsupported("MIB needs a companion .hdr with ScanX and ScanY so scan shape is never guessed.")
+            throw VendorRawError.unsupported("MIB needs its companion .hdr (ScanX and ScanY, or Merlin's Frames per Trigger) so the scan shape is never guessed.")
         }
         // The kit first; the descriptor is opened BEFORE the kit maps the file.
         let watch = try? vendorLiveness(path: path)
@@ -356,7 +382,7 @@ package actor MIBReader: FourDDataSource {
                 }
                 refusal = "the frames are not scan-shaped"
             } catch {
-                refusal = "\(error)"
+                refusal = mibMessage(error)
             }
         }
         kitRefusal = refusal
@@ -394,7 +420,8 @@ package actor MIBReader: FourDDataSource {
             }
         }
         guard let sx = values["ScanX"], sx > 0, let sy = values["ScanY"], sy > 0 else {
-            throw VendorRawError.malformed("MIB companion .hdr has no positive ScanX/ScanY.")
+            // The kit reads Merlin's Frames per Trigger; where it refused, its reason is the one to give.
+            throw VendorRawError.malformed("MIB companion .hdr has no positive ScanX/ScanY (\(refusal)).")
         }
         scanWidth = sx; scanHeight = sy
         let expected = try EMPADReader.checkedProduct([sx, sy, frameBytes])
