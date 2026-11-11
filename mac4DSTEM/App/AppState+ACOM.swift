@@ -147,7 +147,13 @@ extension AppState {
         var status = "Q calibration ✓  \(Num.fixed(Double(estimate.invAngstromPerPixel), 6)) Å⁻¹/px"
             + " · first shell \(Num.fixed(Double(estimate.observedRadiusPixels), 2)) px"
             + " · \(Self.positionCountText(estimate.sampleCount))"
-        if let assigned = estimate.assignment { status += " · assigned to \(assigned.label)" }
+        if let assigned = estimate.assignment {
+            status += " · assigned to \(assigned.label)"
+            // The rings alone fitted several first shells; the pixel size already set decided, and the line says so.
+            if assigned.decidedByPixelSize {
+                status += " by the pixel size already set (\(assigned.equallyFitting.joined(separator: ", ")) fits the rings equally)"
+            }
+        }
         switch estimate.shellCheck {
         case .notSelfChecked:
             status += " · shell ratio unchecked"

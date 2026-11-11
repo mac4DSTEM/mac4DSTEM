@@ -46,4 +46,51 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
         XCTAssertEqual(q, Self.deltaQ, accuracy: 1e-6 * Self.deltaQ, "Q \(q), status: \(state.statusText)")
         XCTAssertTrue(state.statusText.contains("assigned to {200}"), state.statusText)
     }
+
+    /// mac4DSTEM#110. Two rings of Al [001], {200} and {220}, fit {220}, {400} at the same ratio, so the rings cannot say which shell
+    /// is first. With no pixel size from the file the scale is not guessed: nothing is written and the sentence names both shells.
+    /// Mutation: taking the kit's lowest shell silently - a scale is written and this is red.
+    func testTwoRingsThatFitTwoShellsWriteNoScaleWithoutAPixelSize() async throws {
+        let g200 = 2 / Self.a, g220 = sqrt(8.0) / Self.a
+        let state = try await plantedState(radii: [g200 / Self.deltaQ, g220 / Self.deltaQ])
+        state.acomSession.modelSelection = .library("al_fcc")
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "precondition: the fixture states no reciprocal pixel size")
+
+        await state.calibrateQFromCrystal()
+
+        XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "no scale is guessed: \(state.statusText)")
+        XCTAssertNil(state.qCalibration.estimate)
+        let refusal = try XCTUnwrap(state.qCalibration.refusal, state.statusText)
+        XCTAssertTrue(refusal.contains("{200} or {220}") && refusal.contains("no scale was written"), refusal)
+    }
+
+    /// The same two rings with a pixel size already set (the file's or a typed one): the shell whose scale is nearest to it is taken, the
+    /// measured scale is written, and the status line says what decided and which shell fits equally. A size near the {220} reading
+    /// picks {220}; a size that fits neither writes nothing. Mutation: ignoring the pixel size (always the lowest shell) - the second
+    /// case is red.
+    func testAPixelSizeAlreadySetDecidesBetweenTwoEquallyFittingShells() async throws {
+        let g200 = 2 / Self.a, g220 = sqrt(8.0) / Self.a
+        for (set, label, other, expected) in [(0.0315, "{200}", "{220}", Self.deltaQ), (0.0460, "{220}", "{200}", Self.deltaQ * g220 / g200)] {
+            let state = try await plantedState(radii: [g200 / Self.deltaQ, g220 / Self.deltaQ])
+            state.acomSession.modelSelection = .library("al_fcc")
+            state.calibrationSession.calibration.qPixelSize = set
+            state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+            state.calibrationSession.provenance.qScale = .manual
+
+            await state.calibrateQFromCrystal()
+
+            let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+            XCTAssertEqual(q, expected, accuracy: 1e-6 * expected, "set \(set): \(state.statusText)")
+            XCTAssertEqual(state.qCalibration.estimate?.assignment?.label, label)
+            XCTAssertTrue(state.statusText.contains("assigned to \(label) by the pixel size already set (\(other) fits the rings equally)"), state.statusText)
+        }
+        let state = try await plantedState(radii: [g200 / Self.deltaQ, g220 / Self.deltaQ])
+        state.acomSession.modelSelection = .library("al_fcc")
+        state.calibrationSession.calibration.qPixelSize = 0.0100
+        state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+        state.calibrationSession.provenance.qScale = .manual
+        await state.calibrateQFromCrystal()
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.0100, "a size that fits neither shell is left as it was")
+        XCTAssertTrue(try XCTUnwrap(state.qCalibration.refusal).contains("agrees with none of them"))
+    }
 }
