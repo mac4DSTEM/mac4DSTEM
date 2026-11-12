@@ -68,7 +68,7 @@ struct WorkspaceView: View {
             OperationMetricsFormat.glance(
                 engine: SystemMonitor.gpuName,
                 residentMB: SystemMonitor.residentMemoryMB() * 1.048576,
-                residency: appState.residency.isResident)
+                residency: appState.isSpectrumOnly ? nil : appState.residency.isResident)
         }
     }
 

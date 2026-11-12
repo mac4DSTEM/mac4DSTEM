@@ -206,7 +206,10 @@ extension AppState {
         switch result {
         case .success(let image?):
             attachSpectrumImage(image)
-            statusText = "Attached the EDS spectrum image of \(url.lastPathComponent)"
+            // The session's sentence on its stored disks (set by the open just before) is not written over: it is the only
+            // place that says what happened to them.
+            let disksNote = before.hasPrefix("Disks restored") || before.hasPrefix("Stored disks not used")
+            statusText = disksNote ? before + " · EDS spectrum image attached" : "Attached the EDS spectrum image of \(url.lastPathComponent)"
         case .success(nil): if statusText == looking { statusText = before }
         case .failure(let error): statusText = "The EDS spectrum image in \(url.lastPathComponent) was not attached: \(error.localizedDescription)"
         }

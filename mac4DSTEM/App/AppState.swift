@@ -629,6 +629,13 @@ final class AppState {
             currentSignature: currentReplaySignature(for: .disks), hasProduct: true) != .current
     }
 
+    /// Why disks are not the ones a task may use (`ProductWorkflowReadiness.disksNotUsableReason`).
+    nonisolated static func disksNotUsableReason(hasDisks: Bool, settingsAreStale: Bool, storedDisksNote: String?) -> String? {
+        if hasDisks { return settingsAreStale ? "the detection settings changed since these disks were found" : nil }
+        guard let note = storedDisksNote, let dash = note.range(of: " — ") else { return nil }
+        return "the session's disks were not taken, " + note[dash.upperBound...]
+    }
+
     var hasCurrentBraggVectors: Bool {
         resultPresentation.braggVectors != nil && !diskDetectionSettingsAreStale
     }
@@ -984,6 +991,9 @@ final class AppState {
     }
 
     var aperture = Aperture()
+    /// The session's sentence when its stored disks were not taken at open ("Stored disks not used — …"), nil otherwise.
+    /// Kept so the disk requirement can say why; set at every open.
+    var storedDisksNotUsedNote: String?
 
     // Active pane + real-space region (virtual diffraction).
     var activePane: ActivePane = .diffraction
@@ -1079,7 +1089,10 @@ final class AppState {
             hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical,
             wantsLearnedDetector: learnedDetection.detectorClass == .learned,
             hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil,
-            phaseListRefusal: phaseMapping.runRefusal
+            phaseListRefusal: phaseMapping.runRefusal,
+            disksNotUsableReason: Self.disksNotUsableReason(
+                hasDisks: resultPresentation.braggVectors != nil, settingsAreStale: diskDetectionSettingsAreStale,
+                storedDisksNote: storedDisksNotUsedNote)
         )
     }
 

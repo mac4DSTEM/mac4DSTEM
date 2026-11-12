@@ -7,6 +7,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import ShellLayout
 @testable import mac4DSTEM
 
 final class StatusLinesSayWhatHappenedTests: XCTestCase {
@@ -54,6 +55,47 @@ final class StatusLinesSayWhatHappenedTests: XCTestCase {
         XCTAssertNil(AppState.probeRadiusRefusal(radius: 32, qy: 128, qx: 128), "a quarter itself is taken")
         let refusal = try XCTUnwrap(AppState.probeRadiusRefusal(radius: 22.84, qy: 128, qx: 66, locale: german))
         XCTAssertTrue(refusal.contains("22,84") && refusal.contains("66 px") && refusal.contains("16,5"), refusal)
+    }
+
+    /// Calibrate Origin in the Prepare room: the room's own image is computed again on the new origin and writes its line,
+    /// and the line that stays is the origin's. Seen on screen: "Virtual detector ✓" replaced it within the second, also with
+    /// a first fix that asked the origin's cancellation token (the rerun retires that token) - red with either.
+    @MainActor
+    func testCalibrateOriginsLineOutlivesTheRoomsRerun() async {
+        let state = AppState()
+        await state.openDemoFixture(calibrated: false)
+        state.navigation.analysisMode = .virtualDetector
+        await state.calibrateOrigin()
+        XCTAssertTrue(state.statusText.hasPrefix("Origin ✓"), state.statusText)
+    }
+
+    /// Disks that exist and are not the ones a task may use: the requirement says why. After a reopen it read "Detect
+    /// Bragg disks first" beside a session that listed its disks.
+    func testTheDiskRequirementSaysWhyExistingDisksAreNotUsed() {
+        var readiness = ProductWorkflowReadiness()
+        XCTAssertEqual(readiness.diskRequirementTitle, "Detect Bragg disks first", "no disks at all")
+        readiness.disksNotUsableReason = AppState.disksNotUsableReason(hasDisks: true, settingsAreStale: true, storedDisksNote: nil)
+        XCTAssertEqual(readiness.diskRequirementTitle, "Detect Bragg disks again: the detection settings changed since these disks were found")
+        readiness.disksNotUsableReason = AppState.disksNotUsableReason(
+            hasDisks: false, settingsAreStale: false,
+            storedDisksNote: "Stored disks not used — they were detected on a different view than the one loaded now")
+        XCTAssertEqual(readiness.diskRequirementTitle,
+                       "Detect Bragg disks again: the session's disks were not taken, they were detected on a different view than the one loaded now")
+        XCTAssertNil(AppState.disksNotUsableReason(hasDisks: true, settingsAreStale: false, storedDisksNote: nil), "current disks need no reason")
+        readiness.hasBraggVectors = true
+        XCTAssertEqual(readiness.diskRequirementTitle, "Detect Bragg disks first", "a satisfied row keeps its plain title")
+    }
+
+    func testAWindowWithoutACubeDoesNotSayStreaming() {
+        XCTAssertEqual(OperationMetricsFormat.glance(engine: "Apple M3", residentMB: 402, residency: nil), "Apple M3 · 402 MB")
+        XCTAssertEqual(OperationMetricsFormat.glance(engine: "Apple M3", residentMB: 402, residency: false), "Apple M3 · 402 MB · streaming")
+    }
+
+    func testTheSessionSavePanelSpeaksPlainly() {
+        XCTAssertEqual(AppState.SessionSavePanelWording.title, "Save Session")
+        for word in ["sidecar", "Sidecar", "companion"] {
+            XCTAssertFalse((AppState.SessionSavePanelWording.title + AppState.SessionSavePanelWording.message).contains(word), word)
+        }
     }
 
     func testTheUnsetVoltageSaysWhatNeedsIt() {

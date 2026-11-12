@@ -157,7 +157,8 @@ extension AppState {
             // pressed Calibrate Origin, so the line that stays is the origin's, unless that rerun failed or was cancelled.
             let originLine = statusText
             if navigation.analysisMode != .dpc { await runCurrentAnalysis() }
-            if epoch == datasetSession.epoch, !cancellation.isCancelled, !statusText.hasPrefix("Error"), !statusText.contains("cancelled") {
+            // Not asked of `cancellation`: the rerun begins an operation of its own, which retires the origin's token.
+            if epoch == datasetSession.epoch, !statusText.hasPrefix("Error"), !statusText.contains("cancelled") {
                 statusText = originLine
             }
         } catch {

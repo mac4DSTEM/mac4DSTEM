@@ -81,7 +81,7 @@ struct PrepareSettings: View {
     }
 
     /// What the missing voltage holds up, under its row. Disks, strain and phase maps work on the detected vectors alone.
-    static let voltageNotSetNote = "Type the voltage for Reconstruction (DPC, parallax, ptychography). Disks, strain and phase maps do not need it."
+    static let voltageNotSetNote = "Needed for Reconstruction only (DPC, parallax, ptychography)."
 
     /// The "Positions used" value. When the origin fit's per-position validity
     /// mask is present it shows the absolute count — "142 of 150 positions" —

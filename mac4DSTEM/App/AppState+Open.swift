@@ -820,6 +820,7 @@ extension AppState {
             await runOpeningAnalysis()
         }
         if let peaksNote { statusText = peaksNote }
+        storedDisksNotUsedNote = peaksNote?.hasPrefix("Stored disks not used") == true ? peaksNote : nil
     }
 
     /// Adopt the peaks a session sidecar stores, when every check passes
