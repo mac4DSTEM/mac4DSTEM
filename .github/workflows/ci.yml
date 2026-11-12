@@ -1,8 +1,13 @@
 # CI — the aggregate claim, made mechanical (v2 S21, the archived notes §8).
 #
-# WHAT RUNS on every push to main, tag and pull request — the jobs below, each a
+# MAIN: a push to main runs only the Linux jobs. `unit`, `core` and `inventory` ran on the pull request that made the
+# commit; running them again on main took the same macOS slots a second time, and GitHub gives the org five at once
+# (12 Nov 2026: PR `unit` jobs waited 13-22 min for a slot). They run on tags, by hand and in the nightly, which is
+# where a break between two PRs that each passed alone shows.
+#
+# WHAT RUNS on every pull request, tag and nightly — the jobs below (a push to main: MAIN above), each a
 # gate a public checkout can reproduce. `scientific` (up to three hours on the one
-# Mac runner, not a required check) runs nightly (cron 02:00 UTC, alone) and on
+# Mac runner, not a required check) runs nightly (cron 02:00 UTC) and on
 # workflow_dispatch only: never on a push, a tag or a pull request, so no push
 # queues the runner behind it. Dispatch CI on a branch to run it before merging,
 # and on main before a tag.
@@ -79,7 +84,7 @@ on:
     tags: ['*']
   pull_request:
   workflow_dispatch:
-  # Nightly: `scientific` alone (every other job skips the schedule event).
+  # Nightly: `scientific` and the macOS gates; the Linux jobs skip the schedule event.
   schedule:
     - cron: "0 2 * * *"
 
@@ -97,8 +102,8 @@ env:
 jobs:
   unit:
     name: unit (XCTest)
-    # Every job but `scientific` skips the nightly schedule: their triggers stay push to main, tags, PRs and dispatch.
-    if: github.event_name != 'schedule'
+    # Not on a push to main: the PR run tested the change; nightly and tags run it (MAIN in the header).
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -174,7 +179,8 @@ jobs:
 
   inventory:
     name: inventory (repo review)
-    if: github.event_name != 'schedule'
+    # Not on a push to main: the PR run tested the change; nightly and tags run it (MAIN in the header).
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
     runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 10
@@ -193,7 +199,8 @@ jobs:
 
   core:
     name: core (DSTEMCore + DSTEMSession package build)
-    if: github.event_name != 'schedule'
+    # Not on a push to main: the PR run tested the change; nightly and tags run it (MAIN in the header).
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     # The org's Mac runner while the org variable MACEM_MAC_RUNNER is set (never for a fork PR); else GitHub's macos-26.
     runs-on: ${{ vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || 'macos-26' }}
     timeout-minutes: 30
