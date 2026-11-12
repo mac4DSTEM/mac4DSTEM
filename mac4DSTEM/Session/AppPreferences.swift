@@ -185,6 +185,12 @@ package final class AppPreferences {
         didSet { persist(agentDoorEnabled, forKey: Keys.agentDoorEnabled) }
     }
 
+    /// Whether an agent may also run analyses through the door (`App/AgentDoor/AgentDoorRuns.swift`): Settings > Agents > "Let
+    /// agents run analyses". `false` is the shipped behaviour: an agent can only look.
+    package var agentRunsEnabled: Bool {
+        didSet { persist(agentRunsEnabled, forKey: Keys.agentRunsEnabled) }
+    }
+
     package init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.appearance = Self.decode(Keys.appearance, from: defaults) ?? .system
@@ -198,6 +204,7 @@ package final class AppPreferences {
         self.keepAwake = defaults.object(forKey: Keys.keepAwake) as? Bool ?? false
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
         self.agentDoorEnabled = defaults.object(forKey: Keys.agentDoorEnabled) as? Bool ?? false
+        self.agentRunsEnabled = defaults.object(forKey: Keys.agentRunsEnabled) as? Bool ?? false
     }
 
     /// Restore every key to its shipped default. `removeObject`, not a
@@ -217,6 +224,7 @@ package final class AppPreferences {
         keepAwake = false
         offerLearnedDetector = true
         agentDoorEnabled = false
+        agentRunsEnabled = false
         suppressPersistence = false
     }
 
@@ -248,11 +256,12 @@ package final class AppPreferences {
         static let keepAwake = "prefs.keepAwake"
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
         static let agentDoorEnabled = "prefs.agentDoorEnabled"
+        static let agentRunsEnabled = "prefs.agentRunsEnabled"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
             showScaleBar, openBehaviour, exportScale, figureFormat, keepAwake,
-            offerLearnedDetector, agentDoorEnabled,
+            offerLearnedDetector, agentDoorEnabled, agentRunsEnabled,
         ]
     }
 }
