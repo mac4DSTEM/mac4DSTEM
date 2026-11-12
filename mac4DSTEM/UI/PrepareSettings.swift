@@ -310,6 +310,10 @@ struct PrepareSettings: View {
                     + "which has no ring for Fit Detector Ellipse. Nothing changes until you apply it.",
                     hint: "For a single-crystal scan without a ring")
             }
+            // Why the button is grey, in sight: a tooltip on a disabled button is found by nobody (seen on the 5.3.0 walk).
+            if let blocker = appState.spotDistortionBlocker, !appState.isBusy {
+                InspectorNote("Fit Distortion from Spots: " + blocker.prefix(1).lowercased() + blocker.dropFirst())
+            }
             if let fit = appState.spotDistortion.pending {
                 InspectorValueRow("Spot distortion", fit.summary())
                     .accessibilityElement(children: .combine)
