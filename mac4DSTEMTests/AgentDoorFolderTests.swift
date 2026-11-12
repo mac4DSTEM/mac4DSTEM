@@ -123,6 +123,14 @@ final class AgentDoorFolderTests: XCTestCase {
         XCTAssertTrue(taken.text.contains("never replaced"), taken.text)
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("taken.png")), Data("taken".utf8))
 
+        // A link already in the folder that leads nowhere (outside): a save of its name is refused and nothing is made there.
+        let dangling = outside.appendingPathComponent("planted.png")
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("link.png"), withDestinationURL: dangling)
+        let link = try await call("save_result_image", ["name": "link"])
+        XCTAssertTrue(link.refused)
+        XCTAssertTrue(link.text.contains("never replaced"), link.text)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dangling.path))
+
         let escape = try await call("save_result_image", ["name": "../Elsewhere/x"])
         XCTAssertTrue(escape.refused)
         XCTAssertFalse(FileManager.default.fileExists(atPath: outside.appendingPathComponent("x.png").path))

@@ -11,6 +11,7 @@
 //
 
 import CoreGraphics
+import ImageIO
 import Foundation
 import ShellAgentDoor
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -76,7 +77,9 @@ extension Mac4DSTEMAgentDoor {
             case .failure(let refusal): return .refusal(status: 400, message: refusal.message)
             }
             let target = root.appendingPathComponent(name)
-            guard !FileManager.default.fileExists(atPath: target.path) else {
+            // Any entry of that name, a link that leads nowhere included: `fileExists` follows links, so a dangling one would
+            // read as free and the write would follow it out of the folder.
+            guard (try? FileManager.default.attributesOfItem(atPath: target.path)) == nil else {
                 return .refusal(status: 409, message: "\(name) exists in the Agent folder and is never replaced: choose another name.")
             }
             let scale = state.preferences.exportScale.pixelScale
@@ -86,8 +89,14 @@ extension Mac4DSTEMAgentDoor {
             }
             let properties = AppState.pngProperties(title: state.currentResultDisplayName,
                                                     record: state.exportedImageProvenanceRecord(), pixelScale: scale)
-            guard AppState.writePNG(made.image, to: target, properties: properties) else {
-                return .refusal(status: 500, message: "Writing \(name) failed.")
+            // Encoded in memory, then written only as a new file (O_EXCL): a file or link that appeared after the check above is
+            // never replaced or followed.
+            guard let png = pngData(made.image, properties: properties) else {
+                return .refusal(status: 500, message: "Encoding \(name) failed.")
+            }
+            do { try png.write(to: target, options: .withoutOverwriting) } catch {
+                return .refusal(status: 409, message: "\(name) could not be written as a new file in the Agent folder: "
+                    + error.localizedDescription)
             }
             state.statusText = "An agent saved \(name) in the Agent folder."
             state.recordExportRun(format: "png", fileName: name, productKind: made.product.kind,
@@ -95,6 +104,16 @@ extension Mac4DSTEMAgentDoor {
             return .json(["saved": name, "width": made.image.width, "height": made.image.height])
         },
     ]
+
+    /// The PNG `AppState.writePNG` writes, as bytes.
+    static func pngData(_ image: CGImage, properties: [CFString: Any]?) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data as CFMutableData, "public.png" as CFString, 1, nil) else {
+            return nil
+        }
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary?)
+        return CGImageDestinationFinalize(destination) ? data as Data : nil
+    }
 
     /// A save's file name: letters, digits, spaces, `-`, `_` and `.`, no folders, ending in .png.
     static func fileName(_ given: String?, default fallback: String) -> Result<String, AgentFolderRefusal> {
