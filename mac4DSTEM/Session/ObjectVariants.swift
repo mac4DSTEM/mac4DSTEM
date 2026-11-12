@@ -344,11 +344,17 @@ package nonisolated enum ObjectVariantJoin {
         package var habitFamilies: [Int] = []
     }
 
+    /// What Count variants says of a map made from the structures (mac4DSTEM#184): such a map has no reference-library entry
+    /// per position, which is what the variants are read from today (mac4DSTEM#245).
+    package static let fromStructuresReason = "Variants are counted for typed zone axes so far (Phases › Advanced › Typed zone axes). "
+        + "For a map made from the structures they are not built yet."
+
     package static func run(objects: PrecipitateSegmentation.ClassMapObjects, map: PhaseMap?, library: PhaseReferenceLibrary?,
-                            matrixEntryIndex: Int?, settings: VariantSettings) -> Outcome {
+                            matrixEntryIndex: Int?, settings: VariantSettings, fromStructures: Bool = false) -> Outcome {
         func unavailable(_ why: String) -> Outcome { Outcome(result: ObjectJoinResult(unavailable: why), endOnDirection: nil, habitFamilies: []) }
         guard settings.source == "known_variants" else { return unavailable("Variants from ACOM orientations are not built yet.") }
         guard let map else { return unavailable("There is no phase map.") }
+        guard !fromStructures else { return unavailable(fromStructuresReason) }
         guard let library else { return unavailable("The phase map's reference library is not kept; map the phases again.") }
         guard let matrixEntryIndex, matrixEntryIndex >= 0 else { return unavailable(VariantError.noMatrixEntry.localizedDescription) }
         let candidates = map.phaseNames.indices.filter { $0 != map.matrixPhaseIndex }

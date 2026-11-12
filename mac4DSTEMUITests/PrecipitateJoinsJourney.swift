@@ -87,7 +87,9 @@ final class PrecipitateJoinsJourney: Journey {
     }
 
     /// Disks, the phase map of aluminium and β″ with its objects, strain, and the object table open.
-    private func objectsStrainAndTable() {
+    /// `typedEndOnZone`: Typed zone axes switched on and β″ typed as [0 1 0] (the needles end-on) with the Known variants
+    /// classifier, which is what Count variants reads today (mac4DSTEM#245).
+    private func objectsStrainAndTable(typedEndOnZone: Bool = false) {
         step("detect Bragg disks") {
             wait(for: "workspace.braggDisks").click()
             clickPrimary("Detect")
@@ -101,6 +103,26 @@ final class PrecipitateJoinsJourney: Journey {
                 XCTAssertTrue(item.waitForExistence(timeout: 10), "Add Phase has no From CIF file")
                 item.click()
                 choose(path)
+            }
+        }
+        if typedEndOnZone {
+            step("Phases ▸ Advanced ▸ Typed zone axes; β″ at [0 1 0]; Known variants") {
+                let typed = element("phaseMapping.typedZones")
+                if !typed.waitForExistence(timeout: 3) {
+                    let advanced = app.disclosureTriangles["Advanced"].firstMatch
+                    XCTAssertTrue(advanced.waitForExistence(timeout: 10), "Phases has no Advanced disclosure")
+                    advanced.click()
+                }
+                XCTAssertTrue(typed.waitForExistence(timeout: 10), "Advanced has no Typed zone axes switch")
+                if (typed.value as? String) != "1", (typed.value as? Int) != 1 { typed.click() }
+                let zones = app.textFields.matching(NSPredicate(format: "label == 'Zone axis'"))
+                let beta = zones.element(boundBy: 1)
+                XCTAssertTrue(beta.waitForExistence(timeout: 10), "the β″ row has no Zone axis field")
+                beta.click(); beta.typeKey("a", modifierFlags: .command); beta.typeText("0 1 0\r")
+                wait(for: "phaseMapping.classifierPicker", timeout: 10).click()
+                let known = app.menuItems["Known variants"]
+                XCTAssertTrue(known.waitForExistence(timeout: 5), "the classifier has no Known variants")
+                known.click()
             }
         }
         step("map phases") {
@@ -191,7 +213,7 @@ final class PrecipitateJoinsJourney: Journey {
     /// assignments themselves are pinned without the screen by `DemoV3VariantsTests`; this journey checks the legend, the totals line and the CSV.
     func test4_VariantMapLegendAndCSV() throws {
         try openAndQuantify()
-        objectsStrainAndTable()
+        objectsStrainAndTable(typedEndOnZone: true)
         step("close the table, Count variants") {
             table.buttons["_XCUI:CloseWindow"].click()
             let toggle = wait(for: "precipitates.variants.section", timeout: 20)
