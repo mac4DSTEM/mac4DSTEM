@@ -1,0 +1,151 @@
+//
+//  AgentDoorAnalysesTests.swift
+//  The agent door's Strain, ACOM and Diffraction groups settings (App/AgentDoor/AgentDoorAnalyses.swift, issues #225-#227), asked
+//  through a real door over MCP: each tool writes the fields it is given and no other, answers in the same words it takes, and
+//  says so in the Output.
+//
+
+import XCTest
+import DSTEMCore
+import DSTEMSession
+import ShellAgentDoor
+@testable import mac4DSTEM
+
+@MainActor
+final class AgentDoorAnalysesTests: XCTestCase {
+
+    private var door: AgentDoor!
+    private var defaultsSuite = ""
+    private var root: URL!
+    private let session = URLSession(configuration: .ephemeral)
+
+    private static func cif(_ name: String, _ a: Double, _ b: Double, _ c: Double, _ atoms: String) -> String {
+        """
+        data_\(name)
+        _cell_length_a \(a)
+        _cell_length_b \(b)
+        _cell_length_c \(c)
+        _cell_angle_alpha 90
+        _cell_angle_beta 90
+        _cell_angle_gamma 90
+        loop_
+        _atom_site_label
+        _atom_site_type_symbol
+        _atom_site_fract_x
+        _atom_site_fract_y
+        _atom_site_fract_z
+        \(atoms)
+        """
+    }
+
+    override func setUp() async throws {
+        let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("agent-analyses-\(UUID().uuidString)")
+        root = scratch.appendingPathComponent("Agent")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Self.cif("gold", 4.078, 4.078, 4.078, "Au1 Au 0.0 0.0 0.0\nAu2 Au 0.5 0.5 0.0\nAu3 Au 0.5 0.0 0.5\nAu4 Au 0.0 0.5 0.5")
+            .write(to: root.appendingPathComponent("gold.cif"), atomically: true, encoding: .utf8)
+        try Self.cif("ortho", 5, 6, 7, "Fe1 Fe 0 0 0")
+            .write(to: root.appendingPathComponent("ortho.cif"), atomically: true, encoding: .utf8)
+        try "not a cif".write(to: root.appendingPathComponent("broken.cif"), atomically: true, encoding: .utf8)
+
+        defaultsSuite = "agent-door-analyses-tests-\(UUID().uuidString)"
+        door = AgentDoor(appName: "mac4DSTEM", appVersion: "test", preferredPort: 0, defaults: try XCTUnwrap(UserDefaults(suiteName: defaultsSuite)))
+        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools)
+        door.setEnabled(true)
+        for _ in 0..<250 where door.status == .starting { try await Task.sleep(for: .milliseconds(20)) }
+        guard case .listening = door.status else { return XCTFail("the door did not open: \(String(describing: door.status))") }
+        Mac4DSTEMAgentDoor.folder.use(folder: root)
+    }
+
+    override func tearDown() async throws {
+        Mac4DSTEMAgentDoor.folder.use(folder: nil)
+        door?.setEnabled(false)
+        door = nil
+        UserDefaults().removePersistentDomain(forName: defaultsSuite)
+        if let root { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+    }
+
+    private func call(_ name: String, _ arguments: [String: Any] = [:]) async throws -> (refused: Bool, text: String) {
+        guard case .listening(let port) = door.status else { throw XCTSkip("door not open") }
+        var request = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/mcp")))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(door.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": ["name": name, "arguments": arguments],
+        ])
+        let (data, _) = try await session.data(for: request)
+        let answer = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let result = try XCTUnwrap(answer["result"] as? [String: Any])
+        let text = ((result["content"] as? [[String: Any]])?.first?["text"] as? String) ?? ""
+        return (result["isError"] as? Bool ?? true, text)
+    }
+
+    private func enrolledState() -> AppState {
+        let state = AppState()
+        door.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+        door.runsAllowed = true
+        return state
+    }
+
+    private func object(_ text: String) throws -> [String: Any] {
+        try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any], text)
+    }
+
+    /// Mutation: set_strain writes the wrong field, or a field not given moves - red.
+    func testStrainFollowsTheAgent() async throws {
+        let state = enrolledState()
+        let set = try await call("set_strain", ["reference": "selectedRegion", "basis": "manual", "g1_x": 12.5, "component": "theta"])
+        XCTAssertFalse(set.refused, set.text)
+        XCTAssertEqual(state.strain.referenceMode, .selectedRegion)
+        XCTAssertEqual(state.strain.basisMode, .manual)
+        XCTAssertEqual(state.strain.g1X, 12.5, accuracy: 1e-6)
+        XCTAssertEqual(state.strain.g2Y, 10, accuracy: 1e-6, "a field not given is left alone")
+        XCTAssertEqual(state.strain.component, .theta)
+        let answer = try object(set.text)
+        XCTAssertEqual(answer["reference"] as? String, "selectedRegion", "the answer uses the words the call takes")
+        XCTAssertTrue(answer["last_run"] is NSNull)
+        XCTAssertTrue(state.activityLog.messages.contains { $0.contains("An agent set Strain:") })
+        let wrong = try await call("set_strain", ["component": "εxx"])
+        XCTAssertTrue(wrong.refused, "a display name is not a choice")
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: set_acom ignores a field, cannot clear the gate, or adds a CIF from outside the folder - red.
+    func testACOMFollowsTheAgent() async throws {
+        let state = enrolledState()
+        let set = try await call("set_acom", ["phase_cif": "gold.cif", "scope": "fullScan", "quality": "best", "engine": "cpu",
+                                              "refine_in_plane": true, "reliability_threshold": 0.4])
+        XCTAssertFalse(set.refused, set.text)
+        let acom = state.acomSession
+        XCTAssertEqual(acom.scope, .fullScan)
+        XCTAssertEqual(acom.quality, .best)
+        XCTAssertEqual(acom.backend, .cpu)
+        XCTAssertTrue(acom.refinesInPlaneAngle)
+        XCTAssertEqual(try XCTUnwrap(acom.reliabilityThreshold), 0.4, accuracy: 1e-6)
+        XCTAssertEqual(state.resolvedACOMModel?.displayName.isEmpty, false, "the CIF is ACOM's phase model")
+        XCTAssertEqual(try object(set.text)["scope"] as? String, "fullScan")
+
+        let cleared = try await call("set_acom", ["clear_reliability_threshold": true])
+        XCTAssertFalse(cleared.refused, cleared.text)
+        XCTAssertNil(acom.reliabilityThreshold)
+        let outside = try await call("set_acom", ["phase_cif": "../gold.cif"])
+        XCTAssertTrue(outside.refused)
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: set_diffraction_groups writes the wrong field; find_similar_patterns runs with no grouping - red.
+    func testDiffractionGroupsFollowTheAgent() async throws {
+        let state = enrolledState()
+        let set = try await call("set_diffraction_groups", ["binned_size": "32", "groups": 7])
+        XCTAssertFalse(set.refused, set.text)
+        XCTAssertEqual(state.diffractionGroups.settings.binnedSize, 32)
+        XCTAssertEqual(state.diffractionGroups.settings.groups, 7)
+        let tooMany = try await call("set_diffraction_groups", ["groups": 99])
+        XCTAssertTrue(tooMany.refused)
+        let similar = try await call("find_similar_patterns")
+        XCTAssertTrue(similar.refused)
+        XCTAssertTrue(similar.text.contains("no grouping"), similar.text)
+        withExtendedLifetime(state) {}
+    }
+}
