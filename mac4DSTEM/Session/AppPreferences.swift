@@ -191,6 +191,23 @@ package final class AppPreferences {
         didSet { persist(agentRunsEnabled, forKey: Keys.agentRunsEnabled) }
     }
 
+    /// The one folder an agent may list, open and save in (`App/AgentDoor/AgentFolder.swift`): a security-scoped bookmark of the
+    /// folder the person chose in Settings > Agents. `nil` is the shipped behaviour: no folder.
+    package var agentFolderBookmark: Data? {
+        didSet {
+            // No folder, no saving: a folder chosen later starts with saving off (screen check of #205).
+            if agentFolderBookmark == nil, agentFolderSavesEnabled { agentFolderSavesEnabled = false }
+            guard !suppressPersistence else { return }
+            defaults.set(agentFolderBookmark, forKey: Keys.agentFolderBookmark)
+        }
+    }
+
+    /// Whether an agent may save results into the Agent folder (`App/AgentDoor/AgentDoorFolder.swift`): Settings > Agents > "Let
+    /// agents save results there". `false` is the shipped behaviour: nothing is written.
+    package var agentFolderSavesEnabled: Bool {
+        didSet { persist(agentFolderSavesEnabled, forKey: Keys.agentFolderSavesEnabled) }
+    }
+
     package init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.appearance = Self.decode(Keys.appearance, from: defaults) ?? .system
@@ -205,6 +222,8 @@ package final class AppPreferences {
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
         self.agentDoorEnabled = defaults.object(forKey: Keys.agentDoorEnabled) as? Bool ?? false
         self.agentRunsEnabled = defaults.object(forKey: Keys.agentRunsEnabled) as? Bool ?? false
+        self.agentFolderBookmark = defaults.data(forKey: Keys.agentFolderBookmark)
+        self.agentFolderSavesEnabled = defaults.object(forKey: Keys.agentFolderSavesEnabled) as? Bool ?? false
     }
 
     /// Restore every key to its shipped default. `removeObject`, not a
@@ -225,6 +244,8 @@ package final class AppPreferences {
         offerLearnedDetector = true
         agentDoorEnabled = false
         agentRunsEnabled = false
+        agentFolderBookmark = nil
+        agentFolderSavesEnabled = false
         suppressPersistence = false
     }
 
@@ -257,11 +278,13 @@ package final class AppPreferences {
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
         static let agentDoorEnabled = "prefs.agentDoorEnabled"
         static let agentRunsEnabled = "prefs.agentRunsEnabled"
+        static let agentFolderBookmark = "prefs.agentFolderBookmark"
+        static let agentFolderSavesEnabled = "prefs.agentFolderSavesEnabled"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
             showScaleBar, openBehaviour, exportScale, figureFormat, keepAwake,
-            offerLearnedDetector, agentDoorEnabled, agentRunsEnabled,
+            offerLearnedDetector, agentDoorEnabled, agentRunsEnabled, agentFolderBookmark, agentFolderSavesEnabled,
         ]
     }
 }

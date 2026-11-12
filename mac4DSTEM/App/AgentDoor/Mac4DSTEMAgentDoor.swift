@@ -26,7 +26,7 @@ enum Mac4DSTEMAgentDoor {
     static let shared: AgentDoor = {
         let door = AgentDoor(appName: "mac4DSTEM", appVersion: FeedbackLinks.appVersion, preferredPort: port)
         door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.runTools + Mac4DSTEMAgentDoor.kernelTools
-                      + Mac4DSTEMAgentDoor.scanMapTools + Mac4DSTEMAgentDoor.taskTools)
+                      + Mac4DSTEMAgentDoor.scanMapTools + Mac4DSTEMAgentDoor.taskTools + Mac4DSTEMAgentDoor.folderTools)
         return door
     }()
 
@@ -36,6 +36,18 @@ enum Mac4DSTEMAgentDoor {
         shared.runsAllowed = runsAllowed
         shared.setEnabled(enabled)
     }
+
+    /// The Agent folder (Settings > Agents) and whether agents may save there (`AgentDoorFolder.swift`); at launch and on change.
+    static func setFolder(bookmark: Data?, savesAllowed allowed: Bool) {
+        if folderBookmark != bookmark || (bookmark != nil && folder.url == nil) {
+            folderBookmark = bookmark
+            folder.use(bookmark: bookmark)
+        }
+        savesAllowed = allowed
+    }
+
+    /// The bookmark `folder` was last opened from, so a window that appears does not open it again.
+    private static var folderBookmark: Data?
 
     /// The second switch changed: whether the tools that act (`AgentDoorRuns.swift`) may run.
     static func setRunsAllowed(_ allowed: Bool) {

@@ -137,6 +137,8 @@ private struct DatasetWindow: View {
             // person left it on. Asking again for the state it has does nothing.
             Mac4DSTEMAgentDoor.enroll(appState, enabled: preferences.agentDoorEnabled,
                                       runsAllowed: preferences.agentRunsEnabled)
+            Mac4DSTEMAgentDoor.setFolder(bookmark: preferences.agentFolderBookmark,
+                                         savesAllowed: preferences.agentFolderSavesEnabled)
             // A 4D file opened while this window holds only a spectrum image goes to a new window
             // (`AppState.routesOpenToNewWindow`), which takes it through the relay as a menu action.
             appState.openInNewWindow = { [menuRelay, openWindow] url, configure in

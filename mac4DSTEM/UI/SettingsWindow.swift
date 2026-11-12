@@ -18,6 +18,7 @@
 import ShellAgentDoor
 import ShellLayout
 import SwiftUI
+import UniformTypeIdentifiers
 import ShellMetal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -94,6 +95,12 @@ struct SettingsWindow: View {
         // Here, not on the Agents section: Reset All Settings (Advanced) turns the preference off too, and the door must follow.
         .onChange(of: preferences.agentDoorEnabled) { _, enabled in Mac4DSTEMAgentDoor.setEnabled(enabled) }
         .onChange(of: preferences.agentRunsEnabled) { _, allowed in Mac4DSTEMAgentDoor.setRunsAllowed(allowed) }
+        .onChange(of: preferences.agentFolderBookmark) { _, bookmark in
+            Mac4DSTEMAgentDoor.setFolder(bookmark: bookmark, savesAllowed: preferences.agentFolderSavesEnabled)
+        }
+        .onChange(of: preferences.agentFolderSavesEnabled) { _, allowed in
+            Mac4DSTEMAgentDoor.setFolder(bookmark: preferences.agentFolderBookmark, savesAllowed: allowed)
+        }
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,
             idealWidth: LayoutPolicy.settingsWindow.ideal.width,
@@ -261,6 +268,7 @@ private struct ModelCacheSection: View {
 /// (`App/AgentDoor/Mac4DSTEMAgentDoor.swift`), with this app's words for what an agent can read.
 private struct AgentSettingsSection: View {
     @Environment(AppPreferences.self) private var preferences
+    @State private var choosingFolder = false
 
     var body: some View {
         @Bindable var preferences = preferences
@@ -268,7 +276,38 @@ private struct AgentSettingsSection: View {
                                  canSee: "the dataset, its calibration, the result and the diffraction pattern as pictures, the detected disks, "
                                      + "the precipitate objects and the recipe",
                                  runs: $preferences.agentRunsEnabled,
-                                 canRun: "move to a scan position, tune the disk detection, and press Run and Stop")
+                                 canRun: "move to a scan position, tune the disk detection, press Run and Stop, and open the files of "
+                                     + "the Agent folder")
+        // The one folder an agent may work in (`App/AgentDoor/AgentFolder.swift`, issue #191).
+        Section("Agent folder") {
+            LabeledContent("Folder") {
+                HStack {
+                    Text(AgentFolder.displayPath(bookmark: preferences.agentFolderBookmark) ?? "None")
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button("Choose…") { choosingFolder = true }
+                        .accessibilityIdentifier("settings.agents.folder.choose")
+                    if preferences.agentFolderBookmark != nil {
+                        Button("Remove") { preferences.agentFolderBookmark = nil }
+                            .accessibilityIdentifier("settings.agents.folder.remove")
+                    }
+                }
+            }
+            Toggle("Let agents save results there", isOn: $preferences.agentFolderSavesEnabled)
+                .disabled(preferences.agentFolderBookmark == nil || !preferences.agentRunsEnabled)
+                .accessibilityIdentifier("settings.agents.folder.saves")
+            Text("An agent can list the files in this folder and its subfolders, and, with \"Let agents run analyses\" on, open "
+                + "them. With saving on, it can save result pictures there; it never replaces or deletes a file. Nothing outside "
+                + "the folder is reached.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+            if case .success(let folder) = result, let bookmark = AgentFolder.bookmark(for: folder) {
+                preferences.agentFolderBookmark = bookmark
+            }
+        }
     }
 }
 
