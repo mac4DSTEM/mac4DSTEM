@@ -8,6 +8,7 @@
 import Foundation
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 import ImagoCore
 import SpectroCore
 import SpectroEDX
@@ -20,6 +21,8 @@ nonisolated struct PrecipitateJoins: Sendable, Equatable {
     var variants: ObjectJoinResult<VariantAssignment>?
     var variantEndOnDirection: Int?
     var variantDirections: [Int]?
+    /// A map made from the structures: the variant tolerance used when none is typed, degrees (`ObjectVariantJoin.Outcome`).
+    var variantDefaultToleranceDegrees: Double?
 }
 
 extension AppState {
@@ -41,18 +44,32 @@ extension AppState {
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
         let variantSettings = precipitateVariantSettings
         let phaseMap = phaseMapping.map, library = phaseMapping.lastLibrary, matrixEntry = phaseMapping.lastRun?.matrixEntryIndex
-        let fromStructures = phaseMapping.lastRun?.orientationSource == .structures
+        // A map made from the structures brings its own orientations (mac4DSTEM#245). The phase list must still be the run's.
+        var structureRun: ObjectVariantJoin.StructureRun?
+        if let run = phaseMapping.lastStructureRun, let phaseMap, !phaseMapping.isStale, phaseMapping.phases.count == phaseMap.phaseNames.count {
+            var next = 0
+            let candidateIndex: [Int?] = phaseMapping.phases.map { slot in
+                if slot.isMatrix { return nil }
+                defer { next += 1 }
+                return next
+            }
+            structureRun = ObjectVariantJoin.StructureRun(
+                run: run, crystals: phaseMapping.phases.map(\.model.structure), candidateIndex: candidateIndex,
+                reachInvAngstrom: phaseMapping.lastRun?.libraryKMaxInvAngstrom ?? 0,
+                pairRadiusInvAngstrom: phaseMapping.lastRun?.matching.pairRadiusInvAngstrom ?? 0.02,
+                excitationSlabs: phaseMapping.phases.map { $0.excitationSlabInvAngstrom ?? PhaseMappingProduct.structuresExcitationSlabDefault })
+        }
         precipitateJoinTask = Task { @MainActor [weak self] in
             let work = Task.detached(priority: .userInitiated) {
                 let quantified = source.map { ObjectCompositionJoin.Quantified(source: $0, method: method, tables: QuantificationTables.bundled()) }
                 let variants = variantSettings.map { ObjectVariantJoin.run(objects: objects, map: phaseMap, library: library, matrixEntryIndex: matrixEntry, settings: $0,
-                                                                           fromStructures: fromStructures) }
+                                                                           structureRun: structureRun) }
                 return PrecipitateJoins(
                     composition: ObjectCompositionJoin.run(objects: objects, quantified: quantified, registration: registration,
                                                            cancelled: { Task.isCancelled }),
                     strain: ObjectStrainJoin.run(objects: objects, strain: strainMap),
                     variants: variants?.result, variantEndOnDirection: variants?.endOnDirection,
-                    variantDirections: variants?.habitFamilies)
+                    variantDirections: variants?.habitFamilies, variantDefaultToleranceDegrees: variants?.defaultToleranceDegrees)
             }
             let joins = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
             guard let self, !Task.isCancelled, self.precipitateJoinGeneration == generation else { return }

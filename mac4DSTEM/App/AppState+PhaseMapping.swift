@@ -477,7 +477,8 @@ extension AppState {
             thicknessSigmaNm: precipitateThickness.flatMap { $0.isUsable ? $0.sigmaNanometres : nil },
             compositionJoin: precipitateJoins.composition, strainJoin: precipitateJoins.strain,
             variantJoin: precipitateJoins.variants, variantSettings: precipitateVariantSettings,
-            endOnDirection: precipitateJoins.variantEndOnDirection, variantDirections: precipitateJoins.variantDirections)
+            endOnDirection: precipitateJoins.variantEndOnDirection, variantDirections: precipitateJoins.variantDirections,
+            variantDefaultToleranceDegrees: precipitateJoins.variantDefaultToleranceDegrees)
     }
 
     /// The outline of the objects selected in the object table, for the scan
