@@ -15,8 +15,9 @@ The door itself (listener, token, Settings section, window list, MCP endpoint) i
 | `list_windows` | the open windows: id, file, workspace and task, whether a run is in progress (the door's own tool) |
 | `get_window` | dataset and loaded view, calibration and its verdict, task and its settings, running operation, displayed result with provenance, disk-detection parameters and statistics, saved results, recipe steps |
 | `get_result_image` | the result figure File > Export writes: colour scale, scale bar, caption |
-| `get_pattern_image` | the diffraction pattern as its pane shows it; the detector outlined in the Virtual Detector task, the detected disks drawn in the Disks task |
+| `get_pattern_image` | the diffraction pattern as its pane shows it; the detector outlined in the Virtual Detector task, the detected disks drawn in the Disks task; `disks` false leaves them off, `crop_x`/`crop_y`/`crop_half` cut and magnify a square of detector pixels (#234) |
 | `get_detected_disks` | the detected disks of the pattern on screen |
+| `get_pattern_values` | the raw counts in a box around a detector pixel, its brightest pixel and the box edge's median (local background), to tell a weak disk from noise (#234) |
 | `get_lineage` | the recipe and its run graph |
 | `get_precipitate_objects` | the precipitate object table |
 | `get_log` | the Output lines |
