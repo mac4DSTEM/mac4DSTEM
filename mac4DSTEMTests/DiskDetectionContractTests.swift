@@ -2,12 +2,25 @@ import XCTest
 import DSTEMCore
 
 final class DiskDetectionContractTests: XCTestCase {
-    /// ADR 041 (Gate D 2026-09-28): the shipped floor is 0.15 %, a DEVIATION
-    /// from py4DSTEM's 0.5 %. The refuter reverted the init default to 0.005
-    /// and the whole suite stayed green; this pins it (red on that revert,
-    /// refuter-pin-red.log).
-    func testShippedDefaultMinRelativeIntensityIsThePinnedFloor() {
-        XCTAssertEqual(DiskDetectionParams().minRelativeIntensity, 0.0015)
+    /// The shipped default is py4DSTEM's (`find_Bragg_disks`, diskdetection.py:34, `minRelativeIntensity=0.005`). From
+    /// 28 Sep 2026 to 5.3.0 it was 0.0015, chosen on one dataset (Thronsen et al. A, whose weak reflections need it);
+    /// on a denoised scan that value finds false disks on the background. A default is the reference's; a dataset
+    /// gets its own value after a look. Both the property default and the initialiser's are pinned.
+    func testShippedDefaultMinRelativeIntensityIsPy4DSTEMs() {
+        XCTAssertEqual(DiskDetectionParams().minRelativeIntensity, 0.005)
+        // The whole of find_Bragg_disks' scale-free defaults (lines 27 to 38), multicorr refinement included (line 31;
+        // the parabolic fit was the app's default until 5.3.0).
+        let d = DiskDetectionParams()
+        XCTAssertEqual(d.subpixel, .multicorr)
+        XCTAssertEqual(d.upsampleFactor, 16)
+        XCTAssertEqual(d.corrPower, 1); XCTAssertEqual(d.sigmaDP, 0); XCTAssertEqual(d.sigmaCC, 2)
+        XCTAssertEqual(d.minAbsoluteIntensity, 0); XCTAssertEqual(d.relativeToPeak, 0); XCTAssertEqual(d.maxNumPeaks, 70)
+        XCTAssertEqual(d.minPeakSpacing, 60); XCTAssertEqual(d.edgeBoundary, 20)
+        XCTAssertEqual(DiskDetectionParams.detectorAdapted(qy: 128, qx: 128).subpixel, .multicorr)
+        var params = DiskDetectionParams.detectorAdapted(qy: 128, qx: 128)
+        XCTAssertEqual(params.minRelativeIntensity, 0.005, "adapting to a detector moves the pixel-scaled settings only")
+        params.minRelativeIntensity = 0.0015
+        XCTAssertEqual(params.minRelativeIntensity, 0.0015, "and a dataset sets its own")
     }
 
     func testDetectorAdaptedConfigurationValidatesAcrossDetectorShapes() {

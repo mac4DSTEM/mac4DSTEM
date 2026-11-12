@@ -57,7 +57,7 @@ private enum PeakRestoreFixture {
         p.corrPower = 0.65
         p.sigmaDP = 0.7
         p.sigmaCC = 1.3
-        p.subpixel = .multicorr
+        p.subpixel = .poly   // off the default, which is multicorr since 5.3.0
         p.upsampleFactor = 32
         p.minAbsoluteIntensity = 0.021
         p.minRelativeIntensity = 0.0042

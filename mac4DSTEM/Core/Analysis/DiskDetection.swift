@@ -20,8 +20,8 @@
 //
 //  Steps (1)-(4) are CuboKit's (CuboBragg 0.6.0, Float32 `BraggPrecision.single`);
 //  `DiskDetector` below maps the app's controls onto it. The full-scan pass is the kit's (`BraggDisks.detectAll`, CuboKit 0.7.0: bounded scan-row tiles, every core on a tile's patterns; `TiledDiskDetection.swift`). multicorr is
-//  ~10× slower than poly per pattern — poly is the interactive default,
-//  multicorr the strain-analysis choice.
+//  the default, as in py4DSTEM. Detect All over a scan, measured 2026-11-12: 3,072 patterns of 128 px in 0.3 s against
+//  0.1 s with poly; 160,000 patterns of 66 px in 9.7 s against 5.4 s.
 //
 
 import Foundation
@@ -121,7 +121,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
         case .correlationSigma:
             "Gaussian σ in detector pixels applied to the correlation map before maxima selection. Zero disables this smoothing."
         case .subpixel:
-            "Pixel is fastest; Parabolic is the interactive default; Fourier multicorr uses matrix-DFT refinement for strain-grade localization."
+            "Pixel is fastest; Parabolic is quick; Fourier multicorr, the default as in py4DSTEM, refines by matrix DFT for strain-grade localization."
         case .upsampleFactor:
             "Matrix-DFT upsampling used only by Fourier multicorr. Higher values refine the sampling at increased cost."
         case .minimumAbsoluteIntensity:
@@ -473,16 +473,13 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var corrPower: Float = 1              // 1 = cross, 0 = phase correlation
     package var sigmaDP: Float = 0                // gaussian smoothing before correlation
     package var sigmaCC: Float = 2                // gaussian smoothing of CC before maxima
-    package var subpixel: SubpixelMode = .poly
+    package var subpixel: SubpixelMode = .multicorr   // py4DSTEM's default (diskdetection.py:31); the parabolic fit until 5.3.0
     package var upsampleFactor: Int = 16
     package var minAbsoluteIntensity: Float = 0
-    // DEVIATION (ADR 041, Gate D 2026-09-28,
-    // the archived notes): py4DSTEM's
-    // find_Bragg_disks defaults to 0.005 (diskdetection.py:34). The app's
-    // default is 0.15 %: at 0.5 % the weak θ′/T1 reflections phase mapping
-    // needs are cut — on Thronsen dataset A, 11.42 % per-position error and
-    // θ′ face-on lost vs 1.31 % at 0.15 %. Parity checks pass 0.005 explicitly.
-    package var minRelativeIntensity: Float = 0.0015
+    // py4DSTEM's find_Bragg_disks default (diskdetection.py:34). Until 5.3.0 the app's default was 0.0015, chosen on one
+    // dataset; a default is the reference's, and a dataset with weak reflections (or a denoised one with a smooth floor)
+    // gets its own value after a look at the detected disks on one pattern.
+    package var minRelativeIntensity: Float = 0.005
     package var relativeToPeak: Int = 0
     /// The reference the relative threshold is measured against is the
     /// brightest maximum at least this far from the brightest one, in
@@ -679,7 +676,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.0015, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
+    package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .multicorr, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
         self.corrPower = corrPower
         self.sigmaDP = sigmaDP
         self.sigmaCC = sigmaCC
