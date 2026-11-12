@@ -1633,7 +1633,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.12.1;
+				minimumVersion = 0.13.0;
 			};
 		};
 		30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */ = {
