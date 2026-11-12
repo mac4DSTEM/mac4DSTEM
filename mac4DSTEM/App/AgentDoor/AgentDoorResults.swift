@@ -179,14 +179,30 @@ extension Mac4DSTEMAgentDoor {
         },
         AgentTool(name: "show_quality_field", title: "Inspect quality field",
                   summary: "Shows the quality field paired with the displayed result instead of the result (true) or the result "
-                      + "again (false), as the pane's toggle does. Display only: exports and saved products do not change.",
+                      + "again (false), as the pane's toggle does, and answers the field's name, units and range. Display only: exports, saved "
+                      + "products and get_result_image keep the result; get_window_image shows the pane with the field.",
                   input: .window,
                   parameters: [AgentParameter("show", .boolean, summary: "true shows the quality field.", required: true)],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
-            state.resultPresentation.inspectQualityField = call.arguments["show"] == "true"
-            state.statusText = "An agent " + (state.resultPresentation.inspectQualityField ? "showed" : "hid") + " the quality field."
-            return .json(["quality_field_shown": state.resultPresentation.inspectQualityField])
+            let show = call.arguments["show"] == "true"
+            if show, state.displayedProduct?.qualityFields.first == nil {
+                return .refusal(status: 409, message: "The displayed result carries no quality field.")
+            }
+            state.resultPresentation.inspectQualityField = show
+            state.statusText = "An agent " + (show ? "showed" : "hid") + " the quality field."
+            var answer: [String: Any] = ["quality_field_shown": show]
+            // The field's own numbers: get_result_image draws the result as exported, not the inspected field (an export never
+            // carries it), so an agent judges the field by these and by get_window_image's result pane.
+            if let field = state.displayedQualityField {
+                let finite = field.image.pixels.filter(\.isFinite)
+                answer["quality_field"] = ["name": field.name, "units": field.units, "finite_pixels": finite.count,
+                                           "min": AgentJSON.number(finite.min().map(Double.init)),
+                                           "max": AgentJSON.number(finite.max().map(Double.init)),
+                                           "mean": AgentJSON.number(finite.isEmpty ? nil
+                                               : finite.reduce(0.0) { $0 + Double($1) } / Double(finite.count))] as [String: Any]
+            }
+            return .json(answer)
         },
         AgentTool(name: "rewind_lineage", title: "Rewind to Here",
                   summary: "Puts the settings of a recorded step back, as Rewind to Here does: name the step by its id from get_lineage. "

@@ -285,11 +285,11 @@ final class AgentDoorAnalysesTests: XCTestCase {
                                                      "name": "fig"])
         XCTAssertTrue(again.refused, "never replaced")
 
-        let shown = try await call("show_quality_field", ["show": true])
-        XCTAssertFalse(shown.refused, shown.text)
-        XCTAssertTrue(state.resultPresentation.inspectQualityField)
-        _ = try await call("show_quality_field", ["show": false])
+        let none = try await call("show_quality_field", ["show": true])
+        XCTAssertTrue(none.refused, "the demo's view carries no quality field: \(none.text)")
         XCTAssertFalse(state.resultPresentation.inspectQualityField)
+        let hidden = try await call("show_quality_field", ["show": false])
+        XCTAssertFalse(hidden.refused, hidden.text)
 
         let missing = try await call("compare_results", ["a": "no such result"])
         XCTAssertTrue(missing.refused, missing.text)

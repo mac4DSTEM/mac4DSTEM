@@ -48,10 +48,19 @@ extension AppState {
     /// Disks task, the detected disks of the pattern on screen (`agentPatternOverlays`).
     /// `disks: false` leaves the detected disks off, so a weak disk under a circle can be seen (issue #234); `crop` cuts a square of
     /// detector pixels around (x, y), which the figure then magnifies like any small pattern.
-    func agentPatternImage(scale: Int, disks: Bool = true, crop: AgentPatternCrop? = nil) throws -> CGImage {
+    /// `probe: true` adds the calibrated probe: a circle of the probe radius at the mean origin, so an agent can judge whether
+    /// the measured radius fits the direct beam (the acceptance run, 12 Nov, had no picture of it).
+    func agentPatternImage(scale: Int, disks: Bool = true, crop: AgentPatternCrop? = nil, probe: Bool = false) throws -> CGImage {
         let raster = try patternExportRaster()
         var image = raster.image
         var overlays = disks ? agentPatternOverlays : patternExportOverlays
+        if probe {
+            let calibration = calibrationSession.calibration
+            guard let origin = calibration.meanOrigin, let radius = calibration.probeRadius else {
+                throw SimpleError("There is no calibrated origin and probe radius yet; run_calibration step origin measures them.")
+            }
+            overlays.append(.peaks([BraggPeak(x: origin.x, y: origin.y, intensity: 1)], probeRadius: radius, exportColorScheme))
+        }
         if let crop {
             let rect = crop.rect(width: image.width, height: image.height)
             guard rect.width > 0, rect.height > 0, let cut = image.cropping(to: rect) else {
