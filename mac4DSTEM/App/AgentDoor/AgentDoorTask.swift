@@ -47,6 +47,7 @@ extension Mac4DSTEMAgentDoor {
             // The sidebar's route (`WorkspaceRoute`): the room first, then the task.
             if state.navigation.workspaceArea != area { state.selectWorkspace(area) }
             if let task, state.navigation.analysisMode != task { state.changeMode(task) }
+            state.statusText = "An agent selected \(area.title)" + (area.analysisModes.isEmpty ? "." : ", \(state.navigation.analysisMode.rawValue).")
             let selected: Any = area.analysisModes.isEmpty ? NSNull() : state.navigation.analysisMode.rawValue
             return .json(["workspace": state.navigation.workspaceArea.rawValue, "task": selected,
                           "has_run": state.hasPrimaryWorkspaceTask])
@@ -71,6 +72,8 @@ extension Mac4DSTEMAgentDoor {
             for setting in PhaseSetting.all where setting.parameter.name != "classifier" {
                 if let text = call.arguments[setting.parameter.name], let value = Double(text) { setting.apply(value, product) }
             }
+            // An Output line names what the agent set, so the person sees which values were not theirs.
+            state.statusText = agentChangeLine("Phase mapping", call.arguments)
             return .json(phaseMappingSettings(of: state))
         },
         AgentTool(name: "scale_phase_matching_to_detector", title: "Scale to This Detector",
@@ -84,9 +87,16 @@ extension Mac4DSTEMAgentDoor {
                     ?? "The Q pixel size is not known, so a detector pixel has no size in Å⁻¹.")
             }
             state.scalePhaseMatchingToDetector()
+            state.statusText = "An agent pressed Scale to This Detector: " + state.statusText
             return .json(phaseMappingSettings(of: state))
         },
     ]
+
+    /// The Output line for settings an agent changed: "An agent set <what>: name value, ...", in the order the names sort.
+    static func agentChangeLine(_ what: String, _ arguments: [String: String]) -> String {
+        let pairs = arguments.keys.sorted().compactMap { name in arguments[name].map { "\(name) \($0)" } }
+        return "An agent set \(what): " + (pairs.isEmpty ? "nothing" : pairs.joined(separator: ", ")) + "."
+    }
 
     /// Phase mapping as an agent reads it: the phases, the settings, what the tolerances are in detector pixels, and why the task
     /// cannot run yet (or null).

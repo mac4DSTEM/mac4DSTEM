@@ -129,6 +129,8 @@ final class AgentDoorTaskTests: XCTestCase {
         XCTAssertEqual(matching.classificationRule, .knownVariants)
         XCTAssertEqual(matching.residualCutoffInvAngstrom, 0.05, accuracy: 1e-12)
         XCTAssertEqual(state.phaseMapping.reference.maximumVectorsPerEntry, 24)
+        XCTAssertTrue(state.activityLog.messages.contains { $0.contains("An agent set Phase mapping:") && $0.contains("pair_radius_inv_angstrom 0.031") },
+                      "the Output says the agent set it: \(state.activityLog.messages.suffix(3))")
         XCTAssertEqual(state.phaseMapping.reference.minimumIntensityFraction,
                        PhaseMappingRuleDefaults.minimumIntensityFraction(for: .knownVariants), "as the picker resets it")
 
