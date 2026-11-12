@@ -959,8 +959,9 @@ private struct StrainSection: View {
                     InspectorValueRow(
                         map.diagnostics.automaticBasis
                             ? "Basis consensus" : "Basis support",
-                        "\(Num.fixed(Double(map.diagnostics.basisSupportFraction) * 100, 0))% · "
-                            + "\(map.diagnostics.basisSupportCount)/\(map.diagnostics.basisObservationCount) peaks"
+                        StrainBasisText.support(fraction: Double(map.diagnostics.basisSupportFraction),
+                                                supporting: map.diagnostics.basisSupportCount,
+                                                of: map.diagnostics.basisObservationCount)
                     )
                     .accessibilityIdentifier("strain.diagnostics.basisSupport")
                     InspectorValueRow(
@@ -1649,5 +1650,14 @@ private func relativePeakRankBinding(_ appState: AppState) -> Binding<Int> {
 nonisolated enum ACOMQScaleReadout {
     static func text(_ invAngstromPerPixel: Double, locale: Locale = .current) -> String {
         invAngstromPerPixel.formatted(.number.precision(.significantDigits(1...6)).locale(locale)) + " Å⁻¹/px"
+    }
+}
+
+/// The strain panel's "Basis support" value. Its counts read "43388/43495 peaks": grouped as the Mac's Region writes them.
+enum StrainBasisText {
+    static func support(fraction: Double, supporting: Int, of observations: Int, locale: Locale = .autoupdatingCurrent) -> String {
+        "\(Num.fixed(fraction * 100, 0))% \u{00B7} "
+            + "\(CalibrationUnitConversion.displayCount(supporting, locale: locale)) of "
+            + "\(CalibrationUnitConversion.displayCount(observations, locale: locale)) peaks"
     }
 }

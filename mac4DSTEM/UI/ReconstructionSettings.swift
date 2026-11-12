@@ -197,7 +197,7 @@ struct SingleslicePtychographySection: View {
                     readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
                 ))
             }
-            DisclosureGroup("Advanced ptychography", isExpanded: $showsAdvanced) {
+            InspectorDisclosure("Advanced ptychography", isExpanded: $showsAdvanced) {
             InspectorRow("Iterations") {
                 NumericField(
                     "Iterations",
@@ -447,7 +447,7 @@ private struct ParallaxStageSections: View {
                     )
                     .labelsHidden()
                 }
-                DisclosureGroup("Advanced reconstruction", isExpanded: $showsAdvancedReconstruction) {
+                InspectorDisclosure("Advanced reconstruction", isExpanded: $showsAdvancedReconstruction) {
                     InspectorRow("Auto factor") {
                         NumericField(
                             "Auto factor",
@@ -524,7 +524,7 @@ private struct ParallaxStageSections: View {
                     )
                     .labelsHidden()
                 }
-                DisclosureGroup("Advanced depth settings", isExpanded: $showsAdvancedDepth) {
+                InspectorDisclosure("Advanced depth settings", isExpanded: $showsAdvancedDepth) {
                     InspectorRow("Planes") {
                         NumericField(
                             "Planes",

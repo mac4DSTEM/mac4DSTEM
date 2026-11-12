@@ -65,10 +65,24 @@ package nonisolated struct SpotDistortionFit: Equatable, Sendable {
     /// Whether the fit is good enough to be applied.
     package var isCredible: Bool { residualPixels.isFinite && residualPixels <= Self.largestResidualOfferedPixels }
 
+    /// "1.051 at 166°": the stretch and the direction of the long axis on the detector, from the column axis towards the
+    /// row axis. The one way the fit is named: when it is found and when it is applied (the ellipse row keeps py4DSTEM's
+    /// a, b and θ, whose θ is measured from the row axis and so read 104° beside this 166°).
+    package func stretchText(locale: Locale = .autoupdatingCurrent) -> String {
+        func n(_ value: Double, _ digits: Int) -> String { CalibrationUnitConversion.displayNumber(value, digits: digits, locale: locale) }
+        return "\(n(stretchRatio, 4)) at \(n(axisDegrees, 3))°"
+    }
+
     /// One line for the inspector and the status line.
     package func summary(locale: Locale = .autoupdatingCurrent) -> String {
         func n(_ value: Double, _ digits: Int) -> String { CalibrationUnitConversion.displayNumber(value, digits: digits, locale: locale) }
-        return "\(n(stretchRatio, 4)) at \(n(axisDegrees, 3))° · residual \(n(residualPixels, 2))\u{00A0}px (\(n(residualWithoutStretchPixels, 2))\u{00A0}px without)"
+        return "\(stretchText(locale: locale)) · residual \(n(residualPixels, 2))\u{00A0}px (\(n(residualWithoutStretchPixels, 2))\u{00A0}px without)"
+    }
+
+    /// The status line once the fit is applied: the same stretch and direction the fit was offered with, and the Q scale set.
+    package func appliedLine(locale: Locale = .autoupdatingCurrent) -> String {
+        "Distortion applied · stretch \(stretchText(locale: locale)) · Q "
+            + CalibrationUnitConversion.displayNumber(invAngstromPerPixel, digits: 4, locale: locale) + "\u{00A0}Å⁻¹/px"
     }
 }
 

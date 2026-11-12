@@ -8,6 +8,7 @@
 import Foundation
 import DiffractoOrientation
 import DiffractoCore
+import DiffractoGeometry   // EllipseCalibration.FitError: the ring fit's refusal is reworded here
 #if canImport(DSTEMCore)
 import DiffractoScattering
 import DSTEMCore
@@ -27,6 +28,15 @@ extension AppState {
         if acomScaleSemantics.provenance == .exploratory { return "Needs the Q pixel scale first." }
         if resolvedACOMModel == nil { return acomSession.modelSelectionIssue ?? "Needs the matrix crystal: choose it in Crystal Maps › Orientation." }
         return nil
+    }
+
+    /// What the ring fit's refusal says. A scan of one crystal has spots and no ring, and the way on is the fit from the
+    /// spots: the refusal names it first, short enough for the status bar's one line (the kit's sentence is three lines long
+    /// and was cut before its end). Every other refusal is the kit's own text.
+    nonisolated static func ellipseRefusal(_ error: Error) -> Error {
+        guard case EllipseCalibration.FitError.insufficientAngularCoverage(let bins) = error else { return error }
+        return SimpleError("No ring to fit (signal in \(bins) of \(EllipseCalibration.angularBinCount) sectors). For one crystal: "
+                           + "Fit Distortion from Spots, in Fit diagnostics.")
     }
 
     /// Fit the detector's distortion on the matrix's spots and hold the result (`spotDistortion.pending`) for the user to apply.
@@ -104,8 +114,7 @@ extension AppState {
         if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors, let descriptor {
             showBraggMap(vectors, descriptor: descriptor)
         }
-        statusText = "Distortion applied · " + CalibrationUnitConversion.ellipseSummary(a: fit.ellipseA, b: fit.ellipseB, thetaDegrees: fit.ellipseThetaDegrees)
-            + " · Q " + CalibrationUnitConversion.displayNumber(fit.invAngstromPerPixel, digits: 4) + "\u{00A0}Å⁻¹/px"
+        statusText = fit.appliedLine()
         recordEllipseCalibrationRun()
     }
 }

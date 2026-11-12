@@ -287,7 +287,7 @@ extension AppState {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
             else {
                 calibrationSession.refuseEllipseFit(error)
-                presentComputeFailure(error)
+                presentComputeFailure(Self.ellipseRefusal(error))
             }
         }
     }

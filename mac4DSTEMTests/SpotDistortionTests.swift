@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import DiffractoCore
+import DiffractoGeometry
 import DiffractoOrientation
 @testable import mac4DSTEM
 
@@ -72,8 +73,27 @@ final class SpotDistortionTests: XCTestCase {
             XCTAssertEqual(length, (g.x * g.x + g.y * g.y).squareRoot(), accuracy: 0.0006,
                            "a spot of the corrected pattern is not at its true length (ellipse a \(fit.ellipseA), b \(fit.ellipseB), theta \(fit.ellipseThetaDegrees))")
         }
+        // One way of naming the fit: the line when it is applied carries the stretch and the direction it was offered with
+        // (it read "θ 103.8°", py4DSTEM's ellipse angle from the other axis, beside the offer's "at 166°").
+        let us = Locale(identifier: "en_US")
+        XCTAssertTrue(fit.summary(locale: us).hasPrefix(fit.stretchText(locale: us) + " · residual"), fit.summary(locale: us))
+        XCTAssertTrue(fit.appliedLine(locale: us).hasPrefix("Distortion applied · stretch " + fit.stretchText(locale: us) + " · Q "), fit.appliedLine(locale: us))
+        XCTAssertFalse(fit.appliedLine(locale: us).contains("θ"), "the applied line speaks of the ellipse angle again")
+
         // The session takes the values as a typed ellipse would be taken.
         XCTAssertNil(CalibrationSession().applyManualEllipse(a: fit.ellipseA, b: fit.ellipseB, thetaDegrees: fit.ellipseThetaDegrees))
+    }
+
+    /// A spot pattern has no ring: the ring fit's refusal names the fit from the spots, and fits the status bar's one line
+    /// (the kit's three-line sentence was cut before it said what to do). Any other refusal stays the kit's.
+    func testTheRingFitsRefusalOnSpotsPointsToTheFitFromSpots() {
+        let refusal = AppState.ellipseRefusal(EllipseCalibration.FitError.insufficientAngularCoverage(8))
+        let text = refusal.localizedDescription
+        XCTAssertTrue(text.contains("8 of 36"), text)
+        XCTAssertTrue(text.contains("Fit Distortion from Spots"), text)
+        XCTAssertLessThanOrEqual(("Error: " + text).count, 115, "longer than the status bar shows at the default window width: \(text)")
+        XCTAssertEqual(AppState.ellipseRefusal(EllipseCalibration.FitError.insufficientSignal).localizedDescription,
+                       EllipseCalibration.FitError.insufficientSignal.localizedDescription)
     }
 
     /// Without disks, a crystal or a Q scale the action says why, and holds nothing.
