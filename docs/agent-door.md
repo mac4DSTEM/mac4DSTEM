@@ -40,6 +40,12 @@ before each call (MCP marks them as not read-only). One run at a time; Stop in t
 | `run_task` | presses Run for the window's task |
 | `stop_run` | presses Stop |
 
+Every one of these writes an Output line that starts "An agent", so the person can tell the agent's values from their own.
+When an action moves a setting the agent did not name, the Output says so: measuring the probe (Build Kernel, a probe radius,
+Calibrate Origin) sets `min_peak_spacing` to fit the probe when nobody has chosen one, and writes "Build Kernel also changed
+disk detection: min_peak_spacing 16 → 4". `get_probe_kernel` carries the disk settings too (#232). Numbers in the door's text use
+a point, whatever the Mac's Region.
+
 ### The Agent folder (batches)
 
 The person chooses one folder in Settings > Agents > Agent folder. Nothing outside it is listed, opened or written; paths

@@ -40,6 +40,7 @@ extension Mac4DSTEMAgentDoor {
                     + "y is 0...\(descriptor.ry - 1).")
             }
             state.selectScan(x: x, y: y)
+            state.statusText = "An agent selected scan position (\(x), \(y))."
             return .json(["scan_position": ["x": x, "y": y]])
         },
         AgentTool(name: "set_disk_detection", title: "Tune disk detection",
@@ -85,6 +86,7 @@ extension Mac4DSTEMAgentDoor {
                   input: .window, acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             guard state.isBusy else { return .refusal(status: 409, message: "Nothing is running.") }
+            state.statusText = "An agent pressed Stop."
             state.cancelActiveOperation()
             return .json(["stopping": true])
         },

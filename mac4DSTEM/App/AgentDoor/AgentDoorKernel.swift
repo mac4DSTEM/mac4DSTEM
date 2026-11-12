@@ -28,7 +28,7 @@ extension Mac4DSTEMAgentDoor {
         AgentTool(name: "set_probe_radius", title: "Set probe radius",
                   summary: "Sets the probe radius the synthetic kernel is built at, as typing it into Probe radius does (recorded as "
                       + "manual). A synthetic kernel already built is rebuilt at it and the detection follows. Compare the disks on "
-                      + "get_pattern_image: the radius is the Bragg disk's, not the whole pattern's.",
+                      + "get_pattern_image: the radius is the Bragg disk's, not the whole pattern's. " + diskDefaultsNote,
                   input: .window,
                   parameters: [AgentParameter("radius", .number(0.1...10_000), summary: "Radius in detector pixels; at most half the "
                                                   + "detector's smaller side.", required: true)],
@@ -41,7 +41,8 @@ extension Mac4DSTEMAgentDoor {
                 let limit = state.descriptor.map { " (at most \(min($0.qy, $0.qx) / 2) px here)" } ?? ""
                 return .refusal(status: 400, message: "The radius is a positive number of pixels that fits the detector\(limit).")
             }
-            Task { await state.useProbeRadius(radius) }
+            state.statusText = "An agent set the probe radius: \(numberText(Double(radius))) px."
+            Task { await noteDiskSettingChanges(of: state, by: "The probe radius") { await state.useProbeRadius(radius) } }
             return .json(["probe_radius_px": Double(radius),
                           "rebuilds_kernel": state.probeKernel?.source == .synthetic])
         },
@@ -49,7 +50,7 @@ extension Mac4DSTEMAgentDoor {
                   summary: "Builds the probe kernel, as Build Kernel does: synthetic (a disk at the probe radius), current_pattern (the "
                       + "pattern on screen, best on vacuum) or file_probe (the probe image the file carries). Without a probe radius "
                       + "Calibrate Origin measures one first. It answers at once; get_probe_kernel says when the kernel is in, and the "
-                      + "detection on the pattern on screen follows.",
+                      + "detection on the pattern on screen follows. " + diskDefaultsNote,
                   input: .window,
                   parameters: [
                       AgentParameter("source", .choice(KernelChoice.allCases.map(\.rawValue)), summary: "Where the kernel comes from.",
@@ -66,16 +67,18 @@ extension Mac4DSTEMAgentDoor {
                 return .refusal(status: 400, message: "source is synthetic, current_pattern or file_probe.")
             }
             let mode = (ModeChoice(rawValue: call.arguments["mode"] ?? "") ?? .flat).mode
-            switch source {
-            case .synthetic:
-                Task { await state.generateProbeKernel() }
-            case .currentPattern:
-                guard state.displayedPattern != nil else {
-                    return .refusal(status: 404, message: "No pattern is on screen to build the kernel from.")
+            if source == .currentPattern, state.displayedPattern == nil {
+                return .refusal(status: 404, message: "No pattern is on screen to build the kernel from.")
+            }
+            state.statusText = "An agent pressed Build Kernel (\(source.rawValue))."
+            Task {
+                await noteDiskSettingChanges(of: state, by: "Build Kernel") {
+                    switch source {
+                    case .synthetic: await state.generateProbeKernel()
+                    case .currentPattern: await state.generateMeasuredProbeKernel(mode: mode)
+                    case .fileProbe: await state.generateFileProbeKernel(mode: mode)
+                    }
                 }
-                Task { await state.generateMeasuredProbeKernel(mode: mode) }
-            case .fileProbe:
-                Task { await state.generateFileProbeKernel(mode: mode) }
             }
             return .json(["building": source.rawValue, "mode": source == .synthetic ? "sigmoid_trench" : ModeChoice(mode).rawValue])
         },
@@ -99,6 +102,8 @@ extension Mac4DSTEMAgentDoor {
             if let text = call.arguments["threshold"], let value = Float(text), value.isFinite {
                 state.learnedDetection.threshold = min(max(value, 0.3), 0.99)
             }
+            state.statusText = "An agent chose the \(learned ? "neural net" : "classical") detector"
+                + (learned ? ", threshold \(numberText(Double(state.learnedDetection.threshold)))." : ".")
             Task { await state.detectCurrentPattern() }
             return .json(kernelSummary(of: state))
         },
@@ -119,7 +124,33 @@ extension Mac4DSTEMAgentDoor {
             "kernel": kernel,
             "detector": detector == .learned ? "neural_net" : "classical",
             "threshold": Double(state.learnedDetection.threshold),
+            "disk_detection": diskSettings(of: state)["disk_detection"] ?? NSNull(),
         ]
+    }
+
+    /// What the kernel tools' texts say about the disk settings that follow the probe (issue #232).
+    static let diskDefaultsNote = "Measuring the probe sets min_peak_spacing to fit the probe when nobody has chosen one, as it "
+        + "does for the person; get_probe_kernel shows the disk settings and get_log names any change."
+
+    /// Runs `work` and, when it moved a disk detection setting the agent did not name, writes an Output line saying which and how
+    /// (issue #232: Build Kernel set min_peak_spacing 16 → 4 without a word).
+    static func noteDiskSettingChanges(of state: AppState, by action: String, _ work: () async -> Void) async {
+        let before = state.diskDetection.diskParams
+        await work()
+        if let line = diskChangeLine(from: before, to: state.diskDetection.diskParams, by: action) { state.statusText = line }
+    }
+
+    /// A number as door text: six significant digits with a point, never the Mac's decimal comma (`String(format:)` without a
+    /// locale is POSIX), so a Float setting reads 0.0005, not 0.000500000024.
+    static func numberText(_ value: Double) -> String { String(format: "%.6g", value) }
+
+    /// "<action> also changed disk detection: name old → new, ...", or nil when nothing changed.
+    static func diskChangeLine(from before: DiskDetectionParams, to after: DiskDetectionParams, by action: String) -> String? {
+        let changes = DiskSetting.all.compactMap { setting -> String? in
+            let old = setting.read(before), new = setting.read(after)
+            return old == new ? nil : "\(setting.parameter.name) \(numberText(old)) → \(numberText(new))"
+        }
+        return changes.isEmpty ? nil : "\(action) also changed disk detection: " + changes.joined(separator: ", ") + "."
     }
 
     /// Build Kernel's sources an agent can use (the vacuum scan needs a second file).
