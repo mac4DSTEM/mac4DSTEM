@@ -21,8 +21,8 @@ extension Mac4DSTEMAgentDoor {
                   summary: "The displayed result (the virtual image in Bragg Disks, or a map) alone, in scan coordinates, for picking "
                       + "a position: not rotated or mirrored, no margins or colour bar. Each scan position is a k × k block of pixels, "
                       + "k = picture width ÷ scan columns (get_window's scan size): position (x, y) is the block whose top-left pixel "
-                      + "is (x·k, y·k), x to the right, y down, as select_scan_position takes them. The selected position is outlined "
-                      + "in magenta.",
+                      + "is (x·k, y·k), x to the right, y down, as select_scan_position takes them. The selected position is framed "
+                      + "in magenta edged in black, with a second frame further out to find it on a large scan.",
                   input: .window) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             do {
@@ -63,8 +63,8 @@ extension AppState {
         max(1, min(16, 1024 / max(width, height, 1)))
     }
 
-    /// `rgba` (one pixel per position) drawn with each position as a `scale` × `scale` block, and a one-pixel magenta frame just
-    /// around the block of `outline` (inside the picture's edges).
+    /// `rgba` (one pixel per position) drawn with each position as a `scale` × `scale` block, and around the block of `outline` a
+    /// two-pixel magenta frame edged in black, with a second one further out (inside the picture's edges).
     nonisolated static func agentScanMapPicture(_ rgba: [UInt8], width: Int, height: Int, scale: Int,
                                                 outline: (x: Int, y: Int)?) -> [UInt8] {
         let outWidth = width * scale, outHeight = height * scale
@@ -80,14 +80,24 @@ extension AppState {
             }
         }
         guard let outline, (0..<width).contains(outline.x), (0..<height).contains(outline.y) else { return out }
-        let left = outline.x * scale - 1, right = (outline.x + 1) * scale, top = outline.y * scale - 1, bottom = (outline.y + 1) * scale
-        func paint(_ px: Int, _ py: Int) {
+        func paint(_ px: Int, _ py: Int, _ colour: (UInt8, UInt8, UInt8)) {
             guard (0..<outWidth).contains(px), (0..<outHeight).contains(py) else { return }
             let target = (py * outWidth + px) * 4
-            out[target] = 255; out[target + 1] = 0; out[target + 2] = 255; out[target + 3] = 255
+            out[target] = colour.0; out[target + 1] = colour.1; out[target + 2] = colour.2; out[target + 3] = 255
         }
-        for px in left...right { paint(px, top); paint(px, bottom) }
-        for py in top...bottom { paint(left, py); paint(right, py) }
+        // A square frame `gap` pixels outside the block.
+        func frame(_ gap: Int, _ colour: (UInt8, UInt8, UInt8)) {
+            let left = outline.x * scale - gap, right = (outline.x + 1) * scale - 1 + gap
+            let top = outline.y * scale - gap, bottom = (outline.y + 1) * scale - 1 + gap
+            for px in left...right { paint(px, top, colour); paint(px, bottom, colour) }
+            for py in top...bottom { paint(left, py, colour); paint(right, py, colour) }
+        }
+        // Issue #237: a one-pixel frame was hard to find on a busy map. The frame is two pixels of magenta edged in black, so it
+        // shows on bright and dark maps alike, and a second frame further out marks the spot when a position is only a few pixels.
+        let magenta: (UInt8, UInt8, UInt8) = (255, 0, 255), black: (UInt8, UInt8, UInt8) = (0, 0, 0)
+        frame(1, magenta); frame(2, magenta); frame(3, black)
+        let far = max(8, 2 * scale)
+        frame(far, magenta); frame(far + 1, magenta); frame(far + 2, black)
         return out
     }
 }
