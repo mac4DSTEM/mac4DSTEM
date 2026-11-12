@@ -96,6 +96,32 @@ final class AgentDoorRunsTests: XCTestCase {
         withExtendedLifetime(state) {}
     }
 
+    /// Issue #235: the rest of the Disks task's fields. Mutation: a new setting is ignored or lands in another field - red.
+    func testTheRemainingDiskSettingsLandAsTheirFieldsPutThem() async throws {
+        let state = AppState()
+        door.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+        door.runsAllowed = true
+        let tuned = try await call("set_disk_detection", ["subpixel": "multicorr", "upsample_factor": 32, "sigma_dp": 1.5,
+                                                         "min_absolute_intensity": 250, "relative_to_peak": 1,
+                                                         "relative_reference_min_radius_px": 6])
+        XCTAssertFalse(tuned.refused, tuned.text)
+        let params = state.diskDetection.diskParams
+        XCTAssertEqual(params.subpixel, .multicorr)
+        XCTAssertEqual(params.upsampleFactor, 32)
+        XCTAssertEqual(params.sigmaDP, 1.5)
+        XCTAssertEqual(params.minAbsoluteIntensity, 250)
+        XCTAssertEqual(params.relativeToPeak, 1)
+        XCTAssertEqual(params.relativeReferenceMinimumRadiusPx, 6)
+        XCTAssertTrue(tuned.text.contains("\"subpixel\":\"multicorr\""), "the answer names subpixel as the recipe does: \(tuned.text)")
+
+        let unknown = try await call("set_disk_detection", ["subpixel": "Parabolic"])
+        XCTAssertTrue(unknown.refused, "the menu label is not one of the choices")
+        let small = try await call("set_disk_detection", ["upsample_factor": 2])
+        XCTAssertTrue(small.refused, "upsample_factor keeps the field's 4...64")
+        XCTAssertEqual(state.diskDetection.diskParams.upsampleFactor, 32)
+        withExtendedLifetime(state) {}
+    }
+
     /// The other tools refuse what the window cannot do, with a sentence that says why.
     func testRunAndStopAndSelectRefuseWhatTheWindowCannotDo() async throws {
         let state = AppState()
