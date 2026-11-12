@@ -57,10 +57,15 @@ extension Mac4DSTEMAgentDoor {
                   summary: "Changes Phase mapping's reference-library and matching settings, as its fields do; only the ones given. "
                       + "Values in Å⁻¹ are met on the detector's pixel grid: get_window's phase_mapping.on_this_detector says how many "
                       + "pixels each tolerance is, and scale_phase_matching_to_detector sets them to one pixel. Changing the "
-                      + "classifier resets min_intensity_fraction to the classifier's default, as the picker does. The phases "
-                      + "themselves are set by the person.",
+                      + "classifier resets min_intensity_fraction to the classifier's default, as the picker does. "
+                      + "orientation_source is structures (orientations found from each phase's structure, the default) or "
+                      + "typedZones (each phase matched at its typed zone axis). add_phase, set_phase and remove_phase change the "
+                      + "phase list.",
                   input: .window,
-                  parameters: PhaseSetting.all.map(\.parameter),
+                  parameters: PhaseSetting.all.map(\.parameter) + [
+                      AgentParameter("orientation_source", .choice(PhaseOrientationSource.allCases.map(\.rawValue)),
+                                     summary: "structures or typedZones, as Advanced > Typed zone axes does."),
+                  ],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             guard !state.isBusy else { return busyRefusal }
@@ -69,6 +74,9 @@ extension Mac4DSTEMAgentDoor {
                rule != product.matching.classificationRule {
                 product.matching.classificationRule = rule
                 product.reference.minimumIntensityFraction = PhaseMappingRuleDefaults.minimumIntensityFraction(for: rule)
+            }
+            if let source = call.arguments["orientation_source"].flatMap(PhaseOrientationSource.init(rawValue:)) {
+                product.orientationSource = source
             }
             for setting in PhaseSetting.all where setting.parameter.name != "classifier" {
                 if let text = call.arguments[setting.parameter.name], let value = Double(text) { setting.apply(value, product) }
@@ -116,8 +124,11 @@ extension Mac4DSTEMAgentDoor {
             ] as [String: Any]
         }
         return ["phase_mapping": [
-            "phases": product.phases.map { slot in
-                ["name": slot.model.displayName, "is_matrix": slot.isMatrix, "zone_axis": [slot.u, slot.v, slot.w],
+            "orientation_source": product.orientationSource.rawValue,
+            "default_excitation_slab_inv_angstrom": product.orientationSource == .structures
+                ? PhaseMappingProduct.structuresExcitationSlabDefault : product.reference.excitationSlabInvAngstrom,
+            "phases": product.phases.enumerated().map { index, slot in
+                ["index": index, "name": slot.model.displayName, "is_matrix": slot.isMatrix, "zone_axis": [slot.u, slot.v, slot.w],
                  "orientation_relationship": slot.orientationRelationshipText,
                  "excitation_slab_inv_angstrom": AgentJSON.number(slot.excitationSlabInvAngstrom)] as [String: Any]
             },
@@ -125,6 +136,7 @@ extension Mac4DSTEMAgentDoor {
             "on_this_detector": onDetector,
             "q_scale_refusal": AgentJSON.orNull(state.phaseMappingQScaleRefusal),
             "run_refusal": AgentJSON.orNull(product.runRefusal),
+            "last_run": phaseMappingLastRun(of: state),
         ] as [String: Any]]
     }
 

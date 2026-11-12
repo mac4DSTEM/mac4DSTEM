@@ -127,16 +127,21 @@ extension Mac4DSTEMAgentDoor {
 
         private static let phaseMappingText = """
             Phase mapping (Map workspace). It matches each position's detected disks to reference libraries of the phases \
-            the person set, so disks must be detected over the whole scan first (topic disks).
+            in the list, so disks must be detected over the whole scan first (topic disks).
 
             - `select_task` task "Phase mapping", then `get_window` task_settings shows the phases, the settings, what each \
             tolerance is in detector pixels (on_this_detector) and run_refusal: why the task cannot run yet.
-            - The phases are set by the person (CIF files, zone axes, orientation relationships).
+            - The phases: `add_phase` takes a CIF from the Agent folder (the first is the matrix), `set_phase` marks the \
+            matrix and sets a phase's own excitation slab, `remove_phase` takes one out. The orientations are found from \
+            the structures (default); `set_phase_mapping` orientation_source typedZones uses typed zone axes instead.
+            - A thin plate or needle stays excited further from the Bragg condition than the bulk: if a known phase is \
+            missed, raise its own excitation slab (a plate seen edge-on can need several times the default) and compare last_run.
             - Tolerances are in Å⁻¹ and met on the detector's pixel grid: `scale_phase_matching_to_detector` sets pair radius \
             and matrix removal to one detector pixel; on_this_detector.advice says when a value is below a pixel.
             - `set_phase_mapping` changes the library and matching settings; changing the classifier resets \
             min_intensity_fraction to that classifier's default, as the picker does.
-            - After `run_task`, judge the map with `get_result_image` against `get_scan_map`: a phase should sit where the \
+            - After `run_task`, `get_window` phase_mapping.last_run gives positions per phase, not indexed and the learned \
+            relationships. Judge the map with `get_result_image` against `get_scan_map`: a phase should sit where the \
             features are, with its known shape, and not on the matrix. Check a few called positions with \
             `select_scan_position` and `get_pattern_image`.
             """
