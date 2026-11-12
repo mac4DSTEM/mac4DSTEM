@@ -59,6 +59,7 @@ enum DiskKitFixture {
 
     static func base() -> DiskDetectionParams {
         var p = DiskDetectionParams()
+        p.subpixel = .poly   // stated: the baseline's cases are parabolic unless named "multicorr" (the default is multicorr since 5.3.0)
         p.minPeakSpacing = 20
         p.edgeBoundary = 10; p.minRelativeIntensity = 0.05
         return p

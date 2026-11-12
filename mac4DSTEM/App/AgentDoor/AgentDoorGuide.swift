@@ -116,7 +116,7 @@ extension Mac4DSTEMAgentDoor {
             - corr_power: 1 cross-correlation (robust on noisy data), 0 phase correlation (sharp, for patterned probes), \
             between them the hybrid.
             - sigma_cc and sigma_dp: smoothing of the correlation and of the pattern, for noisy data.
-            - subpixel: poly by default; multicorr (with upsample_factor) for strain-grade positions, slower.
+            - subpixel: multicorr by default (with upsample_factor), strain-grade positions; poly is several times quicker.
             - max_peaks: the most disks kept per pattern.
 
             There is no single right value for any of these: the defaults are scaled to the detector, and the right \

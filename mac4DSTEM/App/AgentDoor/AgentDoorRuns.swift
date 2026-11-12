@@ -104,7 +104,7 @@ extension Mac4DSTEMAgentDoor {
     /// The Subpixel picker, by the recipe's names (issue #235).
     static let subpixelParameter = AgentParameter(
         "subpixel", .choice(SubpixelMode.allCases.map(\.provenanceID)),
-        summary: "How each disk is located: pixel (fastest), poly (parabolic, the default) or multicorr (Fourier upsampling, "
+        summary: "How each disk is located: pixel (fastest), poly (parabolic, quick) or multicorr (the default: Fourier upsampling, "
             + "strain-grade; upsample_factor applies).")
 
     static func subpixelMode(named name: String) -> SubpixelMode? {
