@@ -72,7 +72,7 @@ extension AppState {
             // replaced by the next analysis' status, so the kernel build says it again where the user is now.
             if epoch == datasetSession.epoch, let mean = meanPattern {
                 let count = OriginCalibration.comparableBrightDiskCount(dp: mean.pixels, qy: mean.qy, qx: mean.qx)
-                if count > 1 { statusText = "No probe kernel. " + OriginCalibration.severalBrightDisksNote(count: count) }
+                if count > 1 { statusText = OriginCalibration.severalBrightDisksNote(count: count) }
             }
             return
         }

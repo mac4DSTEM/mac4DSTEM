@@ -86,6 +86,9 @@ package nonisolated struct CalibrationProvenance: Equatable, Sendable {
     /// exported before 2026-09-28 has an unknown sign). Shown on the R–Q row only
     /// while `rotation` is still `.importedFile`: measuring or typing it retires it.
     package var rotationImportNote: String?
+    /// Why the origin run stored no probe radius (mac4DSTEM#203: several disks as bright as the beam). Shown on the
+    /// Origin & probe row only while no probe radius is set; a typed, restored or measured radius needs no clearing.
+    package var probeNotMeasuredNote: String?
     /// What the known-crystal Q calibration could NOT check about the scale it
     /// produced (lane Q, 2026-09-30): "Shell ratio unchecked — …". Shown on the
     /// Q row only while that row still describes the value it was written for —
@@ -369,7 +372,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         let probeDetail = validProbe
             ? "\(CalibrationUnitConversion.displayNumber(Double(calibration.probeRadius!), digits: 3, locale: locale))\u{00A0}px "
                 + "(\(keepTogether(provenance.probe?.rawValue ?? "Unknown source")))"
-            : "Not set"
+            : (provenance.probeNotMeasuredNote.map { "Not set (\($0))" } ?? "Not set")
         var originDetail = "Origin: \(originSource?.stateLabel ?? "Not set") · Probe: \(probeDetail)"
         if let originResidual {
             originDetail += " · Fit\u{00A0}RMS\u{00A0}\(CalibrationUnitConversion.displayNumber(Double(originResidual), digits: 4, locale: locale))\u{00A0}px"

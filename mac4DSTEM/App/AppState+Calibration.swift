@@ -136,7 +136,8 @@ extension AppState {
             let brightDisks = OriginCalibration.comparableBrightDiskCount(dp: result.meanDP, qy: d.qy, qx: d.qx)
             if !standing, result.meanProbeRadius == nil, brightDisks > 1 {
                 let note = OriginCalibration.severalBrightDisksNote(count: brightDisks)
-                statusText = "Origin ✓  fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue)). \(note)"
+                calibrationSession.provenance.probeNotMeasuredNote = "several disks are as bright as the beam; type it in Bragg Disks"
+                statusText = "Origin ✓  fit RMS \(Num.fixed(Double(rms), 3)) px. \(note)"
             } else {
                 statusText = "Origin ✓  r ≈ \(Num.fixed(radius, 1)) px, fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
             }

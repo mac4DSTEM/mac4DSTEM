@@ -222,7 +222,8 @@ package nonisolated enum OriginCalibration {
 
     /// What the user is told when the probe radius is not measured because of `comparableBrightDiskCount` (mac4DSTEM#203).
     package nonisolated static func severalBrightDisksNote(count: Int) -> String {
-        "Probe radius not measured: the mean pattern holds \(count) disks as bright as the beam, so their sum would be measured. Type the radius of one disk in Bragg Disks › Probe radius."
+        // The instruction first: the status line shows about ninety characters (driven 2026-11-12, the end was cut off).
+        "Type the probe radius (Bragg Disks › Probe radius): not measured, \(count) disks are as bright as the beam."
     }
 
     // MARK: - Robust origin fit (v2 S13)

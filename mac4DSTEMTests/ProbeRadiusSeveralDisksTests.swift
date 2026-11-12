@@ -85,10 +85,17 @@ final class ProbeRadiusSeveralDisksTests: XCTestCase {
         XCTAssertNotEqual(state.calibrationSession.provenance.probe, .measuredInApp)
         let note = OriginCalibration.severalBrightDisksNote(count: 9)
         XCTAssertTrue(state.activityLog.messages.contains { $0.contains(note) }, "the log does not say it; status: \(state.statusText)")
+        XCTAssertLessThanOrEqual(note.count, 110, "the status line cuts a long note before its end")
+        XCTAssertTrue(note.hasPrefix("Type the probe radius"), "the instruction comes first")
+        // The row says it too, for as long as no radius is set (the status line is replaced by the next analysis).
+        let row = try XCTUnwrap(state.calibrationSession.readiness.items.first { $0.kind == .originProbe })
+        XCTAssertTrue(row.detail.contains("Probe: Not set (several disks are as bright as the beam"), row.detail)
         // A typed radius stands, and the next origin run does not touch it.
         await state.useProbeRadius(2.5)
         await state.calibrateOrigin()
         XCTAssertEqual(state.calibrationSession.calibration.probeRadius, 2.5)
         XCTAssertEqual(state.calibrationSession.provenance.probe, .manual)
+        let after = try XCTUnwrap(state.calibrationSession.readiness.items.first { $0.kind == .originProbe })
+        XCTAssertFalse(after.detail.contains("several disks"), after.detail)
     }
 }
