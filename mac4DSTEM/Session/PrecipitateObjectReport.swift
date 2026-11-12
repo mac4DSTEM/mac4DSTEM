@@ -225,6 +225,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package var variantHabit: OrientationRelationshipPreset.Habit? = nil
     /// Each variant's direction in the kit's order (12 values): what ranks a variant among the four of its direction for the colours.
     package var variantDirections: [Int]? = nil
+    /// Where the variant count read its orientations, when not from the phase map's library entries (a map made from the structures).
+    package var variantSourceNote: String? = nil
 
     package var hasPhysicalScale: Bool { pixelSize != nil && pixelUnit != nil }
 
@@ -249,7 +251,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         variantJoin: ObjectJoinResult<VariantAssignment>? = nil,
         variantSettings: VariantSettings? = nil,
         endOnDirection: Int? = nil,
-        variantDirections: [Int]? = nil
+        variantDirections: [Int]? = nil,
+        variantDefaultToleranceDegrees: Double? = nil
     ) -> PrecipitateObjectReport {
         let minimum = max(1, minimumAreaPx)
         let scale: Double? = {
@@ -336,7 +339,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
                 report.variantGroups = Self.variantGroups(objects: objects, rows: rows, minimum: minimum, scale: scale, pixelUnit: pixelUnit,
                                                           familyNames: preset.familyNames, variantCount: variantDirections?.count ?? 12)
                 report.variantHabit = preset.habit
-                report.variantSummary = variantSettings.map { Self.variantSummary($0) }
+                report.variantSummary = variantSettings.map { Self.variantSummary($0, structuresToleranceDegrees: variantDefaultToleranceDegrees) }
+                if variantDefaultToleranceDegrees != nil { report.variantSourceNote = "the matrix and precipitate orientation found at each position from the structures" }
                 report.endOnDirection = endOnDirection
                 report.variantDirections = variantDirections
             }
@@ -345,8 +349,12 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     }
 
     /// The settings in words, for the CSV and the section's help: "beta'' in Al, Andersen 1998; tolerance 1 degree (half the library step) ...".
-    package nonisolated static func variantSummary(_ s: VariantSettings) -> String {
-        let tolerance = s.toleranceDegrees.map { number($0) + " degrees" } ?? "half the library's in-plane step"
+    /// `structuresToleranceDegrees`: for a map made from the structures, the tolerance used when none is typed (there is no library; it
+    /// is the learned relationship's distance to the named one plus 3 degrees).
+    package nonisolated static func variantSummary(_ s: VariantSettings, structuresToleranceDegrees: Double? = nil) -> String {
+        let fallback = structuresToleranceDegrees.map { number(($0 * 10).rounded() / 10) + " degrees (the learned relationship's distance to the named one, plus 3)" }
+            ?? "half the library's in-plane step"
+        let tolerance = s.toleranceDegrees.map { number($0) + " degrees" } ?? fallback
         return "\(s.orientationRelationship.title); a pixel votes within \(tolerance); assigned at an agreement of at least \(number(s.agreementMinimum)) of the object's pixels"
     }
 
@@ -367,8 +375,12 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
         var out: [VariantGroup] = []
         for d in familyNames.indices { out.append(group(.direction, d, covered.filter { $0.variant?.direction == d }, name: familyNames[d])) }
+        // A variant that is the other half of a group shown on another row has no row of its own: "Variant 3: 0 objects" under
+        // "Variant 2 or 3" would read as looked for and not found.
+        let absorbed = Set(covered.flatMap { $0.variant?.alternatives ?? [] })
         for v in 1...max(variantCount, 1) {
             let members = covered.filter { $0.variant?.variant == v }
+            if members.isEmpty, absorbed.contains(v) { continue }
             // A group the pattern cannot tell apart is named as one: "Variant 6 or 7" (every member of a row carries the same text
             // when the scan is one grain; with several, the texts met are listed).
             let texts = Set(members.compactMap { $0.variant?.alternatives == nil ? nil : $0.variantText }).sorted()
@@ -502,7 +514,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             lines.append("# strain: the mean of the strain map over the object's scan positions, in rows (rr) and columns (cc), rotation in degrees; *_sigma is the spread across the pixels, not a fit error")
         } else if let why = strainUnavailable { lines.append("# strain: not available: \(why)") }
         if let summary = variantSummary, variantGroups != nil {
-            lines.append("# variants: \(summary); source: the phase map's winning library entry per position; \(variantHabit == .plate ? "plate normals are matrix directions" : "needle directions are the matrix cube axes")")
+            lines.append("# variants: \(summary); source: \(variantSourceNote ?? "the phase map's winning library entry per position"); \(variantHabit == .plate ? "plate normals are matrix directions" : "needle directions are the matrix cube axes")")
             if let end = endOnDirection {
                 let name = variantGroups?.first { $0.kind == .direction && $0.index == end }?.title ?? VariantGroup.directionName(end)
                 lines.append(variantHabit == .plate ? "# face-on: plates on \(name) lie face-on to the beam" : "# end-on: needles along \(name) lie along the beam")
@@ -527,7 +539,9 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             var parts = ["\(g.countedObjects) counted of \(g.totalObjects)"]
             if let areal = g.arealDensity { parts.append("density \(Self.number(areal)) per \(unit)^2") }
             if let detail = g.detail { parts.append(detail) }
-            lines.append("# \(g.kind.rawValue) \(g.kind == .direction ? g.title : String(g.index)): " + parts.joined(separator: ", "))
+            // A group the pattern cannot tell apart is named as in the legend: "variant 6 or 7".
+            let label = g.kind == .direction ? g.title : (g.kind == .variant ? (g.name.map { String($0.dropFirst("Variant ".count)) } ?? String(g.index)) : String(g.index))
+            lines.append("# \(g.kind.rawValue) \(label): " + parts.joined(separator: ", "))
         }
         lines.append(columnNames.joined(separator: ","))
         for r in rows {

@@ -440,6 +440,9 @@ package nonisolated enum ObjectVariantJoin {
         package var endOnDirection: Int?
         /// Each variant's habit direction (index into the preset's family names), in the kit's order.
         package var habitFamilies: [Int] = []
+        /// A map made from the structures: the tolerance used when the user typed none, degrees (the learned relationship's distance to
+        /// the named one plus the kit's 3 degrees). nil for typed zone axes, whose default is half the library's in-plane step.
+        package var defaultToleranceDegrees: Double? = nil
     }
 
     /// How far the relationship a structures run learned for a candidate lies from the named one, degrees, up to both symmetries; the
@@ -525,7 +528,7 @@ package nonisolated enum ObjectVariantJoin {
             let result = ObjectVariantAssigner.run(objects: objects, results: map.results, orientations: orientations, precipitatePhaseIndex: phase,
                                                    setup: setup, settings: settings)
             return Outcome(result: result, endOnDirection: orientations.matrixBeamAxis.flatMap { setup.preset.family(alongBeam: $0) },
-                           habitFamilies: setup.habitFamily)
+                           habitFamilies: setup.habitFamily, defaultToleranceDegrees: orientations.inPlaneStepDegrees / 2)
         }
         guard let library else { return unavailable("The phase map's reference library is not kept; map the phases again.") }
         guard let matrixEntryIndex, matrixEntryIndex >= 0 else { return unavailable(VariantError.noMatrixEntry.localizedDescription) }

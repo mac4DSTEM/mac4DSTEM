@@ -160,5 +160,27 @@ final class DemoV3VariantsTests: XCTestCase {
             XCTAssertEqual(a.agreement, 1, accuracy: 1e-9, "\(name): the pair is one choice, so every position agrees")
         }
         XCTAssertNil(assigned["Q1"]); XCTAssertNil(assigned["Q2"])
+
+        // What the legend, the object table and the CSV say (seen on screen in the PR 253 check, pinned here).
+        let report = PrecipitateObjectReport.make(
+            objects: objects, phaseNames: map.phaseNames, matrixPhaseIndex: map.matrixPhaseIndex, pixelSize: nil, pixelUnit: nil, minimumAreaPx: 1,
+            variantJoin: outcome.result, variantSettings: VariantSettings(), endOnDirection: outcome.endOnDirection,
+            variantDirections: outcome.habitFamilies, variantDefaultToleranceDegrees: outcome.defaultToleranceDegrees)
+        let variantRows = (report.variantGroups ?? []).filter { $0.kind == .variant }
+        let titles = variantRows.map(\.title)
+        for title in ["Variant 2 or 3", "Variant 6 or 7", "Variant 9 or 11"] { XCTAssertTrue(titles.contains(title), "\(title) is not a legend row: \(titles)") }
+        // The other half of a pair has no row of its own; a variant nobody has (10, 12) keeps its row with 0 objects.
+        XCTAssertEqual(variantRows.map(\.index), [1, 2, 4, 5, 6, 8, 9, 10, 12], "\(titles)")
+        let summary = try XCTUnwrap(report.variantSummary)
+        XCTAssertTrue(summary.contains("the learned relationship's distance to the named one, plus 3"), summary)
+        XCTAssertFalse(summary.contains("library"), summary)
+        let texts = Set(report.rows.map(\.variantText))
+        XCTAssertTrue(texts.isSuperset(of: ["1", "4", "5", "8", "2 or 3", "6 or 7", "9 or 11"]), "\(texts)")
+        let csv = report.csv()
+        XCTAssertTrue(csv.contains("6 or 7"), "the CSV does not carry the pair")
+        XCTAssertTrue(csv.contains("# variant 6 or 7: 1 counted of 1"), "the CSV's legend line does not name the pair")
+        XCTAssertTrue(csv.contains("found at each position from the structures"), "the CSV names the wrong source")
+        XCTAssertFalse(csv.contains("library"), "the CSV speaks of a library a structures run does not have")
+        try? csv.write(toFile: NSTemporaryDirectory() + "demo-v3-variants-from-structures.csv", atomically: true, encoding: .utf8)
     }
 }
