@@ -78,6 +78,23 @@ extension AppState {
                              invAngstromPerPixel: acomScaleSemantics.invAngstromPerPixel, maximum: setting)
     }
 
+    /// The matching settings with "Ignore peaks beyond" held to the reference library's reach (mac4DSTEM#221).
+    ///
+    /// The library is built to the nearest detector edge (`phaseLibraryKMax`), but a square detector records out to its
+    /// corners, 1.4 times as far. A peak out there has no reference in any entry, so it can only count as unexplained: on a
+    /// 66 px SPED scan (Zenodo 10.5281/zenodo.2652906) the Al 400 spots in the corners made every position "not indexed"
+    /// (matrix 0 of 160,000; with the cut at the reach, matrix 153,164 and the β″ needles). 0 ("the detector's edge") and
+    /// anything beyond the reach become the reach; a smaller setting stands. Thronsen et al. cut their peaks the same way
+    /// (their step 3: 0.68 Å⁻¹ against a library to 0.70).
+    nonisolated static func matchingWithinLibraryReach(_ settings: PhaseVectorSettings, libraryKMaxInvAngstrom reach: Double) -> PhaseVectorSettings {
+        guard reach.isFinite, reach > 0 else { return settings }
+        var out = settings
+        if !(settings.maximumVectorInvAngstrom > 0) || settings.maximumVectorInvAngstrom > reach {
+            out.maximumVectorInvAngstrom = reach
+        }
+        return out
+    }
+
     /// Human-readable reason a `PhaseReferenceLibrary.Failure` happened.
     /// Every arm names a number or a phase, because "could not build the
     /// library" tells a user nothing they can act on.
@@ -194,10 +211,13 @@ extension AppState {
         // whole-scan nearest-neighbour search on the main actor.
         let scan = calibrated.vectors.phaseScan
         let scanWidth = calibrated.vectors.scanWidth, scanHeight = calibrated.vectors.scanHeight
+        // The matcher's settings with the peaks cut at the library's reach (`matchingWithinLibraryReach`); the run record
+        // keeps the user's own settings.
+        let reachSettings = Self.matchingWithinLibraryReach(matchSettings, libraryKMaxInvAngstrom: librarySettings.kMaxInvAngstrom)
         let result = await Task.detached(priority: .userInitiated) {
             PhaseVectorMatcher.map(
                 scan: scan, scanWidth: scanWidth, scanHeight: scanHeight,
-                library: library, settings: matchSettings,
+                library: library, settings: reachSettings,
                 originX: origin.x, originY: origin.y,
                 invAngstromPerPixel: invAngstromPerPixel,
                 progress: progress, isCancelled: { cancellation.isCancelled }
@@ -731,7 +751,7 @@ extension AppState {
         var reference = phaseMapping.reference
         reference.kMaxInvAngstrom = phaseLibraryKMax(setting: reference.kMaxInvAngstrom, origin: origin,
                                                      descriptor: descriptor)
-        let matching = phaseMapping.matching
+        let matching = Self.matchingWithinLibraryReach(phaseMapping.matching, libraryKMaxInvAngstrom: reference.kMaxInvAngstrom)
         let crystal = slot.model.structure
         let scan = calibrated.vectors.phaseScan
         let scanWidth = calibrated.vectors.scanWidth, scanHeight = calibrated.vectors.scanHeight
