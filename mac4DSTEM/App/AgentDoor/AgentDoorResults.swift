@@ -155,16 +155,19 @@ extension Mac4DSTEMAgentDoor {
             if call.arguments["clear"] == "true" { state.clearComparison() }
             let saved = state.sessionInventory.results
             let slots: [(String, ComparisonSlot)] = [("a", .a), ("b", .b)]
+            var loads: [(SessionResultDescriptor, ComparisonSlot)] = []
             for (key, slot) in slots {
                 guard let wanted = call.arguments[key] else { continue }
                 guard let result = saved.first(where: { $0.id == wanted }) ?? saved.first(where: { $0.displayName == wanted }) else {
                     return .refusal(status: 404, message: "No saved result \(wanted); this session has "
                         + (saved.isEmpty ? "none (save_to_session)." : saved.map(\.displayName).joined(separator: ", ") + "."))
                 }
-                await state.loadSavedSessionResult(result, into: slot)
+                loads.append((result, slot))
             }
             state.statusText = agentChangeLine("the comparison", call.arguments)
-            return .json(["saved_results": savedResults(of: state)])
+            Task { for (result, slot) in loads { await state.loadSavedSessionResult(result, into: slot) } }
+            return .json(["loading": loads.map { ["slot": $0.1 == .a ? "a" : "b", "id": $0.0.id] },
+                          "saved_results": savedResults(of: state)])
         },
         AgentTool(name: "show_quality_field", title: "Inspect quality field",
                   summary: "Shows the quality field paired with the displayed result instead of the result (true) or the result "
@@ -179,16 +182,18 @@ extension Mac4DSTEMAgentDoor {
         },
         AgentTool(name: "rewind_lineage", title: "Rewind to Here",
                   summary: "Puts the settings of a recorded step back, as Rewind to Here does: name the step by its id from get_lineage. "
-                      + "Later steps stay recorded; their tasks re-run them.",
+                      + "Later steps stay recorded; their tasks re-run them. It answers at once.",
                   input: .window,
                   parameters: [AgentParameter("step", .text, summary: "The step's id, from get_lineage.", required: true)],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             guard !state.isBusy else { return busyRefusal }
-            if let refusal = await state.rewindLineage(to: call.arguments["step"] ?? "") {
-                return .refusal(status: 409, message: refusal)
+            let step = call.arguments["step"] ?? ""
+            if case .failure(let refusal) = state.replay.lineage.rewindPlan(to: step) {
+                return .refusal(status: 404, message: refusal.description)
             }
-            return .json(["rewound_to": call.arguments["step"] ?? ""])
+            Task { await state.rewindLineage(to: step) }
+            return .json(["rewinding_to": step, "note": "get_window's status says when it is done, or why it was refused."])
         },
         AgentTool(name: "reopen_full_extent", title: "Reopen at Full Extent",
                   summary: "Reopens a cropped or binned dataset at its full extent and replays the recorded recipe on it, as Reopen at "
