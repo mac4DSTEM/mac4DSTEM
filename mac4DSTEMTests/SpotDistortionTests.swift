@@ -1,5 +1,4 @@
 import XCTest
-import simd
 import DSTEMCore
 import DSTEMSession
 import DiffractoCore
@@ -37,7 +36,7 @@ final class SpotDistortionTests: XCTestCase {
         let m = ZoneAxisFrame.matrix(detectorBasis: ZoneAxisFrame.detectorBasis(zoneAxis: SIMD3(0, 0, 1)), inPlaneAngle: Float(12 * Double.pi / 180))
         let al = try PhaseOrientationCandidate(name: "Al", crystal: CrystalPresets.aluminum, kMax: 0.83)
         let field = MatrixOrientationField(width: 8, height: 1, results: [OrientationResult](repeating: .empty, count: 8),
-                                           orientations: [simd_double3x3?](repeating: m, count: 8))
+                                           orientations: Array(repeating: m, count: 8))
         let kit = try XCTUnwrap(PhaseVectorMatcher.matrixSpotDistortion(scan: [[SIMD2<Double>]](repeating: peaks, count: 8), field: field,
                                                                         reflections: al.reflections, originX: origin, originY: origin,
                                                                         invAngstromPerPixel: q, maximumVectorInvAngstrom: 0.83))
