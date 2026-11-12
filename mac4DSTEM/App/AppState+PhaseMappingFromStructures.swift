@@ -149,13 +149,7 @@ extension AppState {
         recordPhaseMappingRun(map: map, run: phaseMapping.lastRun)
         publishPhaseMapProduct()
         await publishPrecipitateClassificationFromPhaseMap()
-        let counts = map.phaseCounts
-        let indexed = counts.enumerated()
-            .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
-            .map { "\(map.phaseNames[$0.offset]) \($0.element)" }
-            .joined(separator: ", ")
-        statusText = "Phase map: \(indexed.isEmpty ? "no candidate phase found" : indexed)"
-            + ", matrix \(map.count(of: .matrix)), not indexed \(map.count(of: .notIndexed))"
+        statusText = Self.phaseMapStatusLine(map)
         return .published
     }
 }

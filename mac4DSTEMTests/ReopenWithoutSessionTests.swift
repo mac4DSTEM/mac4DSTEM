@@ -296,7 +296,8 @@ final class ReopenWithoutSessionTests: XCTestCase {
             recorded: nil, loaded: .fullExtent))
         XCTAssertEqual(unreadable.kind, .unreadable, "an unreadable sidecar is named before a region that does not fit")
         XCTAssertEqual(unreadable.identifier, "sidebar.session.unreadable")
-        XCTAssertEqual(unreadable.shown, "Could not restore cube.mac4dstem.h5: bad object header")
+        XCTAssertEqual(unreadable.shown, SessionSidebarWording.unreadableForAnotherReason)
+        XCTAssertTrue(unreadable.help.contains("Could not restore cube.mac4dstem.h5: bad object header"), "the library's detail is the hover")
     }
 
     /// Mutation: the no-refusal branch shows the short remedy line too -> red (saving is not off there).
@@ -324,8 +325,13 @@ final class ReopenWithoutSessionTests: XCTestCase {
 
         let other = "Could not restore cube.mac4dstem.h5: bad object header (underlying: HDF5 1)"
         let kept = SessionSidebarWording.unreadableDetail(reason: other)
-        XCTAssertEqual(kept.shown, other)
-        XCTAssertEqual(kept.full, other)
+        XCTAssertEqual(kept.shown, SessionSidebarWording.unreadableForAnotherReason, "the causes in words, not the library's line cut mid-word")
+        XCTAssertLessThan(kept.shown.count, 120)
+        XCTAssertEqual(kept.full, other, "the library's detail, the only clue, is the hover")
+        // Allow Access… is the sandbox's way out and is offered for nothing else.
+        XCTAssertTrue(SessionSidebarWording.offersAllowAccess(reason: access))
+        XCTAssertFalse(SessionSidebarWording.offersAllowAccess(reason: other))
+        XCTAssertFalse(kept.shown.contains(SessionSidebarWording.allowAccessTitle))
     }
 
     /// Mutation: `warningHelp` appends "The Info tab carries the full explanation." (HEAD) -> red.

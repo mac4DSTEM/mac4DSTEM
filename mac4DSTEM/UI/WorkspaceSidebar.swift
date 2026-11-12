@@ -278,7 +278,7 @@ struct SessionSection: View {
             recorded: appState.sessionLoadSpecification,
             loaded: appState.loadedView.specification) {
             warning(shown)
-            if shown.kind == .unreadable {
+            if shown.kind == .unreadable, SessionSidebarWording.offersAllowAccess(reason: shown.help) {
                 // The way out, where the warning is (2026-09-30): the sandbox grant the app lacks for a sibling it
                 // never saved from this Mac. One open panel at the file, then the dataset reopens with its session.
                 Button(SessionSidebarWording.allowAccessTitle) { appState.allowAccessToSessionSidecar() }
@@ -546,9 +546,20 @@ enum SessionSidebarWording {
     /// sentence, which names `allowAccessTitle` — shows the remedy alone (the button is right below) and the
     /// sentence on hover; any other failure keeps its own text, the only clue there is.
     static func unreadableDetail(reason: String) -> (shown: String, full: String) {
-        guard reason.contains(allowAccessTitle) else { return (reason, reason) }
+        guard offersAllowAccess(reason: reason) else { return (unreadableForAnotherReason, reason) }
         return ("Not granted access by macOS. Choose \(allowAccessTitle) below and pick that file.", reason)
     }
+
+    /// Whether the way out is the sandbox grant: only when macOS refused the file (the reason names the button). A file that
+    /// is damaged, from another version or held open by another copy of the app is not helped by picking it again, and the
+    /// button was offered there too (seen on the 5.3.0 walk, with a second copy of the app holding the same dataset).
+    static func offersAllowAccess(reason: String) -> Bool { reason.contains(allowAccessTitle) }
+
+    /// The line for every failure that is not the sandbox's: what it can be, in words; the library's own detail, cut
+    /// mid-word in the sidebar until 5.3.0, is the hover.
+    static let unreadableForAnotherReason =
+        "The file is damaged, written by another version, or open in another copy of the app. It is left untouched."
+
 
     /// The hover: the headline and the whole text. (It used to end "The Info tab carries the full
     /// explanation." — false: Info holds neither the refusal nor its remedy.)

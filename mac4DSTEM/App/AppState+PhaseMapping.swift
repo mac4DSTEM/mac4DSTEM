@@ -125,6 +125,24 @@ extension AppState {
 
     /// Map every scan position to a phase, or to "not indexed".
     @discardableResult
+    /// The status line of a finished phase map: every position of the scan is in one of its counts, so the line adds up
+    /// (the positions without a detected disk were left out, and "151 + 2897 + 0" was 24 short of 3,072 on the demo).
+    static func phaseMapStatusLine(_ map: PhaseMap, locale: Locale = .autoupdatingCurrent) -> String {
+        let phases = map.phaseCounts.enumerated()
+            .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
+            .map { (name: map.phaseNames[$0.offset], count: $0.element) }
+        return phaseMapStatusLine(phases: phases, matrix: map.count(of: .matrix), notIndexed: map.count(of: .notIndexed),
+                                  noPeaks: map.count(of: .noData), locale: locale)
+    }
+
+    nonisolated static func phaseMapStatusLine(phases: [(name: String, count: Int)], matrix: Int, notIndexed: Int, noPeaks: Int,
+                                               locale: Locale = .autoupdatingCurrent) -> String {
+        func n(_ value: Int) -> String { CalibrationUnitConversion.displayCount(value, locale: locale) }
+        let found = phases.map { "\($0.name) \(n($0.count))" }.joined(separator: ", ")
+        return "Phase map: \(found.isEmpty ? "no candidate phase found" : found), matrix \(n(matrix)), not indexed \(n(notIndexed))"
+            + (noPeaks > 0 ? ", no peaks \(n(noPeaks))" : "")
+    }
+
     func runPhaseMapping() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
         // First, as in strain and ACOM: peaks the current settings did not
@@ -263,13 +281,7 @@ extension AppState {
         recordPhaseMappingRun(map: map, run: phaseMapping.lastRun)
         publishPhaseMapProduct()
         await publishPrecipitateClassificationFromPhaseMap()
-        let counts = map.phaseCounts
-        let indexed = counts.enumerated()
-            .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
-            .map { "\(map.phaseNames[$0.offset]) \($0.element)" }
-            .joined(separator: ", ")
-        statusText = "Phase map: \(indexed.isEmpty ? "no candidate phase found" : indexed)"
-            + ", matrix \(map.count(of: .matrix)), not indexed \(map.count(of: .notIndexed))"
+        statusText = Self.phaseMapStatusLine(map)
         return .published
     }
 

@@ -79,8 +79,16 @@ extension AppState {
         let (kind, name) = Self.replayRegion(edx.region, pinName: edx.selectedPin?.name)
         // A pool is the 4D scan's: the step records the registration it went through (E1); a drawn region or the whole map has none.
         let registration: RegistrationRecordM2? = { if case .pool = edx.region { return spectroscopy.registration } else { return nil } }()
-        spectroscopy.recordQuantification(in: replay, registration: registration, regionKind: kind, regionName: name,
-                                          extra: Self.edsResultParameters(fit))
+        let recorded = Self.edsResultParameters(fit)
+        spectroscopy.recordQuantification(in: replay, registration: registration, regionKind: kind, regionName: name, extra: recorded)
+        statusText = Self.quantifyStatusLine(region: QuantificationRows.regionLabel(kind: kind, name: name), recordedAt: recorded["result_at"] ?? "")
+    }
+
+    /// The status line of a Quantify that landed: what was quantified and its at%, with the Region's decimal mark. Until
+    /// 5.3.0 Quantify wrote no line, and the bar kept whatever the last action had said.
+    nonisolated static func quantifyStatusLine(region: String, recordedAt: String, locale: Locale = .autoupdatingCurrent) -> String {
+        guard !recordedAt.isEmpty else { return "Quantify: \(region), no at% computed" }
+        return "Quantify ✓  \(region) · \(CalibrationUnitConversion.localizedRecordLine(recordedAt, locale: locale)) at%"
     }
 
     /// The step's `region_kind` and `region_name`, as the old room's region kinds: "wholeMap", "drawn", or the pool's kind.
