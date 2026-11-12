@@ -32,11 +32,7 @@ import DiffractoOrientation
 struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
-    /// What the CIF importer is for: one phase, or the Al–Mg–Si preset's β″.
-    @State private var importsAlMgSiPreset = false
     @State private var showMaterialsProjectSheet = false
-    /// The window's undo manager: the preset replaces the phase list, and Edit > Undo puts it back.
-    @Environment(\.undoManager) private var undoManager
     @SceneStorage private var showsAdvanced: Bool
     /// The Phases section's own Advanced disclosure (typed zone axes, mac4DSTEM#184).
     @SceneStorage("aiAnalysis.phaseMapping.phasesAdvanced.isExpanded") private var showsPhasesAdvanced = false
@@ -474,22 +470,10 @@ struct PhaseMappingSections: View {
     /// built-in library is not offered here — see the doc comment on
     /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
     /// plus this session's already-imported models (CIF or Materials Project).
-    private static let alMgSiPresetHelp = """
-        Replaces the phase list (Edit › Undo brings it back) with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF twice, at zones \
-        [0 1 0] (needles end-on) and [0 0 1] (in-plane), and selects the Known variants classifier. \
-        "Parallel to matrix" stays empty and the tolerances stay as they are. Calibration (ellipse, Q, R) \
-        is per dataset and is not set — calibrate from this scan's own lattice.
-        """
-
     private var addPhaseMenu: some View {
         InspectorAdaptiveMenu("Add Phase", systemImage: "plus") {
             Button("Materials Project…") { showMaterialsProjectSheet = true }
-            Button("From CIF file…") { importsAlMgSiPreset = false; showCIFImporter = true }
-            Divider()
-            Section("Presets") {
-                Button("Al–Mg–Si (β″ needles)…") { importsAlMgSiPreset = true; showCIFImporter = true }
-                    .tooltip(Self.alMgSiPresetHelp, hint: "Replaces the phase list with Al and your β″ CIF at two zones")
-            }
+            Button("From CIF file…") { showCIFImporter = true }
             if !appState.acomSession.importedCrystalModels.isEmpty {
                 Divider()
                 ForEach(appState.acomSession.importedCrystalModels) { model in
@@ -506,11 +490,6 @@ struct PhaseMappingSections: View {
             switch result {
             case .success(let urls):
                 guard let url = urls.first else { return }
-                if importsAlMgSiPreset {
-                    importsAlMgSiPreset = false
-                    appState.applyAlMgSiPreset(precipitateCIF: url, undoManager: undoManager)
-                    return
-                }
                 // `importCrystalModel` stores into the shared imported-model
                 // list, which ACOM owns, so a single import serves both
                 // rooms; it returns the model it parsed (nil on a refusal),
@@ -519,7 +498,6 @@ struct PhaseMappingSections: View {
                     add(model)
                 }
             case .failure(let error):
-                importsAlMgSiPreset = false
                 appState.present(error)
             }
         }
@@ -585,6 +563,7 @@ struct PhaseMappingSections: View {
                 .buttonStyle(.borderless)
                 .help("Remove \(slot.model.displayName)")
                 .accessibilityLabel("Remove \(slot.model.displayName)")
+                .accessibilityIdentifier("phaseMapping.phase.remove")
             }
             if typed {
             zoneAxisField
@@ -664,6 +643,7 @@ struct PhaseMappingSections: View {
                 .labelsHidden()
                 // The title string is the placeholder; without this VoiceOver names the field "u v w".
                 .accessibilityLabel("Zone axis")
+                .accessibilityIdentifier("phaseMapping.phase.zoneAxis")
             }
         }
 
@@ -693,6 +673,7 @@ struct PhaseMappingSections: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: LayoutPolicy.numericFieldWidth)
+                    .accessibilityIdentifier("phaseMapping.phase.excitationSlab")
                     // The grey prompt that shows the global value is not spoken; a hint, not a value, so what is typed is still read.
                     .accessibilityHint(RoomAccessibilityText.globalFallbackHint(
                         isEmpty: slot.excitationSlabInvAngstrom == nil,
@@ -730,6 +711,7 @@ struct PhaseMappingSections: View {
                 // The title string is the placeholder; without this VoiceOver names the field "Any rotation".
                 .accessibilityLabel("Parallel to matrix")
                 .accessibilityHint("A plane or direction parallel to the matrix's; empty allows any rotation")
+                .accessibilityIdentifier("phaseMapping.phase.relationship")
             }
             .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
                   + "to the matrix's, as an orientation relationship is written; "

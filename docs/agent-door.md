@@ -11,11 +11,13 @@ The door itself (listener, token, Settings section, window list, MCP endpoint) i
 
 | Tool | Answer |
 |---|---|
+| `get_workflow_guide` | how a person works through a scan here and how to judge each step (topics overview, calibration, disks, phase_mapping); read first (#236) |
 | `list_windows` | the open windows: id, file, workspace and task, whether a run is in progress (the door's own tool) |
 | `get_window` | dataset and loaded view, calibration and its verdict, task and its settings, running operation, displayed result with provenance, disk-detection parameters and statistics, saved results, recipe steps |
 | `get_result_image` | the result figure File > Export writes: colour scale, scale bar, caption |
-| `get_pattern_image` | the diffraction pattern as its pane shows it; the detector outlined in the Virtual Detector task, the detected disks drawn in the Disks task |
+| `get_pattern_image` | the diffraction pattern as its pane shows it; the detector outlined in the Virtual Detector task, the detected disks drawn in the Disks task; `disks` false leaves them off, `crop_x`/`crop_y`/`crop_half` cut and magnify a square of detector pixels (#234) |
 | `get_detected_disks` | the detected disks of the pattern on screen |
+| `get_pattern_values` | the raw counts in a box around a detector pixel, its brightest pixel and the box edge's median (local background), to tell a weak disk from noise (#234) |
 | `get_lineage` | the recipe and its run graph |
 | `get_precipitate_objects` | the precipitate object table |
 | `get_log` | the Output lines |
@@ -69,6 +71,16 @@ A batch is a loop: `list_agent_folder`, then for each file `open_file`, the run 
    server, with the port (mac4DSTEM asks for 47811) and the token. Cursor and VS Code take the same address and header.
    Claude desktop connects through MacEMUI's extension (`mac4DSTEM.mcpb`, MacEMUI `DesktopExtension/`).
 3. New Token shuts out whoever had the old one; copy the command again after it.
+4. For tools that act, also turn on "Let agents run analyses". The agent's client asks before each such call.
+
+Notes from the first real-agent run (#237):
+- The token reaches an agent only through the person (the copied command). That is on purpose: nothing else on the Mac can
+  read it, and an agent in a sandbox cannot either.
+- Pictures come back inside the tool's answer (PNG); the agent can keep them itself. The Agent folder is only for saving
+  results beside the data, behind its own switch.
+- A copy of the app with another bundle id (a test or drive build) keeps its own settings, so both switches start off there.
+  A build signed only ad hoc does not launch (library validation); sign it with the team.
+- An agent should call `get_workflow_guide` first (#236).
 
 ## How it is kept local
 
@@ -102,11 +114,27 @@ Behind "Let agents run analyses", like every tool that acts:
 | Tool | What it does |
 |---|---|
 | `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs; `can_run` says whether the task has a Run |
-| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does |
+| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does; `orientation_source` is `structures` (the default) or `typedZones`, as Advanced > Typed zone axes does (#192) |
 | `scale_phase_matching_to_detector` | Scale to This Detector: the tolerances to one detector pixel; needs a physical Q pixel size |
 
 `get_window`'s `view.task_settings` now carries Phase mapping's phases, settings, their size in detector pixels and why it
-cannot run yet, and Diffraction groups' settings. The phases themselves are the person's until the CIF-in tool (#192).
+cannot run yet, and Diffraction groups' settings.
+
+## The phase list (issue #192)
+
+Behind "Let agents run analyses". A phase is named by its `index` in `phase_mapping.phases` (from 0), since the same
+structure can be in the list twice with typed zone axes.
+
+| Tool | What it does |
+|---|---|
+| `add_phase` | a CIF in the Agent folder becomes a phase, as Add Phase > From CIF file does; the first phase is the matrix, `is_matrix` makes this one it; a file that does not read is refused in words, no modal |
+| `set_phase` | one phase: `is_matrix` (exactly one is; the matrix moves by marking another), its own `excitation_slab_inv_angstrom` or `clear_excitation_slab` back to the default, and with typed zone axes `zone_axis` and `orientation_relationship` |
+| `remove_phase` | the minus button (Edit > Undo puts it back); removing the matrix makes the first phase the matrix |
+
+`phase_mapping` also says the `orientation_source`, the `default_excitation_slab_inv_angstrom` an empty field means, and
+`last_run`: positions per phase, matrix, indexed, not indexed and no data, the relationships a structures run learned, the
+slab each phase was searched with, the reach, whether the settings changed since, and the evidence at the selected scan
+position. The reach is `max_q_inv_angstrom` (capped at the detector's edge).
 
 ## Calibration (issue #208)
 

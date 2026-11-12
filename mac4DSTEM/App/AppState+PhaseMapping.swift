@@ -847,7 +847,8 @@ extension AppState {
         return .published
     }
 
-    /// The "Al–Mg–Si (β″ needles)" preset of Add Phase: import the user's β″
+    /// The Al–Mg–Si typed-zones setup. It left the Add Phase menu with mac4DSTEM#244 (a phase list needs the structures
+    /// only since #184); the typed-zones tests and a replayed session still build their list with it. Import the user's β″
     /// CIF (not bundled — see `PhaseMappingProduct.applyAlMgSiPreset`), then
     /// replace the phase list and select the classifier. Calibration is not
     /// touched; it is per dataset.

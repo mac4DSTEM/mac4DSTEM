@@ -71,9 +71,9 @@ enum Mac4DSTEMAgentDoor {
 
     /// Every tool the door registers, in the order an agent meets them (`AgentDoorCoverage` names them).
     static var allTools: [AgentTool] {
-        tools + runTools + kernelTools
+        guideTools + tools + runTools + kernelTools
             + scanMapTools + taskTools + folderTools
-            + calibrationTools
+            + calibrationTools + phaseTools
     }
 
     static let tools: [AgentTool] = [
@@ -99,12 +99,47 @@ enum Mac4DSTEMAgentDoor {
         AgentTool(name: "get_pattern_image", title: "Diffraction pattern picture",
                   summary: "The diffraction pattern as its pane shows it (current scan position, mean or max), with its scale bar. In the "
                       + "Virtual Detector task the detector is outlined; in the Disks task the detected Bragg disks are drawn over the "
-                      + "pattern, which is how to judge a detection. Drawn at 2 pixels per point or more, as a Retina screen shows the pane.",
-                  input: .windowPicture) { call in
+                      + "pattern, which is how to judge a detection. Drawn at 2 pixels per point or more, as a Retina screen shows the pane. "
+                      + "disks false leaves the circles off, to see what lies under them; crop_x, crop_y and crop_half cut a square of "
+                      + "detector pixels (get_detected_disks' coordinates) and magnify it, to look at weak disks.",
+                  input: .windowPicture,
+                  parameters: [
+                      AgentParameter("disks", .boolean, summary: "Draw the detected disks (default true)."),
+                      AgentParameter("crop_x", .integer(0...100_000), summary: "Centre of the cut, detector pixels from the left."),
+                      AgentParameter("crop_y", .integer(0...100_000), summary: "Centre of the cut, detector pixels from the top."),
+                      AgentParameter("crop_half", .integer(2...4_096), summary: "Half the cut's side, detector pixels (default 16)."),
+                  ]) { call in
             guard let state = call.window?.state as? AppState else { return Mac4DSTEMAgentDoor.notAWindow }
-            do { return AgentJSON.picture(try state.agentPatternImage(scale: call.scale)) } catch {
+            let disks = call.arguments["disks"] != "false"
+            var crop: AgentPatternCrop?
+            if let x = call.arguments["crop_x"].flatMap(Int.init), let y = call.arguments["crop_y"].flatMap(Int.init) {
+                crop = AgentPatternCrop(x: x, y: y, half: call.arguments["crop_half"].flatMap(Int.init) ?? 16)
+            } else if call.arguments["crop_x"] != nil || call.arguments["crop_y"] != nil {
+                return .refusal(status: 400, message: "A cut needs both crop_x and crop_y.")
+            }
+            do { return AgentJSON.picture(try state.agentPatternImage(scale: call.scale, disks: disks, crop: crop)) } catch {
                 return .refusal(status: 404, message: error.localizedDescription)
             }
+        },
+        AgentTool(name: "get_pattern_values", title: "Pattern values",
+                  summary: "The raw counts of the pattern on screen in a square around detector pixel (x, y), with the brightest pixel "
+                      + "and the box edge's median as the local background: to tell a weak disk from noise by numbers. Use "
+                      + "get_detected_disks' coordinates.",
+                  input: .window,
+                  parameters: [
+                      AgentParameter("x", .integer(0...100_000), summary: "Detector pixels from the left.", required: true),
+                      AgentParameter("y", .integer(0...100_000), summary: "Detector pixels from the top.", required: true),
+                      AgentParameter("half", .integer(0...10), summary: "Half the box's side, pixels (default 5, so 11 × 11)."),
+                  ]) { call in
+            guard let state = call.window?.state as? AppState else { return Mac4DSTEMAgentDoor.notAWindow }
+            let x = Int(call.arguments["x"] ?? "") ?? -1, y = Int(call.arguments["y"] ?? "") ?? -1
+            let half = call.arguments["half"].flatMap(Int.init) ?? 5
+            guard let values = state.agentPatternValues(x: x, y: y, half: half) else {
+                guard let pattern = state.displayedPattern else { return .refusal(status: 404, message: "No pattern is on screen.") }
+                return .refusal(status: 400, message: "The pattern is \(pattern.qx) × \(pattern.qy) pixels: x is 0...\(pattern.qx - 1), "
+                    + "y is 0...\(pattern.qy - 1).")
+            }
+            return .json(values)
         },
         AgentTool(name: "get_detected_disks", title: "Detected disks",
                   summary: "The detected Bragg disks of the pattern on screen: position in detector pixels and correlation intensity.",

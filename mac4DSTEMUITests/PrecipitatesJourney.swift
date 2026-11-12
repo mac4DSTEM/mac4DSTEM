@@ -1,6 +1,6 @@
 // PrecipitatesJourney: the precipitation workflow on Paul's Al–Mg–Si cube ($MACEM_DATA/4dstem/training_dataset, default ../data):
 // origin, ellipse and R–Q rotation where the file lacks them, disks, the Al CIF and Q from the material (or PRECIP_Q typed by hand),
-// the Al–Mg–Si preset, Map Phases, the Precipitates section (objects, N_V, variants), objects on panes, the object table.
+// aluminium and β″ added from their CIFs, Map Phases, the Precipitates section (objects, N_V, variants), objects on panes, the object table.
 // Opt-in: TEST_RUNNER_PRECIP=1 TEST_RUNNER_MACEM_DATA=<data folder> [TEST_RUNNER_PRECIP_CUBE=<file>] [TEST_RUNNER_PRECIP_Q=<Å⁻¹/px>].
 
 import XCTest
@@ -80,22 +80,23 @@ final class PrecipitatesJourney: Journey {
         step("the phase mapping settings") {
             wait(for: "phaseMapping.run", timeout: 30)
         }
-        step("Add Phase ▸ Presets ▸ Al–Mg–Si with the β″ needle CIF") {
-            wait(for: "phaseMapping.addPhase").click()
-            let preset = app.menuItems["Al–Mg–Si (β″ needles)…"]
-            XCTAssertTrue(preset.waitForExistence(timeout: 10), "the Al–Mg–Si preset is not in the Add Phase menu")
-            preset.click()
-            choose(file: Self.betaCIF)
-            wait(for: "phaseMapping.classifierPicker", timeout: 20)
+        for (name, path) in [("aluminium", Self.alCIF), ("β″", Self.betaCIF)] {
+            step("Add Phase ▸ From CIF file: \(name)") {
+                wait(for: "phaseMapping.addPhase").click()
+                let item = app.menuItems["From CIF file…"]
+                XCTAssertTrue(item.waitForExistence(timeout: 10), "Add Phase has no From CIF file")
+                item.click()
+                choose(file: path)
+                wait(for: "phaseMapping.run", timeout: 20)
+            }
         }
-        step("scale the tolerances to this detector (offered under Search only)") {
-            pickClassifier("Search")
-            wait(for: "phaseMapping.scaleToDetector", timeout: 10).click()
-            pickClassifier("Known variants")
+        step("scale the tolerances to this detector, where the app offers it") {
+            let scale = element("phaseMapping.scaleToDetector")
+            if scale.waitForExistence(timeout: 5) { scale.click() }
         }
         step("Map Phases") {
             let run = wait(for: "phaseMapping.run")
-            XCTAssertTrue(run.isEnabled, "Map Phases is disabled after the preset")
+            XCTAssertTrue(run.isEnabled, "Map Phases is disabled with the two structures in the list")
             run.click()
             waitGone("toolbar.display.busy", timeout: 900)
         }
@@ -129,13 +130,6 @@ final class PrecipitatesJourney: Journey {
         app.typeKey("g", modifierFlags: [.command, .shift])
         app.typeText(path + "\r")
         app.typeKey(.return, modifierFlags: [])
-    }
-
-    private func pickClassifier(_ label: String) {
-        wait(for: "phaseMapping.classifierPicker").click()
-        let item = app.menuItems[label]
-        XCTAssertTrue(item.waitForExistence(timeout: 5), "no classifier \(label)")
-        item.click()
     }
 
     /// Lets a typed field commit before the next screenshot (an existence wait on the N_V row, never a delay).

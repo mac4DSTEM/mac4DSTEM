@@ -12,6 +12,7 @@ import DSTEMCore
 import DSTEMSession
 import ImageIO
 import ShellAgentDoor
+import SwiftUI
 @testable import mac4DSTEM
 
 @MainActor
@@ -76,7 +77,7 @@ final class AgentDoorTests: XCTestCase {
         let (data, _) = try await session.data(for: request)
         let tools = try XCTUnwrap((try JSONSerialization.jsonObject(with: data) as? [String: Any])?["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.compactMap { $0["name"] as? String },
-                       ["list_windows", "get_window", "get_result_image", "get_pattern_image", "get_detected_disks", "get_lineage",
+                       ["list_windows", "get_window", "get_result_image", "get_pattern_image", "get_pattern_values", "get_detected_disks", "get_lineage",
                         "get_precipitate_objects", "get_log"])
         XCTAssertEqual(Mac4DSTEMAgentDoor.port, 47811, "the connection command a person copied names this port")
     }
@@ -183,6 +184,62 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertNotNil(log["lines"] as? [String])
         let objects = try await ask("get_precipitate_objects")
         XCTAssertEqual(objects.status, 404, "no phase map classified")
+        withExtendedLifetime(state) {}
+    }
+
+    // MARK: issue #234: views of the pattern an agent needs to judge weak disks
+
+    /// Mutation: the box is off by one, the values are the display's rather than the counts, or the brightest pixel is wrong - red.
+    func testPatternValuesAreTheRawCountsAroundAPixel() async throws {
+        let state = AppState()
+        state.currentPattern = DiffractionPattern(qy: 32, qx: 32, pixels: (0..<1024).map(Float.init))   // value = 32·y + x
+        door.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+        let answer = try object(try await ask("get_pattern_values", ["x": "10", "y": "12", "half": "2"]))
+        XCTAssertEqual(answer["box"] as? [String: Int], ["x0": 8, "y0": 10, "width": 5, "height": 5])
+        let rows = try XCTUnwrap(answer["values"] as? [[Double]])
+        XCTAssertEqual(rows.count, 5)
+        XCTAssertEqual(rows.first?.first, 32 * 10 + 8)
+        XCTAssertEqual(rows.last?.last, 32 * 14 + 12)
+        let brightest = try XCTUnwrap(answer["brightest"] as? [String: Any])
+        XCTAssertEqual(brightest["x"] as? Int, 12)
+        XCTAssertEqual(brightest["y"] as? Int, 14)
+        XCTAssertNotNil(answer["edge_median"] as? Double)
+
+        let corner = try object(try await ask("get_pattern_values", ["x": "0", "y": "0"]))
+        XCTAssertEqual(corner["box"] as? [String: Int], ["x0": 0, "y0": 0, "width": 6, "height": 6], "the box is cut to the detector")
+        let outside = try await ask("get_pattern_values", ["x": "40", "y": "0"])
+        XCTAssertEqual(outside.status, 400, String(decoding: outside.body, as: UTF8.self))
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: a cut keeps disks outside it, or leaves them in the whole pattern's coordinates - red.
+    func testACutMovesTheDisksIntoItsCoordinates() throws {
+        let rect = AgentPatternCrop(x: 10, y: 10, half: 2).rect(width: 32, height: 32)
+        XCTAssertEqual(rect, CGRect(x: 8, y: 8, width: 5, height: 5))
+        let peaks = [BraggPeak(x: 10, y: 11, intensity: 1), BraggPeak(x: 30, y: 30, intensity: 1)]
+        let cut = AppState.overlays([.peaks(peaks, probeRadius: 2, .light)], croppedTo: rect)
+        guard case .peaks(let inside, let radius, _)? = cut.first else { return XCTFail("the disks stay drawn on a cut") }
+        XCTAssertEqual(inside.count, 1)
+        XCTAssertEqual(inside.first?.x, 2)
+        XCTAssertEqual(inside.first?.y, 3)
+        XCTAssertEqual(radius, 2)
+        XCTAssertEqual(AgentPatternCrop(x: 40, y: 40, half: 2).rect(width: 32, height: 32).width, 0, "a cut off the detector is empty")
+    }
+
+    /// The pattern picture takes the new arguments: no disks, and a cut that is magnified like a small pattern.
+    func testThePatternPictureCutsAndLeavesTheDisksOff() async throws {
+        let state = windowWithResultAndPattern()
+        door.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+        let whole = try state.agentPatternImage(scale: 1)
+        let cut = try state.agentPatternImage(scale: 1, disks: false, crop: AgentPatternCrop(x: 16, y: 16, half: 4))
+        XCTAssertGreaterThan(cut.width, 0)
+        XCTAssertNotEqual(cut.width, whole.width, "the cut is a different picture")
+        XCTAssertThrowsError(try state.agentPatternImage(scale: 1, crop: AgentPatternCrop(x: 100, y: 100, half: 2)))
+        let picture = try await ask("get_pattern_image", ["crop_x": "16", "crop_y": "16", "crop_half": "4", "disks": "false"])
+        XCTAssertEqual(picture.status, 200, String(decoding: picture.body, as: UTF8.self))
+        XCTAssertEqual(picture.contentType, "image/png")
+        let half = try await ask("get_pattern_image", ["crop_x": "16"])
+        XCTAssertEqual(half.status, 400, "a cut needs both coordinates")
         withExtendedLifetime(state) {}
     }
 }

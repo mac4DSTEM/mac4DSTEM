@@ -40,6 +40,23 @@ final class AgentDoorScanMapTests: XCTestCase {
         XCTAssertFalse(isMagenta(0, 0))
     }
 
+    /// Issue #237: the frame is easy to find. Mutation: back to one pixel, no black edge, or no outer frame - red.
+    func testTheFrameIsThickEdgedAndRepeatedFurtherOut() {
+        let width = 40, height = 40, k = 2
+        let rgba = [UInt8](repeating: 128, count: width * height * 4)   // a grey map, so the black edge shows
+        let picture = AppState.agentScanMapPicture(rgba, width: width, height: height, scale: k, outline: (x: 20, y: 20))
+        func colour(_ px: Int, _ py: Int) -> [UInt8] {
+            let i = (py * width * k + px) * 4
+            return Array(picture[i..<(i + 3)])
+        }
+        // The block of (20, 20) is pixels 40...41; frames at 1 and 2 pixels out, black at 3; the outer frame at max(8, 2k) = 8.
+        XCTAssertEqual(colour(39, 40), [255, 0, 255])
+        XCTAssertEqual(colour(38, 40), [255, 0, 255], "two pixels thick")
+        XCTAssertEqual(colour(40, 37), [0, 0, 0], "edged in black")
+        XCTAssertEqual(colour(32, 40), [255, 0, 255], "the outer frame")
+        XCTAssertEqual(colour(40, 40), [128, 128, 128], "the block keeps its colour")
+    }
+
     func testTheScaleIsAboutAThousandPixels() {
         XCTAssertEqual(AppState.agentScanMapScale(width: 400, height: 400), 2)
         XCTAssertEqual(AppState.agentScanMapScale(width: 64, height: 48), 16)
