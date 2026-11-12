@@ -517,7 +517,8 @@ package actor H5Reader: FourDDataSource {
     ///     <datacube-root>/metadatabundle/calibration/{Q,R}_pixel_size (+units,
     ///     QR_flip) — the exact values py4DSTEM would load.
     ///  2. EMD dim vectors dim0…dim3 beside the data (spacing = dim[1]−dim[0],
-    ///     units from the dataset attribute) — generic EMD/HyperSpy fallback.
+    ///     units from the dataset attribute) — generic EMD fallback.
+    ///  3. HyperSpy axes axis-0…axis-3 beside the data (`scale`, `units`).
     /// Otherwise nil → manual entry in the Calibration section.
     package func pixelCalibration() -> PixelCalibration? {
         guard let dsPath = lastDatasetPath else { return nil }
@@ -612,12 +613,39 @@ package actor H5Reader: FourDDataSource {
             if out.qSize == nil, let d = dim(qIndex) { out.qSize = d.size; out.qUnits = d.units }
         }
 
+        // 3. HyperSpy axes: groups axis-0…axis-3 beside the data, each with the attributes `scale` and `units` (HyperSpy's
+        // .hspy/.hdf5 layout, the order of the stored array). Taken only with a unit this app knows, so an axis HyperSpy left
+        // at its default (scale 1, units "<undefined>") stays "Not set" (#204).
+        if out.rSize == nil || out.qSize == nil {
+            let parent = "/" + components.dropLast().joined(separator: "/")
+            let (rIndex, qIndex) = lastStoredRank == 3 ? (0, 2) : (1, 3)
+            func axis(_ i: Int) -> (size: Double, units: String)? {
+                let path = parent + "/axis-\(i)"
+                guard let scale = readDoubleAttribute("scale", onObjectPath: path), scale.isFinite, scale > 0,
+                      let units = stringAttribute("units", onPath: path) else { return nil }
+                return (scale, Self.hyperSpyUnit(units))
+            }
+            if out.rSize == nil, let a = axis(rIndex),
+               CalibrationUnitConversion.canonicalEditableRealUnit(a.units) != nil
+                || ["µm", "um", "micron"].contains(a.units.lowercased()) {
+                out.rSize = a.size; out.rUnits = a.units
+            }
+            if out.qSize == nil, let a = axis(qIndex), CalibrationUnitConversion.canonicalEditableReciprocalUnit(a.units) != nil {
+                out.qSize = a.size; out.qUnits = a.units
+            }
+        }
+
         let hasCalibration = out.rSize != nil || out.qSize != nil
             || out.qrFlip != nil || out.qx0Mean != nil || out.qy0Mean != nil
             || out.ellipseA != nil || out.ellipseB != nil || out.ellipseTheta != nil
             || out.qrRotationRad != nil || out.probeSemiangle != nil
             || out.originMaps != nil
         return hasCalibration ? out : nil
+    }
+
+    /// A HyperSpy axis unit without its LaTeX markup: "$A^{-1}$" is "A^-1". Nothing else changes.
+    package nonisolated static func hyperSpyUnit(_ units: String) -> String {
+        units.filter { !"${}".contains($0) }.trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: Small typed readers (calibration metadata)
