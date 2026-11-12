@@ -21,6 +21,8 @@ final class PhaseMappingReproductionTests: XCTestCase {
     func testSameStructureTwiceIsTwoPhasesAtItsTwoZoneAxes() throws {
         let matrix = CrystalModelLibrary.models[0], precipitate = CrystalModelLibrary.models[1]
         let appState = AppState()
+        // One structure at two zone axes is a typed-zones list (mac4DSTEM#184: a structures list holds a structure once).
+        appState.phaseMapping.orientationSource = .typedZones
         appState.addPhaseMappingSlot(matrix)
         appState.addPhaseMappingSlot(precipitate)
         appState.addPhaseMappingSlot(precipitate)
