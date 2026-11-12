@@ -560,7 +560,6 @@ enum SessionSidebarWording {
     static let unreadableForAnotherReason =
         "The file is damaged, written by another version, or open in another copy of the app. It is left untouched."
 
-
     /// The hover: the headline and the whole text. (It used to end "The Info tab carries the full
     /// explanation." — false: Info holds neither the refusal nor its remedy.)
     static func warningHelp(headline: String, detail: String) -> String {
