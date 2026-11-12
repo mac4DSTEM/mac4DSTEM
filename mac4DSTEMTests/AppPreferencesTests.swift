@@ -49,6 +49,8 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(prefs.offerLearnedDetector)
         XCTAssertFalse(prefs.agentDoorEnabled, "the app listens to nothing until the person turns the agent door on")
         XCTAssertFalse(prefs.agentRunsEnabled, "an agent only looks until the person lets it run analyses")
+        XCTAssertNil(prefs.agentFolderBookmark, "no Agent folder until the person chooses one")
+        XCTAssertFalse(prefs.agentFolderSavesEnabled, "an agent writes nothing until the person lets it save")
     }
 
     // MARK: Round-trip through a private suite

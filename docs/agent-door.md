@@ -24,6 +24,31 @@ A window is `w1`, `w2`, ... (or none while one window is open). Pictures take `s
 2 or more, as a Retina screen shows the pane, so the disk rings stand out as they do there (#185).
 Every picture and number comes from the code that draws or exports it for the person, so the agent judges what the person sees.
 
+### Tools that act
+
+Behind a second switch, Settings > Agents > "Let agents run analyses", off by default. The agent's client asks the person
+before each call (MCP marks them as not read-only). One run at a time; Stop in the window cancels it.
+
+| Tool | Does |
+|---|---|
+| `select_scan_position` | shows the pattern at scan position x, y, as a click on the scan map does |
+| `set_disk_detection` | sets the Disks sliders it names; live detection follows (it says so when no probe kernel is built yet) |
+| `run_task` | presses Run for the window's task |
+| `stop_run` | presses Stop |
+
+### The Agent folder (batches)
+
+The person chooses one folder in Settings > Agents > Agent folder. Nothing outside it is listed, opened or written; paths
+that lead out (`..`, links) are refused.
+
+| Tool | Does |
+|---|---|
+| `list_agent_folder` | the files in the folder and its subfolders (looks only) |
+| `open_file` | opens one in the window, as File > Open does (needs "Let agents run analyses") |
+| `save_result_image` | saves the displayed result there as File > Export > Result Image does, with its provenance; needs "Let agents save results there" too, off by default; a name that exists is refused, so no file is ever replaced |
+
+A batch is a loop: `list_agent_folder`, then for each file `open_file`, the run tools, `save_result_image`.
+
 ## Turning it on
 
 1. In mac4DSTEM: Settings > Agents > "Let agents on this Mac look at open windows". Off by default.
@@ -41,11 +66,10 @@ Every picture and number comes from the code that draws or exports it for the pe
 
 ## Code
 
-`mac4DSTEM/App/AgentDoor/`: `Mac4DSTEMAgentDoor` (the door and the tools), `AgentDoorSnapshot` (what a window says).
+`mac4DSTEM/App/AgentDoor/`: `Mac4DSTEMAgentDoor` (the door and the tools that look), `AgentDoorSnapshot` (what a window says), `AgentDoorRuns` (the
+tools that act), `AgentDoorFolder` and `AgentFolder` (the Agent folder).
 Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
 
-## Not yet (5.3.0, issue #189)
+## Not yet
 
-Run and tune: tools that act, behind a second switch, "Let agents run analyses" (MacEMUI 0.7.0's `AgentTool(acts:)`).
-They select a scan position, tune the disk detection, and press Run and Stop, through the actions the buttons use. Then the
-folder tools for batches (list, open, save in one granted Agent folder), and the CIF-in orientation search as a tool.
+The CIF-in orientation search as a tool (issue #192), once CIF in is in the app.
