@@ -210,8 +210,8 @@ package nonisolated enum ObjectVariantAssigner {
         }
 
         /// From a run that found the orientations from the structures. `candidateIndex` counts the run's candidates from 0.
-        /// The default tolerance is the kit's own angle within which two variants are one (3 degrees): a found orientation is
-        /// not on a library grid, and its distance to a named relationship is what the run measured.
+        /// The default tolerance set here is the kit's own angle within which two variants are one (3 degrees); the variant
+        /// run adds the learned relationship's distance to the named one (`ObjectVariantJoin.learnedOffsetDegrees`).
         package static func make(structureRun run: StructurePhaseMapping, candidateIndex: Int, matrixCrystal: CrystalStructure) -> Orientations? {
             let verdicts = run.classification.verdicts
             guard verdicts.count == run.matrixOrientations.count else { return nil }
@@ -404,6 +404,18 @@ package nonisolated enum ObjectVariantJoin {
         package var habitFamilies: [Int] = []
     }
 
+    /// How far the relationship a structures run learned for a candidate lies from the named one, degrees, up to both symmetries; the
+    /// nearest of them when the run learned more than one, 0 when it learned none (such a phase keeps its free-search orientations).
+    package static func learnedOffsetDegrees(_ run: StructurePhaseMapping, candidate: Int, named setup: VariantSetup) -> Double {
+        guard run.classification.relationships.indices.contains(candidate), run.candidateSymmetries.indices.contains(candidate),
+              let relation = setup.set.variants.first else { return 0 }
+        let distances = run.classification.relationships[candidate].map {
+            PhaseVectorMatcher.relationDistance($0.relation, relation, matrixSymmetry: run.matrixSymmetry,
+                                                precipitateSymmetry: run.candidateSymmetries[candidate]) * 180 / .pi
+        }
+        return distances.min() ?? 0
+    }
+
     /// What a map made from the structures brings to the variant count: the run, and the two structures by the map's phase index.
     package struct StructureRun: Sendable {
         package var run: StructurePhaseMapping
@@ -430,13 +442,19 @@ package nonisolated enum ObjectVariantJoin {
                 return unavailable("Choose the phase that has the orientation relationship to the matrix.")
             }
             let matrixCrystal = structureRun.crystals[map.matrixPhaseIndex]
-            guard let orientations = ObjectVariantAssigner.Orientations.make(structureRun: structureRun.run, candidateIndex: candidate,
+            guard var orientations = ObjectVariantAssigner.Orientations.make(structureRun: structureRun.run, candidateIndex: candidate,
                                                                              matrixCrystal: matrixCrystal) else {
                 return unavailable(VariantError.noMatrixEntry.localizedDescription)
             }
             let setup: VariantSetup
             do { setup = try VariantSetup(precipitate: structureRun.crystals[phase], matrix: matrixCrystal, preset: settings.orientationRelationship) }
             catch { return unavailable((error as? LocalizedError)?.errorDescription ?? "\(error)") }
+            // The run classified every position against the variants of the relationship it LEARNED, which on real data lies a few
+            // degrees from the named one (the foil bends, the published relationship is ideal). The named relationship numbers those
+            // variants: a position is given the named variant nearest to it when it lies within the learned relationship's own distance
+            // to the named one plus the kit's angle within which two variants are one. A tolerance the user typed is used as typed.
+            let learnedOffset = Self.learnedOffsetDegrees(structureRun.run, candidate: candidate, named: setup)
+            orientations.inPlaneStepDegrees = 2 * (learnedOffset + LearnedOrientationRelationship.defaultVariantMergeAngleRad * 180 / .pi)
             let result = ObjectVariantAssigner.run(objects: objects, results: map.results, orientations: orientations, precipitatePhaseIndex: phase,
                                                    setup: setup, settings: settings)
             return Outcome(result: result, endOnDirection: orientations.matrixBeamAxis.flatMap { setup.preset.family(alongBeam: $0) },
