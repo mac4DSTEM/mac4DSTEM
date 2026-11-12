@@ -50,6 +50,9 @@ extension Mac4DSTEMAgentDoor {
             if let size = arguments["q_pixel_size"].flatMap(Double.init) { state.setManualQPixelSize(size) }
             if let unit = rUnits?.unit { state.setManualRPixelUnits(unit) }
             if let size = arguments["r_pixel_size"].flatMap(Double.init) { state.setManualRPixelSize(size) }
+            // An Output line names what the agent typed, so the person sees which values were not theirs.
+            let typed = arguments.keys.sorted().compactMap { name in arguments[name].map { "\(name) \($0)" } }
+            state.statusText = "An agent set the calibration: " + typed.joined(separator: ", ") + "."
             return .json(["calibration": state.agentCalibration])
         },
         AgentTool(name: "run_calibration", title: "Calibrate",

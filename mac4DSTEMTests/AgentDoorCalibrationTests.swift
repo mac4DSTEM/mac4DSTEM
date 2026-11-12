@@ -95,6 +95,8 @@ final class AgentDoorCalibrationTests: XCTestCase {
         XCTAssertEqual(calibration.rPixelSize, 4.5)
         XCTAssertEqual(calibration.rPixelUnits, "Å")
         XCTAssertEqual(state.calibrationSession.acceleratingVoltage, 300)
+        XCTAssertTrue(state.activityLog.messages.contains { $0.hasPrefix("An agent set the calibration:") && $0.contains("voltage_kv 300") },
+                      "the Output says the agent typed it: \(state.activityLog.messages.suffix(3))")
         let answered = try XCTUnwrap(try object(set.text)["calibration"] as? [String: Any])
         XCTAssertEqual(answered["q_pixel_size"] as? Double, 0.25)
         XCTAssertEqual(answered["accelerating_voltage_kv"] as? Double, 300)
