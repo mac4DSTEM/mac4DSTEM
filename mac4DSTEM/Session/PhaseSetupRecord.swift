@@ -161,6 +161,8 @@ package nonisolated struct PhaseSetupRecord: Codable, Equatable, Sendable {
     package var slots: [Slot]
     package var reference: Reference
     package var matching: Matching
+    /// Where the orientations come from (`PhaseOrientationSource`). Absent in a session saved before 5.3: typed zones.
+    package var orientationSource: String?
 
     // MARK: Writing
 
@@ -247,8 +249,9 @@ extension PhaseSetupRecord {
     /// The setup as it stands: `cifSources` is the text of each imported CIF this window holds, by model id.
     @MainActor
     package init(phases: [PhaseMappingSlot], reference: PhaseReferenceSettings, matching: PhaseVectorSettings,
-                 cifSources: [String: CIFSource]) {
+                 cifSources: [String: CIFSource], orientationSource: PhaseOrientationSource = .typedZones) {
         self.version = Self.currentVersion
+        self.orientationSource = orientationSource.rawValue
         self.slots = phases.map { slot in
             Slot(modelID: slot.model.id, displayName: slot.model.displayName, source: slot.model.source.rawValue,
                  fingerprint: slot.model.contentFingerprint, isMatrix: slot.isMatrix, u: slot.u, v: slot.v, w: slot.w,
@@ -258,6 +261,11 @@ extension PhaseSetupRecord {
         }
         self.reference = Reference(reference)
         self.matching = Matching(matching)
+    }
+
+    /// The source the setup was saved with; a session from before 5.3 has none and was typed zones.
+    package var restoredOrientationSource: PhaseOrientationSource {
+        orientationSource.flatMap(PhaseOrientationSource.init(rawValue:)) ?? .typedZones
     }
 
     /// The phase list and settings, or why not. `held`: the imported models this window already has.

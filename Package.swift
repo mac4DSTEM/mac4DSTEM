@@ -48,7 +48,7 @@ let package = Package(
         .package(url: "https://github.com/mac4DSTEM/FormatoKit", from: "0.13.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15.
-        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", from: "0.13.0"),
+        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", from: "0.14.0"),
         .package(url: "https://github.com/mac4DSTEM/CuboKit", from: "0.11.0"),
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (GPL-3.0 from 0.1.1; the app's copy was its origin,
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1. Only DSTEMCore uses it.

@@ -281,6 +281,15 @@ package enum PhaseMappingRuleDefaults {
     }
 }
 
+/// Where the orientations of the phases come from (mac4DSTEM#184).
+package enum PhaseOrientationSource: String, Sendable, Equatable, CaseIterable, Codable {
+    /// Found from the structures alone: the matrix orientation of every position, then each candidate's orientations
+    /// searched and its relationship to the matrix learned (DiffractoKit `mapFromStructures`). No zone axis is typed.
+    case structures
+    /// The zone axes typed in the phase list (Thronsen et al.'s vector matching against a reference library).
+    case typedZones
+}
+
 @Observable
 @MainActor
 package final class PhaseMappingProduct {
@@ -296,6 +305,14 @@ package final class PhaseMappingProduct {
     package var phases: [PhaseMappingSlot] = []
     package var reference = PhaseReferenceSettings()
     package var matching = PhaseVectorSettings()
+    /// Where the orientations come from. Found from the structures unless the user types zone axes.
+    package var orientationSource: PhaseOrientationSource = .structures
+    /// A structures run: the excitation slab (Å⁻¹) of a candidate phase that has none of its own. One default for every
+    /// phase; a thin plate or needle needs more, and that is the phase's own field (the measurements behind the
+    /// value are on mac4DSTEM#184).
+    /// py4DSTEM's own value for orientation matching: `sigma_excitation_error` 0.02 Å⁻¹ counted out to
+    /// `tol_excitation_error_mult` 3 (py4DSTEM 0.14.19, `crystal_ACOM.py`, `orientation_plan` and `match_orientations`).
+    package nonisolated static let structuresExcitationSlabDefault = 0.06
 
     // MARK: Result
 
@@ -340,6 +357,9 @@ package final class PhaseMappingProduct {
     /// One pair: it dies with the run (`publish` replaces it, `clear` drops
     /// it). nil when a run was published without one.
     package private(set) var lastLibrary: PhaseReferenceLibrary?
+    /// What a run from the structures found beside the map: the matrix orientations, the learned relationships, the
+    /// free-search verdicts. nil for a typed-zones run. It dies with the run, as the library does.
+    package private(set) var lastStructureRun: StructurePhaseMapping?
 
     package struct RunRecord: Sendable, Equatable {
         package init(phaseSignature: String, reference: PhaseReferenceSettings,
@@ -347,7 +367,12 @@ package final class PhaseMappingProduct {
                      matrixEntryIndex: Int, matrixInPlaneDegrees: Double,
                      worstChanceMatchPercent: Double, invAngstromPerPixel: Double,
                      qScaleIsPhysical: Bool, peakCount: Int,
-                     calibration: CalibrationStamp, libraryKMaxInvAngstrom: Double? = nil) {
+                     calibration: CalibrationStamp, libraryKMaxInvAngstrom: Double? = nil,
+                     orientationSource: PhaseOrientationSource = .typedZones, learnedRelationships: [String] = [],
+                     excitationSlabs: [String] = []) {
+            self.orientationSource = orientationSource
+            self.learnedRelationships = learnedRelationships
+            self.excitationSlabs = excitationSlabs
             self.phaseSignature = phaseSignature
             self.reference = reference
             self.libraryKMaxInvAngstrom = libraryKMaxInvAngstrom ?? reference.kMaxInvAngstrom
@@ -363,6 +388,12 @@ package final class PhaseMappingProduct {
         }
 
         package var phaseSignature: String
+        /// Where the run's orientations came from.
+        package var orientationSource: PhaseOrientationSource
+        /// A structures run: one line per candidate phase on the relationship it learned (or that it learned none).
+        package var learnedRelationships: [String]
+        /// A structures run: each candidate phase with the excitation slab it was searched with, Å⁻¹ ("name: 0.05").
+        package var excitationSlabs: [String]
         /// The reference settings as the panel held them; `isStale` compares these with the live ones.
         package var reference: PhaseReferenceSettings
         /// The k range (Å⁻¹) the library was built to: the detector's reach from the reference origin, at most
@@ -512,7 +543,8 @@ package final class PhaseMappingProduct {
     /// phase disagreed. A moved phase now reads as stale, which is the
     /// truthful state: the list no longer reads as the legend.
     package var phaseSignature: String {
-        phases.map(\.signature).joined(separator: ";")
+        // Typed zones keep the signature they always had; a structures run is told apart by its prefix.
+        (orientationSource == .structures ? "structures;" : "") + phases.map(\.signature).joined(separator: ";")
     }
 
     package var isStale: Bool {
@@ -531,11 +563,21 @@ package final class PhaseMappingProduct {
         if matrices == 0 { return "Mark one phase as the matrix." }
         if matrices > 1 { return "Exactly one phase can be the matrix; \(matrices) are marked." }
         if phases.count < 2 { return "Add a candidate phase to look for." }
-        if phases.contains(where: { $0.zoneAxis == SIMD3(0, 0, 0) }) {
-            return "A zone axis of [0 0 0] names no direction."
-        }
         for slot in phases where !slot.model.isUsable {
             return "\(slot.model.displayName) has validation issues and cannot be used."
+        }
+        if orientationSource == .structures {
+            // A structure is looked for once, at every orientation: a second copy has nothing to add.
+            for (i, slot) in phases.enumerated() {
+                if phases[..<i].contains(where: { $0.model.id == slot.model.id
+                    && $0.model.contentFingerprint == slot.model.contentFingerprint }) {
+                    return "\(slot.model.displayName) is in the list twice; its orientations are found from the structure, so one copy is enough."
+                }
+            }
+            return nil
+        }
+        if phases.contains(where: { $0.zoneAxis == SIMD3(0, 0, 0) }) {
+            return "A zone axis of [0 0 0] names no direction."
         }
         // The same structure twice is allowed (one slot per zone axis); twice at the
         // same zone axis is the same reference twice, which can only split its votes.
@@ -596,6 +638,7 @@ package final class PhaseMappingProduct {
             PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 1, w: 0),
             PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 0, w: 1),
         ]
+        orientationSource = .typedZones
         if matching.classificationRule != .knownVariants {
             matching.classificationRule = .knownVariants
             reference.minimumIntensityFraction =
@@ -613,13 +656,14 @@ package final class PhaseMappingProduct {
     package struct ListSnapshot: Equatable {
         package let phases: [PhaseMappingSlot]
         package let classificationRule: PhaseVectorSettings.ClassificationRule
+        package let orientationSource: PhaseOrientationSource
         package let minimumIntensityFraction: Double
         package let zoneAxisFits: [PhaseVectorMatcher.ZoneAxisFit]
         package let zoneAxisRun: ZoneAxisRun?
     }
 
     package var listSnapshot: ListSnapshot {
-        ListSnapshot(phases: phases, classificationRule: matching.classificationRule,
+        ListSnapshot(phases: phases, classificationRule: matching.classificationRule, orientationSource: orientationSource,
                      minimumIntensityFraction: reference.minimumIntensityFraction,
                      zoneAxisFits: zoneAxisFits, zoneAxisRun: zoneAxisRun)
     }
@@ -627,6 +671,7 @@ package final class PhaseMappingProduct {
     package func restoreList(_ snapshot: ListSnapshot) {
         phases = snapshot.phases
         matching.classificationRule = snapshot.classificationRule
+        orientationSource = snapshot.orientationSource
         reference.minimumIntensityFraction = snapshot.minimumIntensityFraction
         zoneAxisFits = snapshot.zoneAxisFits
         zoneAxisRun = snapshot.zoneAxisRun
@@ -677,12 +722,38 @@ package final class PhaseMappingProduct {
     @ObservationIgnored package var onChange: (@MainActor () -> Void)?
 
     package func publish(_ newMap: PhaseMap, ranWith record: RunRecord,
-                         library: PhaseReferenceLibrary? = nil) {
+                         library: PhaseReferenceLibrary? = nil, structureRun: StructurePhaseMapping? = nil) {
         map = newMap
         lastRun = record
         lastLibrary = library
+        lastStructureRun = structureRun
         generation += 1
         onChange?()
+    }
+
+    /// A structures run's map (phase 0 the matrix, then the candidates in `candidateSlots` order) with its phase indices
+    /// moved to the positions the phases have in the list, so colours, legend and objects read as for a typed run.
+    /// `slotNames` are the list's display names, `matrixSlot` the matrix's position, `candidateSlots[k]` the position of
+    /// the k-th candidate handed to the kit. Pure index bookkeeping; nil when an index does not fit.
+    package nonisolated static func mapInListOrder(_ kitMap: PhaseMap, slotNames: [String], matrixSlot: Int,
+                                                   candidateSlots: [Int]) -> PhaseMap? {
+        guard slotNames.indices.contains(matrixSlot), candidateSlots.allSatisfy(slotNames.indices.contains),
+              kitMap.phaseNames.count == candidateSlots.count + 1 else { return nil }
+        func slot(_ kitIndex: Int32) -> Int32 {
+            if kitIndex == 0 { return Int32(matrixSlot) }
+            let k = Int(kitIndex) - 1
+            return candidateSlots.indices.contains(k) ? Int32(candidateSlots[k]) : -1
+        }
+        var out = PhaseMap(width: kitMap.width, height: kitMap.height, matrixEntryIndex: -1,
+                           phaseNames: slotNames, matrixPhaseIndex: matrixSlot)
+        guard out.results.count == kitMap.results.count else { return nil }
+        for (i, r) in kitMap.results.enumerated() {
+            var moved = r
+            if r.phaseIndex >= 0 { moved.phaseIndex = slot(r.phaseIndex) }
+            if r.runnerUpPhaseIndex >= 0 { moved.runnerUpPhaseIndex = slot(r.runnerUpPhaseIndex) }
+            out.results[i] = moved
+        }
+        return out
     }
 
     /// The published map's display name. The phase count is in it for the same
@@ -723,6 +794,7 @@ package final class PhaseMappingProduct {
         map = nil
         lastRun = nil
         lastLibrary = nil
+        lastStructureRun = nil
         zoneAxisFits = []
         zoneAxisRun = nil
         if hadMap { generation += 1; onChange?() }

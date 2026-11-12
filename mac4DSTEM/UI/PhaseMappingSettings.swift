@@ -38,6 +38,8 @@ struct PhaseMappingSections: View {
     /// The window's undo manager: the preset replaces the phase list, and Edit > Undo puts it back.
     @Environment(\.undoManager) private var undoManager
     @SceneStorage private var showsAdvanced: Bool
+    /// The Phases section's own Advanced disclosure (typed zone axes, mac4DSTEM#184).
+    @SceneStorage("aiAnalysis.phaseMapping.phasesAdvanced.isExpanded") private var showsPhasesAdvanced = false
 
     /// `advancedExpanded` is only the first-launch value of the remembered
     /// disclosure; a test hosts the view with it open to measure its rows.
@@ -52,6 +54,8 @@ struct PhaseMappingSections: View {
 
     var body: some View {
         @Bindable var product = appState.phaseMapping
+        // Typed zone axes are the optional way since 5.3 (mac4DSTEM#184): their controls show only when switched on.
+        let typed = product.orientationSource == .typedZones
 
         // This room speaks the inspector's shared vocabulary
         // (`InspectorRows.swift`): collapsible `InspectorSection`s with a
@@ -84,6 +88,7 @@ struct PhaseMappingSections: View {
                 .help("The matrix is stated, not found: its reflections are removed "
                       + "from every pattern and it is the answer where too little is left.")
 
+                if typed {
                 // Which AXIS it is viewed down is not stated — it is measured.
                 // A matrix viewed down an axis it is not on presents no
                 // reflections to remove, so nothing is removed and every
@@ -151,12 +156,27 @@ struct PhaseMappingSections: View {
                                 + "a wrong axis explains that much through shared "
                                 + "reflections. Treat the ranking as undecided.")
                 }
+                }
             }
             InspectorActionRow {
                 addPhaseMenu
             }
+            DisclosureGroup("Advanced", isExpanded: $showsPhasesAdvanced) {
+                InspectorRow("Typed zone axes") {
+                    Toggle("Typed zone axes", isOn: Binding(
+                        get: { product.orientationSource == .typedZones },
+                        set: { product.orientationSource = $0 ? .typedZones : .structures }))
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .accessibilityIdentifier("phaseMapping.typedZones")
+                }
+                .help("Off: the orientations of every phase are found from its structure. On: each phase is "
+                      + "matched at the zone axis typed for it against a reference library "
+                      + "(Thronsen et al. 2024), as before version 5.3.")
+            }
         }
 
+        if typed {
         InspectorSection("Reference library") {
             InspectorRow("Orientations") {
                 Text("\(product.projectedEntryCount)")
@@ -185,6 +205,7 @@ struct PhaseMappingSections: View {
                                units: "Å⁻¹", format: "%.3f")
             }
         }
+        }
 
         InspectorSection("Matching") {
             // Switching the rule resets the library's "Min. intensity" to
@@ -192,6 +213,12 @@ struct PhaseMappingSections: View {
             // can still edit it afterwards. A pure function, not a listener
             // on the settings struct, so the reset happens exactly once, at
             // the moment of the switch, and not on every unrelated edit.
+            if !typed {
+                parameterField("Max |q|", value: $product.reference.kMaxInvAngstrom,
+                               units: "Å⁻¹", format: "%.2f",
+                               help: "The structures are searched out to this, or to the detector's edge when that is nearer.")
+            }
+            if typed {
             InspectorRow("Classifier") {
                 Picker("Classifier", selection: $product.matching.classificationRule) {
                     ForEach(PhaseVectorSettings.ClassificationRule.allCases, id: \.self) { rule in
@@ -205,6 +232,7 @@ struct PhaseMappingSections: View {
                 }
                 .accessibilityIdentifier("phaseMapping.classifierPicker")
             }
+            }
 
             parameterField("Pair radius", value: $product.matching.pairRadiusInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
@@ -217,7 +245,13 @@ struct PhaseMappingSections: View {
             // merely supplemented, and the resolution-in-pixels block below
             // (which exists only to explain THOSE floors) does not apply
             // either.
-            if product.matching.classificationRule == .knownVariants {
+            if !typed {
+                parameterField("Residual cutoff",
+                               value: $product.matching.residualCutoffInvAngstrom,
+                               units: "Å⁻¹", format: "%.3f",
+                               help: "A position whose best orientation leaves a mean distance above this "
+                                   + "between its vectors and the predicted spots is not indexed.")
+            } else if product.matching.classificationRule == .knownVariants {
                 parameterField("Residual cutoff",
                                value: $product.matching.residualCutoffInvAngstrom,
                                units: "Å⁻¹", format: "%.3f",
@@ -259,7 +293,7 @@ struct PhaseMappingSections: View {
             // "not indexed above" cliff is Search's own.
             if let resolution = appState.phaseVectorResolution {
                 InspectorRow("On this detector") {
-                    Text(Self.detectorResolutionText(resolution, rule: product.matching.classificationRule))
+                    Text(Self.detectorResolutionText(resolution, rule: typed ? product.matching.classificationRule : .knownVariants))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)   // the advice below carries the warning, on its symbol
                         .labelsHidden()
@@ -383,9 +417,11 @@ struct PhaseMappingSections: View {
                 .accessibilityIdentifier("phaseMapping.showDistance")
             }
 
-            InspectorValueRow("Chance match at max |q|",
-                               String(format: "%.1f %%", locale: .autoupdatingCurrent, run.worstChanceMatchPercent))
-            InspectorValueRow("Orientations", "\(run.libraryEntryCount)")
+            if run.orientationSource == .typedZones {
+                InspectorValueRow("Chance match at max |q|",
+                                   String(format: "%.1f %%", locale: .autoupdatingCurrent, run.worstChanceMatchPercent))
+                InspectorValueRow("Orientations", "\(run.libraryEntryCount)")
+            }
             if run.matrixInPlaneDegrees.isFinite {
                 InspectorValueRow("Matrix in-plane",
                                    "\(Num.fixed(Double(run.matrixInPlaneDegrees), 0))° (mod symmetry)")
@@ -515,6 +551,9 @@ struct PhaseMappingSections: View {
 
         /// The matrix picker's own label (`pickerLabels`): a name another slot
         /// shares carries its zone axis, so no two rows read the same.
+        /// Typed zone axes switched on: the zone, relationship and slab rows show (mac4DSTEM#184).
+        private var typed: Bool { appState.phaseMapping.orientationSource == .typedZones }
+
         private var rowName: String {
             let labels = PhaseMappingSlot.pickerLabels(appState.phaseMapping.phases)
             return labels.indices.contains(index) ? labels[index] : slot.model.displayName
@@ -528,9 +567,13 @@ struct PhaseMappingSections: View {
                     .frame(width: LayoutPolicy.legendSwatch, height: LayoutPolicy.legendSwatch)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(rowName)
-                    Text(slot.isMatrix ? "matrix · zone \(slot.zoneAxisText)"
-                                       : "zone \(slot.zoneAxisText)")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    if typed {
+                        Text(slot.isMatrix ? "matrix · zone \(slot.zoneAxisText)"
+                                           : "zone \(slot.zoneAxisText)")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    } else if slot.isMatrix {
+                        Text("matrix").font(.caption2).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 4)
                 Button {
@@ -543,6 +586,7 @@ struct PhaseMappingSections: View {
                 .help("Remove \(slot.model.displayName)")
                 .accessibilityLabel("Remove \(slot.model.displayName)")
             }
+            if typed {
             zoneAxisField
                 .announcing(RoomAccessibilityText.malformedCaption(
                     draft: draft, parses: PhaseMappingSlot.parseZoneAxis(draft) != nil,
@@ -561,6 +605,9 @@ struct PhaseMappingSections: View {
                    PhaseMappingSlot.parseOrientationRelationships(orientationDraft) == nil {
                     InspectorWarning(RoomAccessibilityText.relationshipMalformed)
                 }
+            }
+            } else if !slot.isMatrix {
+                excitationSlabField
             }
             }
             .onAppear {
@@ -627,7 +674,8 @@ struct PhaseMappingSections: View {
         /// Thronsen recipe — so one global value cannot serve every phase.
         private var excitationSlabField: some View {
             @Bindable var product = appState.phaseMapping
-            let global = product.reference.excitationSlabInvAngstrom
+            // Typed zones: the library's global value. A structures run: the one default for every phase.
+            let global = typed ? product.reference.excitationSlabInvAngstrom : PhaseMappingProduct.structuresExcitationSlabDefault
             let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(3))
             return InspectorRow("Excitation slab") {
                 HStack(spacing: 6) {
@@ -656,8 +704,8 @@ struct PhaseMappingSections: View {
                 .accessibilityLabel("Excitation slab")
             }
             .help("How far from the Bragg condition this phase's reflections still "
-                  + "count as excited. Empty = the library's global value, shown "
-                  + "grey. Changing it marks the map as needing a re-run.")
+                  + "count as excited. A thin plate or needle needs more than a bulk crystal. "
+                  + "Empty = the default, shown grey. Changing it marks the map as needing a re-run.")
         }
 
         /// The orientation relationship to the matrix, in the form a paper
