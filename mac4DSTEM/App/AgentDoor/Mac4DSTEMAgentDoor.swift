@@ -71,7 +71,7 @@ enum Mac4DSTEMAgentDoor {
 
     /// Every tool the door registers, in the order an agent meets them (`AgentDoorCoverage` names them).
     static var allTools: [AgentTool] {
-        tools + runTools + kernelTools
+        guideTools + tools + runTools + kernelTools
             + scanMapTools + taskTools + folderTools
             + calibrationTools
     }

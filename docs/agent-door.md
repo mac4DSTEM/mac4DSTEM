@@ -11,6 +11,7 @@ The door itself (listener, token, Settings section, window list, MCP endpoint) i
 
 | Tool | Answer |
 |---|---|
+| `get_workflow_guide` | how a person works through a scan here and how to judge each step (topics overview, calibration, disks, phase_mapping); read first (#236) |
 | `list_windows` | the open windows: id, file, workspace and task, whether a run is in progress (the door's own tool) |
 | `get_window` | dataset and loaded view, calibration and its verdict, task and its settings, running operation, displayed result with provenance, disk-detection parameters and statistics, saved results, recipe steps |
 | `get_result_image` | the result figure File > Export writes: colour scale, scale bar, caption |
