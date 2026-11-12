@@ -41,10 +41,12 @@ extension AppState {
         let strainMap = strain.map?.presented(in: strainPresentationFrame)
         let variantSettings = precipitateVariantSettings
         let phaseMap = phaseMapping.map, library = phaseMapping.lastLibrary, matrixEntry = phaseMapping.lastRun?.matrixEntryIndex
+        let fromStructures = phaseMapping.lastRun?.orientationSource == .structures
         precipitateJoinTask = Task { @MainActor [weak self] in
             let work = Task.detached(priority: .userInitiated) {
                 let quantified = source.map { ObjectCompositionJoin.Quantified(source: $0, method: method, tables: QuantificationTables.bundled()) }
-                let variants = variantSettings.map { ObjectVariantJoin.run(objects: objects, map: phaseMap, library: library, matrixEntryIndex: matrixEntry, settings: $0) }
+                let variants = variantSettings.map { ObjectVariantJoin.run(objects: objects, map: phaseMap, library: library, matrixEntryIndex: matrixEntry, settings: $0,
+                                                                           fromStructures: fromStructures) }
                 return PrecipitateJoins(
                     composition: ObjectCompositionJoin.run(objects: objects, quantified: quantified, registration: registration,
                                                            cancelled: { Task.isCancelled }),
