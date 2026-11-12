@@ -164,6 +164,15 @@ extension AppState {
         snapshot["disk_detection"] = agentDiskDetection
         snapshot["session"] = agentSession
         snapshot["has_precipitate_objects"] = precipitateObjectReport != nil
+        if let pending = promotionRun.pendingLoad, pending.preprocess == nil {
+            var open = Mac4DSTEMAgentDoor.reductionSummary(pending.configuration)
+            open["file"] = pending.url.lastPathComponent
+            open["preview_ready"] = pending.preview != nil
+            open["refusal"] = AgentJSON.orNull(pending.directBeamRefusal ?? pending.refusalReason)
+            snapshot["pending_open"] = open
+        } else {
+            snapshot["pending_open"] = NSNull()
+        }
         snapshot["log_tail"] = Array(activityLog.messages.suffix(20))
         return snapshot
     }

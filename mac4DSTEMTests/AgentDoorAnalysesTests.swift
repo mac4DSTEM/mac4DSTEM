@@ -53,7 +53,7 @@ final class AgentDoorAnalysesTests: XCTestCase {
         defaultsSuite = "agent-door-analyses-tests-\(UUID().uuidString)"
         door = AgentDoor(appName: "mac4DSTEM", appVersion: "test", preferredPort: 0, defaults: try XCTUnwrap(UserDefaults(suiteName: defaultsSuite)))
         door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools + Mac4DSTEMAgentDoor.imagingTools
-                      + Mac4DSTEMAgentDoor.precipitateTools)
+                      + Mac4DSTEMAgentDoor.precipitateTools + Mac4DSTEMAgentDoor.preprocessTools)
         door.setEnabled(true)
         for _ in 0..<250 where door.status == .starting { try await Task.sleep(for: .milliseconds(20)) }
         guard case .listening = door.status else { return XCTFail("the door did not open: \(String(describing: door.status))") }
@@ -233,6 +233,36 @@ final class AgentDoorAnalysesTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("objects.csv").path))
         let again = try await call("export_precipitates_csv", ["name": "objects"])
         XCTAssertTrue(again.refused, "never replaced")
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: preprocess writes without being told where, replaces a file, or ignores the binning - red.
+    func testPreprocessingWritesANewReducedCopyWhereItIsTold() async throws {
+        let state = enrolledState()
+        let none = try await call("preprocess", ["detector_bin": 2, "name": "binned"])
+        XCTAssertTrue(none.refused, "no dataset")
+        await state.openDemoFixture()
+        let nowhere = try await call("preprocess", ["detector_bin": 2])
+        XCTAssertTrue(nowhere.refused)
+        XCTAssertTrue(nowhere.text.contains("Say where"), nowhere.text)
+        let off = try await call("preprocess", ["detector_bin": 2, "name": "binned"])
+        XCTAssertTrue(off.refused, "saving is off")
+        let tooBig = try await call("preprocess", ["scan_width": 100_000, "name": "binned"])
+        XCTAssertTrue(tooBig.refused, "a crop that does not fit")
+
+        Mac4DSTEMAgentDoor.savesAllowed = true
+        let started = try await call("preprocess", ["detector_bin": 2, "name": "binned"])
+        XCTAssertFalse(started.refused, started.text)
+        XCTAssertEqual(try object(started.text)["detector_bin"] as? Int, 2)
+        XCTAssertEqual(try object(started.text)["writing"] as? String, "binned.h5")
+        for _ in 0..<600 where state.isBusy { try await Task.sleep(for: .milliseconds(50)) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("binned.h5").path),
+                      "\(state.activityLog.messages.suffix(3))")
+        let again = try await call("preprocess", ["detector_bin": 2, "name": "binned"])
+        XCTAssertTrue(again.refused, "never replaced")
+
+        let nothingPending = try await call("set_open_options", ["detector_bin": 2, "action": "load"])
+        XCTAssertTrue(nothingPending.refused)
         withExtendedLifetime(state) {}
     }
 }
