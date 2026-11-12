@@ -836,6 +836,9 @@ final class AppState {
             return acomSession.lastRunSemantics?.productStatus(for: kind) ?? .exploratory
         }
         if kind == "dpc_color" || kind.contains("ipf") { return .categorical }
+        // DPC without the detector's calibration is in detector pixels: the room itself says "qualitative units", and the
+        // map beside it wore the green "Quantitative" badge. The badge follows the units the run used.
+        if kind.hasPrefix("dpc"), units.hasPrefix("detector_px") { return .relative }
         if kind == "idpc_qualitative" || units.contains("intensity")
             || units.contains("arbitrary") || units.contains("log_") {
             return .relative

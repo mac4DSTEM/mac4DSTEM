@@ -157,7 +157,7 @@ struct PhaseMappingSections: View {
             InspectorActionRow {
                 addPhaseMenu
             }
-            DisclosureGroup("Advanced", isExpanded: $showsPhasesAdvanced) {
+            InspectorDisclosure("Advanced", isExpanded: $showsPhasesAdvanced) {
                 InspectorRow("Typed zone axes") {
                     Toggle("Typed zone axes", isOn: Binding(
                         get: { product.orientationSource == .typedZones },
@@ -185,7 +185,7 @@ struct PhaseMappingSections: View {
                            units: "Å⁻¹", format: "%.2f")
             parameterField("In-plane step", value: $product.reference.inPlaneStepDeg,
                            units: "°", format: "%.1f")
-            DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
+            InspectorDisclosure("Advanced", isExpanded: $showsAdvanced) {
                 intField("Vectors per orientation",
                          value: $product.reference.maximumVectorsPerEntry,
                          help: "A library holding every allowed reflection matches "
