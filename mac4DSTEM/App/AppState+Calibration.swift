@@ -131,7 +131,15 @@ extension AppState {
             }
             let rms = result.origin.rmsResidual ?? 0
             let radius = Double(calibrationSession.calibration.probeRadius ?? result.probeRadius)
-            statusText = "Origin ✓  r ≈ \(Num.fixed(radius, 1)) px, fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
+            // mac4DSTEM#203: with several disks as bright as the beam no probe radius was measured; say so and say what to do,
+            // in the status line, which the log keeps (the origin itself was fitted).
+            let brightDisks = OriginCalibration.comparableBrightDiskCount(dp: result.meanDP, qy: d.qy, qx: d.qx)
+            if !standing, result.meanProbeRadius == nil, brightDisks > 1 {
+                let note = OriginCalibration.severalBrightDisksNote(count: brightDisks)
+                statusText = "Origin ✓  fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue)). \(note)"
+            } else {
+                statusText = "Origin ✓  r ≈ \(Num.fixed(radius, 1)) px, fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
+            }
             // The lineage node (ADR 047): what the next disk detection, DPC and
             // strain run will name as their calibration input.
             recordOriginCalibrationRun(fitFunction: fitFn, method: method, probeSource: probeSource,
