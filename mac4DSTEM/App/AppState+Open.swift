@@ -868,7 +868,7 @@ extension AppState {
             // disks read as not produced by the current settings until a new
             // detection runs.
             return "Disks restored from an older session without a recipe — "
-                + "\(SystemMonitor.count(grid.vectors.totalPeakCount)) peaks; "
+                + "\(CalibrationUnitConversion.displayCount(grid.vectors.totalPeakCount)) peaks; "
                 + "their detection settings were not recorded, so run disk detection again to use them for strain or orientation"
         }
         // Only on adoption: the controls show what these disks were detected
@@ -881,7 +881,7 @@ extension AppState {
             if let threshold = controls.learnedThreshold { learnedDetection.threshold = threshold }
         }
         let detected = step.recorded.formatted(date: .abbreviated, time: .omitted)
-        return "Disks restored from the session — \(SystemMonitor.count(grid.vectors.totalPeakCount)) peaks (detected \(detected))"
+        return "Disks restored from the session — \(CalibrationUnitConversion.displayCount(grid.vectors.totalPeakCount)) peaks (detected \(detected))"
     }
 
     /// Sample a cheap preview before the expensive passes, so the open shows

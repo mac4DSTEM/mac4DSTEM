@@ -75,7 +75,7 @@ extension AppState {
             ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
 
             publishDiffractionGroupsProduct()
-            statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
+            statusText = "\(result.groupCount) groups from \(CalibrationUnitConversion.displayCount(totalPatterns)) patterns, "
                 + "first 3 components explain \(Num.fixed(Double(Self.firstThreePercent(of: result)), 1)) %"
             return .published
         } catch {

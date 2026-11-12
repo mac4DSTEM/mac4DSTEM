@@ -257,20 +257,22 @@ enum QuantificationRows {
         }
     }
 
-    static func row(_ node: SessionLineage.Node) -> QuantificationRow {
+    static func row(_ node: SessionLineage.Node, locale: Locale = .autoupdatingCurrent) -> QuantificationRow {
         let p = node.parameters
         let kind = p["region_kind"] ?? "wholeMap"
         let method = ["background", "k_factors", "estimator"].compactMap { p[$0] }
         let unit = p["result_unit"] ?? "at%"
         let result: String
-        if let at = p["result_at"], !at.isEmpty { result = "\(at) \(unit)" }
+        if let at = p["result_at"], !at.isEmpty { result = "\(CalibrationUnitConversion.localizedRecordLine(at, locale: locale)) \(unit)" }
         else if p["result_at"] != nil { result = "no at% computed" }
         else { result = "no result recorded in this step" }
         // `validation` is hidden too: a step recorded before `method_reference` replaced it still carries it.
         let hidden: Set<String> = ["method_json", "registration", "result_at", "result_wt", "result_unit", "validation"]
         let shown = p.filter { !hidden.contains($0.key) }.sorted { $0.key < $1.key }.map { QuantificationRow.Entry(key: $0.key, value: $0.value) }
         var entries = shown
-        if let wt = p["result_wt"], !wt.isEmpty { entries.insert(.init(key: "result_wt%", value: wt), at: 0) }
+        if let wt = p["result_wt"], !wt.isEmpty {
+            entries.insert(.init(key: "result_wt%", value: CalibrationUnitConversion.localizedRecordLine(wt, locale: locale)), at: 0)
+        }
         return QuantificationRow(
             id: node.id, title: regionLabel(kind: kind, name: p["region_name"] ?? "Whole map"),
             method: method.isEmpty ? "method not recorded" : method.joined(separator: " \u{00B7} "), result: result,

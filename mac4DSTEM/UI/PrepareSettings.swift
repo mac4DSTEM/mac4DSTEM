@@ -92,7 +92,7 @@ struct PrepareSettings: View {
             let total = validity.count
             let kept = validity.reduce(0) { $0 + ($1 ? 1 : 0) }
             return String(format: "%@ of %@ positions (%.0f%% excluded as outliers)",
-                          SystemMonitor.count(kept), SystemMonitor.count(total), excludedPercent)
+                          CalibrationUnitConversion.displayCount(kept), CalibrationUnitConversion.displayCount(total), excludedPercent)
         }
         return String(format: "%.0f%% (%.0f%% excluded as outliers)",
                       (1 - Double(excluded)) * 100, excludedPercent)

@@ -452,9 +452,9 @@ extension AppState {
             // the Bragg panel show which filter removed everything.
             statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
         } else if detectorClass == .learned {
-            statusText = "Disks ✓  \(SystemMonitor.count(vectors.totalPeakCount)) peaks (neural net, \(params.subpixel.rawValue) subpixel)"
+            statusText = "Disks ✓  \(CalibrationUnitConversion.displayCount(vectors.totalPeakCount)) peaks (neural net, \(params.subpixel.rawValue) subpixel)"
         } else {
-            statusText = "Disks ✓  \(SystemMonitor.count(vectors.totalPeakCount)) peaks (\(params.subpixel.rawValue) subpixel)"
+            statusText = "Disks ✓  \(CalibrationUnitConversion.displayCount(vectors.totalPeakCount)) peaks (\(params.subpixel.rawValue) subpixel)"
         }
         return .published
     }

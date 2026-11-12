@@ -51,7 +51,7 @@ enum SessionProductOrigin {
     static func braggDisks(peakCount: Int?, computedThisSession: Bool) -> String? {
         guard let peakCount else { return nil }
         // The same grouped count as the status bar and "Peaks found" (drive, 2026-09-30 night).
-        let count = SystemMonitor.count(peakCount)
+        let count = CalibrationUnitConversion.displayCount(peakCount)
         return computedThisSession ? "\(count) peaks" : "\(count) peaks · restored"
     }
 }

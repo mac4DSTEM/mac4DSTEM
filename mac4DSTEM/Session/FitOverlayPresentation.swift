@@ -193,7 +193,7 @@ extension FitOverlays.OriginTrimOverlay {
     /// them). Equal to `caption` until a count reaches four digits — pinned in
     /// `BinnedCroppedOriginTests`, so the two sentences cannot drift.
     package var legend: String {
-        "\(SystemMonitor.count(excluded)) of \(SystemMonitor.count(total)) positions excluded by the origin fit\u{2019}s robust trim"
+        "\(CalibrationUnitConversion.displayCount(excluded)) of \(CalibrationUnitConversion.displayCount(total)) positions excluded by the origin fit\u{2019}s robust trim"
     }
 }
 

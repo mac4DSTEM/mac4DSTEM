@@ -553,8 +553,8 @@ struct ProductInfoSections: View {
         let total = product.validityMask.count
         let valid = product.validityMask.reduce(0) { $0 + ($1 ? 1 : 0) }
         guard total > 0 else { return "no positions" }
-        if valid == total { return "all \(SystemMonitor.count(total)) positions" }
-        return String(format: "%@ of %@ positions (%.0f%%)", locale: .autoupdatingCurrent, SystemMonitor.count(valid), SystemMonitor.count(total),
+        if valid == total { return "all \(CalibrationUnitConversion.displayCount(total)) positions" }
+        return String(format: "%@ of %@ positions (%.0f%%)", locale: .autoupdatingCurrent, CalibrationUnitConversion.displayCount(valid), CalibrationUnitConversion.displayCount(total),
                       Double(valid) / Double(total) * 100)
     }
 }
