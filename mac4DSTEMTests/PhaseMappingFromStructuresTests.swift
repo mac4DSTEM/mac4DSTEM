@@ -63,6 +63,20 @@ final class PhaseMappingFromStructuresTests: XCTestCase {
         XCTAssertNil(PhaseMappingProduct.mapInListOrder(kit, slotNames: ["A", "M", "B"], matrixSlot: 1, candidateSlots: [0]))
     }
 
+    /// A group of variants the pattern cannot tell apart has one habit direction when its members share it, and none when they do not:
+    /// then both names are shown and no direction is counted (mac4DSTEM#245; T1 on two {111} planes down a cube axis).
+    func testAGroupsHabitDirectionIsSharedOrUndecidable() {
+        let families = [0, 1, 1, 0], names = ["[11-1]", "[111]"]
+        let shared = ObjectVariantAssigner.habit(of: [1, 2], habitFamily: families, familyNames: names)
+        XCTAssertEqual(shared.direction, 1); XCTAssertEqual(shared.name, "[111]")
+        let alone = ObjectVariantAssigner.habit(of: [3], habitFamily: families, familyNames: names)
+        XCTAssertEqual(alone.direction, 0); XCTAssertEqual(alone.name, "[11-1]")
+        let mixed = ObjectVariantAssigner.habit(of: [0, 1], habitFamily: families, familyNames: names)
+        XCTAssertNil(mixed.direction); XCTAssertEqual(mixed.name, "[11-1] or [111]")
+        let none = ObjectVariantAssigner.habit(of: [], habitFamily: families, familyNames: names)
+        XCTAssertNil(none.direction); XCTAssertNil(none.name)
+    }
+
     /// The words on what a run learned.
     func testTheLearnedRelationshipLines() {
         XCTAssertEqual(AppState.learnedRelationshipLines(names: ["beta"], relationships: [[]]),

@@ -405,14 +405,27 @@ package nonisolated enum ObjectVariantAssigner {
                     out.reasons[object.id] = why
                 } else {
                     let others = groupOf[winner].map { $0.filter { $0 != winner }.map { $0 + 1 } }
-                    out.perObject[object.id] = VariantAssignment(variant: winner + 1, direction: setup.habitFamily[winner],
-                                                                 directionName: setup.familyNames[setup.habitFamily[winner]], angleDegrees: angle,
+                    let habit = Self.habit(of: groupOf[winner] ?? [winner], habitFamily: setup.habitFamily, familyNames: setup.familyNames)
+                    out.perObject[object.id] = VariantAssignment(variant: winner + 1, direction: habit.direction,
+                                                                 directionName: habit.name, angleDegrees: angle,
                                                                  agreement: agreement, status: .assigned,
                                                                  alternatives: (others?.isEmpty ?? true) ? nil : others)
                 }
             }
         }
         return out
+    }
+
+    /// The habit direction of a group of variants the pattern cannot tell apart (0-based variant indices). When they share one, it is
+    /// that direction (the two variants of a needle lying in the foil plane). When they do not (T1 plates on two {111} planes seen down
+    /// a cube axis of aluminium), the direction is as undecidable as the variant: no index, and both names ("[11-1] or [111]").
+    package static func habit(of group: [Int], habitFamily: [Int], familyNames: [String]) -> (direction: Int?, name: String?) {
+        var families: [Int] = []
+        for v in group where habitFamily.indices.contains(v) && !families.contains(habitFamily[v]) { families.append(habitFamily[v]) }
+        func name(_ f: Int) -> String { familyNames.indices.contains(f) ? familyNames[f] : "[?]" }
+        guard let first = families.first else { return (nil, nil) }
+        if families.count == 1 { return (first, name(first)) }
+        return (nil, families.sorted().map(name).joined(separator: " or "))
     }
 
     private static func degrees(_ v: Double) -> String { v.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: "en_US_POSIX"))) + "\u{00B0}" }
