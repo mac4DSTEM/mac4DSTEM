@@ -86,9 +86,11 @@ final class DemoV3VariantsTests: XCTestCase {
 
     /// The same file with the orientations found from the structures (mac4DSTEM#184) and the variants read from them (#245): aluminium and
     /// the beta'' CIF as two phases, no zone typed, Map Phases, Count variants at default settings. Measured 2026-11-12:
-    /// - all six end-on needles get their planted variant (1, 4, 5, 5, 8, 1), direction [001], every pixel agreeing; typed zones manage three;
-    /// - the in-plane needles H1 (variant 3, [010]) and V1 (variant 9, [100]) get theirs; typed zones give them no value;
-    /// - KNOWN, DiffractoKit#107: H2, planted as variant 7, is given variant 6, the mirror variant with the same needle direction [010];
+    /// - all six end-on needles get their planted variant (1, 4, 5, 5, 8, 1), direction [001], every pixel agreeing, no alternative;
+    ///   typed zones manage three;
+    /// - the three needles in the foil plane get their direction and the PAIR of variants that share it: H1 "2 or 3" (planted 3), H2
+    ///   "6 or 7" (planted 7), V1 "9 or 11" (planted 9). The two variants of a pair predict the same spots within the detector's reach, so
+    ///   the pattern cannot decide between them (DiffractoKit#107); before, one of the two was shown by the fall of a tie;
     /// - the two regions of the crystal turned 45 degrees (Q1, Q2) are not assigned.
     func testCountVariantsFromTheStructures() async throws {
         let folder = Self.references.appendingPathComponent("demo-edx-v3")
@@ -115,7 +117,10 @@ final class DemoV3VariantsTests: XCTestCase {
         let labeled = PhaseMapObjectsBridge.labeledMap(from: map)
         let objects = PrecipitateSegmentation.classObjects(labels: labeled.labels, width: map.width, height: map.height, roles: labeled.roles,
                                                            pixelSize: nil, pixelUnit: nil)
-        let structureRun = ObjectVariantJoin.StructureRun(run: run, crystals: state.phaseMapping.phases.map(\.model.structure), candidateIndex: [nil, 0])
+        let structureRun = ObjectVariantJoin.StructureRun(
+            run: run, crystals: state.phaseMapping.phases.map(\.model.structure), candidateIndex: [nil, 0],
+            reachInvAngstrom: try XCTUnwrap(state.phaseMapping.lastRun?.libraryKMaxInvAngstrom), pairRadiusInvAngstrom: state.phaseMapping.matching.pairRadiusInvAngstrom,
+            excitationSlabs: [0, PhaseMappingProduct.structuresExcitationSlabDefault])
         let outcome = ObjectVariantJoin.run(objects: objects, map: map, library: nil, matrixEntryIndex: nil, settings: VariantSettings(),
                                             structureRun: structureRun)
         XCTAssertNil(outcome.result.unavailable)
@@ -131,25 +136,29 @@ final class DemoV3VariantsTests: XCTestCase {
             }
             let a = outcome.result.perObject[object.id]
             lines.append("\(p.name) (planted variant \(p.variant.map(String.init) ?? "-")): object \(object.id), \(object.area) px: "
-                         + (a.map { $0.isAssigned ? "variant \($0.variant ?? 0), \($0.directionName ?? "?"), \(String(format: "%.2f", $0.angleDegrees ?? -1)) deg, agreement \(String(format: "%.2f", $0.agreement))"
+                         + (a.map { $0.isAssigned ? "variant \($0.variantText), \($0.directionName ?? "?"), \(String(format: "%.2f", $0.angleDegrees ?? -1)) deg, agreement \(String(format: "%.2f", $0.agreement))"
                                                   : "\($0.status), angle \(String(format: "%.2f", $0.angleDegrees ?? -1))" } ?? "no value"))
             guard let a, a.isAssigned else { continue }
             assigned[p.name] = a
-            if a.variant != p.variant { wrong.append("\(p.name): variant \(a.variant ?? 0), planted \(p.variant.map(String.init) ?? "none")") }
+            // Right when the planted variant is the one shown or one of the alternatives shown with it.
+            let shown = [a.variant].compactMap { $0 } + (a.alternatives ?? [])
+            if !(p.variant.map(shown.contains) ?? false) { wrong.append("\(p.name): variant \(a.variantText), planted \(p.variant.map(String.init) ?? "none")") }
         }
         for l in lines { print("DEMO V3 VARIANTS FROM STRUCTURES | " + l) }
-        XCTAssertEqual(wrong.filter { !$0.hasPrefix("H2:") }, [], "a precipitate was given a variant it was not planted as: \(lines)")
-        for (name, variant, direction) in [("E1", 1, "[001]"), ("E2", 4, "[001]"), ("E3", 5, "[001]"), ("E4", 8, "[001]"), ("E5", 1, "[001]"),
-                                           ("E6", 5, "[001]"), ("H1", 3, "[010]"), ("V1", 9, "[100]")] {
+        XCTAssertEqual(wrong, [], "a precipitate was given a variant it was not planted as: \(lines)")
+        for (name, variant, direction) in [("E1", 1, "[001]"), ("E2", 4, "[001]"), ("E3", 5, "[001]"), ("E4", 8, "[001]"), ("E5", 1, "[001]"), ("E6", 5, "[001]")] {
             let a = try XCTUnwrap(assigned[name], "\(name) is not assigned: \(lines)")
             XCTAssertEqual(a.variant, variant, name)
+            XCTAssertNil(a.alternatives, "\(name): an end-on needle is told apart")
             XCTAssertEqual(a.directionName, direction, name)
             XCTAssertLessThan(try XCTUnwrap(a.angleDegrees), 3, name)
         }
-        // DiffractoKit#107: the needle direction of H2 is right, its variant is the mirror one. Turn this round when it is fixed.
-        let h2 = try XCTUnwrap(assigned["H2"], "H2 is not assigned: \(lines)")
-        XCTAssertEqual(h2.directionName, "[010]")
-        XCTAssertEqual(h2.variant, 6, "H2's variant changed: if it is 7 now, DiffractoKit#107 is fixed and this line goes")
+        for (name, text, direction) in [("H1", "2 or 3", "[010]"), ("H2", "6 or 7", "[010]"), ("V1", "9 or 11", "[100]")] {
+            let a = try XCTUnwrap(assigned[name], "\(name) is not assigned: \(lines)")
+            XCTAssertEqual(a.variantText, text, name)
+            XCTAssertEqual(a.directionName, direction, name)
+            XCTAssertEqual(a.agreement, 1, accuracy: 1e-9, "\(name): the pair is one choice, so every position agrees")
+        }
         XCTAssertNil(assigned["Q1"]); XCTAssertNil(assigned["Q2"])
     }
 }

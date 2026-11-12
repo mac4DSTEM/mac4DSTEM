@@ -51,7 +51,11 @@ extension AppState {
                 defer { next += 1 }
                 return next
             }
-            structureRun = ObjectVariantJoin.StructureRun(run: run, crystals: phaseMapping.phases.map(\.model.structure), candidateIndex: candidateIndex)
+            structureRun = ObjectVariantJoin.StructureRun(
+                run: run, crystals: phaseMapping.phases.map(\.model.structure), candidateIndex: candidateIndex,
+                reachInvAngstrom: phaseMapping.lastRun?.libraryKMaxInvAngstrom ?? 0,
+                pairRadiusInvAngstrom: phaseMapping.lastRun?.matching.pairRadiusInvAngstrom ?? 0.02,
+                excitationSlabs: phaseMapping.phases.map { $0.excitationSlabInvAngstrom ?? PhaseMappingProduct.structuresExcitationSlabDefault })
         }
         precipitateJoinTask = Task { @MainActor [weak self] in
             let work = Task.detached(priority: .userInitiated) {

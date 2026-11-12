@@ -83,7 +83,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
 
         /// The table's Direction and Variant cells ("" when the object has none; the reason is the row's help).
         package var directionText: String { variant?.directionName ?? variant?.direction.map { VariantGroup.directionName($0) } ?? "" }
-        package var variantText: String { variant?.variant.map(String.init) ?? "" }
+        package var variantText: String { variant?.variantText ?? "" }
         package var directionSortKey: Int { variant?.direction ?? -1 }
         package var variantSortKey: Int { variant?.variant ?? 0 }
         package var variantNote: String? {
@@ -153,7 +153,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package var title: String {
             switch kind {
             case .direction: name ?? Self.directionName(index)
-            case .variant: "Variant \(index)"
+            case .variant: name ?? "Variant \(index)"
             case .unassigned: "Unassigned"
             }
         }
@@ -367,7 +367,13 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
         var out: [VariantGroup] = []
         for d in familyNames.indices { out.append(group(.direction, d, covered.filter { $0.variant?.direction == d }, name: familyNames[d])) }
-        for v in 1...max(variantCount, 1) { out.append(group(.variant, v, covered.filter { $0.variant?.variant == v })) }
+        for v in 1...max(variantCount, 1) {
+            let members = covered.filter { $0.variant?.variant == v }
+            // A group the pattern cannot tell apart is named as one: "Variant 6 or 7" (every member of a row carries the same text
+            // when the scan is one grain; with several, the texts met are listed).
+            let texts = Set(members.compactMap { $0.variant?.alternatives == nil ? nil : $0.variantText }).sorted()
+            out.append(group(.variant, v, members, name: texts.isEmpty ? nil : "Variant " + texts.joined(separator: ", ")))
+        }
         let unassigned = covered.filter { !($0.variant?.isAssigned ?? false) }
         let ambiguous = unassigned.filter { if case .ambiguous? = $0.variant?.status { true } else { false } }.count
         let none = unassigned.count - ambiguous

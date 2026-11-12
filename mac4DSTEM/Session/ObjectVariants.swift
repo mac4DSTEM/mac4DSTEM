@@ -148,10 +148,21 @@ package nonisolated struct VariantAssignment: Codable, Hashable, Sendable {
     package let agreement: Double
     package let status: Status
 
+    /// The other variants the pattern cannot tell from `variant` (1...12, ascending): they predict the same spots within the detector's
+    /// reach at this matrix orientation (DiffractoKit `indistinguishableVariants`), as the two variants of a needle lying in the foil plane
+    /// do. `variant` is then the smallest of the group. nil when the variant stands alone, and in a snapshot from before this was known.
+    package var alternatives: [Int]? = nil
+
     package var isAssigned: Bool { status == .assigned }
-    package init(variant: Int?, direction: Int?, directionName: String? = nil, angleDegrees: Double?, agreement: Double, status: Status) {
+    package init(variant: Int?, direction: Int?, directionName: String? = nil, angleDegrees: Double?, agreement: Double, status: Status,
+                 alternatives: [Int]? = nil) {
         self.variant = variant; self.direction = direction; self.directionName = directionName; self.angleDegrees = angleDegrees
-        self.agreement = agreement; self.status = status
+        self.agreement = agreement; self.status = status; self.alternatives = alternatives
+    }
+    /// "6", or "6 or 7" for a group the pattern cannot tell apart; "" unless assigned.
+    package var variantText: String {
+        guard let variant else { return "" }
+        return ([variant] + (alternatives ?? [])).map(String.init).joined(separator: " or ")
     }
 }
 
@@ -202,6 +213,10 @@ package nonisolated enum ObjectVariantAssigner {
         /// When set, the entries are not consulted.
         package var positionPrecipitate: [simd_double3x3?]?
         package var positionMatrix: [simd_double3x3?]?
+        /// The variants grouped by what the pattern can tell apart (0-based indices, each group ascending), one grouping per beam direction
+        /// met in the scan, and for each position the grouping that holds there (-1: none). Empty: every variant stands alone.
+        package var groupings: [[[Int]]] = []
+        package var positionGrouping: [Int] = []
 
         package init(entryPhase: [Int], entryOrientation: [simd_double3x3?], matrixOrientation: simd_double3x3, inPlaneStepDegrees: Double,
                      matrixBeamDirection: Int? = nil, matrixBeamAxis: SIMD3<Double>? = nil) {
@@ -333,6 +348,7 @@ package nonisolated enum ObjectVariantAssigner {
         for classObjects in objects.classes where Int(classObjects.label) == precipitatePhaseIndex {
             for object in classObjects.objects {
                 var votes = [Int: (count: Int, angleSum: Double)]()
+                var groupOf = [Int: [Int]]()   // the group a vote's key stands for (its smallest variant is the key)
                 var oriented = 0
                 for i in object.pixelIndices where results.indices.contains(i) {
                     let r = results[i]
@@ -351,8 +367,15 @@ package nonisolated enum ObjectVariantAssigner {
                     guard let hit = found else { continue }
                     oriented += 1
                     if hit.angleDegrees <= tolerance {
-                        let old = votes[hit.variant] ?? (0, 0)
-                        votes[hit.variant] = (old.count + 1, old.angleSum + hit.angleDegrees)
+                        // Variants the pattern cannot tell apart at this position are one choice: the vote goes to the group.
+                        var key = hit.variant
+                        if orientations.positionGrouping.indices.contains(i), orientations.groupings.indices.contains(orientations.positionGrouping[i]),
+                           let group = orientations.groupings[orientations.positionGrouping[i]].first(where: { $0.contains(hit.variant) }), let first = group.first {
+                            key = first
+                            if group.count > 1, groupOf[key] == nil { groupOf[key] = group }
+                        }
+                        let old = votes[key] ?? (0, 0)
+                        votes[key] = (old.count + 1, old.angleSum + hit.angleDegrees)
                     }
                 }
                 let pixels = max(object.pixelIndices.count, 1)
@@ -381,9 +404,11 @@ package nonisolated enum ObjectVariantAssigner {
                     out.perObject[object.id] = VariantAssignment(variant: nil, direction: nil, angleDegrees: angle, agreement: agreement, status: .ambiguous(why))
                     out.reasons[object.id] = why
                 } else {
+                    let others = groupOf[winner].map { $0.filter { $0 != winner }.map { $0 + 1 } }
                     out.perObject[object.id] = VariantAssignment(variant: winner + 1, direction: setup.habitFamily[winner],
                                                                  directionName: setup.familyNames[setup.habitFamily[winner]], angleDegrees: angle,
-                                                                 agreement: agreement, status: .assigned)
+                                                                 agreement: agreement, status: .assigned,
+                                                                 alternatives: (others?.isEmpty ?? true) ? nil : others)
                 }
             }
         }
@@ -423,8 +448,15 @@ package nonisolated enum ObjectVariantJoin {
         package var crystals: [CrystalStructure]
         /// For each phase of the map: its index among the run's candidates, or nil for the matrix.
         package var candidateIndex: [Int?]
-        package init(run: StructurePhaseMapping, crystals: [CrystalStructure], candidateIndex: [Int?]) {
+        /// How far the run looked (Å⁻¹), the pair radius it matched with, and each phase's excitation slab by phase index: with the
+        /// structure they predict a variant's spots, which says which variants the pattern cannot tell apart. Reach 0: not asked.
+        package var reachInvAngstrom: Double
+        package var pairRadiusInvAngstrom: Double
+        package var excitationSlabs: [Double]
+        package init(run: StructurePhaseMapping, crystals: [CrystalStructure], candidateIndex: [Int?],
+                     reachInvAngstrom: Double = 0, pairRadiusInvAngstrom: Double = 0.02, excitationSlabs: [Double] = []) {
             self.run = run; self.crystals = crystals; self.candidateIndex = candidateIndex
+            self.reachInvAngstrom = reachInvAngstrom; self.pairRadiusInvAngstrom = pairRadiusInvAngstrom; self.excitationSlabs = excitationSlabs
         }
     }
 
@@ -455,6 +487,28 @@ package nonisolated enum ObjectVariantJoin {
             // to the named one plus the kit's angle within which two variants are one. A tolerance the user typed is used as typed.
             let learnedOffset = Self.learnedOffsetDegrees(structureRun.run, candidate: candidate, named: setup)
             orientations.inPlaneStepDegrees = 2 * (learnedOffset + LearnedOrientationRelationship.defaultVariantMergeAngleRad * 180 / .pi)
+            // Which variants the pattern cannot tell apart, per beam direction (the groups do not change with the in-plane angle: every
+            // variant's spots turn together). Refuse rather than guess: such a group is shown as a group (DiffractoKit#107).
+            if structureRun.reachInvAngstrom > 0, structureRun.excitationSlabs.indices.contains(phase),
+               let reflections = try? PhaseOrientationCandidate.reflections(of: structureRun.crystals[phase], kMax: structureRun.reachInvAngstrom),
+               let precipitates = orientations.positionPrecipitate, let matrices = orientations.positionMatrix {
+                var known: [SIMD3<Int>: Int] = [:]
+                var groupings: [[[Int]]] = [], perPosition = [Int](repeating: -1, count: matrices.count)
+                for i in matrices.indices where precipitates[i] != nil {
+                    guard let m = matrices[i] else { continue }
+                    let b = m.columns.2
+                    let key = SIMD3(Int((b.x * 100).rounded()), Int((b.y * 100).rounded()), Int((b.z * 100).rounded()))
+                    if let g = known[key] { perPosition[i] = g; continue }
+                    groupings.append(PhaseVectorMatcher.indistinguishableVariants(
+                        setup.set.variants, matrixOrientation: m, reflections: reflections,
+                        excitationSlabInvAngstrom: structureRun.excitationSlabs[phase], reachInvAngstrom: structureRun.reachInvAngstrom,
+                        toleranceInvAngstrom: structureRun.pairRadiusInvAngstrom))
+                    known[key] = groupings.count - 1
+                    perPosition[i] = groupings.count - 1
+                }
+                orientations.groupings = groupings
+                orientations.positionGrouping = perPosition
+            }
             let result = ObjectVariantAssigner.run(objects: objects, results: map.results, orientations: orientations, precipitatePhaseIndex: phase,
                                                    setup: setup, settings: settings)
             return Outcome(result: result, endOnDirection: orientations.matrixBeamAxis.flatMap { setup.preset.family(alongBeam: $0) },
