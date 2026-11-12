@@ -228,6 +228,15 @@ extension AppState {
         RelatedFileAccess.grant(for: url)
         // By content (FormatoKit's sniff): the extension picks the candidates, the first bytes confirm them.
         // The sniff opens an HDF5 file under the HDF5 lock: off the main actor, like the readers.
+        // A Merlin header (mac4DSTEM#262): the set opens from its .mib files, so the header is answered with them.
+        if url.pathExtension.lowercased() == "hdr" {
+            let folder = url.deletingLastPathComponent()
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+            guard let mib = MerlinHeaderCompanion.mib(forHeader: url.lastPathComponent, among: names) else {
+                throw SimpleError(MerlinHeaderCompanion.refusal(header: url.lastPathComponent, folderWasReadable: !names.isEmpty))
+            }
+            return try await makeReader(for: folder.appendingPathComponent(mib))
+        }
         let path = url.path
         // With `HDF5ReadsInHelper` on, the helper process opens an HDF5 file before any libhdf5 call here does, the
         // sniff below included: a file that crashes or hangs libhdf5 on open is refused with a sentence.
@@ -811,6 +820,7 @@ extension AppState {
             await runOpeningAnalysis()
         }
         if let peaksNote { statusText = peaksNote }
+        storedDisksNotUsedNote = peaksNote?.hasPrefix("Stored disks not used") == true ? peaksNote : nil
     }
 
     /// Adopt the peaks a session sidecar stores, when every check passes

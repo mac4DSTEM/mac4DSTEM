@@ -49,10 +49,25 @@ extension AppState {
     /// calls this but the click; no default moves.
     func useProbeRadius(_ radius: Float) async {
         guard radius.isFinite, radius > 0 else { return }
+        if let descriptor, let refusal = Self.probeRadiusRefusal(radius: radius, qy: descriptor.qy, qx: descriptor.qx) {
+            presentComputeFailure(SimpleError(refusal))
+            return
+        }
         calibrationSession.calibration.probeRadius = radius
         calibrationSession.provenance.probe = .manual
         refreshDiskDefaultsForMeasuredProbe()
         if probeKernel?.source == .synthetic { await generateProbeKernel() }
+    }
+
+    /// Why a probe radius is not taken, or nil. A Bragg disk wider than half the pattern leaves no room for a second one:
+    /// a radius above a quarter of the detector's smaller side is a slip (22,84 typed over 2,84 on a 128 px detector built
+    /// a kernel without a word), not a probe.
+    nonisolated static func probeRadiusRefusal(radius: Float, qy: Int, qx: Int, locale: Locale = .autoupdatingCurrent) -> String? {
+        let side = min(qy, qx)
+        guard side > 0, radius > Float(side) / 4 else { return nil }
+        let typed = CalibrationUnitConversion.displayNumber(Double(radius), digits: 4, locale: locale)
+        let limit = CalibrationUnitConversion.displayNumber(Double(side) / 4, digits: 4, locale: locale)
+        return "A probe radius of \(typed) px is not taken: on a \(side) px detector a disk is at most \(limit) px in radius (a quarter of the pattern)."
     }
 
     /// An instant step (no operation, no spinner) names itself as the Run tab's "Last run" (owner card S5, 2026-10-02).
@@ -80,6 +95,12 @@ extension AppState {
         guard epoch == datasetSession.epoch else { return }
         let began = ContinuousClock.now
 
+        // A typed radius only: a measured one (a convergent beam's large disk) is the data's, whatever its size.
+        if calibrationSession.provenance.probe == .manual,
+           let refusal = Self.probeRadiusRefusal(radius: radius, qy: descriptor.qy, qx: descriptor.qx) {
+            presentComputeFailure(SimpleError(refusal))
+            return
+        }
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
             presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
             return

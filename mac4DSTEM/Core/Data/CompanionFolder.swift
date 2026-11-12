@@ -30,6 +30,12 @@ package nonisolated enum CompanionFolder {
             guard let set = MerlinSet.containing(url.path), !([set.header] + set.parts).allSatisfy(canOpen) else { return nil }
             return Need(description: "one of \(set.parts.count + 1) files of a Merlin acquisition (with \(URL(fileURLWithPath: set.header).lastPathComponent))",
                         folder: url.deletingLastPathComponent())
+        case "hdr":
+            // A Merlin header stands for its .mib files (mac4DSTEM#262): they have other names, so the sandbox, which grants
+            // the picked file only, hides them; a folder that cannot be listed is asked for. Outside the sandbox it lists.
+            let folder = url.deletingLastPathComponent()
+            guard (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) == nil else { return nil }
+            return Need(description: "the header of a Merlin acquisition (its .mib files hold the data)", folder: folder)
         case "xml":
             guard let raw = empadRawFile(named: url), raw.deletingPathExtension().lastPathComponent != url.deletingPathExtension().lastPathComponent,
                   FileManager.default.fileExists(atPath: raw.path), !canOpen(raw.path) else { return nil }

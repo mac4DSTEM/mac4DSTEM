@@ -69,8 +69,9 @@ extension OperationMetricsFormat {
     }
 
     /// The glance with the engine in front: "Apple M3 · 1.4 GB · resident".
-    static func glance(engine: String, residentMB: Double, residency isResident: Bool) -> String {
-        "\(engine) · " + glance(residentMB: residentMB, residency: isResident)
+    /// `residency` nil: the window holds no 4D cube (a spectrum image alone), so neither word applies and none is shown.
+    static func glance(engine: String, residentMB: Double, residency isResident: Bool?) -> String {
+        "\(engine) · " + (isResident.map { glance(residentMB: residentMB, residency: $0) } ?? glance(residentMB: residentMB))
     }
 }
 

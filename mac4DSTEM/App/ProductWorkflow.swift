@@ -360,6 +360,16 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     /// Why phase mapping's phase list cannot run (`PhaseMappingProduct.runRefusal`),
     /// nil when it can — the requirement row names the actual reason.
     var phaseListRefusal: String? = nil
+    /// Why disks that exist are not the ones a task may use, nil when there are none or they are current: the detection
+    /// settings changed since they were found, or a session's stored disks were not taken (its own sentence). The disk
+    /// requirement says it instead of "Detect Bragg disks first", which read as "your disks are gone" after a reopen.
+    var disksNotUsableReason: String? = nil
+
+    /// The disk requirement's line.
+    var diskRequirementTitle: String {
+        guard !hasBraggVectors, let reason = disksNotUsableReason else { return "Detect Bragg disks first" }
+        return "Detect Bragg disks again: " + reason
+    }
 }
 
 /// One requirement of a task, with its live status and where the satisfying
@@ -645,7 +655,7 @@ enum ProductWorkflow {
         case .strain:
             return [
                 TaskPrerequisite(
-                    id: "braggVectors", title: "Detect Bragg disks first",
+                    id: "braggVectors", title: readiness.diskRequirementTitle,
                     isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
                 )
             ]
@@ -659,7 +669,7 @@ enum ProductWorkflow {
             // voltage is "set" to the checklist and still not convertible.
             return [
                 TaskPrerequisite(
-                    id: "braggVectors", title: "Detect Bragg disks first",
+                    id: "braggVectors", title: readiness.diskRequirementTitle,
                     isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
                 ),
                 TaskPrerequisite(
@@ -682,7 +692,7 @@ enum ProductWorkflow {
         case .acom:
             return [
                 TaskPrerequisite(
-                    id: "braggVectors", title: "Detect Bragg disks first",
+                    id: "braggVectors", title: readiness.diskRequirementTitle,
                     isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
                 ),
                 TaskPrerequisite(

@@ -80,6 +80,9 @@ struct PrepareSettings: View {
         excluded > Calibration.excludedFractionDisclosureFloor
     }
 
+    /// What the missing voltage holds up, under its row. Disks, strain and phase maps work on the detected vectors alone.
+    static let voltageNotSetNote = "Needed for Reconstruction only (DPC, parallax, ptychography)."
+
     /// The "Positions used" value. When the origin fit's per-position validity
     /// mask is present it shows the absolute count — "142 of 150 positions" —
     /// which localises the disclosure the scalar cannot; a restored session
@@ -173,6 +176,10 @@ struct PrepareSettings: View {
                     )
                     .labelsHidden()
                     .accessibilityIdentifier("calibration.acceleratingVoltage")
+                }
+                // "Not set" alone left open whether anything was wrong (a scan whose file states no voltage, 5.3.0 walk).
+                if !session.hasUsableVoltage {
+                    InspectorNote(Self.voltageNotSetNote)
                 }
                 // The same verdict the dataset card shows.
                 let verdict = session.verdict

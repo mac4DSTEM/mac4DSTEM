@@ -153,7 +153,14 @@ extension AppState {
 
             // Not in DPC: that would recompute the whole cube, unasked; the map
             // reads stale instead (D068). Other modes only re-show or re-derive.
+            // The room's own analysis runs again on the new origin and writes its own line ("Virtual detector ✓"); the user
+            // pressed Calibrate Origin, so the line that stays is the origin's, unless that rerun failed or was cancelled.
+            let originLine = statusText
             if navigation.analysisMode != .dpc { await runCurrentAnalysis() }
+            // Not asked of `cancellation`: the rerun begins an operation of its own, which retires the origin's token.
+            if epoch == datasetSession.epoch, !statusText.hasPrefix("Error"), !statusText.contains("cancelled") {
+                statusText = originLine
+            }
         } catch {
             if cancellation.isCancelled { statusText = "Origin calibration cancelled" }
             else { presentComputeFailure(error) }

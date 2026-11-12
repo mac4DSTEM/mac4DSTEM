@@ -153,15 +153,22 @@ extension AppState {
     /// name every existing call site already uses.
     static func errorDetail(_ error: Error) -> String { sessionErrorDetail(error) }
 
+    /// The panel that asks, once per dataset, where its session file goes. It said "Choose Session Sidecar" and "the
+    /// companion file mac4DSTEM may update and reopen": two words of ours for one of the user's.
+    enum SessionSavePanelWording {
+        static let title = "Save Session"
+        static let message = "Choose where mac4DSTEM keeps this dataset's analysis. It is reopened with the dataset."
+    }
+
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let granted = sessionSidecar.grant(for: descriptor) { return granted }
         let suggested = sessionSidecar.derivedLocation(forSourcePath: descriptor.filePath)
         guard let url = runSidecarSavePanel(
-            title: "Choose Session Sidecar",
-            message: "Choose the companion file mac4DSTEM may update and reopen.",
+            title: SessionSavePanelWording.title,
+            message: SessionSavePanelWording.message,
             suggesting: suggested
         ) else {
-            statusText = "Session sidecar save cancelled"
+            statusText = "Session not saved"
             return nil
         }
         sessionSidecar.adopt(url, for: descriptor)
