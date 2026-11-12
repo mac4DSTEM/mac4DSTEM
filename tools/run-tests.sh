@@ -202,6 +202,8 @@ inventory() {
   for d in "$ROOT/../MacEMUI/Sources" "$ROOT/.build/checkouts/MacEMUI/Sources"; do
     [[ -d "$d" ]] && { macemui_sources=("$d"); break; }
   done
+  # Without MacEMUI's sources every identifier of the window shell reads as missing; say why (mac4DSTEM#86).
+  (( ${#macemui_sources} )) || echo "  NOTE  no MacEMUI sources ($ROOT/../MacEMUI/Sources, $ROOT/.build/checkouts/MacEMUI/Sources); run swift package resolve"
   for id in $(grep -rhoE '"[a-z][A-Za-z]*\.[A-Za-z][A-Za-z0-9.]*"' "$ROOT/mac4DSTEMUITests" 2>/dev/null | tr -d '"' | sort -u); do
     [[ "$id" == workspace.* || "$id" == task.* || "$id" == detector.preset.* || "$id" == edx.export.* || "$id" == *.xcresult ]] && continue   # built from an enum raw value in the source
     # the window shell's identifiers (toolbar, sidebar, inspector frames) are MacEMUI's since 2026-10-22
@@ -220,7 +222,8 @@ inventory() {
     else
       printf "  %-56s NOT IN tools/large-files.allow\n" "$big"; rc=1
     fi
-  done < <(git -C "$ROOT" ls-files -z | xargs -0 stat -f '%z %N' | awk '$1 > 1048576 {print $2}')
+  # `cd "$ROOT"`: ls-files prints paths relative to the repo root, and stat reads them from the current folder (mac4DSTEM#86).
+  done < <(cd "$ROOT" && git ls-files -z | xargs -0 stat -f '%z %N' | awk '$1 > 1048576 {print $2}')
 
   # The learned detector runs on the Neural Engine in the app (owner, 2026-09-30): `loadForComparison` loads it
   # on another compute unit or batch, for tools and tests only. One app caller would put a Detect All, or the
