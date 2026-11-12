@@ -53,7 +53,7 @@ final class AgentDoorAnalysesTests: XCTestCase {
         defaultsSuite = "agent-door-analyses-tests-\(UUID().uuidString)"
         door = AgentDoor(appName: "mac4DSTEM", appVersion: "test", preferredPort: 0, defaults: try XCTUnwrap(UserDefaults(suiteName: defaultsSuite)))
         door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools + Mac4DSTEMAgentDoor.imagingTools
-                      + Mac4DSTEMAgentDoor.precipitateTools + Mac4DSTEMAgentDoor.preprocessTools)
+                      + Mac4DSTEMAgentDoor.precipitateTools + Mac4DSTEMAgentDoor.preprocessTools + Mac4DSTEMAgentDoor.resultTools)
         door.setEnabled(true)
         for _ in 0..<250 where door.status == .starting { try await Task.sleep(for: .milliseconds(20)) }
         guard case .listening = door.status else { return XCTFail("the door did not open: \(String(describing: door.status))") }
@@ -263,6 +263,38 @@ final class AgentDoorAnalysesTests: XCTestCase {
 
         let nothingPending = try await call("set_open_options", ["detector_bin": 2, "action": "load"])
         XCTAssertTrue(nothingPending.refused)
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: export_result writes outside the rules (saving off, a replaced file, an unknown panel), the quality toggle does not
+    /// follow, or a comparison loads a result the session does not have - red.
+    func testResultsAreExportedComparedAndKeptAsTold() async throws {
+        let state = enrolledState()
+        await state.openDemoFixture()
+        let off = try await call("export_result", ["what": "figure", "figure_panels": "pattern", "name": "fig"])
+        XCTAssertTrue(off.refused, "saving is off")
+        Mac4DSTEMAgentDoor.savesAllowed = true
+        let unknown = try await call("export_result", ["what": "figure", "figure_panels": "nothing", "name": "fig"])
+        XCTAssertTrue(unknown.refused, unknown.text)
+        let figure = try await call("export_result", ["what": "figure", "figure_panels": "pattern", "figure_format": "png",
+                                                      "name": "fig"])
+        XCTAssertFalse(figure.refused, figure.text)
+        XCTAssertEqual(state.preferences.figureFormat, .png)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("fig.png").path))
+        let again = try await call("export_result", ["what": "figure", "figure_panels": "pattern", "figure_format": "png",
+                                                     "name": "fig"])
+        XCTAssertTrue(again.refused, "never replaced")
+
+        let shown = try await call("show_quality_field", ["show": true])
+        XCTAssertFalse(shown.refused, shown.text)
+        XCTAssertTrue(state.resultPresentation.inspectQualityField)
+        _ = try await call("show_quality_field", ["show": false])
+        XCTAssertFalse(state.resultPresentation.inspectQualityField)
+
+        let missing = try await call("compare_results", ["a": "no such result"])
+        XCTAssertTrue(missing.refused, missing.text)
+        let rewind = try await call("rewind_lineage", ["step": "no such step"])
+        XCTAssertTrue(rewind.refused, rewind.text)
         withExtendedLifetime(state) {}
     }
 }

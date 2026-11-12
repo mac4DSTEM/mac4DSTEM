@@ -73,7 +73,7 @@ enum Mac4DSTEMAgentDoor {
     static var allTools: [AgentTool] {
         guideTools + tools + runTools + kernelTools
             + scanMapTools + taskTools + folderTools
-            + calibrationTools + phaseTools + analysisTools + imagingTools + precipitateTools + preprocessTools + actionTools
+            + calibrationTools + phaseTools + analysisTools + imagingTools + precipitateTools + preprocessTools + actionTools + resultTools
     }
 
     static let tools: [AgentTool] = [
