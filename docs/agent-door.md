@@ -36,7 +36,7 @@ before each call (MCP marks them as not read-only). One run at a time; Stop in t
 | `set_probe_radius` | the Probe radius field; a synthetic kernel already built is rebuilt at it |
 | `build_probe_kernel` | Build Kernel: synthetic, from the pattern on screen, or the file's probe (the vacuum scan stays with the person) |
 | `set_detector` | classical or neural net, and the neural net's threshold |
-| `set_disk_detection` | sets the Disks sliders it names; live detection follows (it says so when no probe kernel is built yet) |
+| `set_disk_detection` | sets the Disks fields it names (spacing, relative and absolute thresholds and their reference, smoothing of pattern and correlation, correlation power, edge, max peaks, subpixel `pixel`/`poly`/`multicorr` and its upsampling, #235); live detection follows (it says so when no probe kernel is built yet) |
 | `run_task` | presses Run for the window's task |
 | `stop_run` | presses Stop |
 
@@ -73,6 +73,14 @@ A batch is a loop: `list_agent_folder`, then for each file `open_file`, the run 
 `mac4DSTEM/App/AgentDoor/`: `Mac4DSTEMAgentDoor` (the door and the tools that look), `AgentDoorSnapshot` (what a window says), `AgentDoorRuns` (the
 tools that act), `AgentDoorFolder` and `AgentFolder` (the Agent folder).
 Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
+
+## Coverage
+
+`mac4DSTEM/App/AgentDoor/AgentDoorCoverage.swift` lists every control in the UI, by its accessibility identifier, with how an
+agent reaches it: the tool that does it, already seen in `get_window` or a picture, left to the person on purpose (with the
+reason), or a gap with its open issue (#224 to #230, #192). `AgentDoorCoverageTests` fails when a control has no row, so a
+new control cannot ship until someone decides. Today 34 controls have a tool, 95 are seen, 47 stay with the person and 90
+are gaps.
 
 ## Not yet
 

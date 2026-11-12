@@ -294,6 +294,43 @@ struct PrepareSettings: View {
                 }
                 .disabled(appState.isBusy)
             }
+            // mac4DSTEM#210: the distortion of a single-crystal scan, measured on the matrix's own spots. One button alone,
+            // full width; the result is a value row and is applied only by the user's second click (preview, then commit).
+            InspectorActionRow {
+                Button {
+                    PendingEdits.run { await appState.fitDistortionFromSpots() }
+                } label: {
+                    Label("Fit Distortion from Spots", systemImage: "oval")
+                }
+                .disabled(appState.isBusy || appState.spotDistortionBlocker != nil)
+                .accessibilityIdentifier("calibration.fitDistortionFromSpots")
+                .tooltip(appState.spotDistortionBlocker
+                    ?? "Measures the detector's stretch on the matrix crystal's own spots: the predicted spots of the "
+                    + "Orientation task's crystal against the detected disks, by least squares. For a scan of one crystal, "
+                    + "which has no ring for Fit Detector Ellipse. Nothing changes until you apply it.",
+                    hint: "For a single-crystal scan without a ring")
+            }
+            if let fit = appState.spotDistortion.pending {
+                InspectorValueRow("Spot distortion", fit.summary())
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("calibration.spotDistortion")
+                    .help("Stretch of the long over the short axis, the long axis' direction on the detector (from the column "
+                        + "axis towards the row axis), and how far the detected spots are from the fitted ones, with the "
+                        + "stretch and with rotation and scale alone. From \(fit.pairCount) spots at \(fit.positionCount) positions.")
+                InspectorActionRow {
+                    Button {
+                        appState.applySpotDistortion()
+                    } label: {
+                        Label("Apply Distortion", systemImage: "checkmark.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("calibration.applySpotDistortion")
+                    .tooltip("Sets the ellipse correction to this fit and the Q pixel scale to the one that belongs to the "
+                        + "corrected pattern (the correction scales the long axis down to the short one). Clear Calibration "
+                        + "or the Ellipse correction section undo it.",
+                        hint: "Sets the ellipse correction and the matching Q scale")
+                }
+            }
 
             if let radius = calibration.probeRadius {
                 InspectorValueRow("Probe radius", CalibrationUnitConversion.displayNumber(Double(radius), digits: 3) + "\u{00A0}px")

@@ -366,6 +366,8 @@ final class AppState {
     /// (the archived notes §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
+    /// The distortion fitted on the matrix's spots, pending until applied (mac4DSTEM#210).
+    let spotDistortion = SpotDistortionRun()
     /// What happened this session, for the output strip
     /// (the archived notes §7) — see `App/ActivityLog.swift`.
     /// Views read `activityLog.messages`; no forwarding properties.
