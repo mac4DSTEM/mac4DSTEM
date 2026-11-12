@@ -67,7 +67,15 @@ extension AppState {
         guard let descriptor else { return }
         // Lane E (c2): taken with the descriptor; the await below can outlive this dataset.
         let epoch = datasetSession.epoch
-        guard let radius = await ensureProbeRadius() else { return }
+        guard let radius = await ensureProbeRadius() else {
+            // mac4DSTEM#203: no radius could be measured (several disks as bright as the beam). The origin run's note is
+            // replaced by the next analysis' status, so the kernel build says it again where the user is now.
+            if epoch == datasetSession.epoch, let mean = meanPattern {
+                let count = OriginCalibration.comparableBrightDiskCount(dp: mean.pixels, qy: mean.qy, qx: mean.qx)
+                if count > 1 { statusText = OriginCalibration.severalBrightDisksNote(count: count) }
+            }
+            return
+        }
         await Self.probeKernelBeforeLanding?()
         guard epoch == datasetSession.epoch else { return }
         let began = ContinuousClock.now

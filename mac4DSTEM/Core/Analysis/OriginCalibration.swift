@@ -183,6 +183,49 @@ package nonisolated enum OriginCalibration {
         return (Float(estimate.radius), Float(estimate.centerColumn), Float(estimate.centerRow))
     }
 
+    /// How many separate disks of comparable size are as bright as the brightest pixel: the 4-connected blobs of pixels
+    /// above nine tenths of the maximum that are at least a quarter of the largest blob (and at least four pixels). 1 for a
+    /// pattern whose direct beam is its one brightest disk, also when its Bragg disks are strong (the built-in demo, whose
+    /// measured radius must not change); more for a spot pattern whose Bragg spots reach the beam's own level (saturated
+    /// 8-bit SPED).
+    ///
+    /// DEVIATION from py4DSTEM (mac4DSTEM#203): `get_probe_size` counts every pixel above its thresholds as one disk and
+    /// reports the radius of a disk of that area. With several comparable disks that area is their sum: on the SPED scan
+    /// of Zenodo 10.5281/zenodo.2652906 py4DSTEM 0.14.17 itself returns 15.39 px (this app 15.45) where the spots are about
+    /// 2.5 px. The number is right as a port and wrong as a probe radius, so `tiledRun` stores none in that case.
+    package nonisolated static func comparableBrightDiskCount(dp: [Float], qy: Int, qx: Int) -> Int {
+        guard dp.count == qy * qx, qy > 0, qx > 0 else { return 0 }
+        var dpMax: Float = 0
+        for v in dp where v.isFinite && v > dpMax { dpMax = v }
+        guard dpMax > 0 else { return 0 }
+        let threshold = 0.9 * dpMax
+        var seen = [Bool](repeating: false, count: dp.count)
+        var sizes: [Int] = []
+        var stack: [Int] = []
+        for start in 0..<dp.count where !seen[start] && dp[start].isFinite && dp[start] > threshold {
+            var size = 0
+            seen[start] = true
+            stack.append(start)
+            while let i = stack.popLast() {
+                size += 1
+                let y = i / qx, x = i % qx
+                for (ny, nx) in [(y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)] where ny >= 0 && ny < qy && nx >= 0 && nx < qx {
+                    let j = ny * qx + nx
+                    if !seen[j], dp[j].isFinite, dp[j] > threshold { seen[j] = true; stack.append(j) }
+                }
+            }
+            sizes.append(size)
+        }
+        guard let largest = sizes.max() else { return 0 }
+        return sizes.filter { $0 >= 4 && 4 * $0 >= largest }.count
+    }
+
+    /// What the user is told when the probe radius is not measured because of `comparableBrightDiskCount` (mac4DSTEM#203).
+    package nonisolated static func severalBrightDisksNote(count: Int) -> String {
+        // The instruction first: the status line shows about ninety characters (driven 2026-11-12, the end was cut off).
+        "Type the probe radius (Bragg Disks › Probe radius): not measured, \(count) disks are as bright as the beam."
+    }
+
     // MARK: - Robust origin fit (v2 S13)
 
     /// Outcome of an iteratively-trimmed origin fit.
@@ -408,7 +451,10 @@ package nonisolated enum OriginCalibration {
         progress?(1)
         // The calibration's probe radius: py4DSTEM's `DataCube.get_probe_size` default is the MEAN pattern (`radius` above is
         // `get_origin`'s working radius, the origin window's). nil when the mean pattern has no measurable probe.
-        let meanRadius = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx)?.r
+        // Also nil when the mean pattern holds several disks as bright as the beam: their summed area is not a probe radius
+        // (`comparableBrightDiskCount`, mac4DSTEM#203).
+        let meanRadius = comparableBrightDiskCount(dp: statistics.meanDP, qy: d.qy, qx: d.qx) > 1
+            ? nil : probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx)?.r
         return (
             radius,
             meanRadius,
