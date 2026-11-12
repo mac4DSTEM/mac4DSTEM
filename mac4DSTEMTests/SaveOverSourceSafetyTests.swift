@@ -217,11 +217,11 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         gates.noteSidecarRestoreFailed(.unreadable, message: "EPERM.")
         let unreadable = gates.sidecarRewriteRefusal() ?? ""
         XCTAssertTrue(unreadable.contains("Allow Access…"), unreadable)
-        XCTAssertTrue(unreadable.contains("Change Session Sidecar…"), unreadable)
+        XCTAssertTrue(unreadable.contains(DatasetMenuWording.change), unreadable)
         XCTAssertFalse(unreadable.contains("dataset inspector"), unreadable)
         gates.noteSidecarRestoreFailed(.doesNotFit, message: "Wrong file.")
         let doesNotFit = gates.sidecarRewriteRefusal() ?? ""
-        XCTAssertTrue(doesNotFit.contains("Dataset › Change Session Sidecar…"), doesNotFit)
+        XCTAssertTrue(doesNotFit.contains("Dataset › " + DatasetMenuWording.change), doesNotFit)
         XCTAssertFalse(doesNotFit.contains("dataset inspector"), doesNotFit)
     }
 

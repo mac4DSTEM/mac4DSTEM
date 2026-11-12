@@ -1060,7 +1060,7 @@ extension AppState {
         guard let descriptor else { present(SimpleError("No dataset is open.")); return }
         let expected = sessionSidecar.location(for: descriptor)
         let panel = NSOpenPanel()
-        panel.title = "Allow Access to the Session Sidecar"
+        panel.title = "Allow Access to the Session File"
         panel.message = "Choose \(expected.lastPathComponent) so mac4DSTEM may read the session saved beside this dataset."
         panel.prompt = "Allow Access"
         panel.canChooseFiles = true
@@ -1103,7 +1103,7 @@ extension AppState {
         }
         let current = sessionSidecar.location(for: descriptor)
         guard let url = runSidecarSavePanel(
-            title: "Save Session Sidecar As",
+            title: "Change Session File",
             message: "Choose the companion file mac4DSTEM keeps this dataset's session in. Existing saved results are copied across.",
             suggesting: current
         ) else {

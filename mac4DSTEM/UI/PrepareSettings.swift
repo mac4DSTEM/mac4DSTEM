@@ -321,6 +321,9 @@ struct PrepareSettings: View {
             if let blocker = appState.spotDistortionBlocker, !appState.isBusy {
                 InspectorNote("Fit Distortion from Spots: " + blocker.prefix(1).lowercased() + blocker.dropFirst())
             }
+            if let refusal = appState.spotDistortion.refusal, !appState.isBusy {
+                InspectorNote(refusal)
+            }
             if let fit = appState.spotDistortion.pending {
                 InspectorValueRow("Spot distortion", fit.summary())
                     .accessibilityElement(children: .combine)

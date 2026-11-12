@@ -887,11 +887,11 @@ struct RealSpacePane: View {
     }
 
     private var title: some View {
-        Text(appState.displayedResultName)
+        Text(appState.resultPaneTitle)
             .font(.headline)
             .lineLimit(1)
             .truncationMode(.tail)
-            .help(appState.displayedResultName)
+            .help(appState.resultPaneTitle)
             .accessibilityIdentifier("result.title")
     }
 

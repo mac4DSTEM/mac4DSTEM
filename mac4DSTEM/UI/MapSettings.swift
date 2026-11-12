@@ -928,7 +928,7 @@ private struct StrainSection: View {
                 ))
             }
 
-            if appState.diskDetectionSettingsAreStale {
+            if appState.productWorkflowReadiness.needsSeparateStaleDisksNote(settingsAreStale: appState.diskDetectionSettingsAreStale) {
                 DetectionSettingsStaleWarning(reason: "before strain")
             }
 
@@ -978,7 +978,7 @@ private struct StrainSection: View {
                     .accessibilityIdentifier("strain.diagnostics.localFits")
                     InspectorValueRow(
                         "Reference inliers",
-                        "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
+                        StrainBasisText.inliers(map.referencePositionCount, of: map.diagnostics.referenceCandidateCount)
                     )
                     .accessibilityIdentifier("strain.diagnostics.referenceInliers")
                 }
@@ -1655,6 +1655,11 @@ nonisolated enum ACOMQScaleReadout {
 
 /// The strain panel's "Basis support" value. Its counts read "43388/43495 peaks": grouped as the Mac's Region writes them.
 enum StrainBasisText {
+    /// "Reference inliers": it read "1119/1309".
+    static func inliers(_ inliers: Int, of candidates: Int, locale: Locale = .autoupdatingCurrent) -> String {
+        "\(CalibrationUnitConversion.displayCount(inliers, locale: locale)) of \(CalibrationUnitConversion.displayCount(candidates, locale: locale))"
+    }
+
     static func support(fraction: Double, supporting: Int, of observations: Int, locale: Locale = .autoupdatingCurrent) -> String {
         "\(Num.fixed(fraction * 100, 0))% \u{00B7} "
             + "\(CalibrationUnitConversion.displayCount(supporting, locale: locale)) of "

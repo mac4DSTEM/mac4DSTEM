@@ -353,32 +353,32 @@ private struct DatasetCommands: Commands {
             }
         }
         CommandMenu("Dataset") {
-            Button("Save Current Result to Session Sidecar") {
+            Button(DatasetMenuWording.saveResult) {
                 appState?.saveCurrentResultToSessionSidecar()
             }
             .disabled((appState?.resultPresentation.resultImage == nil
                        && appState?.resultPresentation.resultRGBA == nil)
                       || appState?.isBusy == true
                       || appState?.gates.mayWriteSidecar != true)
-            Button("Save Calibration to Session Sidecar") {
+            Button(DatasetMenuWording.saveCalibration) {
                 appState?.saveCalibrationToSessionSidecar()
             }
             .disabled(appState?.hasDataset != true
                       || appState?.isBusy == true
                       || appState?.gates.mayWriteSidecar != true)
             Divider()
-            Button("Allow Access to Session Sidecar…") {
+            Button(DatasetMenuWording.allowAccess) {
                 appState?.allowAccessToSessionSidecar()
             }
             .disabled(appState?.hasDataset != true
                       || appState?.isBusy == true
                       || appState?.sessionSidecar.unreadableReason == nil)
-            Button("Change Session Sidecar…") {
+            Button(DatasetMenuWording.change) {
                 appState?.saveSessionSidecarAs()
             }
             .disabled(appState?.hasDataset != true
                       || appState?.isBusy == true)
-            Button("Ignore Session Sidecar…") {
+            Button(DatasetMenuWording.ignore) {
                 appState?.reopenIgnoringSessionSidecar()
             }
             .disabled(appState?.hasDataset != true || appState?.isBusy == true)

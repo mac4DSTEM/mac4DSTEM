@@ -211,10 +211,10 @@ package final class SessionGates {
                 + "grant it with Allow Access… (sidebar or Dataset menu); "
                 + "if the file itself cannot be read or decoded, move it "
                 + "aside or choose a different companion file with "
-                + "Dataset › Change Session Sidecar…. Then reopen the dataset."
+                + "Dataset › Change Session File…. Then reopen the dataset."
         case .doesNotFit:
             remedy = "Move the sidecar aside, or choose a different companion "
-                + "file with Dataset › Change Session Sidecar…, then reopen "
+                + "file with Dataset › Change Session File…, then reopen "
                 + "the dataset."
         }
         return "This session could not restore the view recorded in the "
