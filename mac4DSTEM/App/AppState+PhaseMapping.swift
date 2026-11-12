@@ -148,6 +148,10 @@ extension AppState {
             statusText = refusal
             return .failed(refusal)
         }
+        // Orientations found from the structures (mac4DSTEM#184): the same refusals above, another method below.
+        if phaseMapping.orientationSource == .structures {
+            return await runPhaseMappingFromStructures()
+        }
         guard let definitions = phaseDefinitions() else {
             return .failed(phaseMapping.runRefusal ?? "The phase list is not runnable.")
         }
@@ -394,14 +398,14 @@ extension AppState {
     /// provenance both phase products carry, less the per-class counts, which
     /// are the result and not what produced it — and the CIFs the phases were
     /// imported from, by file name and content fingerprint.
-    private func recordPhaseMappingRun(map: PhaseMap, run: PhaseMappingProduct.RunRecord?) {
+    func recordPhaseMappingRun(map: PhaseMap, run: PhaseMappingProduct.RunRecord?) {
         guard let run else { return }
         var parameters = phaseProvenance(map: map, run: run)
             .filter { !$0.key.hasPrefix("count_") }
         // The setup itself, so a reopened session has its phases and settings back (#128).
         parameters[PhaseSetupRecord.lineageKey] = PhaseSetupRecord(
             phases: phaseMapping.phases, reference: phaseMapping.reference, matching: phaseMapping.matching,
-            cifSources: acomSession.importedCIFSources).jsonString
+            cifSources: acomSession.importedCIFSources, orientationSource: phaseMapping.orientationSource).jsonString
         let imported = phaseMapping.phases
             .filter { $0.model.source == .imported }
             .map { SessionLineage.External(name: $0.model.id,
@@ -448,6 +452,7 @@ extension AppState {
             phaseMapping.phases = setup.phases
             phaseMapping.reference = setup.reference
             phaseMapping.matching = setup.matching
+            phaseMapping.orientationSource = record.restoredOrientationSource
             activityLog.record("Phases restored from the session: "
                 + ListFormatter.localizedString(byJoining: setup.phases.map(\.model.displayName))
                 + ". Run Map Phases to work with the map.")
@@ -600,10 +605,27 @@ extension AppState {
             "q_scale_provenance": run.qScaleIsPhysical ? "physical" : "exploratory",
             "peaks_matched": String(run.peakCount),
         ]
+        if run.orientationSource == .structures {
+            // No reference library and no typed zone: the keys that describe one are left out, the method is named.
+            out["method"] = "vector_matching_orientations_from_structures"
+            out["method_citation"] = "Thronsen et al., Ultramicroscopy 255 (2024) 113861 (vector matching); "
+                + "Ophus et al., Microsc. Microanal. 28 (2022) 390 (template matching, for the proposals)"
+            for key in ["library_entries", "in_plane_step_deg", "max_vectors_per_entry", "not_indexed_above_inv_angstrom",
+                        "worst_chance_match_percent_at_k_max"] { out[key] = nil }
+            out["residual_cutoff_inv_angstrom"] = String(format: "%.4g", run.matching.residualCutoffInvAngstrom)
+            if !run.learnedRelationships.isEmpty {
+                out["learned_relationships"] = run.learnedRelationships.joined(separator: " | ")
+            }
+            if !run.excitationSlabs.isEmpty {
+                out["excitation_slab_inv_angstrom"] = run.excitationSlabs.joined(separator: " | ")
+            }
+        }
         // Additive, and empty for `.search` — see `PhaseMappingRuleDefaults
         // .provenanceAdditions`'s own doc comment for why the shipped
         // default's provenance string must not move.
-        out.merge(PhaseMappingRuleDefaults.provenanceAdditions(for: run.matching)) { current, _ in current }
+        if run.orientationSource != .structures {
+            out.merge(PhaseMappingRuleDefaults.provenanceAdditions(for: run.matching)) { current, _ in current }
+        }
         // DiffractoKit 0.9 `minimumMatrixEvidence`: off at 0 (a hidden setting, not in the UI); named when a run used it.
         if run.matching.minimumMatrixEvidence > 0 { out["minimum_matrix_evidence"] = String(run.matching.minimumMatrixEvidence) }
         if run.matrixInPlaneDegrees.isFinite {
