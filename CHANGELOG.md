@@ -10,6 +10,75 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). App
 - **Runs on macOS 26** (was macOS 27) on Apple Silicon. Figure export writes through SwiftUI's `FileDocument`; the toolbar's Save
   button takes its low priority on macOS 26.1 and newer. MacEMUI 0.3.2. CI builds and runs the unit tests again, on Xcode 26.6.
 
+## [5.3.0](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.2.0...v5.3.0) (2026-11-12)
+
+
+### Features
+
+* agent door pattern views: a cut of the pattern, the pattern without disk circles, raw counts around a pixel ([#234](https://github.com/mac4DSTEM/mac4DSTEM/issues/234)) ([3a4e3d5](https://github.com/mac4DSTEM/mac4DSTEM/commit/3a4e3d5800aeaab3031d5789882b73c77f5e0922))
+* agent door pattern views: a cut of the pattern, the pattern without disk circles, raw counts around a pixel ([#248](https://github.com/mac4DSTEM/mac4DSTEM/issues/248)) ([3a4e3d5](https://github.com/mac4DSTEM/mac4DSTEM/commit/3a4e3d5800aeaab3031d5789882b73c77f5e0922))
+* agent door phase list: add a phase from a CIF, mark the matrix, set a phase's excitation slab, read the last run ([#251](https://github.com/mac4DSTEM/mac4DSTEM/issues/251)) ([f32331b](https://github.com/mac4DSTEM/mac4DSTEM/commit/f32331b66006a142e5da243004755f6bdc0beb92))
+* agent door sets the remaining disk detection fields: subpixel, upsampling, pattern smoothing, absolute threshold, reference peak ([#235](https://github.com/mac4DSTEM/mac4DSTEM/issues/235)) ([9fa0f91](https://github.com/mac4DSTEM/mac4DSTEM/commit/9fa0f91a811fac968ce8966a9e32b7dfb15ec176))
+* agent door sets the remaining disk detection fields: subpixel, upsampling, pattern smoothing, absolute threshold, reference peak ([#241](https://github.com/mac4DSTEM/mac4DSTEM/issues/241)) ([9fa0f91](https://github.com/mac4DSTEM/mac4DSTEM/commit/9fa0f91a811fac968ce8966a9e32b7dfb15ec176))
+* agent door setup notes, and a scan map frame an agent can find ([#237](https://github.com/mac4DSTEM/mac4DSTEM/issues/237)) ([3077449](https://github.com/mac4DSTEM/mac4DSTEM/commit/3077449480b9f60cf398463192e10a621bbecc51))
+* agent door setup notes, and a scan map frame an agent can find ([#249](https://github.com/mac4DSTEM/mac4DSTEM/issues/249)) ([3077449](https://github.com/mac4DSTEM/mac4DSTEM/commit/3077449480b9f60cf398463192e10a621bbecc51))
+* agent door workflow guide: how to work through a scan and judge each step ([#236](https://github.com/mac4DSTEM/mac4DSTEM/issues/236)) ([0c985da](https://github.com/mac4DSTEM/mac4DSTEM/commit/0c985daaec49aad1c7fef7afffae408b7a3af7d7))
+* agent door workflow guide: how to work through a scan and judge each step ([#247](https://github.com/mac4DSTEM/mac4DSTEM/issues/247)) ([0c985da](https://github.com/mac4DSTEM/mac4DSTEM/commit/0c985daaec49aad1c7fef7afffae408b7a3af7d7))
+* agent door: an Agent folder for batches: an agent lists, opens and saves results in one folder the person chooses ([#205](https://github.com/mac4DSTEM/mac4DSTEM/issues/205)) ([324bf74](https://github.com/mac4DSTEM/mac4DSTEM/commit/324bf74ff9b5eaa49d049e32e10501cc0f816aff))
+* agent door: Claude and other agents on this Mac look at mac4DSTEM's windows over MCP ([#157](https://github.com/mac4DSTEM/mac4DSTEM/issues/157)) ([1b325f7](https://github.com/mac4DSTEM/mac4DSTEM/commit/1b325f7343404b92f05a4e7755e0e667dfa5ae67))
+* agent door: get_scan_map, the scan map in scan coordinates, so an agent picks a precipitate's position ([#213](https://github.com/mac4DSTEM/mac4DSTEM/issues/213)) ([52520e7](https://github.com/mac4DSTEM/mac4DSTEM/commit/52520e78b5d4bf8ce8c4eb7948ee68d52413d1bc))
+* agent door: probe kernel tools: an agent reads and sets the probe radius, builds the kernel and picks the detector ([#212](https://github.com/mac4DSTEM/mac4DSTEM/issues/212)) ([4b470b9](https://github.com/mac4DSTEM/mac4DSTEM/commit/4b470b92963da8c42d15a808c3f34ac09f2290a2))
+* agent door: run and tune: an agent moves to a scan position, tunes disk detection, and presses Run and Stop ([#202](https://github.com/mac4DSTEM/mac4DSTEM/issues/202)) ([e85eb30](https://github.com/mac4DSTEM/mac4DSTEM/commit/e85eb30c7c3711a267a1ba4893aa423df8f4016f))
+* agent door: select_task, and Phase mapping's settings for an agent to read and set ([#215](https://github.com/mac4DSTEM/mac4DSTEM/issues/215)) ([5743f93](https://github.com/mac4DSTEM/mac4DSTEM/commit/5743f9313689a97853deb3c17c848f59ecf4319b))
+* agent door: set_calibration and run_calibration, Prepare's calibration for an agent ([#216](https://github.com/mac4DSTEM/mac4DSTEM/issues/216)) ([662d153](https://github.com/mac4DSTEM/mac4DSTEM/commit/662d1535a0695aca59c22c24ad7351ea7548f5a5))
+* Check for Updates… in the website download (Sparkle) ([#182](https://github.com/mac4DSTEM/mac4DSTEM/issues/182)) ([a5cd2fb](https://github.com/mac4DSTEM/mac4DSTEM/commit/a5cd2fb947b008a28f51ab149f1929f57be9fb2e))
+* Count variants on a phase map made from the structures ([#253](https://github.com/mac4DSTEM/mac4DSTEM/issues/253)) ([1b7addc](https://github.com/mac4DSTEM/mac4DSTEM/commit/1b7addc924905a8dea9d0bbc88a4766fabe3e35b))
+* Fit Distortion from Spots in Prepare, for a scan of one crystal ([#220](https://github.com/mac4DSTEM/mac4DSTEM/issues/220)) ([b08c0ba](https://github.com/mac4DSTEM/mac4DSTEM/commit/b08c0ba6de024c1ad3d14b8129f856b23d7b182e))
+* Map Phases finds the orientations from the structures; typed zone axes become an Advanced switch ([#243](https://github.com/mac4DSTEM/mac4DSTEM/issues/243)) ([0270842](https://github.com/mac4DSTEM/mac4DSTEM/commit/027084252ab099bd6014e5189a018e0aeb201a8c))
+* open Merlin's multi-file save and EMPAD pairs of other names, asking once for the folder under the sandbox ([#183](https://github.com/mac4DSTEM/mac4DSTEM/issues/183)) ([61f5a4d](https://github.com/mac4DSTEM/mac4DSTEM/commit/61f5a4d68cd6294cb109f7128da669e0b4578380))
+* Settings shows how much the learned detector's model caches hold ([#181](https://github.com/mac4DSTEM/mac4DSTEM/issues/181)) ([1c7921f](https://github.com/mac4DSTEM/mac4DSTEM/commit/1c7921f37bd72d6bb4172c599b53c086185b458c))
+* the agent door reaches every analysis ([#255](https://github.com/mac4DSTEM/mac4DSTEM/issues/255)) ([011762c](https://github.com/mac4DSTEM/mac4DSTEM/commit/011762c0749f2e858a8b2c25b4cdea9790b9d6a8))
+* the Al–Mg–Si preset leaves the Add Phase menu ([#250](https://github.com/mac4DSTEM/mac4DSTEM/issues/250)) ([6cb9b24](https://github.com/mac4DSTEM/mac4DSTEM/commit/6cb9b248e5f582b3065249ef71b287b4d7b8b261))
+
+
+### Bug Fixes
+
+* a Cancel at the companion folder prompt is a status line, not an error, and a granted folder is remembered across launches ([#187](https://github.com/mac4DSTEM/mac4DSTEM/issues/187)) ([70816d0](https://github.com/mac4DSTEM/mac4DSTEM/commit/70816d00893bee9f7d04785ad0a21c234aa33cb5))
+* a cleared or typed Q scale stays cleared on a rewind, and ptychography reads stale after a new origin or Q ([#154](https://github.com/mac4DSTEM/mac4DSTEM/issues/154)) ([39064d6](https://github.com/mac4DSTEM/mac4DSTEM/commit/39064d61805fd051075da80dc5d0afb6abac8fd6))
+* a file opened from Finder fills the empty window instead of opening a second one ([#166](https://github.com/mac4DSTEM/mac4DSTEM/issues/166)) ([45ad430](https://github.com/mac4DSTEM/mac4DSTEM/commit/45ad430605c7cc67b818ab07aae32f0f2a15d2f6))
+* a HyperSpy file's Q and R pixel scale are read from its axes ([#214](https://github.com/mac4DSTEM/mac4DSTEM/issues/214)) ([a9585d2](https://github.com/mac4DSTEM/mac4DSTEM/commit/a9585d2c6baa3d5d0edbb9e26d064d1a11842344))
+* a reopened session has its imported phases and phase-mapping settings back ([#152](https://github.com/mac4DSTEM/mac4DSTEM/issues/152)) ([be6c77c](https://github.com/mac4DSTEM/mac4DSTEM/commit/be6c77cca25d4d398c8169acc88b544e5bea852f))
+* a reopened session's phase-mapping run is named in the Phases section ([#149](https://github.com/mac4DSTEM/mac4DSTEM/issues/149)) ([8e9f7aa](https://github.com/mac4DSTEM/mac4DSTEM/commit/8e9f7aa6adc1891abc7f7b7bd60704acdcd4d93b))
+* agent door answers agree: a point in numbers, one subpixel name, can_run, unreadable sidecar named ([#233](https://github.com/mac4DSTEM/mac4DSTEM/issues/233)) ([18a1168](https://github.com/mac4DSTEM/mac4DSTEM/commit/18a116866c1c9a2af68bfc76c44bcd95c7d48654))
+* agent door answers agree: a point in numbers, one subpixel name, can_run, unreadable sidecar named ([#240](https://github.com/mac4DSTEM/mac4DSTEM/issues/240)) ([18a1168](https://github.com/mac4DSTEM/mac4DSTEM/commit/18a116866c1c9a2af68bfc76c44bcd95c7d48654))
+* agent door says when a kernel or probe radius moves a disk setting, and logs every agent action ([#232](https://github.com/mac4DSTEM/mac4DSTEM/issues/232)) ([929b655](https://github.com/mac4DSTEM/mac4DSTEM/commit/929b65594312acfd1a06496cd27b896af6fa63eb))
+* agent door says when a kernel or probe radius moves a disk setting, and logs every agent action ([#239](https://github.com/mac4DSTEM/mac4DSTEM/issues/239)) ([929b655](https://github.com/mac4DSTEM/mac4DSTEM/commit/929b65594312acfd1a06496cd27b896af6fa63eb))
+* agent door: the pattern picture shows the detected disks as a Retina pane does ([#188](https://github.com/mac4DSTEM/mac4DSTEM/issues/188)) ([76cf9c6](https://github.com/mac4DSTEM/mac4DSTEM/commit/76cf9c6ecadb7f864eb67f7c86b74ae1b3d2eacb))
+* Calibrate Q from crystal asks for an approximate pixel size when the rings fit two shells ([#177](https://github.com/mac4DSTEM/mac4DSTEM/issues/177)) ([52b32ef](https://github.com/mac4DSTEM/mac4DSTEM/commit/52b32efb7cc559928699d7a8fa2a5478e73254ba))
+* Calibrate Q from crystal lets the file's pixel size decide between two ring assignments ([#171](https://github.com/mac4DSTEM/mac4DSTEM/issues/171)) ([0261651](https://github.com/mac4DSTEM/mac4DSTEM/commit/026165102d1be3ee17e3a51e8a82ebc14db405b2))
+* Calibrate Q from crystal uses DiffractoKit 0.12.1 and asks which ring when two assignments fit equally ([#170](https://github.com/mac4DSTEM/mac4DSTEM/issues/170)) ([89c5729](https://github.com/mac4DSTEM/mac4DSTEM/commit/89c5729dbf0f150857490e33f103441290513927))
+* composition per object is fitted with the method the room's fit ran with ([#172](https://github.com/mac4DSTEM/mac4DSTEM/issues/172)) ([a129335](https://github.com/mac4DSTEM/mac4DSTEM/commit/a1293359de64c107859a671c5776eff709b10635))
+* composition per object is one pooled fit of the object's summed spectrum ([#158](https://github.com/mac4DSTEM/mac4DSTEM/issues/158)) ([d727e78](https://github.com/mac4DSTEM/mac4DSTEM/commit/d727e7815e272217afd497524d6c05ebac5d7269))
+* Crystal Maps and DPC controls say what they mean; Advanced rows open on the whole row ([#277](https://github.com/mac4DSTEM/mac4DSTEM/issues/277)) ([20bd1ac](https://github.com/mac4DSTEM/mac4DSTEM/commit/20bd1ac32e890088fa26c1889da3244c45707b4e))
+* disk detection uses py4DSTEM's defaults (minimum relative intensity 0.5 %, multicorr) ([#270](https://github.com/mac4DSTEM/mac4DSTEM/issues/270)) ([6658a95](https://github.com/mac4DSTEM/mac4DSTEM/commit/6658a9586042de3cab8d9ff016591e74781d8a5c)), closes [#269](https://github.com/mac4DSTEM/mac4DSTEM/issues/269)
+* emptying the thickness field removes the thickness and its N_V ([#146](https://github.com/mac4DSTEM/mac4DSTEM/issues/146)) ([c72f023](https://github.com/mac4DSTEM/mac4DSTEM/commit/c72f023930be4af7e3c6dff7ed1fe53b7aaa8d2a))
+* Map Phases ignores peaks beyond the reference library's reach ([#222](https://github.com/mac4DSTEM/mac4DSTEM/issues/222)) ([3b47c5e](https://github.com/mac4DSTEM/mac4DSTEM/commit/3b47c5e215212ee3d5d1403677dc3945193de7bf)), closes [#221](https://github.com/mac4DSTEM/mac4DSTEM/issues/221)
+* no probe radius is stored when the pattern holds several disks as bright as the beam ([#217](https://github.com/mac4DSTEM/mac4DSTEM/issues/217)) ([80f7d5e](https://github.com/mac4DSTEM/mac4DSTEM/commit/80f7d5ec9a8be6d879c8b4ce09fc02f8537bbd06))
+* on a spot pattern the Origin & probe row points to Origin from Bragg Peaks ([#219](https://github.com/mac4DSTEM/mac4DSTEM/issues/219)) ([7e9e85d](https://github.com/mac4DSTEM/mac4DSTEM/commit/7e9e85dfcdce8cc12f812765d1d5bd33adc34528))
+* on-screen numbers follow the Mac's Region everywhere ([#268](https://github.com/mac4DSTEM/mac4DSTEM/issues/268)) ([7fe3cbf](https://github.com/mac4DSTEM/mac4DSTEM/commit/7fe3cbfa91354c788e043384fefb6ef223510215)), closes [#267](https://github.com/mac4DSTEM/mac4DSTEM/issues/267)
+* status lines and messages say what happened ([#272](https://github.com/mac4DSTEM/mac4DSTEM/issues/272)) ([cd31fd5](https://github.com/mac4DSTEM/mac4DSTEM/commit/cd31fd55bfa32a3ea84ea275a20f3d69a6d6c5e6))
+* the ACOM scale slider keeps the orientation map, and a rewind puts ptychography controls back ([#167](https://github.com/mac4DSTEM/mac4DSTEM/issues/167)) ([6a6e00c](https://github.com/mac4DSTEM/mac4DSTEM/commit/6a6e00c485c35978371be8b8ef16b9e7d39feab5))
+* the Dataset menu says Session, and four more texts from the final 5.3.0 check ([#281](https://github.com/mac4DSTEM/mac4DSTEM/issues/281)) ([98a170d](https://github.com/mac4DSTEM/mac4DSTEM/commit/98a170dd41680c4d818deefc98e4e713819b1705))
+* the detector model is compiled once and kept, so Core ML's cache stops growing ([002e31f](https://github.com/mac4DSTEM/mac4DSTEM/commit/002e31f0261f4ba91ea80ac17506d5299d56a7cc))
+* the disk detector model is compiled once and kept, so the Core ML cache stops growing ([#151](https://github.com/mac4DSTEM/mac4DSTEM/issues/151)) ([002e31f](https://github.com/mac4DSTEM/mac4DSTEM/commit/002e31f0261f4ba91ea80ac17506d5299d56a7cc))
+* the Help menu opens the support page and Send Feedback ([#150](https://github.com/mac4DSTEM/mac4DSTEM/issues/150)) ([ba76b66](https://github.com/mac4DSTEM/mac4DSTEM/commit/ba76b664928bb007aaefd794c66dc68a176708f2))
+* the object table updates when the per-object fits land and shows composition in the user's number format ([#174](https://github.com/mac4DSTEM/mac4DSTEM/issues/174)) ([57c7bbb](https://github.com/mac4DSTEM/mac4DSTEM/commit/57c7bbb4f2e98c51f499e8e8f97078f4bc9b3e0c))
+* the phase map title counts the listed candidates after a session is reopened ([#176](https://github.com/mac4DSTEM/mac4DSTEM/issues/176)) ([387f986](https://github.com/mac4DSTEM/mac4DSTEM/commit/387f986f9c64b594afc5bdb2902d8bc8f3b84c02))
+* the sidebar's Allow Access… button takes its own press again ([#165](https://github.com/mac4DSTEM/mac4DSTEM/issues/165)) ([2b0dfdf](https://github.com/mac4DSTEM/mac4DSTEM/commit/2b0dfdfbac8e68481c4a72c49531709cbae6d5fe))
+* two files of one name (scan.h5, scan.dm4) never share or overwrite a session ([#147](https://github.com/mac4DSTEM/mac4DSTEM/issues/147)) ([7fe1205](https://github.com/mac4DSTEM/mac4DSTEM/commit/7fe1205b75f5dce57c7226c57662f73a6476a306))
+* two sources of one stem never share or overwrite a session ([7fe1205](https://github.com/mac4DSTEM/mac4DSTEM/commit/7fe1205b75f5dce57c7226c57662f73a6476a306))
+* variant numbers do not depend on which equivalent matrix angle the matcher returns ([#159](https://github.com/mac4DSTEM/mac4DSTEM/issues/159)) ([7bcf0f2](https://github.com/mac4DSTEM/mac4DSTEM/commit/7bcf0f29646cbeed40aac1950289354df9cb749c))
+
 ## [5.2.0](https://github.com/mac4DSTEM/mac4DSTEM/compare/v5.1.1...v5.2.0) (2026-11-05)
 
 
