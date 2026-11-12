@@ -92,14 +92,14 @@ extension AppState {
         }
     }
 
-    /// The fit's numbers as step keys, as the old room wrote them: `result_at` / `result_wt` ("Al 97.6 ± 0.5 · Si 1.5 ± 0.3", elements
-    /// with a number only), `result_unit` and `method_reference` (`edsMethodLine`: the method and where its k-factors came from; `method` is
+    /// The fit's numbers as step keys: `result_at` / `result_wt` ("Al 97.61 ± 0.48 · Cu 0.180 ± 0.042", elements with a number only; the
+    /// σ to two significant digits and the value to the same place, as the Spectroscopy table writes them, in the C spelling), `result_unit` and `method_reference` (`edsMethodLine`: the method and where its k-factors came from; `method` is
     /// the step's own key, the method hash).
     nonisolated static func edsResultParameters(_ fit: PooledQuantification) -> [String: String] {
         func line(_ value: (PooledQuantification.Row) -> (Double?, Double?)) -> String {
             fit.rows.compactMap { r -> String? in
                 guard r.failure == nil, case let (v?, s) = value(r) else { return nil }
-                return "\(r.element) \(String(format: "%.1f", v))" + (s.map { " \u{00B1} " + String(format: "%.1f", $0) } ?? "")
+                return "\(r.element) " + CalibrationUnitConversion.plusMinus(v, s, locale: nil)
             }.joined(separator: " \u{00B7} ")
         }
         return ["result_at": line { ($0.atomicPercent, $0.atomicSigma) }, "result_wt": line { ($0.weightPercent, $0.weightSigma) },

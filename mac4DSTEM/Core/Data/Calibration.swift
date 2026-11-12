@@ -225,6 +225,36 @@ package nonisolated enum CalibrationUnitConversion {
             .number.locale(locale).grouping(.never).precision(.significantDigits(1...digits)))
     }
 
+    /// A count as the Mac's Region writes it ("29.964" in de_DE, "29,964" in en_US): status lines, the toolbar, inspector rows.
+    /// DISPLAY ONLY: records, exports and the agent door keep plain digits.
+    package static func displayCount(_ value: Int, locale: Locale = .autoupdatingCurrent) -> String {
+        value.formatted(.number.locale(locale))
+    }
+
+    /// "12.35 ± 0.56": a value and its 1σ, the σ to two significant digits and the value to the same decimal place, at most
+    /// four decimals; the rule of the Spectroscopy table. A σ that would print as zero at four decimals is "< 0.0001".
+    /// Without a σ (nil, zero, not finite) the value alone, to one decimal. `locale` nil writes the C spelling a record keeps.
+    package static func plusMinus(_ value: Double, _ sigma: Double?, locale: Locale? = .autoupdatingCurrent) -> String {
+        func fixed(_ v: Double, _ places: Int) -> String {
+            let c = String(format: "%.\(places)f", v)
+            return locale.map { localizedDecimal(c, locale: $0) } ?? c
+        }
+        guard value.isFinite else { return "\u{2013}" }
+        guard let sigma, sigma.isFinite, sigma > 0 else { return fixed(value, 1) }
+        let places = max(0, min(4, 1 - Int(floor(log10(sigma)))))
+        let shown = fixed(sigma, places)
+        let isZero = !shown.contains { "123456789".contains($0) }
+        return "\(fixed(value, places)) \u{00B1} " + (isZero ? "< " + fixed(0.0001, 4) : shown)
+    }
+
+    /// A line a record keeps in the C spelling ("Al 97.6 ± 0.5 · Si 1.5 ± 0.3"), shown with the Region's decimal mark. A line
+    /// has no thousands separators, so only the mark changes. DISPLAY ONLY.
+    package static func localizedRecordLine(_ line: String, locale: Locale = .autoupdatingCurrent) -> String {
+        guard let mark = locale.decimalSeparator, mark != "." else { return line }
+        // A lookahead keeps the second digit unconsumed, so "1.2.3" style runs and adjacent numbers are all reached.
+        return line.replacing(#/(\d)\.(?=\d)/#) { "\($0.1)\(mark)" }
+    }
+
     /// A C-formatted number ("0.88", "1.16e+04", "-0.02908") with the locale's own decimal mark: the one way colorbars, scale
     /// bars and histogram readouts localise, so a screen never mixes "0,2 Å⁻¹" with "0.88". The digits are the C-format ones
     /// as always (en output is byte-identical); only the mark changes. DISPLAY ONLY, exports burn with en_US_POSIX.
@@ -241,7 +271,7 @@ package nonisolated enum CalibrationUnitConversion {
         a: Double, b: Double, thetaDegrees: Double, locale: Locale = .autoupdatingCurrent
     ) -> String {
         "a \(displayNumber(a, digits: 4, locale: locale)) px · b \(displayNumber(b, digits: 4, locale: locale)) px"
-            + " · θ \(RQRotationConvention.degreesText(thetaDegrees))"
+            + " · θ \(RQRotationConvention.degreesText(thetaDegrees, locale: locale))"
     }
 
     package static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {

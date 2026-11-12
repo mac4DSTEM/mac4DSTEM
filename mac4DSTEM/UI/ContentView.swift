@@ -178,7 +178,7 @@ extension AppState {
             }
             let positions = descriptor.rx * descriptor.ry
             return .idle(file: descriptor.fileName, room: room,
-                         detail: "\(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")",
+                         detail: "\(CalibrationUnitConversion.displayCount(positions)) \(positions == 1 ? "position" : "positions")",
                          help: descriptor.filePath)
         }
         if let metadata = spectroscopy.metadata {

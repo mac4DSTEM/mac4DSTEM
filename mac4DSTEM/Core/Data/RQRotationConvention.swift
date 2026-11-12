@@ -55,15 +55,15 @@ package enum RQRotationConvention {
     /// A rotation in degrees as printed: a value that rounds to zero at
     /// `decimals` prints "0.0", never "-0.0" (the py4DSTEM sign flip turns
     /// +0 into -0, and a tiny negative angle rounds to it). Display only.
-    package nonisolated static func degreesText(_ degrees: Double, decimals: Int = 1) -> String {
+    package nonisolated static func degreesText(_ degrees: Double, decimals: Int = 1, locale: Locale = .autoupdatingCurrent) -> String {
         guard degrees.isFinite else { return "—" }   // CR1 4b: never a fabricated "0.0°"
         let text = String(format: "%.\(decimals)f", degrees)
         let isZero = !text.contains { "123456789".contains($0) }
-        return (isZero ? String(format: "%.\(decimals)f", 0.0) : text) + "°"
+        return CalibrationUnitConversion.localizedDecimal(isZero ? String(format: "%.\(decimals)f", 0.0) : text, locale: locale) + "°"
     }
 
     /// `degreesText` for the app's internal angle, in py4DSTEM's sign.
-    package nonisolated static func displayText(fromApp appRad: Float, decimals: Int = 1) -> String {
-        degreesText(displayDegrees(fromApp: appRad), decimals: decimals)
+    package nonisolated static func displayText(fromApp appRad: Float, decimals: Int = 1, locale: Locale = .autoupdatingCurrent) -> String {
+        degreesText(displayDegrees(fromApp: appRad), decimals: decimals, locale: locale)
     }
 }
