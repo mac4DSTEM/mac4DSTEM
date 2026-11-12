@@ -54,7 +54,8 @@ extension Mac4DSTEMAgentDoor {
             }
             state.saveCurrentResultToSessionSidecar()
             state.statusText = "An agent saved the result to the session. " + state.statusText
-            return .json(["saved_results": savedResults(of: state)])
+            // The write runs on; the new result is listed once it lands (get_window's session, when busy is false).
+            return .json(["saving": AgentJSON.orNull(state.displayedProduct?.kind), "saved_before": savedResults(of: state)])
         },
         AgentTool(name: "export_result", title: "Export result",
                   summary: "Writes the displayed result into the Agent folder as the Export menu does: data (the numbers behind "

@@ -222,7 +222,7 @@ extension AppState {
             "q_pixel_units": AgentJSON.orNull(calibration.qPixelUnits),
             "r_pixel_size": AgentJSON.number(calibration.rPixelSize),
             "r_pixel_units": AgentJSON.orNull(calibration.rPixelUnits),
-            "qr_rotation_deg": AgentJSON.number(calibration.rotationRad.map { Double($0) * 180 / Double.pi }),
+            "qr_rotation_deg": AgentJSON.number(calibration.rotationRad.map { RQRotationConvention.displayDegrees(fromApp: $0) }),   // py4DSTEM's sign, as the screen and the log (ADR 040)
             "probe_radius_px": AgentJSON.number(calibration.probeRadius),
             "accelerating_voltage_kv": AgentJSON.number(calibrationSession.acceleratingVoltage),
         ]

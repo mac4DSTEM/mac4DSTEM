@@ -39,7 +39,7 @@ extension Mac4DSTEMAgentDoor {
             }
             var isFolder: ObjCBool = false
             guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isFolder), !isFolder.boolValue else {
-                return .refusal(status: 404, message: "There is no file \(folder.relativePath(of: file)) in the Agent folder.")
+                return .refusal(status: 404, message: noFileMessage(file))
             }
             let model: CrystalModel
             do {

@@ -83,7 +83,7 @@ extension Mac4DSTEMAgentDoor {
             case .failure(let refusal): return .refusal(status: 404, message: refusal.message)
             case .success(let url):
                 guard FileManager.default.fileExists(atPath: url.path) else {
-                    return .refusal(status: 404, message: "There is no file \(folder.relativePath(of: url)) in the Agent folder.")
+                    return .refusal(status: 404, message: noFileMessage(url))
                 }
                 state.statusText = "An agent opened \(url.lastPathComponent) with options."
                 state.openFileForConfiguration(url: url)
@@ -139,7 +139,7 @@ extension Mac4DSTEMAgentDoor {
                       AgentParameter("scan_stride", .integer(1...1024), summary: "Keep every n-th scan position."),
                       AgentParameter("hot_pixels", .boolean, summary: "Filter hot pixels."),
                       AgentParameter("hot_pixel_threshold", .number(1...1000), summary: "Hot-pixel threshold (default 8)."),
-                      AgentParameter("name", .text, summary: "A new file in the Agent folder; .h5 is added."),
+                      AgentParameter("name", .text, summary: "A new file in the Agent folder; .h5 is added. With ask_person, the name the Save dialog proposes."),
                       AgentParameter("ask_person", .boolean, summary: "true: the Save dialog asks the person where."),
                       AgentParameter("open_after", .boolean, summary: "true: open the copy when written and carry on with it."),
                   ],
@@ -157,7 +157,8 @@ extension Mac4DSTEMAgentDoor {
             if let hot = a["hot_pixels"] { pending.preprocess?.hotPixelsEnabled = hot == "true" }
             if let threshold = a["hot_pixel_threshold"].flatMap(Double.init) { pending.preprocess?.hotPixelThreshold = threshold }
 
-            let suggested = PreprocessDraft.suggestedFileName(forSource: descriptor.fileName)
+            let suggested = a["name"].map { ($0 as NSString).lastPathComponent }.flatMap { $0.isEmpty ? nil : $0 }
+                .map { $0.hasSuffix(".h5") ? $0 : $0 + ".h5" } ?? PreprocessDraft.suggestedFileName(forSource: descriptor.fileName)
             let destination: URL
             if a["ask_person"] == "true" {
                 guard let chosen = state.choosePreprocessDestination(suggestedName: suggested) else {
@@ -197,6 +198,9 @@ extension Mac4DSTEMAgentDoor {
                 }
             }
             var answer = reductionSummary(configuration)
+            if let stride = pending.preprocess?.scanStride, stride > 1, let bytes = configuration.byteCount {
+                answer["bytes"] = bytes / (stride * stride)   // every n-th position along both scan axes
+            }
             answer["writing"] = destination.lastPathComponent
             answer["open_after"] = openAfter
             return .json(answer)

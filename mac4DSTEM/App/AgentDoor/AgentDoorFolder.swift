@@ -26,6 +26,14 @@ extension Mac4DSTEMAgentDoor {
     /// Whether the person lets agents write into the Agent folder (Settings > Agents).
     static var savesAllowed = false
 
+    /// What a file tool answers when its path names no file; an empty path is the folder itself, never "no file <folder name>".
+    static func noFileMessage(_ url: URL) -> String {
+        guard let root = folder.url, url.standardizedFileURL.path != root.standardizedFileURL.path else {
+            return "Give a path: a file of the Agent folder, as list_agent_folder shows it."
+        }
+        return "There is no file \(folder.relativePath(of: url)) in the Agent folder."
+    }
+
     static let folderTools: [AgentTool] = [
         AgentTool(name: "list_agent_folder", title: "Agent folder files",
                   summary: "The files in the Agent folder the person chose in Settings > Agents (and its subfolders): path relative to "
@@ -50,7 +58,7 @@ extension Mac4DSTEMAgentDoor {
             }
             var isFolder: ObjCBool = false
             guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isFolder), !isFolder.boolValue else {
-                return .refusal(status: 404, message: "There is no file \(folder.relativePath(of: file)) in the Agent folder.")
+                return .refusal(status: 404, message: noFileMessage(file))
             }
             state.statusText = "An agent opened \(file.lastPathComponent)."
             Task { await state.openFileAsync(url: file) }

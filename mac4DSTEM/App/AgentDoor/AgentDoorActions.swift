@@ -21,8 +21,10 @@ extension Mac4DSTEMAgentDoor {
             guard let state = call.window?.state as? AppState else { return notAWindow }
             guard !state.isBusy else { return busyRefusal }
             if case .failed(let reason) = state.runDiskDisagreement() { return .refusal(status: 409, message: reason) }
-            state.statusText = "An agent pressed Compare Detectors."
-            return .json(["published": true])
+            // The summary line the window shows (unmatched peaks per detector) is the answer an agent reads.
+            let summary = state.statusText
+            return .json(["published": true, "summary": summary,
+                          "product": AgentJSON.orNull(state.displayedProduct?.kind)])
         },
         AgentTool(name: "reset_disk_detection", title: "Reset Recommended Settings",
                   summary: "Puts every disk detection setting back to the recommended defaults, as Reset Recommended Settings does. "
