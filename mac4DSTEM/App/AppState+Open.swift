@@ -1339,6 +1339,7 @@ extension AppState {
     func clearCalibration() {
         calibrationSession.clear()
         qCalibration.clear()
+        spotDistortion.clear()
         clearSupersededFittedOrigin()
         phaseContrast.parallaxPreprocess = nil; phaseContrast.parallaxAlignment = nil
         phaseContrast.singleslicePtychography = nil
