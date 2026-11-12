@@ -213,13 +213,13 @@ package final class SessionGates {
                 + "aside or choose a different companion file with "
                 + "Dataset › Change Session File…. Then reopen the dataset."
         case .doesNotFit:
-            remedy = "Move the sidecar aside, or choose a different companion "
+            remedy = "Move the session file aside, or choose a different companion "
                 + "file with Dataset › Change Session File…, then reopen "
                 + "the dataset."
         }
         return "This session could not restore the view recorded in the "
-            + "session sidecar (\(failure.message)) Saving now would rewrite "
-            + "the sidecar as a full-extent session and mislabel the results "
+            + "session file (\(failure.message)) Saving now would rewrite "
+            + "the session file as a full-extent session and mislabel the results "
             + "it already holds. " + remedy
     }
 
@@ -325,16 +325,16 @@ package final class SessionGates {
         if let kind = removingKind {
             let name = carried.first { $0.kind == kind }?.name ?? kind
             let others = left.count == 1 ? "the other result" : "the \(left.count) other results"
-            return "Removing “\(name)” rewrites the session sidecar as the loaded view, which would relabel "
+            return "Removing “\(name)” rewrites the session file as the loaded view, which would relabel "
                 + "\(others) computed on another view of this file (\(views)). \(reopen) and remove them there."
         }
         if carried.count == 1 {
             let name = carried[0].name
-            return "The session sidecar holds “\(name)”, computed on another view of this file (\(views)). "
+            return "The session file holds “\(name)”, computed on another view of this file (\(views)). "
                 + "Saving now would relabel it as computed on the loaded view. "
                 + "\(reopen) and save there, or remove “\(name)” in Results first."
         }
-        return "The session sidecar holds \(carried.count) results computed on another view of this file "
+        return "The session file holds \(carried.count) results computed on another view of this file "
             + "(\(views)). Saving now would relabel them as computed on the loaded view. "
             + "\(reopen) and save or remove them there."
     }

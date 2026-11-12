@@ -133,7 +133,7 @@ final class SessionGatesTests: XCTestCase {
 
         gates.noteSidecarRestoreFailed(.doesNotFit, message: "Wrong file story.")
         let doesNotFit = gates.sidecarRewriteRefusal()
-        XCTAssertTrue(doesNotFit?.contains("Move the sidecar aside") == true,
+        XCTAssertTrue(doesNotFit?.contains("Move the session file aside") == true,
                       "The does-not-fit case's remedy is different: \(doesNotFit ?? "nil")")
 
         gates.clearSidecarRestoreFailure()
@@ -182,7 +182,7 @@ final class SessionGatesTests: XCTestCase {
         XCTAssertNil(state.activeOperation, "A refused save must not have begun its write")
         XCTAssertFalse(state.canCancelActiveOperation)
         XCTAssertFalse(FileManager.default.fileExists(atPath: sidecar.path),
-                       "A refused save must not have rewritten the sidecar")
+                       "A refused save must not have rewritten the session file")
 
         // The control: clearing the failure lets the same save proceed.
         state.gates.clearSidecarRestoreFailure()
@@ -192,7 +192,7 @@ final class SessionGatesTests: XCTestCase {
         // status line is set after it), not just for the file to exist —
         // tearing the directory down under a live HDF5 read is the standing
         // concurrent-HDF5 crash (S5's lesson).
-        try await waitUntil("the allowed save publishes the sidecar") {
+        try await waitUntil("the allowed save publishes the session file") {
             state.statusText.contains("Saved calibration")
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: sidecar.path))

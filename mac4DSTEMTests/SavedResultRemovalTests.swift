@@ -288,7 +288,7 @@ final class SavedResultRemovalTests: XCTestCase {
         _ = await a.recordedLoadSpecification(forSourcePath: cube.path, source: descriptor)
         let atOpen = try XCTUnwrap(a.sessionSidecar.unreadableReason, "the open-time writer reported")
         try await hold(cube, in: a)
-        let afterActivate = try XCTUnwrap(a.sessionSidecar.unreadableReason, "the sidecar is still reported unreadable")
+        let afterActivate = try XCTUnwrap(a.sessionSidecar.unreadableReason, "the session file is still reported unreadable")
 
         let name = sidecar.lastPathComponent
         XCTAssertTrue(afterActivate.hasPrefix("Could not restore \(name): "), afterActivate)

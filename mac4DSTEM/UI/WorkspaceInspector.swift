@@ -482,7 +482,7 @@ struct ProductInfoSections: View {
                 InspectorValueRow("Name", product.displayName)
                 InspectorValueRow("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
                 InspectorValueRow("Origin", product.origin == .computed
-                                ? "Computed this session" : "Restored from the session sidecar")
+                                ? "Computed this session" : "Restored from the session file")
                 InspectorValueRow("Size", "\(product.width) × \(product.height) px", mono: true)
                 InspectorValueRow("Frame", Self.frameLabel(product.domain))
                 InspectorValueRow("Values", product.valueUnits)
@@ -773,7 +773,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var sidecarUnreadableSection: some View {
         if let reason = appState.sessionSidecar.unreadableReason {
-            InspectorSection("Session sidecar") {
+            InspectorSection("Session file") {
                 Text("A saved session sits beside this dataset and could not be read.")
                     .font(.callout)
                 InspectorNote(reason)
@@ -791,11 +791,11 @@ private struct InspectorDiagnosticsSections: View {
         if appState.sessionSidecar.unreadableReason == nil,
            let failure = appState.gates.sidecarRestoreFailure,
            failure.kind == .doesNotFit {
-            InspectorSection("Session sidecar") {
+            InspectorSection("Session file") {
                 Text("The saved session beside this dataset describes a region this file does not have.")
                     .font(.callout)
                 InspectorNote(failure.message)
-                InspectorNote("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
+                InspectorNote("The whole file is loaded, and session saves are disabled so the session file's recorded view and results are not relabelled.")
             }
             .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
         }

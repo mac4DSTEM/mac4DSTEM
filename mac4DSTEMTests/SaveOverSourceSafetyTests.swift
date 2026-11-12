@@ -66,7 +66,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         XCTAssertNotNil(SessionSidecarLocator.sidecarDestinationRefusal(source, sourcePath: source.path))
         XCTAssertNotNil(SessionSidecarLocator.sidecarDestinationRefusal(link, sourcePath: source.path))
         XCTAssertNil(SessionSidecarLocator.sidecarDestinationRefusal(sidecar, sourcePath: source.path),
-                     "the sidecar's default path is the panel's correct answer")
+                     "the session file's default path is the panel's correct answer")
         XCTAssertNil(SessionSidecarLocator.sidecarDestinationRefusal(
             directory.appendingPathComponent("elsewhere.mac4dstem.h5"), sourcePath: source.path))
     }
@@ -137,10 +137,10 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
         XCTAssertThrowsError(try BraggVectorEMDWriter.mergeCalibration(
             PixelCalibration(), qWidth: 8, qHeight: 8, to: url)) { error in
-            XCTAssertTrue("\(error)".contains("opening the existing session sidecar"), "\(error)")
+            XCTAssertTrue("\(error)".contains("opening the existing session file"), "\(error)")
         }
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
-        XCTAssertEqual(try Data(contentsOf: url), bytes, "the sidecar must be byte-identical after the refused save")
+        XCTAssertEqual(try Data(contentsOf: url), bytes, "the session file must be byte-identical after the refused save")
     }
 
     /// The reviewer's own trigger: another reader holds the file's lock (HDFView, h5py "r+"), so HDF5's read-only
@@ -153,7 +153,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         XCTAssertEqual(flock(fd, LOCK_EX | LOCK_NB), 0, "the fixture must hold the exclusive lock")
         XCTAssertThrowsError(try BraggVectorEMDWriter.mergeCalibration(
             PixelCalibration(), qWidth: 8, qHeight: 8, to: url)) { error in
-            XCTAssertTrue("\(error)".contains("opening the existing session sidecar"), "\(error)")
+            XCTAssertTrue("\(error)".contains("opening the existing session file"), "\(error)")
         }
         XCTAssertEqual(try Data(contentsOf: url), bytes)
     }
@@ -171,7 +171,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         target.reset(filePath: "/a/cube.h5", datasetPath: "/data")
         XCTAssertFalse(try target.restore(from: native, expecting: "/a/cube.h5", frame: "bin2",
                                           scanY: 3, scanX: 3, detectorY: 8, detectorX: 8))
-        XCTAssertTrue(target.sidecarHoldsUnrestoredLabels, "a frame refusal leaves the sidecar's labels unrestored")
+        XCTAssertTrue(target.sidecarHoldsUnrestoredLabels, "a frame refusal leaves the session file's labels unrestored")
         target.reset(filePath: "/a/cube.h5", datasetPath: "/data")
         XCTAssertFalse(target.sidecarHoldsUnrestoredLabels)
 
@@ -182,7 +182,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         target.reset(filePath: "/a/cube.h5", datasetPath: "/data")
         XCTAssertTrue(try target.restore(from: native, expecting: "/a/cube.h5", frame: "native",
                                          scanY: 3, scanX: 3, detectorY: 8, detectorX: 8))
-        XCTAssertFalse(target.sidecarHoldsUnrestoredLabels, "an applied restore owes the sidecar nothing")
+        XCTAssertFalse(target.sidecarHoldsUnrestoredLabels, "an applied restore owes the session file nothing")
     }
 
     /// The app's own save path: with the store flagged and a new label clicked, Save Calibration keeps the sidecar's
@@ -206,7 +206,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         try await waitUntil("the calibration save publishes") { state.statusText.contains("Saved calibration") }
         XCTAssertTrue(state.statusText.contains(DiskCentreLabelStore.withheldLabelsLine), state.statusText)
         XCTAssertEqual(try BraggVectorEMDWriter.loadDiskCentreLabelsJSON(from: sidecar), oldJSON,
-                       "the sidecar's unrestored labels must survive the save")
+                       "the session file's unrestored labels must survive the save")
     }
 
     // MARK: e5 — the rewrite refusal names controls that exist
@@ -263,7 +263,7 @@ final class SaveOverSourceSafetyTests: XCTestCase {
         state.saveCalibrationToSessionSidecar()
         XCTAssertTrue(state.isBusy)
         state.openFile(url: directory.appendingPathComponent("other.h5"))
-        XCTAssertTrue(state.statusText.contains("Still saving the session sidecar"),
+        XCTAssertTrue(state.statusText.contains("Still saving the session file"),
                       "the open must be refused by name: \(state.statusText)")
         XCTAssertTrue(state.statusText.contains("other.h5"))
         try await waitUntil("the save finishes", timeoutSeconds: 30) { !state.isBusy }

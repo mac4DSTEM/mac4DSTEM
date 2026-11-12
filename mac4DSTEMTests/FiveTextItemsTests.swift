@@ -19,6 +19,31 @@ final class FiveTextItemsTests: XCTestCase {
         XCTAssertFalse(AppState.SessionSavePanelWording.title.localizedCaseInsensitiveContains("sidecar"))
     }
 
+    /// No sentence the user reads says "sidecar": the file is the session file everywhere. Reads the app's sources: every string
+    /// literal with a space in it on a line that is not a comment, its interpolations left out. Red before: 61 of them.
+    func testNoUserFacingTextSaysSidecar() throws {
+        let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("mac4DSTEM")
+        let literal = #/"((?:[^"\\]|\\.)*)"/#, interpolation = #/\\\((?:[^()]|\([^()]*\))*\)/#
+        var found: [String] = [], files = 0
+        let walker = try XCTUnwrap(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
+        for case let url as URL in walker where url.pathExtension == "swift" {
+            files += 1
+            let text = try String(contentsOf: url, encoding: .utf8)
+            for (number, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+                let trimmed = line.drop(while: { $0 == " " })
+                if trimmed.hasPrefix("//") || trimmed.hasPrefix("*") || trimmed.hasPrefix("/*") { continue }
+                for match in line.matches(of: literal) {
+                    let prose = String(match.1).replacing(interpolation, with: "")
+                    if prose.contains(" "), prose.localizedCaseInsensitiveContains("sidecar") {
+                        found.append("\(url.lastPathComponent):\(number + 1): \(prose)")
+                    }
+                }
+            }
+        }
+        XCTAssertGreaterThan(files, 100, "the sources were not found at \(sources.path)")
+        XCTAssertEqual(found, [], "user-facing text says sidecar")
+    }
+
     /// 2. The stale-disks reason once: with the requirement line saying it, no second note. Red before: both.
     func testTheStaleDisksReasonIsSaidOnce() {
         var readiness = ProductWorkflowReadiness()

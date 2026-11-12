@@ -54,7 +54,7 @@ final class SessionSidecarLocatorTests: XCTestCase {
         locator.adopt(chosen, for: cube)
 
         XCTAssertEqual(locator.location(for: cube), chosen,
-                       "a sidecar the user chose in a panel is where the sidecar IS — "
+                       "a session file the user chose in a panel is where the session file IS — "
                        + "the derived sibling is only the fallback")
         XCTAssertTrue(locator.hasGrant)
     }
@@ -82,7 +82,7 @@ final class SessionSidecarLocatorTests: XCTestCase {
 
         XCTAssertNil(locator.grant(for: second),
                      "the second dataset has no grant of its own; returning the first "
-                     + "dataset's sidecar would write one cube's results into another's companion")
+                     + "dataset's session file would write one cube's results into another's companion")
         XCTAssertEqual(locator.location(for: second).lastPathComponent, "siGe.mac4dstem.h5",
                        "the second dataset falls back to ITS OWN sibling, not the first's")
         XCTAssertEqual(locator.location(for: first), firstSidecar,
@@ -163,7 +163,7 @@ final class SessionSidecarLocatorTests: XCTestCase {
             from: .failure(SimpleError(Self.observedDenial)), sidecar: "sim_Au.mac4dstem.h5"
         )
         XCTAssertNotEqual(outcome, .noneRecorded,
-                          "a sidecar that could not be read is not a sidecar that recorded nothing — "
+                          "a session file that could not be read is not a session file that recorded nothing — "
                           + "collapsing them reopens a cropped session at full extent, silently")
         guard case .unreadable(let message) = outcome else {
             return XCTFail("expected .unreadable, got \(outcome)")
@@ -351,7 +351,7 @@ final class SessionSidecarLocatorTests: XCTestCase {
     }
 
     func testACorruptSidecarIsNotReportedAsASandboxDenial() {
-        let corrupt = "HDF5 failed while opening the session sidecar — HDF5 reported: "
+        let corrupt = "HDF5 failed while opening the session file — HDF5 reported: "
             + "file signature not found"
         XCTAssertEqual(SessionSidecarReadFailure.classify(SimpleError(corrupt)), .unreadable)
     }

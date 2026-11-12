@@ -24,7 +24,7 @@ nonisolated extension BraggVectorEMDWriter {
         /// Opens `url`. A refusal says WHY (libhdf5's reason, or the system's for a denied read), not only that it failed: the
         /// release owner's restore failure (S1, 2026-08-18) read "HDF5 export failed while opening the session sidecar" and
         /// nothing else. `operation` names what was being done.
-        init(opening url: URL, operation: String = "opening the session sidecar") throws {
+        init(opening url: URL, operation: String = "opening the session file") throws {
             self.url = url
             do {
                 reader = try HDF5Reader(url: url)

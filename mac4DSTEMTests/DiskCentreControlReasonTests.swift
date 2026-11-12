@@ -75,7 +75,7 @@ final class DiskCentreControlReasonTests: XCTestCase {
         )
         XCTAssertEqual(
             reason,
-            "The sidecar holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
+            "The session file holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
         )
     }
 
@@ -84,7 +84,7 @@ final class DiskCentreControlReasonTests: XCTestCase {
         let all = DiskCentreControlReason.saveToSidecar(
             isEmpty: true, isBusy: true, holdsUnrestoredLabels: true, sidecarRefusal: "GATE REFUSAL"
         )
-        XCTAssertTrue(all?.hasPrefix("The sidecar holds") == true)
+        XCTAssertTrue(all?.hasPrefix("The session file holds") == true)
 
         let noHold = DiskCentreControlReason.saveToSidecar(
             isEmpty: true, isBusy: true, holdsUnrestoredLabels: false, sidecarRefusal: "GATE REFUSAL"

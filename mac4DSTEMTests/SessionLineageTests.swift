@@ -441,7 +441,7 @@ final class SessionLineageTests: XCTestCase {
             recordedFrame: .detectorIdentity, currentSpecification: .fullExtent, exportBin: 1)
         XCTAssertNil(full.omission)
         XCTAssertEqual(full.record?.steps.map(\.kind), ["virtual_detector"])
-        XCTAssertNil(full.record?.lineage, "the reduced file stamps the recipe, not the sidecar's graph")
+        XCTAssertNil(full.record?.lineage, "the reduced file stamps the recipe, not the session file's graph")
     }
 
     /// Mutation it catches: `writable` without the projection comparison (a

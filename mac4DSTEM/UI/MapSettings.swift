@@ -504,7 +504,7 @@ private struct DiskDetectionRows: View {
 /// element's hint, so the reason also goes into the element's value or label (review audit 3.3,
 /// 2026-10-12). Nil while the control is enabled.
 enum DiskCentreControlReason {
-    static let saveToSidecarEnabledHelp = "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration."
+    static let saveToSidecarEnabledHelp = "Labels ride with the session calibration save — this writes them to the session file beside the dataset, alongside calibration."
 
     /// Export Labels… has nothing to write without a label (drive 14: it dimmed with no reason).
     static func exportLabels(isEmpty: Bool) -> String? {
@@ -529,7 +529,7 @@ enum DiskCentreControlReason {
         sidecarRefusal: String?
     ) -> String? {
         if holdsUnrestoredLabels {
-            return "The sidecar holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
+            return "The session file holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
         }
         if let sidecarRefusal { return sidecarRefusal }
         if isBusy { return "Unavailable while another task is running." }
@@ -596,7 +596,7 @@ private struct DiskCentreLabelsRows: View {
                 sidecarRefusal: appState.gates.sidecarRewriteRefusal()
             )
             InspectorAdaptiveButton(
-                "Save to Sidecar", systemImage: "square.and.arrow.down",
+                "Save to Session", systemImage: "square.and.arrow.down",
                 help: saveReason ?? DiskCentreControlReason.saveToSidecarEnabledHelp
             ) {
                 appState.saveCalibrationToSessionSidecar()

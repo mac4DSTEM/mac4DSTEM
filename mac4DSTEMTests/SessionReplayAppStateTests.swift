@@ -54,10 +54,10 @@ final class SessionReplayAppStateTests: XCTestCase {
         XCTAssertEqual(state.datasetSession.loadView?.source.filePath, descriptor.filePath,
                        "Reopen must read the source descriptor, never a reduced derived cube")
         XCTAssertEqual(state.loadedView.specification, specification,
-                       "The sidecar specification is applied to the source before restore")
+                       "The session file specification is applied to the source before restore")
         XCTAssertEqual(state.replay.record, record)
         XCTAssertEqual(state.replay.parameterFrame, ReplayParameterFrame.of(specification),
-                       "Recipe adoption must name the sidecar specification's detector frame")
+                       "Recipe adoption must name the session file specification's detector frame")
     }
 
     func testTheAutomaticPassOnOpenRecordsNothing() async {

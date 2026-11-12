@@ -1472,7 +1472,7 @@ final class AppState {
         // Every open path funnels here (menus, toolbar, welcome, sidebar, Recents, Finder); opening would cancel an
         // in-flight sidecar save unwritten (review 2026-10-02 c4).
         if isBusy, SessionSidecarLocator.isSaveInFlight(activeOperation) {
-            statusText = "Still saving the session sidecar — open \(url.lastPathComponent) when the save finishes"; return
+            statusText = "Still saving the session file — open \(url.lastPathComponent) when the save finishes"; return
         }
         Task { await openFileAsync(url: url) }
     }

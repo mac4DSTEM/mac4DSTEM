@@ -500,7 +500,7 @@ extension SessionSidecarLocator {
     /// rewrite the session sidecar. Opening another dataset resets the operation centre and cancels them before
     /// they publish (review 2026-10-02 c4), so the open commands are refused while one runs.
     package nonisolated static let saveOperationNames: Set<String> = [
-        "Session sidecar", "Session calibration", "Session result removal",
+        "Session file", "Session calibration", "Session result removal",
     ]
 
     /// Whether `activeOperation` (the operation centre's current name) is a sidecar save that opening another

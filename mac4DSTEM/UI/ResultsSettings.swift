@@ -45,7 +45,7 @@ struct ResultsSettings: View {
             }
             Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
         } message: { result in
-            Text("This removes \(result.displayName) from the session sidecar.")
+            Text("This removes \(result.displayName) from the session file.")
         }
         FigureExportSection()
     }

@@ -249,14 +249,14 @@ final class DatasetWindowOwnershipTests: XCTestCase {
 
         let promoted = SessionGates.carriedViewRefusal(view(recorded: crop, loaded: .fullExtent, kinds: ["a"]))
         XCTAssertEqual(promoted,
-                       "The session sidecar holds “Map a”, computed on another view of this file "
+                       "The session file holds “Map a”, computed on another view of this file "
                        + "(saved: scan 2 × 2 at (x 0, y 0) · loaded: whole file). Saving now would relabel it as "
                        + "computed on the loaded view. Reopen the dataset — a plain open restores the saved view — "
                        + "and save there, or remove “Map a” in Results first.")
         XCTAssertNotNil(SessionGates.carriedViewRefusal(view(recorded: .fullExtent, loaded: crop, kinds: ["a"])),
                         "both directions: a rehearsal view of a dataset holding full-extent results refuses too")
         XCTAssertEqual(SessionGates.carriedViewRefusal(view(recorded: crop, loaded: .fullExtent, kinds: ["a", "b"])),
-                       "The session sidecar holds 2 results computed on another view of this file "
+                       "The session file holds 2 results computed on another view of this file "
                        + "(saved: scan 2 × 2 at (x 0, y 0) · loaded: whole file). Saving now would relabel them as "
                        + "computed on the loaded view. Reopen the dataset — a plain open restores the saved view — "
                        + "and save or remove them there.")
@@ -266,7 +266,7 @@ final class DatasetWindowOwnershipTests: XCTestCase {
                      "removing the last one is the remedy")
         XCTAssertEqual(SessionGates.carriedViewRefusal(view(recorded: crop, loaded: .fullExtent, kinds: ["a", "b"]),
                                                        removingKind: "a"),
-                       "Removing “Map a” rewrites the session sidecar as the loaded view, which would relabel the "
+                       "Removing “Map a” rewrites the session file as the loaded view, which would relabel the "
                        + "other result computed on another view of this file (saved: scan 2 × 2 at (x 0, y 0) · "
                        + "loaded: whole file). Reopen the dataset — a plain open restores the saved view — and "
                        + "remove them there.")
@@ -293,7 +293,7 @@ final class DatasetWindowOwnershipTests: XCTestCase {
         let sidecar = try writeSidecar(beside: x, kinds: ["rehearsal_map"], specification: scanCrop)
         let a = try isolatedAppState()
         try await hold(x, in: a)   // the whole file, while the sidecar records the 2 × 2 rehearsal
-        XCTAssertEqual(a.sessionLoadSpecification, scanCrop, "precondition: the sidecar's view was read")
+        XCTAssertEqual(a.sessionLoadSpecification, scanCrop, "precondition: the session file's view was read")
         XCTAssertEqual(a.sessionInventory.results.map(\.kind), ["rehearsal_map"], "precondition")
 
         XCTAssertFalse(a.gates.mayWriteSidecar, "every save control is closed")

@@ -37,10 +37,10 @@ extension Mac4DSTEMAgentDoor {
 
     static let resultTools: [AgentTool] = [
         AgentTool(name: "save_to_session", title: "Save to Session",
-                  summary: "Keeps the displayed result with this dataset in its session sidecar, as Save to Session does: it appears "
+                  summary: "Keeps the displayed result with this dataset in its session file, as Save to Session does: it appears "
                       + "in Results and survives reopening. get_window's session lists the saved results.",
                   input: .window,
-                  parameters: [AgentParameter("ask_person", .boolean, summary: "true: when this dataset's sidecar has no place yet "
+                  parameters: [AgentParameter("ask_person", .boolean, summary: "true: when this dataset's session file has no place yet "
                                                   + "and the dataset is outside the Agent folder, the Mac's Save dialog asks the person.")],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
@@ -249,7 +249,7 @@ extension Mac4DSTEMAgentDoor {
             return nil
         }
         if askPerson { return nil }
-        return ToolRefusal(status: 409, message: "This dataset's session sidecar has no place yet and the dataset is outside the "
+        return ToolRefusal(status: 409, message: "This dataset's session file has no place yet and the dataset is outside the "
             + "Agent folder" + (savesAllowed ? "" : " (or saving there is off)") + ". Ask the person, then call again with ask_person "
             + "true so the Save dialog asks where, or open a copy that sits in the Agent folder.")
     }

@@ -538,7 +538,7 @@ struct SaveResultButton: View {
             // Drive 14: it dimmed with no reason. The reason is spoken and on hover; nothing drawn changes.
             .accessibilityValue(saveReason ?? "")
             .help(saveReason ?? "Save to Session — keeps the displayed result with this dataset, in "
-                  + "its session sidecar. It appears in Results and survives reopening.")
+                  + "its session file. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
         }
     }
