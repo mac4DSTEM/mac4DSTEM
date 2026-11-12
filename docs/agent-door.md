@@ -49,3 +49,14 @@ Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
 Run and tune: tools that act, behind a second switch, "Let agents run analyses" (MacEMUI 0.7.0's `AgentTool(acts:)`).
 They select a scan position, tune the disk detection, and press Run and Stop, through the actions the buttons use. Then the
 folder tools for batches (list, open, save in one granted Agent folder), and the CIF-in orientation search as a tool.
+
+## Calibration (issue #208)
+
+Behind "Let agents run analyses", like every tool that acts:
+
+| Tool | What it does |
+|---|---|
+| `set_calibration` | types the Q pixel size, the R pixel size (each with its unit) and the voltage, as Prepare's fields do; recorded as manual |
+| `run_calibration` | starts Calibrate Origin, Origin from Bragg Peaks, Fit Ellipse (in the fit annulus given) or Measure R–Q Rotation |
+
+Each answers with the calibration as `get_window` shows it, or says the step started. Clear Calibration stays with the person.

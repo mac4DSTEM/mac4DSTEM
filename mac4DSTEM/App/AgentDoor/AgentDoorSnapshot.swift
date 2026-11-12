@@ -111,7 +111,7 @@ extension AppState {
         ] as [String: Any]
     }
 
-    private var agentCalibration: [String: Any] {
+    var agentCalibration: [String: Any] {
         let calibration = calibrationSession.calibration
         let verdict = calibrationSession.verdict
         var out: [String: Any] = [
