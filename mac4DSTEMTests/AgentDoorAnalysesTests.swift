@@ -1,6 +1,7 @@
 //
 //  AgentDoorAnalysesTests.swift
-//  The agent door's Strain, ACOM and Diffraction groups settings (App/AgentDoor/AgentDoorAnalyses.swift, issues #225-#227), asked
+//  The agent door's Strain, ACOM, Diffraction groups, Imaging and Reconstruction settings (AgentDoorAnalyses.swift, AgentDoorImaging.swift,
+//  issues #224-#227), asked
 //  through a real door over MCP: each tool writes the fields it is given and no other, answers in the same words it takes, and
 //  says so in the Output.
 //
@@ -50,7 +51,7 @@ final class AgentDoorAnalysesTests: XCTestCase {
 
         defaultsSuite = "agent-door-analyses-tests-\(UUID().uuidString)"
         door = AgentDoor(appName: "mac4DSTEM", appVersion: "test", preferredPort: 0, defaults: try XCTUnwrap(UserDefaults(suiteName: defaultsSuite)))
-        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools)
+        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools + Mac4DSTEMAgentDoor.imagingTools)
         door.setEnabled(true)
         for _ in 0..<250 where door.status == .starting { try await Task.sleep(for: .milliseconds(20)) }
         guard case .listening = door.status else { return XCTFail("the door did not open: \(String(describing: door.status))") }
@@ -146,6 +147,48 @@ final class AgentDoorAnalysesTests: XCTestCase {
         let similar = try await call("find_similar_patterns")
         XCTAssertTrue(similar.refused)
         XCTAssertTrue(similar.text.contains("no grouping"), similar.text)
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: the detector's numbers skip the typed path, or set_imaging writes the wrong field - red.
+    func testTheVirtualDetectorAndTheImagingViewFollowTheAgent() async throws {
+        let state = enrolledState()
+        await state.openDemoFixture()
+        let set = try await call("set_virtual_detector", ["shape": "annulus", "center_x": 30, "center_y": 31, "inner": 4, "outer": 9])
+        XCTAssertFalse(set.refused, set.text)
+        XCTAssertEqual(state.resultPresentation.virtualShape, .annulus)
+        XCTAssertEqual(Double(state.aperture.inner), 4, accuracy: 0.51)
+        XCTAssertEqual(Double(state.aperture.outer), 9, accuracy: 0.51)
+        let detector = try XCTUnwrap(try object(set.text)["detector"] as? [String: Any])
+        XCTAssertEqual(detector["shape"] as? String, "annulus")
+
+        let view = try await call("set_imaging", ["direction": "region", "region_shape": "circle", "region_radius": 3])
+        XCTAssertFalse(view.refused, view.text)
+        XCTAssertEqual(state.activePane, .realSpace)
+        XCTAssertEqual(state.realSpaceShape, .circle)
+        XCTAssertEqual(state.realSpaceRadius, 3, accuracy: 1e-6)
+        withExtendedLifetime(state) {}
+    }
+
+    /// Mutation: set_reconstruction writes the wrong field, or a stage runs without what it needs - red.
+    func testReconstructionFieldsAndStepsFollowTheAgent() async throws {
+        let state = enrolledState()
+        let set = try await call("set_reconstruction", ["ptycho_iterations": 12, "ptycho_pure_phase": true,
+                                                        "parallax_kde_sigma_px": 0.25, "dpc_display": "angle"])
+        XCTAssertFalse(set.refused, set.text)
+        XCTAssertEqual(state.ptychography.iterations, 12)
+        XCTAssertTrue(state.ptychography.purePhaseObject)
+        XCTAssertEqual(state.phaseContrast.parallaxKDESigmaPixels, 0.25, accuracy: 1e-12)
+        XCTAssertEqual(state.dpc.dpcDisplay, .angle)
+        XCTAssertEqual(state.ptychography.stepSize, 0.5, accuracy: 1e-6, "a field not given is left alone")
+        XCTAssertEqual(try object(set.text)["ptycho_iterations"] as? Int, 12)
+
+        let noData = try await call("run_reconstruction_step", ["step": "use_parallax_fit"])
+        XCTAssertTrue(noData.refused, "no dataset")
+        await state.openDemoFixture()
+        let noFit = try await call("run_reconstruction_step", ["step": "use_parallax_fit"])
+        XCTAssertTrue(noFit.refused)
+        XCTAssertTrue(noFit.text.contains("no parallax aberration fit"), noFit.text)
         withExtendedLifetime(state) {}
     }
 }
