@@ -23,6 +23,9 @@ The door itself (listener, token, Settings section, window list, MCP endpoint) i
 A window is `w1`, `w2`, ... (or none while one window is open). Pictures take `scale` 1...3; the pattern picture is drawn at
 2 or more, as a Retina screen shows the pane, so the disk rings stand out as they do there (#185).
 Every picture and number comes from the code that draws or exports it for the person, so the agent judges what the person sees.
+Text in the door's answers writes numbers with a point whatever the Mac's Region; settings carry the recipe's names (subpixel
+`pixel`, `poly`, `multicorr`) in `get_window` and `task_settings` alike; `session.sidecar_unreadable` says why a session file
+beside the dataset could not be read, where `has_sidecar` alone would say there is none (#233).
 
 ### Tools that act
 
@@ -98,7 +101,7 @@ Behind "Let agents run analyses", like every tool that acts:
 
 | Tool | What it does |
 |---|---|
-| `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs |
+| `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs; `can_run` says whether the task has a Run |
 | `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does |
 | `scale_phase_matching_to_detector` | Scale to This Detector: the tolerances to one detector pixel; needs a physical Q pixel size |
 

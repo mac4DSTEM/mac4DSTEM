@@ -21,7 +21,8 @@ extension Mac4DSTEMAgentDoor {
         AgentTool(name: "select_task", title: "Select task",
                   summary: "Moves the window to a task (\"Disks\", \"Phase mapping\", ...: get_window's view.task) or to a workspace "
                       + "(prepare, braggDisks, map, ...: get_window's view.workspace_id), as the sidebar does. A task opens its own "
-                      + "workspace; a workspace alone opens its first task. Nothing runs: run_task then runs the task selected.",
+                      + "workspace; a workspace alone opens its first task. Nothing runs: run_task then runs the task selected. can_run says "
+                      + "whether the task has a Run at all (some tasks only show).",
                   input: .window,
                   parameters: [
                       AgentParameter("task", .choice(AnalysisMode.allCases.map(\.rawValue)), summary: "The task to select."),
@@ -50,7 +51,7 @@ extension Mac4DSTEMAgentDoor {
             state.statusText = "An agent selected \(area.title)" + (area.analysisModes.isEmpty ? "." : ", \(state.navigation.analysisMode.rawValue).")
             let selected: Any = area.analysisModes.isEmpty ? NSNull() : state.navigation.analysisMode.rawValue
             return .json(["workspace": state.navigation.workspaceArea.rawValue, "task": selected,
-                          "has_run": state.hasPrimaryWorkspaceTask])
+                          "can_run": state.hasPrimaryWorkspaceTask])
         },
         AgentTool(name: "set_phase_mapping", title: "Phase mapping settings",
                   summary: "Changes Phase mapping's reference-library and matching settings, as its fields do; only the ones given. "
