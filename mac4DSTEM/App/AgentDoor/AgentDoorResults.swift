@@ -39,12 +39,18 @@ extension Mac4DSTEMAgentDoor {
         AgentTool(name: "save_to_session", title: "Save to Session",
                   summary: "Keeps the displayed result with this dataset in its session sidecar, as Save to Session does: it appears "
                       + "in Results and survives reopening. get_window's session lists the saved results.",
-                  input: .window, acts: true) { call in
+                  input: .window,
+                  parameters: [AgentParameter("ask_person", .boolean, summary: "true: when this dataset's sidecar has no place yet "
+                                                  + "and the dataset is outside the Agent folder, the Mac's Save dialog asks the person.")],
+                  acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             if let reason = ResultsActionReason.saveToSession(
                 isLoading: state.datasetSession.isLoading, hasDisplayedProduct: state.displayedProduct != nil,
                 isBusy: state.isBusy, sidecarRefusal: state.gates.sidecarRewriteRefusal()) {
                 return .refusal(status: 409, message: reason)
+            }
+            if let refusal = prepareSidecarPlace(state, askPerson: call.arguments["ask_person"] == "true") {
+                return .refusal(status: refusal.status, message: refusal.message)
             }
             state.saveCurrentResultToSessionSidecar()
             state.statusText = "An agent saved the result to the session. " + state.statusText
@@ -208,6 +214,23 @@ extension Mac4DSTEMAgentDoor {
             return .json(["started": true])
         },
     ]
+
+    /// Where Save to Session writes when this dataset's sidecar has no place yet (the app would ask with a Save panel, and a
+    /// panel must never hold a door call): beside a dataset inside the Agent folder while saves are allowed, the Save panel when
+    /// the agent says the person is asked, else a refusal that says so. nil when the save may go ahead.
+    static func prepareSidecarPlace(_ state: AppState, askPerson: Bool) -> ToolRefusal? {
+        guard let descriptor = state.descriptor, state.sessionSidecar.grant(for: descriptor) == nil else { return nil }
+        let derived = state.sessionSidecar.derivedLocation(forSourcePath: descriptor.filePath)
+        if let root = folder.url, savesAllowed,
+           derived.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") {
+            state.sessionSidecar.adopt(derived, for: descriptor)
+            return nil
+        }
+        if askPerson { return nil }
+        return ToolRefusal(status: 409, message: "This dataset's session sidecar has no place yet and the dataset is outside the "
+            + "Agent folder" + (savesAllowed ? "" : " (or saving there is off)") + ". Ask the person, then call again with ask_person "
+            + "true so the Save dialog asks where, or open a copy that sits in the Agent folder.")
+    }
 
     static func savedResults(of state: AppState) -> [[String: Any]] {
         state.sessionInventory.results.map { ["id": $0.id, "name": $0.displayName, "kind": $0.kind] }
