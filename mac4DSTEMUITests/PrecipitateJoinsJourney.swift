@@ -70,7 +70,8 @@ final class PrecipitateJoinsJourney: Journey {
         for symbol in extra {
             step("add \(symbol) in the Elements table") {
                 let cell = wait(for: "periodicTable.\(symbol)", timeout: 30)
-                cell.click()
+                // A click toggles: an element Auto ID already mapped would be switched off by it (mac4DSTEM#201, Mg on the demo).
+                if (cell.value as? String) != "mapped" { cell.click() }
                 let picked = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == 'mapped'"), object: cell)
                 XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 20), .completed,
                                "\(symbol) is not quantified after the click: \(String(describing: cell.value))")
@@ -131,7 +132,8 @@ final class PrecipitateJoinsJourney: Journey {
         }
         step("both join columns are on screen at the default size") {
             // #106: they sat past the shape columns, off screen until the reader scrolled.
-            for header in ["Composition (mean of pixels)", "Strain (mean of pixels)"] {
+            // The composition is one pooled fit per object since 5.2.1, and its column says so (mac4DSTEM#201).
+            for header in ["Composition (pooled fit)", "Strain (mean of pixels)"] {
                 let button = table.buttons[header]
                 XCTAssertTrue(button.waitForExistence(timeout: 10), "no \(header) column")
                 XCTAssertLessThanOrEqual(button.frame.maxX, table.frame.maxX, "\(header) is off screen to the right")
@@ -139,16 +141,19 @@ final class PrecipitateJoinsJourney: Journey {
         }
     }
 
-    /// Quantify with Maps left at net counts (#99): the composition note names the missing step, not Quantify.
-    func test2_QuantifiedWithoutCompositionMapsSaysWhatToShow() throws {
+    /// Quantify with Maps left at net counts. Until 5.2.1 the composition per object was read from the composition maps, and a
+    /// note asked for wt% or at% (#99). It is one pooled fit per object now, so the column is filled without the maps and no note
+    /// says a join is unavailable (mac4DSTEM#201).
+    func test2_QuantifiedWithoutCompositionMapsStillFillsTheComposition() throws {
         try openAndQuantify()
         objectsStrainAndTable()
-        step("the composition note says to show wt% or at%") {
+        step("the composition is filled and no note says a join is unavailable") {
+            let atPct = table.staticTexts.matching(NSPredicate(format: "value CONTAINS ' at%' OR label CONTAINS ' at%'")).firstMatch
+            XCTAssertTrue(atPct.waitForExistence(timeout: 60), "no row shows a composition in at%")
             let notes = table.descendants(matching: .any).matching(identifier: "precipitates.objects.joinNotes").firstMatch
-            XCTAssertTrue(notes.waitForExistence(timeout: 10), "no join note")
-            let text = (notes.value as? String) ?? notes.label
-            XCTAssertTrue(text.contains("wt% or at%"), "the note reads: \(text)")
-            XCTAssertFalse(text.contains("Strain:"), "strain is computed but the note says it is not: \(text)")
+            if notes.exists {
+                XCTFail("the object table says a join is unavailable: \((notes.value as? String) ?? notes.label)")
+            }
         }
     }
 
