@@ -325,6 +325,12 @@ struct PhaseClaimLayer: View {
         let scan = y * map.width + x
         guard appState.fitOverlays.storedPeaksAtSelection.count == raw.peaks[scan].count else { return }
 
+        // A map made from the structures has no reference-library entry per position to replay (mac4DSTEM#184); which
+        // phase claims which disk is not drawn for it yet, and saying "run again" would send the user in a circle.
+        guard run.orientationSource == .typedZones else {
+            note = "Claimed disks are drawn for typed zone axes only"
+            return
+        }
         // The run's own library, kept by the product when it published: nothing
         // to rebuild when this layer is created again (toggle, room switch).
         guard let library = phaseMapping.lastLibrary,
