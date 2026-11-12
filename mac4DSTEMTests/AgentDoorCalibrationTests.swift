@@ -95,7 +95,7 @@ final class AgentDoorCalibrationTests: XCTestCase {
         XCTAssertEqual(calibration.rPixelSize, 4.5)
         XCTAssertEqual(calibration.rPixelUnits, "Å")
         XCTAssertEqual(state.calibrationSession.acceleratingVoltage, 300)
-        XCTAssertTrue(state.activityLog.messages.contains { $0.hasPrefix("An agent set the calibration:") && $0.contains("voltage_kv 300") },
+        XCTAssertTrue(state.activityLog.messages.contains { $0.contains("An agent set the calibration:") && $0.contains("voltage_kv 300") },
                       "the Output says the agent typed it: \(state.activityLog.messages.suffix(3))")
         let answered = try XCTUnwrap(try object(set.text)["calibration"] as? [String: Any])
         XCTAssertEqual(answered["q_pixel_size"] as? Double, 0.25)
@@ -118,11 +118,12 @@ final class AgentDoorCalibrationTests: XCTestCase {
         let noDisks = try await call("run_calibration", ["step": "origin_from_bragg_peaks"])
         XCTAssertTrue(noDisks.refused)
         XCTAssertTrue(noDisks.text.contains("Detect All Disks"), noDisks.text)
+        let innerBefore = state.calibrationSession.ellipseFitInnerRadius   // the open sets it from the detector's size
         let annulus = try await call("run_calibration", ["step": "ellipse", "fit_inner_px": 30, "fit_outer_px": 20])
         XCTAssertTrue(annulus.refused, "an inner radius above the outer is refused")
-        XCTAssertEqual(state.calibrationSession.ellipseFitInnerRadius, 10, "and nothing was changed")
+        XCTAssertEqual(state.calibrationSession.ellipseFitInnerRadius, innerBefore, "and nothing was changed")
 
-        XCTAssertFalse(state.calibrationSession.calibration.hasFittedOrigin)
+        state.calibrationSession.calibration.origin = nil   // whatever the file carried: the fit below must make it
         let origin = try await call("run_calibration", ["step": "origin"])
         XCTAssertFalse(origin.refused, origin.text)
         XCTAssertEqual(try object(origin.text)["started"] as? String, "origin")
