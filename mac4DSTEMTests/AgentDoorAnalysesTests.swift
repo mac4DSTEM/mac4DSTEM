@@ -9,6 +9,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 import ShellAgentDoor
 @testable import mac4DSTEM
 
@@ -51,7 +52,8 @@ final class AgentDoorAnalysesTests: XCTestCase {
 
         defaultsSuite = "agent-door-analyses-tests-\(UUID().uuidString)"
         door = AgentDoor(appName: "mac4DSTEM", appVersion: "test", preferredPort: 0, defaults: try XCTUnwrap(UserDefaults(suiteName: defaultsSuite)))
-        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools + Mac4DSTEMAgentDoor.imagingTools)
+        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.analysisTools + Mac4DSTEMAgentDoor.imagingTools
+                      + Mac4DSTEMAgentDoor.precipitateTools)
         door.setEnabled(true)
         for _ in 0..<250 where door.status == .starting { try await Task.sleep(for: .milliseconds(20)) }
         guard case .listening = door.status else { return XCTFail("the door did not open: \(String(describing: door.status))") }
@@ -60,6 +62,7 @@ final class AgentDoorAnalysesTests: XCTestCase {
 
     override func tearDown() async throws {
         Mac4DSTEMAgentDoor.folder.use(folder: nil)
+        Mac4DSTEMAgentDoor.savesAllowed = false
         door?.setEnabled(false)
         door = nil
         UserDefaults().removePersistentDomain(forName: defaultsSuite)
@@ -189,6 +192,47 @@ final class AgentDoorAnalysesTests: XCTestCase {
         let noFit = try await call("run_reconstruction_step", ["step": "use_parallax_fit"])
         XCTAssertTrue(noFit.refused)
         XCTAssertTrue(noFit.text.contains("no parallax aberration fit"), noFit.text)
+        withExtendedLifetime(state) {}
+    }
+
+    private func publishFixtureMap(_ state: AppState) async {
+        var map = PhaseMap(width: 6, height: 6, matrixEntryIndex: 0, phaseNames: ["Al", "T1"], matrixPhaseIndex: 0)
+        for i in map.results.indices { map.results[i].verdict = .matrix; map.results[i].phaseIndex = 0 }
+        for (r, c) in [(1, 1), (1, 2), (2, 1), (2, 2)] { map.results[r * 6 + c].verdict = .indexed; map.results[r * 6 + c].phaseIndex = 1 }
+        state.phaseMapping.publish(map, ranWith: PhaseMappingProduct.RunRecord(
+            phaseSignature: "fixture", reference: PhaseReferenceSettings(), matching: PhaseVectorSettings(), libraryEntryCount: 1,
+            matrixEntryIndex: 0, matrixInPlaneDegrees: .nan, worstChanceMatchPercent: 0, invAngstromPerPixel: 0.01,
+            qScaleIsPhysical: false, peakCount: 0,
+            calibration: PhaseMappingProduct.CalibrationStamp(calibration: Calibration(), referenceOrigin: (0, 0))))
+        await state.publishPrecipitateClassificationFromPhaseMap()
+    }
+
+    /// Mutation: set_precipitates runs without a map, writes the wrong field, or the CSV replaces a file - red.
+    func testPrecipitatesFollowTheAgentAndTheCSVIsANewFile() async throws {
+        let state = enrolledState()
+        let early = try await call("set_precipitates", ["labels": true])
+        XCTAssertTrue(early.refused, "no phase map yet")
+        await publishFixtureMap(state)
+        let set = try await call("set_precipitates", ["labels": true, "on_panes": true, "minimum_size_px": 3,
+                                                      "thickness_nm": 80, "thickness_source": "CBED fringes", "show": "objects"])
+        XCTAssertFalse(set.refused, set.text)
+        XCTAssertTrue(state.precipitateOverlay.labels)
+        XCTAssertTrue(state.precipitateOverlay.onPanes)
+        XCTAssertEqual(state.precipitateClassification.minimumObjectAreaPx, 3)
+        XCTAssertEqual(try XCTUnwrap(state.precipitateThickness?.nanometres), 80, accuracy: 1e-12)
+        XCTAssertEqual(state.precipitateThickness?.source, "CBED fringes")
+        let cleared = try await call("set_precipitates", ["clear_thickness": true])
+        XCTAssertFalse(cleared.refused, cleared.text)
+        XCTAssertNil(state.precipitateThickness)
+
+        let off = try await call("export_precipitates_csv", ["name": "objects"])
+        XCTAssertTrue(off.refused, "saving is off")
+        Mac4DSTEMAgentDoor.savesAllowed = true
+        let saved = try await call("export_precipitates_csv", ["name": "objects"])
+        XCTAssertFalse(saved.refused, saved.text)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("objects.csv").path))
+        let again = try await call("export_precipitates_csv", ["name": "objects"])
+        XCTAssertTrue(again.refused, "never replaced")
         withExtendedLifetime(state) {}
     }
 }
