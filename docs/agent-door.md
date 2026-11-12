@@ -71,6 +71,16 @@ A batch is a loop: `list_agent_folder`, then for each file `open_file`, the run 
    server, with the port (mac4DSTEM asks for 47811) and the token. Cursor and VS Code take the same address and header.
    Claude desktop connects through MacEMUI's extension (`mac4DSTEM.mcpb`, MacEMUI `DesktopExtension/`).
 3. New Token shuts out whoever had the old one; copy the command again after it.
+4. For tools that act, also turn on "Let agents run analyses". The agent's client asks before each such call.
+
+Notes from the first real-agent run (#237):
+- The token reaches an agent only through the person (the copied command). That is on purpose: nothing else on the Mac can
+  read it, and an agent in a sandbox cannot either.
+- Pictures come back inside the tool's answer (PNG); the agent can keep them itself. The Agent folder is only for saving
+  results beside the data, behind its own switch.
+- A copy of the app with another bundle id (a test or drive build) keeps its own settings, so both switches start off there.
+  A build signed only ad hoc does not launch (library validation); sign it with the team.
+- An agent should call `get_workflow_guide` first (#236).
 
 ## How it is kept local
 
