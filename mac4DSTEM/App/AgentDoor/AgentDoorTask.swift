@@ -137,6 +137,11 @@ extension Mac4DSTEMAgentDoor {
             "q_scale_refusal": AgentJSON.orNull(state.phaseMappingQScaleRefusal),
             "run_refusal": AgentJSON.orNull(product.runRefusal),
             "last_run": phaseMappingLastRun(of: state),
+            "zone_axis_fits": product.zoneAxisFits.map { fit in
+                ["zone_axis": [fit.zoneAxis.x, fit.zoneAxis.y, fit.zoneAxis.z], "matched_vectors": fit.matchedVectors,
+                 "total_vectors": fit.totalVectors, "chance_matched_vectors": AgentJSON.number(fit.chanceMatchedVectors),
+                 "mean_distance_inv_angstrom": AgentJSON.number(fit.meanDistance)] as [String: Any]
+            },
         ] as [String: Any]]
     }
 

@@ -231,6 +231,7 @@ extension AppState {
         } else {
             out["mean_origin_px"] = NSNull()
         }
+        out["spot_distortion_fit"] = AgentJSON.orNull(spotDistortion.pending?.summary(locale: Mac4DSTEMAgentDoor.textLocale))
         return out
     }
 

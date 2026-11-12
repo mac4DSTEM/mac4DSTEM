@@ -58,8 +58,11 @@ extension Mac4DSTEMAgentDoor {
         AgentTool(name: "run_calibration", title: "Calibrate",
                   summary: "Starts one of Prepare's measured calibration steps, as its button does: origin (Calibrate Origin, also "
                       + "the probe radius), origin_from_bragg_peaks (after Detect All Disks), ellipse (Fit Ellipse in the fit annulus) "
-                      + "or rotation (Measure R–Q Rotation; calibrates the origin first if needed). It answers at once; get_window "
-                      + "says busy until it finishes, then its calibration rows and get_log say how it ended.",
+                      + "rotation (Measure R–Q Rotation; calibrates the origin first if needed), q_from_material (Calibrate from Selected "
+                      + "Material: ACOM's phase model against the detected disks), restore_fitted_origin, fit_distortion_from_spots "
+                      + "(a single crystal's stretch, shown in get_window, nothing applied), apply_spot_distortion, or manual_ellipse "
+                      + "(py4DSTEM's a, b, θ). A long step answers at once; get_window says busy until it finishes, then its "
+                      + "calibration rows and get_log say how it ended.",
                   input: .window,
                   parameters: [
                       AgentParameter("step", .choice(CalibrationStep.allCases.map(\.rawValue)), summary: "The step.", required: true),
@@ -67,6 +70,9 @@ extension Mac4DSTEMAgentDoor {
                                      summary: "For origin: centreOfMass (default, fast) or friedel (a beamstop hides the direct beam)."),
                       AgentParameter("fit_inner_px", .number(0...100_000), summary: "For ellipse: inner radius of the fit annulus, px."),
                       AgentParameter("fit_outer_px", .number(0...100_000), summary: "For ellipse: outer radius of the fit annulus, px."),
+                      AgentParameter("ellipse_a", .number(0.001...100_000), summary: "For manual_ellipse: semi-axis a (the longer), px."),
+                      AgentParameter("ellipse_b", .number(0.001...100_000), summary: "For manual_ellipse: semi-axis b, px."),
+                      AgentParameter("ellipse_theta_deg", .number(-360...360), summary: "For manual_ellipse: tilt of a from qx, degrees."),
                   ],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
@@ -96,6 +102,28 @@ extension Mac4DSTEMAgentDoor {
                 Task { await state.calibrateEllipse() }
             case .rotation:
                 Task { await state.calibrateRotation() }
+            case .qFromMaterial:
+                guard state.hasCurrentBraggVectors, state.resolvedACOMModel != nil else {
+                    return .refusal(status: 409, message: "This needs detected disks (run_task in Disks) and ACOM's phase model "
+                        + "(set_acom phase_cif).")
+                }
+                Task { await state.calibrateQFromCrystal() }
+            case .restoreFittedOrigin:
+                state.restoreFittedOrigin()
+            case .fitDistortionFromSpots:
+                if let blocker = state.spotDistortionBlocker { return .refusal(status: 409, message: blocker) }
+                Task { await state.fitDistortionFromSpots() }
+            case .applySpotDistortion:
+                guard state.spotDistortion.pending != nil else {
+                    return .refusal(status: 409, message: "There is no spot distortion fit to apply (fit_distortion_from_spots).")
+                }
+                state.applySpotDistortion()
+            case .manualEllipse:
+                guard let a = call.arguments["ellipse_a"].flatMap(Double.init),
+                      let b = call.arguments["ellipse_b"].flatMap(Double.init) else {
+                    return .refusal(status: 400, message: "manual_ellipse needs ellipse_a and ellipse_b (and ellipse_theta_deg).")
+                }
+                state.applyManualEllipse(a: a, b: b, thetaDegrees: call.arguments["ellipse_theta_deg"].flatMap(Double.init) ?? 0)
             }
             state.statusText = "An agent started \(step.title)."
             return .json(["started": step.rawValue])
@@ -108,6 +136,11 @@ extension Mac4DSTEMAgentDoor {
         case originFromBraggPeaks = "origin_from_bragg_peaks"
         case ellipse
         case rotation
+        case qFromMaterial = "q_from_material"
+        case restoreFittedOrigin = "restore_fitted_origin"
+        case fitDistortionFromSpots = "fit_distortion_from_spots"
+        case applySpotDistortion = "apply_spot_distortion"
+        case manualEllipse = "manual_ellipse"
 
         var title: String {
             switch self {
@@ -115,6 +148,11 @@ extension Mac4DSTEMAgentDoor {
             case .originFromBraggPeaks: "Origin from Bragg Peaks"
             case .ellipse: "Fit Ellipse"
             case .rotation: "Measure R–Q Rotation"
+            case .qFromMaterial: "Calibrate from Selected Material"
+            case .restoreFittedOrigin: "Restore Fitted Origin"
+            case .fitDistortionFromSpots: "Fit Distortion from Spots"
+            case .applySpotDistortion: "Apply Distortion"
+            case .manualEllipse: "Apply Ellipse"
             }
         }
     }
