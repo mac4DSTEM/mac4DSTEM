@@ -70,6 +70,8 @@ final class AgentDoorTaskTests: XCTestCase {
         XCTAssertEqual(state.navigation.workspaceArea, .map)
         XCTAssertEqual(state.navigation.analysisMode, .phaseMapping)
         XCTAssertEqual(try object(phases.text)["task"] as? String, "Phase mapping")
+        XCTAssertNotNil(try object(phases.text)["can_run"] as? Bool, "can_run says whether the task has a Run (#233)")
+        XCTAssertNil(try object(phases.text)["has_run"], "the unclear name is gone")
 
         let disks = try await call("select_task", ["workspace": "braggDisks"])
         XCTAssertFalse(disks.refused, disks.text)
@@ -162,6 +164,41 @@ final class AgentDoorTaskTests: XCTestCase {
         XCTAssertEqual(state.phaseMapping.matching.notIndexedAboveInvAngstrom, 0.0195, accuracy: 1e-12)
         let onDetector = try XCTUnwrap((try object(scaled.text)["phase_mapping"] as? [String: Any])?["on_this_detector"] as? [String: Any])
         XCTAssertEqual(try XCTUnwrap(onDetector["pair_radius_px"] as? Double), 1, accuracy: 1e-9)
+        withExtendedLifetime(state) {}
+    }
+
+    // MARK: issue #233: answers that agree with each other
+
+    /// Mutation: the checklist details keep the Mac's decimal comma, subpixel keeps its menu label, or an unreadable sidecar
+    /// reads as none - red.
+    func testTheWindowSpeaksOneLanguage() async throws {
+        let state = AppState()
+        var crop = LoadSpecification()
+        crop.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4)
+        await state.openDemoFixture(specification: crop)
+        XCTAssertTrue(state.hasDataset, state.statusText)
+        state.calibrationSession.calibration.qPixelSize = 0.01904
+        state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+        door.enroll(state) { [weak state] in state?.agentSummary() ?? [:] }
+
+        let window = try object(try await call("get_window").text)
+        let calibration = try XCTUnwrap(window["calibration"] as? [String: Any])
+        let items = try XCTUnwrap(calibration["items"] as? [[String: Any]])
+        let german = CalibrationReadinessReport.make(calibration: state.calibrationSession.calibration,
+                                                     provenance: state.calibrationSession.provenance,
+                                                     locale: Locale(identifier: "de_DE")).items
+        let withComma = german.filter { $0.detail.contains("0,01904") }
+        XCTAssertFalse(withComma.isEmpty, "a German Mac's checklist writes the Q size with a comma: \(german.map(\.detail))")
+        for item in withComma {
+            let agents = items.first { $0["item"] as? String == item.kind.rawValue }?["detail"] as? String ?? ""
+            XCTAssertTrue(agents.contains("0.01904") && !agents.contains("0,01904"), "the door's detail has a point: \(agents)")
+        }
+
+        let disks = try XCTUnwrap((window["disk_detection"] as? [String: Any])?["parameters"] as? [String: Any])
+        XCTAssertEqual(disks["subpixel"] as? String, state.diskDetection.diskParams.subpixel.provenanceID,
+                       "the recipe's name (pixel, poly, multicorr), as task_settings has it")
+        let session = try XCTUnwrap(window["session"] as? [String: Any])
+        XCTAssertNotNil(session["sidecar_unreadable"], "the key is there, null while nothing failed to read")
         withExtendedLifetime(state) {}
     }
 }

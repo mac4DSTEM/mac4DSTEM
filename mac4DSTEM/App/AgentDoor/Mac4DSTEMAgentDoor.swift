@@ -22,6 +22,10 @@ enum Mac4DSTEMAgentDoor {
     /// mac4DSTEM's own port on 127.0.0.1 (macTEM's is 47812), so the copied connection command stays good; another when taken.
     static let port: UInt16 = 47811
 
+    /// The locale of every number the door writes into text: a point, whatever the Mac's Region (issue #233). The person's
+    /// own screen keeps their decimal mark.
+    static let textLocale = Locale(identifier: "en_US_POSIX")
+
     /// The app's one door.
     static let shared: AgentDoor = {
         let door = AgentDoor(appName: "mac4DSTEM", appVersion: FeedbackLinks.appVersion, preferredPort: port)

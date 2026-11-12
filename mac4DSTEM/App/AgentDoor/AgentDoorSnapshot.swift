@@ -132,7 +132,10 @@ extension AppState {
         var out: [String: Any] = [
             "quantitative": verdict.quantitative,
             "verdict": verdict.summary,
-            "items": calibrationSession.readiness.items.map { item in
+            // The readiness report in the door's locale: its details are the checklist's, with a point (issue #233; a German Mac
+            // gave "0,01904" beside the JSON's 0.01904).
+            "items": CalibrationReadinessReport.make(calibration: calibration, provenance: calibrationSession.provenance,
+                                                     locale: Mac4DSTEMAgentDoor.textLocale).items.map { item in
                 ["item": item.kind.rawValue, "state": item.status.displayName, "ready": item.status.isReady, "detail": item.detail] as [String: Any]
             },
             "q_pixel_size": AgentJSON.number(calibration.qPixelSize),
@@ -192,7 +195,7 @@ extension AppState {
                 "corr_power": AgentJSON.number(params.corrPower),
                 "sigma_dp": AgentJSON.number(params.sigmaDP),
                 "sigma_cc": AgentJSON.number(params.sigmaCC),
-                "subpixel": params.subpixel.rawValue,
+                "subpixel": params.subpixel.provenanceID,   // pixel, poly, multicorr: the recipe's names (task_settings)
                 "upsample_factor": params.upsampleFactor,
                 "min_absolute_intensity": AgentJSON.number(params.minAbsoluteIntensity),
                 "min_relative_intensity": AgentJSON.number(params.minRelativeIntensity),
@@ -239,6 +242,8 @@ extension AppState {
     private var agentSession: [String: Any] {
         [
             "has_sidecar": sessionInventory.hasSidecar,
+            // A session file that exists but could not be read is not "no sidecar" (issue #233; the sandbox refused one).
+            "sidecar_unreadable": AgentJSON.orNull(sessionSidecar.unreadableReason),
             "has_bragg_vectors": sessionInventory.hasBraggVectors,
             "has_calibration": sessionInventory.hasCalibration,
             "saved_results": sessionInventory.results.map { saved in
