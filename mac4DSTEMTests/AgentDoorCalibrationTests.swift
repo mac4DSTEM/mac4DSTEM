@@ -132,6 +132,18 @@ final class AgentDoorCalibrationTests: XCTestCase {
         }
         XCTAssertTrue(state.calibrationSession.calibration.hasFittedOrigin, "Calibrate Origin ran: \(state.statusText)")
         XCTAssertNotNil(state.calibrationSession.calibration.probeRadius)
+
+        // Flip 180° turns the measured rotation by half a turn and says both angles.
+        state.calibrationSession.calibration.rotationRad = nil
+        let noRotation = try await call("run_calibration", ["step": "flip_rotation_180"])
+        XCTAssertTrue(noRotation.refused, "nothing to flip")
+        state.calibrationSession.calibration.rotationRad = 0.2
+        let flipped = try await call("run_calibration", ["step": "flip_rotation_180"])
+        XCTAssertFalse(flipped.refused, flipped.text)
+        XCTAssertEqual(try XCTUnwrap(state.calibrationSession.calibration.rotationRad), 0.2 - .pi, accuracy: 1e-5)
+        let answer = try object(flipped.text)
+        let before = try XCTUnwrap(answer["rotation_deg_before"] as? Double), after = try XCTUnwrap(answer["rotation_deg_after"] as? Double)
+        XCTAssertEqual(abs(before - after), 180, accuracy: 1e-3)
         withExtendedLifetime(state) {}
     }
 }

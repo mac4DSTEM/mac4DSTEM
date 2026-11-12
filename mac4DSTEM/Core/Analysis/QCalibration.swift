@@ -203,8 +203,17 @@ package nonisolated enum KnownCrystalQCalibration {
             // candidate's shell over the first ring `LinearScale.estimate` measures. With no pixel size, none within reach, or both
             // within reach, the kit's refusal stands as it is (it names the candidates).
             guard named.candidates.count == 2 else { return .refused(sentence) }
+            // Each candidate's scale, so a reader can compare them with the pattern or a known camera length.
+            let readings = named.candidates.compactMap { label -> String? in
+                guard let index = labels.firstIndex(of: label), index < shells.count,
+                      let scale = LinearScale.estimate(radiiPerPosition: radii, referenceRadiusInvAngstrom: shells[index],
+                                                       secondShellRadiusInvAngstrom: nil, minimumRadiusPixels: Double(minimumRadiusPixels))
+                else { return nil }
+                return "\(label) gives " + String(format: "%.5f", scale.invAngstromPerPixel) + " Å⁻¹/px"
+            }
+            let scales = readings.isEmpty ? "" : " The two scales: " + readings.joined(separator: ", ") + "."
             guard let prior = priorScale, prior.isFinite, prior > 0 else {
-                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: false))
+                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: false) + scales)
             }
             var fits: [(label: String, index: Int, scale: LinearScaleEstimate)] = []
             for label in named.candidates {
@@ -215,7 +224,7 @@ package nonisolated enum KnownCrystalQCalibration {
                 fits.append((label, index, scale))
             }
             guard fits.count == 1, let best = fits.first else {
-                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: true))
+                return .refused(ShellAssignment.pointingAtThePixelSize(sentence, pixelSizeSet: true) + scales)
             }
             // The second shell is not handed to the estimate: which ring is second is what the rings could not say, so the ratio stays
             // unchecked and the row says so.

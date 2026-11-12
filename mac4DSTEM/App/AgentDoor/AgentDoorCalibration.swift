@@ -60,7 +60,7 @@ extension Mac4DSTEMAgentDoor {
                       + "the probe radius), origin_from_bragg_peaks (after Detect All Disks), ellipse (Fit Ellipse in the fit annulus) "
                       + "rotation (Measure R–Q Rotation; calibrates the origin first if needed), q_from_material (Calibrate from Selected "
                       + "Material: ACOM's phase model against the detected disks), restore_fitted_origin, fit_distortion_from_spots "
-                      + "(a single crystal's stretch, shown in get_window, nothing applied), apply_spot_distortion, or manual_ellipse "
+                      + "(a single crystal's stretch, shown in get_window, nothing applied), apply_spot_distortion, flip_rotation_180 (Flip 180°: the rotation measurement cannot tell θ from θ + 180°), or manual_ellipse "
                       + "(py4DSTEM's a, b, θ). A long step answers at once; get_window says busy until it finishes, then its "
                       + "calibration rows and get_log say how it ended.",
                   input: .window,
@@ -133,6 +133,16 @@ extension Mac4DSTEMAgentDoor {
                               "q_inv_angstrom_per_px_before": AgentJSON.number(before),
                               "q_inv_angstrom_per_px_after": AgentJSON.number(after.qPixelSize),
                               "note": "The Q pixel scale changed with the ellipse; vectors and maps computed before use the old scale."])
+            case .flipRotation180:
+                guard let before = state.calibrationSession.calibration.rotationRad else {
+                    return .refusal(status: 409, message: "There is no R–Q rotation to flip yet (step rotation).")
+                }
+                state.flipRotation180()
+                let after = state.calibrationSession.calibration.rotationRad ?? before
+                return .json(["applied": step.rawValue,
+                              "rotation_deg_before": AgentJSON.number(RQRotationConvention.displayDegrees(fromApp: before)),
+                              "rotation_deg_after": AgentJSON.number(RQRotationConvention.displayDegrees(fromApp: after)),
+                              "transposed": state.calibrationSession.calibration.transposeQR ?? false])
             case .manualEllipse:
                 guard let a = call.arguments["ellipse_a"].flatMap(Double.init),
                       let b = call.arguments["ellipse_b"].flatMap(Double.init) else {
@@ -156,6 +166,7 @@ extension Mac4DSTEMAgentDoor {
         case fitDistortionFromSpots = "fit_distortion_from_spots"
         case applySpotDistortion = "apply_spot_distortion"
         case manualEllipse = "manual_ellipse"
+        case flipRotation180 = "flip_rotation_180"
 
         var title: String {
             switch self {
@@ -168,6 +179,7 @@ extension Mac4DSTEMAgentDoor {
             case .fitDistortionFromSpots: "Fit Distortion from Spots"
             case .applySpotDistortion: "Apply Distortion"
             case .manualEllipse: "Apply Ellipse"
+            case .flipRotation180: "Flip 180°"
             }
         }
     }

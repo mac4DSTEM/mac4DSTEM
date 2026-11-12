@@ -112,6 +112,13 @@ final class AgentDoorAnalysesTests: XCTestCase {
         XCTAssertTrue(state.activityLog.messages.contains { $0.contains("An agent set Strain:") })
         let wrong = try await call("set_strain", ["component": "εxx"])
         XCTAssertTrue(wrong.refused, "a display name is not a choice")
+        XCTAssertNil(answer["reference_region"], "no dataset, no region")
+
+        // With a dataset, the answer says which positions the selected-region reference covers.
+        await state.openDemoFixture()
+        let region = try object(try await call("set_strain", [:]).text)["reference_region"] as? [String: Any]
+        let positions = try XCTUnwrap(region?["positions"] as? Int, "reference_region with a dataset open")
+        XCTAssertGreaterThan(positions, 0)
         withExtendedLifetime(state) {}
     }
 

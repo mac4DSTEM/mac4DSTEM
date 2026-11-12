@@ -44,6 +44,7 @@ enum AgentDoorCoverage {
         "calibration.action.qCrystal": .tool("run_calibration"),
         "calibration.action.restoreFittedOrigin": .tool("run_calibration"),
         "calibration.action.rotation": .tool("run_calibration"),
+        "calibration.action.flipRotation180": .tool("run_calibration"),
         "calibration.calibrateOrigin": .tool("run_calibration"),
         "calibration.clear": .personOnly("removes measured values; the person decides"),
         "calibration.applySpotDistortion": .tool("run_calibration"),

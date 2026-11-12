@@ -30,7 +30,8 @@ extension Mac4DSTEMAgentDoor {
         // MARK: Strain (#225)
         AgentTool(name: "set_strain", title: "Strain settings",
                   summary: "Sets Strain's panel, only what is given: the reference (wholeScan, or selectedRegion: the real-space ROI "
-                      + "around the selected scan position, see select_scan_position), the basis (automatic consensus, or manual "
+                      + "around the selected scan position, set by set_imaging's region and select_scan_position; the answer's "
+                      + "reference_region says its extent), the basis (automatic consensus, or manual "
                       + "with g1_x, g1_y, g2_x, g2_y in detector pixels), and the component the map shows. Answers the settings and, "
                       + "after a run, the fit diagnostics (get_window's task_settings has the run's signature).",
                   input: .window,
@@ -174,6 +175,12 @@ extension Mac4DSTEMAgentDoor {
             "component": caseName(strain.component),
             "frame": state.strainPresentationFrame.displayLabel,
         ]
+        // The region selectedRegion takes as zero strain, as set_imaging and select_scan_position set it.
+        if strain.referenceMode == .selectedRegion, let descriptor = state.descriptor {
+            out["reference_region"] = ["shape": caseName(state.realSpaceShape), "radius": Double(state.realSpaceRadius),
+                                       "center": ["x": state.selectedScan.x, "y": state.selectedScan.y],
+                                       "positions": state.realSpaceRegionMask(descriptor).filter { $0 }.count] as [String: Any]
+        }
         switch strain.failureCause {
         case .starvedInput(let median, let empty)?:
             out["failure"] = "Too few peaks: median \(numberText(median)) per pattern, \(empty) % empty. Lower the detection "

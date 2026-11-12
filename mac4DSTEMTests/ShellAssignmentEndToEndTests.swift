@@ -154,5 +154,7 @@ final class ShellAssignmentEndToEndTests: XCTestCase {
         // mac4DSTEM#169: no list to pick from exists in the app; the refusal points at the Q pixel size field instead.
         XCTAssertTrue(refusal.contains("Enter an approximate Q pixel size (Prepare, within 10 % is enough) and calibrate again"), refusal)
         XCTAssertFalse(refusal.contains("crystal's list"), refusal)
+        // Both candidate scales are named, so the reader can judge them against the pattern.
+        XCTAssertTrue(refusal.contains("The two scales: {111} gives ") && refusal.contains("{200} gives "), refusal)
     }
 }
