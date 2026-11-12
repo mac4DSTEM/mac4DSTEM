@@ -22,6 +22,19 @@ import DSTEMSession
 #endif
 
 /// The recipe and the run graph it is the projection of, as the sidecar stores them.
+/// A square of detector pixels an agent asks to see: centred on (x, y), `half` pixels to each side, cut to the detector.
+nonisolated struct AgentPatternCrop: Equatable {
+    var x: Int
+    var y: Int
+    var half: Int
+
+    func rect(width: Int, height: Int) -> CGRect {
+        let x0 = max(0, x - half), y0 = max(0, y - half)
+        let x1 = min(width, x + half + 1), y1 = min(height, y + half + 1)
+        return CGRect(x: x0, y: y0, width: max(0, x1 - x0), height: max(0, y1 - y0))
+    }
+}
+
 nonisolated struct AgentLineageAnswer: Encodable {
     var recipe: [SessionReplayRecord.Step]
     var lineage: SessionLineage
@@ -33,10 +46,68 @@ extension AppState {
 
     /// The diffraction pattern as the pane shows it: the export's pixels and scale bar, the virtual detector in its task and, in the
     /// Disks task, the detected disks of the pattern on screen (`agentPatternOverlays`).
-    func agentPatternImage(scale: Int) throws -> CGImage {
+    /// `disks: false` leaves the detected disks off, so a weak disk under a circle can be seen (issue #234); `crop` cuts a square of
+    /// detector pixels around (x, y), which the figure then magnifies like any small pattern.
+    func agentPatternImage(scale: Int, disks: Bool = true, crop: AgentPatternCrop? = nil) throws -> CGImage {
         let raster = try patternExportRaster()
-        return Self.burnScaleBar(on: raster.image, unitsPerDataPixel: raster.sampling, unitLabel: raster.unit,
-                                 pixelScale: max(scale, Self.agentPatternMinimumScale), overlays: agentPatternOverlays)
+        var image = raster.image
+        var overlays = disks ? agentPatternOverlays : patternExportOverlays
+        if let crop {
+            let rect = crop.rect(width: image.width, height: image.height)
+            guard rect.width > 0, rect.height > 0, let cut = image.cropping(to: rect) else {
+                throw SimpleError("The crop lies outside the pattern (\(image.width) × \(image.height) detector pixels).")
+            }
+            image = cut
+            overlays = Self.overlays(overlays, croppedTo: rect)
+        }
+        return Self.burnScaleBar(on: image, unitsPerDataPixel: raster.sampling, unitLabel: raster.unit,
+                                 pixelScale: max(scale, Self.agentPatternMinimumScale), overlays: overlays)
+    }
+
+    /// The overlays of a pattern cut to `rect` (detector pixels): disks moved into the cut's coordinates, those outside it dropped.
+    /// The virtual detector's outline belongs to the whole pattern and is left off a cut.
+    static func overlays(_ overlays: [FigureOverlay], croppedTo rect: CGRect) -> [FigureOverlay] {
+        overlays.compactMap { overlay in
+            guard case .peaks(let peaks, let radius, let scheme) = overlay else { return nil }
+            let inside = peaks.filter { rect.insetBy(dx: -0.5, dy: -0.5).contains(CGPoint(x: CGFloat($0.x), y: CGFloat($0.y))) }
+            return .peaks(inside.map { BraggPeak(x: $0.x - Float(rect.minX), y: $0.y - Float(rect.minY), intensity: $0.intensity) },
+                          probeRadius: radius, scheme)
+        }
+    }
+
+    /// The raw counts of the pattern on screen in a square around (x, y), with the brightest pixel and the box edge's median as the
+    /// local background, so an agent can tell a weak disk from noise by numbers as well as by eye (issue #234).
+    func agentPatternValues(x: Int, y: Int, half: Int) -> [String: Any]? {
+        guard let pattern = displayedPattern, (0..<pattern.qx).contains(x), (0..<pattern.qy).contains(y) else { return nil }
+        let rect = AgentPatternCrop(x: x, y: y, half: half).rect(width: pattern.qx, height: pattern.qy)
+        let x0 = Int(rect.minX), y0 = Int(rect.minY), x1 = Int(rect.maxX), y1 = Int(rect.maxY)
+        var rows: [[Any]] = []
+        var edge: [Float] = []
+        var brightest: (value: Float, x: Int, y: Int)?
+        for row in y0..<y1 {
+            var values: [Any] = []
+            for column in x0..<x1 {
+                let value = pattern.pixels[row * pattern.qx + column]
+                values.append(AgentJSON.number(value))
+                if value.isFinite {
+                    if value > (brightest?.value ?? -.infinity) { brightest = (value, column, row) }
+                    if row == y0 || row == y1 - 1 || column == x0 || column == x1 - 1 { edge.append(value) }
+                }
+            }
+            rows.append(values)
+        }
+        edge.sort()
+        let background: Float? = edge.isEmpty ? nil : edge[edge.count / 2]
+        return [
+            "scan_position": ["x": selectedScan.x, "y": selectedScan.y],
+            "shown": patternDisplayMode.rawValue,
+            "box": ["x0": x0, "y0": y0, "width": x1 - x0, "height": y1 - y0],
+            "values": rows,
+            "values_order": "rows from y0 down, each from x0 to the right; raw counts as stored, not the display's log or range",
+            "brightest": brightest.map { ["x": $0.x, "y": $0.y, "value": AgentJSON.number($0.value)] as [String: Any] } ?? NSNull(),
+            "edge_median": AgentJSON.number(background),
+            "pattern_maximum": AgentJSON.number(pattern.minMax.1),
+        ]
     }
 
     /// The pattern picture has at least a Retina screen's two pixels per point, because the pane is seen that way. At one pixel per
