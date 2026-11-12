@@ -73,7 +73,7 @@ enum Mac4DSTEMAgentDoor {
     static var allTools: [AgentTool] {
         guideTools + tools + runTools + kernelTools
             + scanMapTools + taskTools + folderTools
-            + calibrationTools + phaseTools
+            + calibrationTools + phaseTools + analysisTools + imagingTools + precipitateTools + preprocessTools + actionTools + resultTools
     }
 
     static let tools: [AgentTool] = [
@@ -105,6 +105,7 @@ enum Mac4DSTEMAgentDoor {
                   input: .windowPicture,
                   parameters: [
                       AgentParameter("disks", .boolean, summary: "Draw the detected disks (default true)."),
+                      AgentParameter("probe", .boolean, summary: "Draw the calibrated probe: its radius as a circle at the mean origin."),
                       AgentParameter("crop_x", .integer(0...100_000), summary: "Centre of the cut, detector pixels from the left."),
                       AgentParameter("crop_y", .integer(0...100_000), summary: "Centre of the cut, detector pixels from the top."),
                       AgentParameter("crop_half", .integer(2...4_096), summary: "Half the cut's side, detector pixels (default 16)."),
@@ -117,7 +118,7 @@ enum Mac4DSTEMAgentDoor {
             } else if call.arguments["crop_x"] != nil || call.arguments["crop_y"] != nil {
                 return .refusal(status: 400, message: "A cut needs both crop_x and crop_y.")
             }
-            do { return AgentJSON.picture(try state.agentPatternImage(scale: call.scale, disks: disks, crop: crop)) } catch {
+            do { return AgentJSON.picture(try state.agentPatternImage(scale: call.scale, disks: disks, crop: crop, probe: call.arguments["probe"] == "true")) } catch {
                 return .refusal(status: 404, message: error.localizedDescription)
             }
         },

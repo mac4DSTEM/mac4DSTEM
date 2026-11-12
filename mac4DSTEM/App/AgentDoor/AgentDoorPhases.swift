@@ -39,7 +39,7 @@ extension Mac4DSTEMAgentDoor {
             }
             var isFolder: ObjCBool = false
             guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isFolder), !isFolder.boolValue else {
-                return .refusal(status: 404, message: "There is no file \(folder.relativePath(of: file)) in the Agent folder.")
+                return .refusal(status: 404, message: noFileMessage(file))
             }
             let model: CrystalModel
             do {
@@ -162,6 +162,13 @@ extension Mac4DSTEMAgentDoor {
             "indexed": map.count(of: .indexed),
             "not_indexed": map.count(of: .notIndexed),
             "no_data": map.count(of: .noData),
+            "legend": PhaseMapPresentation.legend(map).map { row in
+                ["label": row.label, "rgb": [Int(row.color.r), Int(row.color.g), Int(row.color.b)],
+                 "stripe_rgb": AgentJSON.orNull(row.stripe.map { [Int($0.r), Int($0.g), Int($0.b)] }),
+                 "positions": row.count] as [String: Any]
+            } as [[String: Any]],
+            "legend_note": "Matrix positions won by challenge carry a lighter stripe over the matrix ground; they are counted "
+                + "in the matrix too. No peaks is transparent. export_result data writes every position's numbers.",
             "learned_relationships": run.learnedRelationships,
             "excitation_slabs": run.excitationSlabs,
             "reach_inv_angstrom": AgentJSON.number(run.libraryKMaxInvAngstrom),

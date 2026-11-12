@@ -26,6 +26,14 @@ extension Mac4DSTEMAgentDoor {
     /// Whether the person lets agents write into the Agent folder (Settings > Agents).
     static var savesAllowed = false
 
+    /// What a file tool answers when its path names no file; an empty path is the folder itself, never "no file <folder name>".
+    static func noFileMessage(_ url: URL) -> String {
+        guard let root = folder.url, url.standardizedFileURL.path != root.standardizedFileURL.path else {
+            return "Give a path: a file of the Agent folder, as list_agent_folder shows it."
+        }
+        return "There is no file \(folder.relativePath(of: url)) in the Agent folder."
+    }
+
     static let folderTools: [AgentTool] = [
         AgentTool(name: "list_agent_folder", title: "Agent folder files",
                   summary: "The files in the Agent folder the person chose in Settings > Agents (and its subfolders): path relative to "
@@ -50,7 +58,7 @@ extension Mac4DSTEMAgentDoor {
             }
             var isFolder: ObjCBool = false
             guard FileManager.default.fileExists(atPath: file.path, isDirectory: &isFolder), !isFolder.boolValue else {
-                return .refusal(status: 404, message: "There is no file \(folder.relativePath(of: file)) in the Agent folder.")
+                return .refusal(status: 404, message: noFileMessage(file))
             }
             state.statusText = "An agent opened \(file.lastPathComponent)."
             Task { await state.openFileAsync(url: file) }
@@ -116,7 +124,7 @@ extension Mac4DSTEMAgentDoor {
     }
 
     /// A save's file name: letters, digits, spaces, `-`, `_` and `.`, no folders, ending in .png.
-    static func fileName(_ given: String?, default fallback: String) -> Result<String, AgentFolderRefusal> {
+    static func fileName(_ given: String?, default fallback: String, extension ext: String = "png") -> Result<String, AgentFolderRefusal> {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: " -_."))
         var name = (given ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if name.isEmpty {   // the dataset's own name may hold any character: those outside the rule become _
@@ -125,11 +133,36 @@ extension Mac4DSTEMAgentDoor {
             name = String(kept)
             while name.hasPrefix(".") { name = "_" + String(name.dropFirst()) }
         }
-        if name.lowercased().hasSuffix(".png") { name = String(name.dropLast(4)) }
+        if name.lowercased().hasSuffix("." + ext) { name = String(name.dropLast(ext.count + 1)) }
         guard !name.isEmpty, !name.hasPrefix("."), name.unicodeScalars.allSatisfy(allowed.contains) else {
             return .failure(AgentFolderRefusal("A file name is letters, digits, spaces, - _ and . only, without folders, and does "
                 + "not start with a dot."))
         }
-        return .success(name + ".png")
+        return .success(name + "." + ext)
+    }
+
+    /// Writes `data` as a NEW file of the Agent folder (O_EXCL: a name, or a link, that exists is never replaced or followed), behind
+    /// "Let agents save results there". Answers the name written, or the refusal in words.
+    static func saveNewFile(_ data: Data, named given: String?, default fallback: String,
+                            extension ext: String) -> Result<String, ToolRefusal> {
+        guard savesAllowed else {
+            return .failure(ToolRefusal(status: 403, message: "Saving is off. Ask the person to turn on \"Let agents save results "
+                + "there\" in mac4DSTEM's Settings > Agents."))
+        }
+        guard let root = folder.url else { return .failure(ToolRefusal(status: 404, message: AgentFolder.noFolder)) }
+        let name: String
+        switch fileName(given, default: fallback, extension: ext) {
+        case .success(let made): name = made
+        case .failure(let refusal): return .failure(ToolRefusal(status: 400, message: refusal.message))
+        }
+        let target = root.appendingPathComponent(name)
+        guard (try? FileManager.default.attributesOfItem(atPath: target.path)) == nil else {
+            return .failure(ToolRefusal(status: 409, message: "\(name) exists in the Agent folder and is never replaced: choose another name."))
+        }
+        do { try data.write(to: target, options: .withoutOverwriting) } catch {
+            return .failure(ToolRefusal(status: 409, message: "\(name) could not be written as a new file in the Agent folder: "
+                + error.localizedDescription))
+        }
+        return .success(name)
     }
 }

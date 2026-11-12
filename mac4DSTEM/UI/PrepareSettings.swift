@@ -378,6 +378,7 @@ struct PrepareSettings: View {
                     } label: {
                         Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
                     }
+                    .accessibilityIdentifier("calibration.action.flipRotation180")
                     .tooltip("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.",
                              hint: "Flips inverted iDPC contrast")
                 }

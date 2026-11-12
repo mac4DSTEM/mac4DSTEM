@@ -85,6 +85,10 @@ extension Mac4DSTEMAgentDoor {
                   summary: "Cancels the run in progress, as the window's Stop button does.",
                   input: .window, acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
+            if state.datasetSession.isLoading {   // an open in flight: the loading card's Cancel
+                state.cancelDatasetLoad()
+                return .json(["stopping": true])
+            }
             guard state.isBusy else { return .refusal(status: 409, message: "Nothing is running.") }
             state.statusText = "An agent pressed Stop."
             state.cancelActiveOperation()

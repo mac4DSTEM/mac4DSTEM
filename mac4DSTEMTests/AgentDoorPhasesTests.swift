@@ -204,6 +204,23 @@ final class AgentDoorPhasesTests: XCTestCase {
         XCTAssertEqual(run["orientation_source"] as? String, "structures")
         XCTAssertEqual(run["learned_relationships"] as? [String], ["T1: learned"])
         XCTAssertEqual(run["excitation_slabs"] as? [String], ["T1: 0.06"])
+        // Every colour on the picture is named: a legend row per phase and per verdict that is not a phase.
+        let legend = try XCTUnwrap(run["legend"] as? [[String: Any]], after.text)
+        XCTAssertEqual(legend.map { $0["label"] as? String }, ["Al (matrix)", "T1", "Not indexed"])
+        XCTAssertEqual(legend.map { $0["positions"] as? Int }, [12, 3, 1])
+
+        // The numbers behind the phase map, per position, for export_result data.
+        XCTAssertNil(state.phaseMapDataExportMaps(), "only while the phase map is the product shown")
+        state.publishPhaseMapProduct()
+        let fields = try XCTUnwrap(state.phaseMapDataExportMaps())
+        XCTAssertEqual(fields.map(\.kind), ["phase_label", "phase_verdict", "phase_distance", "phase_contrast", "phase_matched"])
+        let labels = fields[0].pixels
+        XCTAssertEqual(labels.count, 16)
+        XCTAssertEqual(labels[0], 0, "matrix")
+        XCTAssertEqual([labels[5], labels[6], labels[9]], [1, 1, 1], "T1")
+        XCTAssertEqual(labels[15], -1, "not indexed has no phase")
+        XCTAssertEqual(fields[1].pixels[15], Float(PhaseVerdict.notIndexed.rawValue))
+        XCTAssertEqual(fields[0].provenance["phase_names"], "Al\nT1")
         withExtendedLifetime(state) {}
     }
 }

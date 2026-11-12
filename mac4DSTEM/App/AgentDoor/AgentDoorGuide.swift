@@ -64,6 +64,8 @@ extension Mac4DSTEMAgentDoor {
             - Say what you saw, and mark a reading as yours (for example "fits a T1-type superlattice") unless the data \
             proves it.
             - When a tool refuses, its message says why and what would make it possible; do that or ask the person.
+            - A tool that starts work answers at once. When `get_window` says busy false, read operation.error: a run that \
+            failed says why there, not in the tool's answer.
             """
 
         private static let calibrationText = """
