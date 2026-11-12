@@ -237,4 +237,20 @@ final class AppPreferencesTests: XCTestCase {
             "a bare AppState() must never seed from the real UserDefaults.standard"
         )
     }
+
+    /// Removing the Agent folder turns saving off, so a folder chosen later never starts with saving on (#191 screen check).
+    /// Mutation: the didSet dropped - red.
+    func testRemovingTheAgentFolderTurnsSavingOff() throws {
+        let suite = "prefs-agent-folder-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let prefs = AppPreferences(defaults: defaults)
+        prefs.agentFolderBookmark = Data([1, 2, 3])
+        prefs.agentFolderSavesEnabled = true
+        prefs.agentFolderBookmark = nil
+        XCTAssertFalse(prefs.agentFolderSavesEnabled)
+        XCTAssertFalse(AppPreferences(defaults: defaults).agentFolderSavesEnabled, "and it stays off after a relaunch")
+        prefs.agentFolderBookmark = Data([4])
+        XCTAssertFalse(prefs.agentFolderSavesEnabled, "a new folder starts with saving off")
+    }
 }

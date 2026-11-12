@@ -195,6 +195,8 @@ package final class AppPreferences {
     /// folder the person chose in Settings > Agents. `nil` is the shipped behaviour: no folder.
     package var agentFolderBookmark: Data? {
         didSet {
+            // No folder, no saving: a folder chosen later starts with saving off (screen check of #205).
+            if agentFolderBookmark == nil, agentFolderSavesEnabled { agentFolderSavesEnabled = false }
             guard !suppressPersistence else { return }
             defaults.set(agentFolderBookmark, forKey: Keys.agentFolderBookmark)
         }
