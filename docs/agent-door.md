@@ -77,3 +77,16 @@ Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
 ## Not yet
 
 The CIF-in orientation search as a tool (issue #192), once CIF in is in the app.
+
+## Task and Phase mapping (issue #209)
+
+Behind "Let agents run analyses", like every tool that acts:
+
+| Tool | What it does |
+|---|---|
+| `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs |
+| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does |
+| `scale_phase_matching_to_detector` | Scale to This Detector: the tolerances to one detector pixel; needs a physical Q pixel size |
+
+`get_window`'s `view.task_settings` now carries Phase mapping's phases, settings, their size in detector pixels and why it
+cannot run yet, and Diffraction groups' settings. The phases themselves are the person's until the CIF-in tool (#192).
