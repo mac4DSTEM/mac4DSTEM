@@ -26,7 +26,7 @@ enum Mac4DSTEMAgentDoor {
     static let shared: AgentDoor = {
         let door = AgentDoor(appName: "mac4DSTEM", appVersion: FeedbackLinks.appVersion, preferredPort: port)
         door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.runTools + Mac4DSTEMAgentDoor.kernelTools
-                      + Mac4DSTEMAgentDoor.scanMapTools)
+                      + Mac4DSTEMAgentDoor.scanMapTools + Mac4DSTEMAgentDoor.taskTools)
         return door
     }()
 

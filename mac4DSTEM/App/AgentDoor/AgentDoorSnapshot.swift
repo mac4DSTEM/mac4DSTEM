@@ -79,7 +79,7 @@ extension AppState {
             "task": navigation.analysisMode.rawValue,
             "scan_position": ["x": selectedScan.x, "y": selectedScan.y],
             "pattern_shown": patternDisplayMode.rawValue,
-            "task_settings": AgentJSON.orNull(settingsReplaySignature(for: navigation.analysisMode)),
+            "task_settings": AgentJSON.orNull(agentTaskSettings),
         ] as [String: Any]
         snapshot["operation"] = [
             "busy": isBusy,
@@ -95,6 +95,21 @@ extension AppState {
         snapshot["has_precipitate_objects"] = precipitateObjectReport != nil
         snapshot["log_tail"] = Array(activityLog.messages.suffix(20))
         return snapshot
+    }
+
+    /// The current task's settings: its replay signature, which is what the run records; for the two tasks whose staleness is
+    /// judged without one (Phase mapping, Diffraction groups) the settings themselves (issue #209).
+    private var agentTaskSettings: Any? {
+        switch navigation.analysisMode {
+        case .phaseMapping:
+            return Mac4DSTEMAgentDoor.phaseMappingSettings(of: self)["phase_mapping"]
+        case .diffractionGroups:
+            let settings = diffractionGroups.settings
+            return ["binned_size": settings.binnedSize, "components": settings.components, "groups": settings.groups,
+                    "seed": settings.seed] as [String: Any]
+        default:
+            return settingsReplaySignature(for: navigation.analysisMode)
+        }
     }
 
     private var agentDataset: Any {

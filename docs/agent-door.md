@@ -49,3 +49,16 @@ Settings > Agents is MacEMUI's `AgentDoorSettingsSection`.
 Run and tune: tools that act, behind a second switch, "Let agents run analyses" (MacEMUI 0.7.0's `AgentTool(acts:)`).
 They select a scan position, tune the disk detection, and press Run and Stop, through the actions the buttons use. Then the
 folder tools for batches (list, open, save in one granted Agent folder), and the CIF-in orientation search as a tool.
+
+## Task and Phase mapping (issue #209)
+
+Behind "Let agents run analyses", like every tool that acts:
+
+| Tool | What it does |
+|---|---|
+| `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs |
+| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does |
+| `scale_phase_matching_to_detector` | Scale to This Detector: the tolerances to one detector pixel; needs a physical Q pixel size |
+
+`get_window`'s `view.task_settings` now carries Phase mapping's phases, settings, their size in detector pixels and why it
+cannot run yet, and Diffraction groups' settings. The phases themselves are the person's until the CIF-in tool (#192).
