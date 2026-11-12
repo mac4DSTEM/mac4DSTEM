@@ -1665,7 +1665,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/MacEMUI";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.7.0;
+				minimumVersion = 0.9.0;
 			};
 		};
 		300000000000000000000502 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
