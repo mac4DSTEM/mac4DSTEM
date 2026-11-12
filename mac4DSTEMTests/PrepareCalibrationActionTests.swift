@@ -105,7 +105,7 @@ final class PrepareCalibrationActionTests: XCTestCase {
         let saved = SessionSidebarWording.explainer(savedThisSession: true)
         XCTAssertEqual(saved.text, "Saved with the dataset")
         XCTAssertFalse(saved.help.contains("nothing here was computed"),
-                       "a sidecar written now does hold this session's work")
+                       "a session file written now does hold this session's work")
         XCTAssertTrue(saved.help.contains("earlier analysis"), "and may still hold the earlier work")
     }
 

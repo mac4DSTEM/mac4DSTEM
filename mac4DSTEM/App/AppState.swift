@@ -744,6 +744,17 @@ final class AppState {
         showsACOMRegionReference ? nil : resultPresentation.resultRGBA
     }
 
+    /// The result pane's title. Prepare with nothing to show kept the remembered task's name ("ACOM full scan · Reliability")
+    /// over "No Result Yet"; there it is empty.
+    var resultPaneTitle: String {
+        let hasResult = displayedQualityField != nil || displayedResultRGBA != nil || displayedResultImage != nil
+        return Self.resultPaneTitle(name: displayedResultName, hasResult: hasResult, inPrepare: navigation.workspaceArea == .prepare)
+    }
+
+    nonisolated static func resultPaneTitle(name: String, hasResult: Bool, inPrepare: Bool) -> String {
+        inPrepare && !hasResult ? "" : name
+    }
+
     var displayedResultName: String {
         showsACOMRegionReference
             ? "Select ACOM region · real-space reference"
@@ -1461,7 +1472,7 @@ final class AppState {
         // Every open path funnels here (menus, toolbar, welcome, sidebar, Recents, Finder); opening would cancel an
         // in-flight sidecar save unwritten (review 2026-10-02 c4).
         if isBusy, SessionSidecarLocator.isSaveInFlight(activeOperation) {
-            statusText = "Still saving the session sidecar — open \(url.lastPathComponent) when the save finishes"; return
+            statusText = "Still saving the session file — open \(url.lastPathComponent) when the save finishes"; return
         }
         Task { await openFileAsync(url: url) }
     }

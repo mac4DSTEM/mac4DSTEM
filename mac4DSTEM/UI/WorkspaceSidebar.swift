@@ -111,7 +111,7 @@ struct WorkspaceSidebar: View {
             }
             Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
         } message: { result in
-            Text("This removes \(result.displayName) from the session sidecar.")
+            Text("This removes \(result.displayName) from the session file.")
         }
     }
 
@@ -574,12 +574,12 @@ enum SessionSidebarWording {
     static func explainer(savedThisSession: Bool) -> (text: String, help: String) {
         if savedThisSession {
             return ("Saved with the dataset",
-                    "A session sidecar written beside this dataset in this session. "
+                    "A session file written beside this dataset in this session. "
                     + "It may also carry earlier analysis restored when the dataset was "
                     + "opened. It is restored the next time the dataset is opened.")
         }
         return ("Loaded with the dataset — from earlier analysis",
-                "A session sidecar saved beside this dataset. It carries "
+                "A session file saved beside this dataset. It carries "
                 + "the calibration and results of earlier analysis, and was "
                 + "restored when the dataset was opened — nothing here was "
                 + "computed in this session.")

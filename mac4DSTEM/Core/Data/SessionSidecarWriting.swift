@@ -38,7 +38,7 @@ nonisolated extension BraggVectorEMDWriter {
         // every saved result, the vectors, the labels and the recipe (review 2026-10-02 a4).
         var existingFile: SidecarFile?
         if let source = existing {
-            existingFile = try SidecarFile(opening: source, operation: "opening the existing session sidecar")
+            existingFile = try SidecarFile(opening: source, operation: "opening the existing session file")
         }
 
         // Match emdfile's default without silently embedding the Mac account name (`authoringUser` empty).

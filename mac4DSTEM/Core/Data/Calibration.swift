@@ -26,8 +26,8 @@ package enum OriginProvenance: Equatable, Sendable {
         case .geometricDefault: return "Geometric default (unfitted)"
         case .fileMean:         return "From file (qx0/qy0 mean)"
         case .fileMaps:         return "From file (fitted origin maps)"
-        case .sessionMean:      return "From session sidecar (origin mean)"
-        case .sessionMaps:      return "From session sidecar (origin maps)"
+        case .sessionMean:      return "From session file (origin mean)"
+        case .sessionMaps:      return "From session file (origin maps)"
         case .fitted:           return "Fitted by calibration"
         case .manual:           return "Manual aperture center"
         }

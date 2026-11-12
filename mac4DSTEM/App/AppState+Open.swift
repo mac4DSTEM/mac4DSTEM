@@ -1071,7 +1071,7 @@ extension AppState {
         if let ignored = ignoreSessionForDatasetID {
             ignoreSessionForDatasetID = nil
             if ignored == URL(fileURLWithPath: descriptor.filePath).standardizedFileURL.path {
-                statusText = "Opened without the saved session — the sidecar file is untouched"
+                statusText = "Opened without the saved session — the session file file is untouched"
                 return nil
             }
         }

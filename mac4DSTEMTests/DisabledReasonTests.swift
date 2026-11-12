@@ -13,7 +13,7 @@ final class DisabledReasonTests: XCTestCase {
 
     /// Mutation: drop the loading check - red (the loading-only state would read enabled).
     func testSaveToSessionReasonMatchesTheOldCondition() {
-        for loading in bools { for product in bools { for busy in bools { for refusal in [nil, "The sidecar is read-only."] {
+        for loading in bools { for product in bools { for busy in bools { for refusal in [nil, "The session file is read-only."] {
             let old = loading || !product || busy || refusal != nil
             let reason = ResultsActionReason.saveToSession(isLoading: loading, hasDisplayedProduct: product, isBusy: busy, sidecarRefusal: refusal)
             XCTAssertEqual(reason != nil, old, "loading \(loading) product \(product) busy \(busy) refusal \(refusal ?? "nil")")

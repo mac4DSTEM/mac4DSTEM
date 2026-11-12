@@ -121,7 +121,7 @@ final class SidecarRecognitionTests: XCTestCase {
         do {
             let descriptor = try await reader.discoverPrimaryDataset()
             XCTFail(
-                "A sidecar holds no datacube by design. Discovery returned "
+                "A session file holds no datacube by design. Discovery returned "
                 + "shape \(descriptor.shape) from \(descriptor.datasetPath) — "
                 + "a saved RGBA result read as a cube."
             )
@@ -146,7 +146,7 @@ final class SidecarRecognitionTests: XCTestCase {
         let reader = try H5Reader(path: url.path)
         do {
             _ = try await reader.discoverPrimaryDataset()
-            XCTFail("A sidecar contains no datacube by design — discovery succeeding means the fixture is wrong")
+            XCTFail("A session file contains no datacube by design — discovery succeeding means the fixture is wrong")
         } catch let error as H5Error {
             guard case .sessionSidecarOpened(let sidecar, let suggestedSource) = error else {
                 return XCTFail("Expected sessionSidecarOpened, got: \(error.localizedDescription)")
@@ -158,7 +158,7 @@ final class SidecarRecognitionTests: XCTestCase {
             // send the user hunting for a `Scan.h5` that never existed.
             XCTAssertEqual(suggestedSource, "fixture")
             let message = error.localizedDescription
-            XCTAssertTrue(message.contains("session sidecar"), message)
+            XCTAssertTrue(message.contains("session file"), message)
             XCTAssertTrue(message.contains("“fixture”"), message)
             XCTAssertFalse(message.contains("fixture.h5"),
                            "The message must not assert an extension the source may not have")
@@ -182,7 +182,7 @@ final class SidecarRecognitionTests: XCTestCase {
         let reader = try H5Reader(path: url.path)
         do {
             _ = try await reader.discoverPrimaryDataset()
-            XCTFail("Discovery must not succeed on a sidecar")
+            XCTFail("Discovery must not succeed on a session file")
         } catch let error as H5Error {
             guard case .sessionSidecarOpened(let sidecar, let suggestedSource) = error else {
                 return XCTFail("Expected sessionSidecarOpened, got: \(error.localizedDescription)")

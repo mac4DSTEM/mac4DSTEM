@@ -187,7 +187,7 @@ package final class DiskCentreLabelStore {
         package var errorDescription: String? {
             switch self {
             case .datasetMismatch(let expected, let found):
-                return "the sidecar's disk-centre labels belong to \(found), not \(expected) — labels are meaningful only for the dataset the sidecar sits beside"
+                return "the session file's disk-centre labels belong to \(found), not \(expected) — labels are meaningful only for the dataset the session file sits beside"
             case .malformed(let reason):
                 return "the disk-centre labels could not be read: \(reason)"
             }
@@ -409,7 +409,7 @@ package final class DiskCentreLabelStore {
 
     /// The status-line clause and the Save to Sidecar help while `sidecarHoldsUnrestoredLabels` holds.
     package nonisolated static let withheldLabelsLine =
-        "the new disk-centre labels were not written: the sidecar keeps the labels this view did not restore "
+        "the new disk-centre labels were not written: the session file keeps the labels this view did not restore "
         + "(Export Labels… saves the new ones to a file)"
 
     /// Parent folder + name, so two same-named cubes in different folders read differently.

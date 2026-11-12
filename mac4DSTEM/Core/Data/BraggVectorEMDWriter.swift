@@ -103,12 +103,12 @@ package nonisolated enum BraggVectorEMDWriter {
             case .belongsToAnotherSource(let sentence), .sourceNotRecorded(let sentence):
                 return sentence
             case .cancelled:
-                return "The sidecar operation was cancelled."
+                return "The session file operation was cancelled."
             case .hotPixelFilterNeedsFinitePixels:
                 return "The hot-pixel filter cannot run: the exported pixels include a value that is not finite (NaN or infinity). "
                     + "Switch the hot-pixel filter off or crop away non-finite pixels."
             case .invalidDimensions(let detail):
-                return "Cannot write or load the sidecar: \(detail)"
+                return "Cannot write or load the session file: \(detail)"
             case .libraryUnavailable(let detail):
                 return "Could not load the bundled HDF5 library: \(detail)"
             case .hdf5(let operation):
@@ -117,14 +117,14 @@ package nonisolated enum BraggVectorEMDWriter {
                 // export that was never attempted (S1).
                 return "HDF5 failed while \(operation)."
             case .publishFailed(let detail):
-                return "Could not publish the completed sidecar: \(detail)"
+                return "Could not publish the completed session file: \(detail)"
             case .sidecarRequiresNewerReader(let minimum, let supported):
-                return "This session sidecar requires mac4DSTEM session schema "
+                return "This session file requires mac4DSTEM session schema "
                     + "\(minimum) or newer to read safely; this build supports "
                     + "\(supported). It was probably written by a newer mac4DSTEM — "
                     + "nothing was restored, so nothing can be misread."
             case .malformedAttribute(let name):
-                return "The session sidecar's \(name) attribute exists but "
+                return "The session file's \(name) attribute exists but "
                     + "could not be decoded — the file may be damaged. "
                     + "Nothing was restored, so nothing can be misread."
             }
@@ -414,7 +414,7 @@ package nonisolated enum BraggVectorEMDWriter {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard qWidth > 0, qHeight > 0,
               FileManager.default.fileExists(atPath: destination.path) else {
-            throw WriterError.invalidDimensions("the session sidecar does not exist")
+            throw WriterError.invalidDimensions("the session file does not exist")
         }
         // Removal also rebuilds the file — it restates the view like every
         // other rewrite, or removing a result would erase the crop. // v2 S5
@@ -504,7 +504,7 @@ package nonisolated enum BraggVectorEMDWriter {
                 )
             }
         } catch {
-            throw writeFailure("writing the session sidecar", error)
+            throw writeFailure("writing the session file", error)
         }
     }
 

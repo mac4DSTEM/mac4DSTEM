@@ -39,6 +39,14 @@ extension AppState {
                            + "Fit Distortion from Spots, in Fit diagnostics.")
     }
 
+    /// The fit that is not offered, said twice: short for the status bar's one line (the whole sentence was cut before its
+    /// numbers ended), whole for the note under the button.
+    nonisolated static func spotDistortionRefusal(crystal: String, fitSummary: String) -> (status: String, note: String) {
+        ("No distortion offered: the spots do not fit one stretched lattice. Details under the button.",
+         "No distortion is offered: the detected spots do not fit one stretched lattice of \(crystal) (\(fitSummary)). "
+            + "Check the crystal, the origin and the disk detection.")
+    }
+
     /// Fit the detector's distortion on the matrix's spots and hold the result (`spotDistortion.pending`) for the user to apply.
     func fitDistortionFromSpots() async {
         if let blocker = spotDistortionBlocker {
@@ -91,8 +99,9 @@ extension AppState {
             return
         }
         guard fit.isCredible else {
-            spotDistortion.clear()
-            presentComputeFailure(SimpleError("No distortion is offered: the detected spots do not fit one stretched lattice of \(model.displayName) (\(fit.summary())). Check the crystal, the origin and the disk detection."))
+            let refusal = Self.spotDistortionRefusal(crystal: model.displayName, fitSummary: fit.summary())
+            spotDistortion.refuse(refusal.note)
+            presentComputeFailure(SimpleError(refusal.status))
             return
         }
         spotDistortion.record(fit)

@@ -133,7 +133,7 @@ extension AppState {
         do {
             try sessionSidecar.remember(url, for: descriptor)
         } catch {
-            statusText = "Saved \(what); choose the sidecar again after relaunch"
+            statusText = "Saved \(what); choose the session file again after relaunch"
             errorMessage = "\(what) was saved to \(url.lastPathComponent), but mac4DSTEM could not "
                 + "remember access for a future launch: \(Self.errorDetail(error))"
         }
@@ -360,7 +360,7 @@ extension AppState {
         // session actually uses (review 2026-10-02 b5/e1; the Export Data… guard, plus a relocated sidecar).
         let refusal = BraggVectorEMDWriter.exportDestinationRefusal(url, sourcePath: descriptor.filePath)
             ?? (BraggVectorEMDWriter.isSameFile(url, sessionSidecar.location(for: descriptor))
-                ? "Choose a different file: the session sidecar is never replaced by an export." : nil)
+                ? "Choose a different file: the session file is never replaced by an export." : nil)
         if let refusal {
             present(SimpleError(refusal))
             return
@@ -688,7 +688,7 @@ extension AppState {
         let vectorsWithoutRecipe = resultPresentation.braggVectorsWithoutRecipe
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
-            "Session sidecar", status: "Saving \(metadata.displayName)…"
+            "Session file", status: "Saving \(metadata.displayName)…"
         )
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -758,7 +758,7 @@ extension AppState {
                         + "superseded by another dataset or task; nothing was saved to \(url.lastPathComponent)")
                     return
                 }
-                self.statusText = "Session sidecar save cancelled"
+                self.statusText = "Session file save cancelled"
             } catch {
                 self.undoLineageProductMark(productMark)
                 guard self.isCurrentOperation(token) else { return }
@@ -1060,7 +1060,7 @@ extension AppState {
         guard let descriptor else { present(SimpleError("No dataset is open.")); return }
         let expected = sessionSidecar.location(for: descriptor)
         let panel = NSOpenPanel()
-        panel.title = "Allow Access to the Session Sidecar"
+        panel.title = "Allow Access to the Session File"
         panel.message = "Choose \(expected.lastPathComponent) so mac4DSTEM may read the session saved beside this dataset."
         panel.prompt = "Allow Access"
         panel.canChooseFiles = true
@@ -1069,18 +1069,18 @@ extension AppState {
         panel.directoryURL = expected.deletingLastPathComponent()
         panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
         guard panel.runModal() == .OK, let url = panel.url else {
-            statusText = "Session sidecar not read — no file chosen"
+            statusText = "Session file not read — no file chosen"
             return
         }
         _ = url.startAccessingSecurityScopedResource()
         // The grant is for THIS dataset's sidecar, by file identity, not by name: a sidecar of another cube
         // would be read as this one's session.
         guard SessionSidecarLocator.isSameFile(url, expected) else {
-            present(SimpleError("\(url.lastPathComponent) is not this dataset's session sidecar (\(expected.lastPathComponent)); nothing was read."))
+            present(SimpleError("\(url.lastPathComponent) is not this dataset's session file (\(expected.lastPathComponent)); nothing was read."))
             return
         }
         sessionSidecar.adopt(url, for: descriptor)
-        rememberSidecarGrant(url, for: descriptor, what: "Session sidecar access")
+        rememberSidecarGrant(url, for: descriptor, what: "Session file access")
         // Reopen through the recorded path so the session restores exactly as it would have on open.
         if let recoveryRecord, let recent = recents.entry(withID: recoveryRecord.datasetID) {
             statusText = "Access granted — reopening \(descriptor.fileName) with its session"
@@ -1103,11 +1103,11 @@ extension AppState {
         }
         let current = sessionSidecar.location(for: descriptor)
         guard let url = runSidecarSavePanel(
-            title: "Save Session Sidecar As",
+            title: "Change Session File",
             message: "Choose the companion file mac4DSTEM keeps this dataset's session in. Existing saved results are copied across.",
             suggesting: current
         ) else {
-            statusText = "Session sidecar unchanged"
+            statusText = "Session file unchanged"
             return
         }
         adoptSessionSidecar(at: url, movingFrom: current, for: descriptor)
@@ -1143,12 +1143,12 @@ extension AppState {
             // again, a message naming a path that cannot work. // v2 S7
             if FileManager.default.fileExists(atPath: url.path) {
                 sessionSidecar.adopt(url, for: descriptor)
-                rememberSidecarGrant(url, for: descriptor, what: "Session sidecar")
-                statusText = "Session sidecar unchanged — access to "
+                rememberSidecarGrant(url, for: descriptor, what: "Session file")
+                statusText = "Session file unchanged — access to "
                     + "\(url.lastPathComponent) re-granted; reopen the dataset "
                     + "to restore its recorded session"
             } else {
-                statusText = "Session sidecar unchanged — the same file was chosen"
+                statusText = "Session file unchanged — the same file was chosen"
             }
             return
         }
@@ -1158,21 +1158,21 @@ extension AppState {
             // Foundation can only bookmark a URL that exists — which it now
             // does. The `nothingToCopy` branch leaves persistence to the next
             // real save, exactly as a first-ever save does.
-            rememberSidecarGrant(url, for: descriptor, what: "Session sidecar")
-            statusText = "Session sidecar is now \(url.lastPathComponent) — copied from "
+            rememberSidecarGrant(url, for: descriptor, what: "Session file")
+            statusText = "Session file is now \(url.lastPathComponent) — copied from "
                 + "\(current.lastPathComponent); the previous file was not deleted"
         case .nothingToCopy:
             // Known limit, stated in the message: with no file to bookmark,
             // the retarget lives in memory and survives only until the next
             // dataset change — the first real save persists it.
-            statusText = "Session sidecar will be \(url.lastPathComponent) from the next save in this session"
+            statusText = "Session file will be \(url.lastPathComponent) from the next save in this session"
         case .failed(let reason):
             // Honest split outcome: the retarget stands (that is the user's
             // stated intent), the copy did not happen, and the message says
             // which half is which rather than pretending either way.
-            statusText = "Session sidecar is now \(url.lastPathComponent), but the existing file could not be copied"
+            statusText = "Session file is now \(url.lastPathComponent), but the existing file could not be copied"
             errorMessage = "New session saves go to \(url.lastPathComponent), but the existing "
-                + "sidecar \(current.lastPathComponent) could not be copied across: \(reason)"
+                + "session file \(current.lastPathComponent) could not be copied across: \(reason)"
         }
         // The inspector's tree is drawn from `sessionInventory` under the name
         // from the seam — re-read it from the NEW location so a failed copy
@@ -1187,7 +1187,7 @@ extension AppState {
             self.sessionSidecar.noteWritten()
             if let inventoryRefreshError {
                 self.sessionInventory = .empty
-                self.statusText = "Session sidecar location changed, but Results could not be read: \(inventoryRefreshError)"
+                self.statusText = "Session file location changed, but Results could not be read: \(inventoryRefreshError)"
             }
         }
     }

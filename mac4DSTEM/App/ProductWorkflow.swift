@@ -370,6 +370,12 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
         guard !hasBraggVectors, let reason = disksNotUsableReason else { return "Detect Bragg disks first" }
         return "Detect Bragg disks again: " + reason
     }
+
+    /// Whether a room still has to say, under its button, that the detection settings changed. Not when the requirement
+    /// line above already says it: the two stood one above the other in Strain.
+    func needsSeparateStaleDisksNote(settingsAreStale: Bool) -> Bool {
+        settingsAreStale && (hasBraggVectors || disksNotUsableReason == nil)
+    }
 }
 
 /// One requirement of a task, with its live status and where the satisfying

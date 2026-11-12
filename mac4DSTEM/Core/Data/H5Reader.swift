@@ -41,7 +41,7 @@ package enum H5Error: LocalizedError {
             // naming rule strips any extension from the source, so asserting
             // ".h5" here would send a .dm4 user hunting for a file that never
             // existed (caught by Gate A before it shipped).
-            let first = "\(sidecar) is a mac4DSTEM session sidecar — the companion "
+            let first = "\(sidecar) is a mac4DSTEM session file — the companion "
                 + "file that stores a session's calibration and results, not a dataset."
             if let suggestedSource {
                 return first + " Open the dataset named “\(suggestedSource)” beside it "

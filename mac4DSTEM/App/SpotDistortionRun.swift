@@ -95,6 +95,11 @@ package final class SpotDistortionRun {
     /// The last fit, until it is applied or the dataset, the ellipse or the disks change.
     package private(set) var pending: SpotDistortionFit?
 
-    package func record(_ fit: SpotDistortionFit) { pending = fit }
-    package func clear() { pending = nil }
+    /// Why the last fit offered nothing, whole: the status line holds the short form, the note under the button this.
+    /// Gone with the next fit and whenever the pending fit is cleared for another reason.
+    package private(set) var refusal: String?
+
+    package func record(_ fit: SpotDistortionFit) { pending = fit; refusal = nil }
+    package func clear() { pending = nil; refusal = nil }
+    package func refuse(_ text: String) { pending = nil; refusal = text }
 }
