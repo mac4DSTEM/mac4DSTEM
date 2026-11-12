@@ -48,6 +48,18 @@ final class SpotDistortionTests: XCTestCase {
         XCTAssertEqual(fit.ellipseA / fit.ellipseB, ratio, accuracy: 0.0005)
         XCTAssertLessThan(fit.residualPixels, 0.001)
         XCTAssertGreaterThan(fit.residualWithoutStretchPixels, 0.3)
+        XCTAssertTrue(fit.isCredible)
+
+        // Spots that do not lie on one stretched lattice: half the positions stretched along x, half along y, by 8 %. The
+        // fit leaves more than half a pixel over, and such a fit is not offered.
+        let alongX = ([SIMD2<Double>(0, 0)] + ideal.map { stretched($0, ratio: 1.08, axisDegrees: 0, scale: 1) }).map { SIMD2(Double(origin) + $0.x / q, Double(origin) + $0.y / q) }
+        let alongY = ([SIMD2<Double>(0, 0)] + ideal.map { stretched($0, ratio: 1.08, axisDegrees: 90, scale: 1) }).map { SIMD2(Double(origin) + $0.x / q, Double(origin) + $0.y / q) }
+        let mixedScan = [[SIMD2<Double>]](repeating: alongX, count: 4) + [[SIMD2<Double>]](repeating: alongY, count: 4)
+        let mixedKit = try XCTUnwrap(PhaseVectorMatcher.matrixSpotDistortion(scan: mixedScan, field: field, reflections: al.reflections, originX: origin, originY: origin,
+                                                                             invAngstromPerPixel: q, maximumVectorInvAngstrom: 0.83))
+        let mixed = try XCTUnwrap(SpotDistortionFit(mixedKit, invAngstromPerPixel: q, firstShellInvAngstrom: first, positionCount: 8))
+        XCTAssertGreaterThan(mixed.residualPixels, SpotDistortionFit.largestResidualOfferedPixels, "fixture: the mixed pattern must not fit one stretch")
+        XCTAssertFalse(mixed.isCredible)
 
         // The app's own correction with these values: every spot comes back to its true length at the fitted scale.
         var calibration = Calibration()

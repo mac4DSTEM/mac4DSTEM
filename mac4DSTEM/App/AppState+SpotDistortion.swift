@@ -80,6 +80,11 @@ extension AppState {
             statusText = "Distortion from spots: none found (stretch \(CalibrationUnitConversion.displayNumber(fit.stretchRatio, digits: 4)), \(fit.pairCount) spots of \(model.displayName))"
             return
         }
+        guard fit.isCredible else {
+            spotDistortion.clear()
+            presentComputeFailure(SimpleError("No distortion is offered: the detected spots do not fit one stretched lattice of \(model.displayName) (\(fit.summary())). Check the crystal, the origin and the disk detection."))
+            return
+        }
         spotDistortion.record(fit)
         statusText = "Distortion from spots ✓  stretch \(fit.summary()). Apply it in Prepare to correct."
     }

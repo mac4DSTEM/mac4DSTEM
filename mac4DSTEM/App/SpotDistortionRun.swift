@@ -58,6 +58,13 @@ package nonisolated struct SpotDistortionFit: Equatable, Sendable {
     /// Below this the pattern is called undistorted and nothing is offered (0.2 %: a tenth of a pixel at 50 px).
     package static let smallestStretchOffered = 1.002
 
+    /// Above this residual the spots do not lie on one stretched lattice and nothing is offered (half a pixel). Seen on a
+    /// public steel scan with the matrix away from a zone axis: a "stretch" of 1.060 with 1.27 px left over (2.14 px without).
+    package static let largestResidualOfferedPixels = 0.5
+
+    /// Whether the fit is good enough to be applied.
+    package var isCredible: Bool { residualPixels.isFinite && residualPixels <= Self.largestResidualOfferedPixels }
+
     /// One line for the inspector and the status line.
     package func summary(locale: Locale = .autoupdatingCurrent) -> String {
         func n(_ value: Double, _ digits: Int) -> String { CalibrationUnitConversion.displayNumber(value, digits: digits, locale: locale) }
