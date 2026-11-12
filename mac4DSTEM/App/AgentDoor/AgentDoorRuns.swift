@@ -47,11 +47,12 @@ extension Mac4DSTEMAgentDoor {
                   summary: "Changes the Disks task's detection settings, as its sliders do; only the ones given. The detection on the "
                       + "shown pattern follows at once: judge it with get_pattern_image before run_task detects the whole scan.",
                   input: .window,
-                  parameters: DiskSetting.all.map(\.parameter),
+                  parameters: DiskSetting.all.map(\.parameter) + [subpixelParameter],
                   acts: true) { call in
             guard let state = call.window?.state as? AppState else { return notAWindow }
             guard !state.isBusy else { return busyRefusal }
             var params = state.diskDetection.diskParams
+            if let mode = call.arguments["subpixel"].flatMap(subpixelMode(named:)) { params.subpixel = mode }
             for setting in DiskSetting.all {
                 if let text = call.arguments[setting.parameter.name], let value = Double(text) { setting.apply(value, &params) }
             }
@@ -96,7 +97,18 @@ extension Mac4DSTEMAgentDoor {
         let params = state.diskDetection.diskParams
         var out: [String: Any] = [:]
         for setting in DiskSetting.all { out[setting.parameter.name] = setting.read(params) }
+        out["subpixel"] = params.subpixel.provenanceID
         return ["disk_detection": out]
+    }
+
+    /// The Subpixel picker, by the recipe's names (issue #235).
+    static let subpixelParameter = AgentParameter(
+        "subpixel", .choice(SubpixelMode.allCases.map(\.provenanceID)),
+        summary: "How each disk is located: pixel (fastest), poly (parabolic, the default) or multicorr (Fourier upsampling, "
+            + "strain-grade; upsample_factor applies).")
+
+    static func subpixelMode(named name: String) -> SubpixelMode? {
+        SubpixelMode.allCases.first { $0.provenanceID == name }
     }
 
     /// One slider of the Disks task, as an agent names it.
@@ -118,6 +130,24 @@ extension Mac4DSTEMAgentDoor {
                         read: { Double($0.edgeBoundary) }, apply: { $1.edgeBoundary = Int($0) }),
             DiskSetting(parameter: AgentParameter("max_peaks", .integer(1...10_000), summary: "Most disks kept per pattern."),
                         read: { Double($0.maxNumPeaks) }, apply: { $1.maxNumPeaks = Int($0) }),
+            // Issue #235: the rest of the Disks task's fields.
+            DiskSetting(parameter: AgentParameter("sigma_dp", .number(0...10), summary: "Gaussian smoothing of the pattern before "
+                            + "the correlation, pixels; 0 is none."),
+                        read: { Double($0.sigmaDP) }, apply: { $1.sigmaDP = Float($0) }),
+            DiskSetting(parameter: AgentParameter("upsample_factor", .integer(4...64), summary: "For subpixel multicorr: the "
+                            + "Fourier upsampling factor; a disk is located to 1/factor of a pixel."),
+                        read: { Double($0.upsampleFactor) }, apply: { $1.upsampleFactor = Int($0) }),
+            DiskSetting(parameter: AgentParameter("min_absolute_intensity", .number(0...1e12), summary: "Weakest disk kept, in "
+                            + "correlation units (the CC field); 0 turns it off."),
+                        read: { Double($0.minAbsoluteIntensity) }, apply: { $1.minAbsoluteIntensity = Float($0) }),
+            DiskSetting(parameter: AgentParameter("relative_to_peak", .integer(0...10_000), summary: "min_relative_intensity is "
+                            + "measured against the candidate of this intensity rank, from 0 (the brightest; Reference peak #1)."),
+                        read: { Double($0.relativeToPeak) }, apply: { $1.relativeToPeak = Int($0) }),
+            DiskSetting(parameter: AgentParameter("relative_reference_min_radius_px", .number(0...10_000), summary: "The relative "
+                            + "filter's reference is the brightest candidate at least this many pixels from the brightest one, so a "
+                            + "saturated direct beam does not set the scale; 0 keeps py4DSTEM's rule (the brightest anywhere)."),
+                        read: { Double($0.relativeReferenceMinimumRadiusPx) },
+                        apply: { $1.relativeReferenceMinimumRadiusPx = Float($0) }),
         ]
     }
 }

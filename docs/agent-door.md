@@ -36,7 +36,7 @@ before each call (MCP marks them as not read-only). One run at a time; Stop in t
 | `set_probe_radius` | the Probe radius field; a synthetic kernel already built is rebuilt at it |
 | `build_probe_kernel` | Build Kernel: synthetic, from the pattern on screen, or the file's probe (the vacuum scan stays with the person) |
 | `set_detector` | classical or neural net, and the neural net's threshold |
-| `set_disk_detection` | sets the Disks sliders it names; live detection follows (it says so when no probe kernel is built yet) |
+| `set_disk_detection` | sets the Disks fields it names (spacing, relative and absolute thresholds and their reference, smoothing of pattern and correlation, correlation power, edge, max peaks, subpixel `pixel`/`poly`/`multicorr` and its upsampling, #235); live detection follows (it says so when no probe kernel is built yet) |
 | `run_task` | presses Run for the window's task |
 | `stop_run` | presses Stop |
 
