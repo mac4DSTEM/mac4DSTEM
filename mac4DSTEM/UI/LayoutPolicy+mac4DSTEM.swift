@@ -43,7 +43,7 @@ extension LayoutPolicy {
     /// stopped fitting once a sidebar of five sections joined it, and is
     /// replaced rather than kept alongside it.
     static let settingsWindow: (min: CGSize, ideal: CGSize) =
-        (CGSize(width: 560, height: 380), CGSize(width: 660, height: 460))
+        (CGSize(width: 560, height: 380), CGSize(width: 660, height: 600))
 }
 
 extension OperationMetricsFormat {
