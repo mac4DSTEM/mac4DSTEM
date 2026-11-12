@@ -32,6 +32,10 @@ before each call (MCP marks them as not read-only). One run at a time; Stop in t
 | Tool | Does |
 |---|---|
 | `select_scan_position` | shows the pattern at scan position x, y, as a click on the scan map does |
+| `get_probe_kernel` | (looks) the probe radius and where it came from, the kernel built or null, the detector and threshold |
+| `set_probe_radius` | the Probe radius field; a synthetic kernel already built is rebuilt at it |
+| `build_probe_kernel` | Build Kernel: synthetic, from the pattern on screen, or the file's probe (the vacuum scan stays with the person) |
+| `set_detector` | classical or neural net, and the neural net's threshold |
 | `set_disk_detection` | sets the Disks sliders it names; live detection follows (it says so when no probe kernel is built yet) |
 | `run_task` | presses Run for the window's task |
 | `stop_run` | presses Stop |
