@@ -90,3 +90,14 @@ Behind "Let agents run analyses", like every tool that acts:
 
 `get_window`'s `view.task_settings` now carries Phase mapping's phases, settings, their size in detector pixels and why it
 cannot run yet, and Diffraction groups' settings. The phases themselves are the person's until the CIF-in tool (#192).
+
+## Calibration (issue #208)
+
+Behind "Let agents run analyses", like every tool that acts:
+
+| Tool | What it does |
+|---|---|
+| `set_calibration` | types the Q pixel size, the R pixel size (each with its unit) and the voltage, as Prepare's fields do; recorded as manual |
+| `run_calibration` | starts Calibrate Origin, Origin from Bragg Peaks, Fit Ellipse (in the fit annulus given) or Measure R–Q Rotation |
+
+Each answers with the calibration as `get_window` shows it, or says the step started. Clear Calibration stays with the person.
