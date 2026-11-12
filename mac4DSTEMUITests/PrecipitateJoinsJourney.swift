@@ -1,5 +1,5 @@
 // PrecipitateJoinsJourney: composition and strain per precipitate object (suite task 42) on mac4DSTEM's own 4D-STEM + EDS file,
-// through the app's real open path (`--open`) and the Add Phase ▸ Presets ▸ Al–Mg–Si open panel. One pass before Paul's drive,
+// through the app's real open path (`--open`) and the Add Phase ▸ From CIF file open panel (aluminium, then β″). One pass before Paul's drive,
 // never per session. Run as
 //     tools/run-tests.sh ui PrecipitateJoinsJourney
 // The file is References/demo-edx-v3/AlMgSi_4D_EDX.dm4 (simulated, beside the repo); the β″ CIF is
@@ -12,6 +12,7 @@ final class PrecipitateJoinsJourney: Journey {
     private static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     private static let fourDEDS = repo.appendingPathComponent("References/demo-edx-v3/AlMgSi_4D_EDX.dm4").path
     private static let betaCIF = repo.appendingPathComponent("References/crystal-structures/beta_double_prime_Mg5Si6_needle.cif").path
+    private static let aluminiumCIF = repo.appendingPathComponent("References/crystal-structures/Al_thronsen2024.cif").path
 
     private func waitIdle(_ what: String, timeout: TimeInterval = 300) {
         XCTAssertTrue(element("toolbar.display.idle").waitForExistence(timeout: timeout), "the room never came back to idle after \(what)")
@@ -61,6 +62,7 @@ final class PrecipitateJoinsJourney: Journey {
     private func openAndQuantify(adding extra: [String] = []) throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: Self.fourDEDS), "\(Self.fourDEDS) is not on this machine")
         try XCTSkipUnless(FileManager.default.fileExists(atPath: Self.betaCIF), "\(Self.betaCIF) is not on this machine")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: Self.aluminiumCIF), "\(Self.aluminiumCIF) is not on this machine")
         step("open AlMgSi_4D_EDX.dm4") {
             launch(arguments: ["--open", Self.fourDEDS, "--export-dir", "precipitate-joins-journey"])
             waitForLoadingToEnd(timeout: 180)
@@ -84,20 +86,22 @@ final class PrecipitateJoinsJourney: Journey {
         }
     }
 
-    /// Disks, the Al–Mg–Si phase map with its objects, strain, and the object table open.
+    /// Disks, the phase map of aluminium and β″ with its objects, strain, and the object table open.
     private func objectsStrainAndTable() {
         step("detect Bragg disks") {
             wait(for: "workspace.braggDisks").click()
             clickPrimary("Detect")
         }
-        step("Crystal Maps, Phase mapping, Al–Mg–Si preset") {
+        step("Crystal Maps, Phase mapping, aluminium and β″ from their CIFs") {
             wait(for: "workspace.map").click()
             wait(for: "task.Phase mapping").click()
-            wait(for: "phaseMapping.addPhase", timeout: 20).click()
-            let preset = app.menuItems["Al–Mg–Si (β″ needles)…"]
-            XCTAssertTrue(preset.waitForExistence(timeout: 10), "Add Phase has no Al–Mg–Si preset")
-            preset.click()
-            choose(Self.betaCIF)
+            for path in [Self.aluminiumCIF, Self.betaCIF] {
+                wait(for: "phaseMapping.addPhase", timeout: 20).click()
+                let item = app.menuItems["From CIF file…"]
+                XCTAssertTrue(item.waitForExistence(timeout: 10), "Add Phase has no From CIF file")
+                item.click()
+                choose(path)
+            }
         }
         step("map phases") {
             clickPrimary("Phase mapping")
