@@ -74,6 +74,34 @@ final class ProbeRadiusSeveralDisksTests: XCTestCase {
         XCTAssertNil(result.meanProbeRadius, "the summed area of nine disks was stored as the probe radius")
     }
 
+    /// On a spot pattern the Origin & probe row points to "Origin from Bragg Peaks" after Calibrate Origin, and stops once that
+    /// has run; on the built-in demo (one brightest disk) it never says it.
+    @MainActor
+    func testTheRowPointsToTheOriginFromBraggPeaksOnASpotPattern() async throws {
+        func row(_ state: AppState) -> String {
+            state.calibrationSession.readiness.items.first { $0.kind == .originProbe }?.detail ?? "no Origin & probe row"
+        }
+        let hint = "Spot pattern: after Detect All Disks use Origin from Bragg Peaks"
+        let source = SaturatedSpotPatternSource()
+        let state = AppState()
+        await state.activate(descriptor: try await source.discoverPrimaryDataset(), reader: source, runInitialAnalysis: false)
+        XCTAssertFalse(row(state).contains(hint), "before any origin run")
+        await state.calibrateOrigin()
+        XCTAssertTrue(row(state).contains(hint), row(state))
+        await state.useProbeRadius(2.5)
+        XCTAssertTrue(row(state).contains(hint), "a typed radius does not make the origin right: \(row(state))")
+        state.navigation.analysisMode = .disks
+        _ = await state.runDiskDetection()
+        await state.calibrateOriginFromBraggPeaks()
+        XCTAssertTrue(state.statusText.hasPrefix("Origin from Bragg peaks ✓"), state.statusText)
+        XCTAssertFalse(row(state).contains(hint), row(state))
+
+        let demo = AppState()
+        await demo.openDemoFixture(calibrated: false)
+        await demo.calibrateOrigin()
+        XCTAssertFalse(row(demo).contains(hint), row(demo))
+    }
+
     /// What the user sees: the probe stays unset, never "Measured in app", and the status line says why and what to do.
     @MainActor
     func testTheAppLeavesTheProbeUnsetAndSaysWhatToDo() async throws {

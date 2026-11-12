@@ -134,6 +134,9 @@ extension AppState {
             // mac4DSTEM#203: with several disks as bright as the beam no probe radius was measured; say so and say what to do,
             // in the status line, which the log keeps (the origin itself was fitted).
             let brightDisks = OriginCalibration.comparableBrightDiskCount(dp: result.meanDP, qy: d.qy, qx: d.qx)
+            // A spot pattern: the centre of mass follows the spots' intensities, not the beam (2 px across a public SPED scan,
+            // where the origin from the Bragg peaks is flat to 0.05 px). The row points to that option until it has run.
+            calibrationSession.provenance.suggestsOriginFromBraggPeaks = brightDisks > 1
             if !standing, result.meanProbeRadius == nil, brightDisks > 1 {
                 let note = OriginCalibration.severalBrightDisksNote(count: brightDisks)
                 calibrationSession.provenance.probeNotMeasuredNote = "several disks are as bright as the beam; type it in Bragg Disks"
@@ -176,6 +179,7 @@ extension AppState {
             return
         }
         guard maps.width == d.rx, maps.height == d.ry else { return }
+        calibrationSession.provenance.suggestsOriginFromBraggPeaks = false
         calibrationSession.calibration.origin = maps
         clearSupersededFittedOrigin()
         phaseContrast.parallaxPreprocess = nil
