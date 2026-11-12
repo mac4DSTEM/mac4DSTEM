@@ -114,11 +114,27 @@ Behind "Let agents run analyses", like every tool that acts:
 | Tool | What it does |
 |---|---|
 | `select_task` | moves the window to a task (`Disks`, `Phase mapping`, ...) or a workspace (`prepare`, `braggDisks`, `map`, ...), as the sidebar does; nothing runs; `can_run` says whether the task has a Run |
-| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does |
+| `set_phase_mapping` | Phase mapping's reference-library and matching fields, only the ones given; a new classifier resets the intensity floor, as the picker does; `orientation_source` is `structures` (the default) or `typedZones`, as Advanced > Typed zone axes does (#192) |
 | `scale_phase_matching_to_detector` | Scale to This Detector: the tolerances to one detector pixel; needs a physical Q pixel size |
 
 `get_window`'s `view.task_settings` now carries Phase mapping's phases, settings, their size in detector pixels and why it
-cannot run yet, and Diffraction groups' settings. The phases themselves are the person's until the CIF-in tool (#192).
+cannot run yet, and Diffraction groups' settings.
+
+## The phase list (issue #192)
+
+Behind "Let agents run analyses". A phase is named by its `index` in `phase_mapping.phases` (from 0), since the same
+structure can be in the list twice with typed zone axes.
+
+| Tool | What it does |
+|---|---|
+| `add_phase` | a CIF in the Agent folder becomes a phase, as Add Phase > From CIF file does; the first phase is the matrix, `is_matrix` makes this one it; a file that does not read is refused in words, no modal |
+| `set_phase` | one phase: `is_matrix` (exactly one is; the matrix moves by marking another), its own `excitation_slab_inv_angstrom` or `clear_excitation_slab` back to the default, and with typed zone axes `zone_axis` and `orientation_relationship` |
+| `remove_phase` | the minus button (Edit > Undo puts it back); removing the matrix makes the first phase the matrix |
+
+`phase_mapping` also says the `orientation_source`, the `default_excitation_slab_inv_angstrom` an empty field means, and
+`last_run`: positions per phase, matrix, indexed, not indexed and no data, the relationships a structures run learned, the
+slab each phase was searched with, the reach, whether the settings changed since, and the evidence at the selected scan
+position. The reach is `max_q_inv_angstrom` (capped at the detector's edge).
 
 ## Calibration (issue #208)
 

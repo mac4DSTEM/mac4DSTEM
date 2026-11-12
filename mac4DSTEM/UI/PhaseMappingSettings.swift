@@ -563,6 +563,7 @@ struct PhaseMappingSections: View {
                 .buttonStyle(.borderless)
                 .help("Remove \(slot.model.displayName)")
                 .accessibilityLabel("Remove \(slot.model.displayName)")
+                .accessibilityIdentifier("phaseMapping.phase.remove")
             }
             if typed {
             zoneAxisField
@@ -642,6 +643,7 @@ struct PhaseMappingSections: View {
                 .labelsHidden()
                 // The title string is the placeholder; without this VoiceOver names the field "u v w".
                 .accessibilityLabel("Zone axis")
+                .accessibilityIdentifier("phaseMapping.phase.zoneAxis")
             }
         }
 
@@ -671,6 +673,7 @@ struct PhaseMappingSections: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: LayoutPolicy.numericFieldWidth)
+                    .accessibilityIdentifier("phaseMapping.phase.excitationSlab")
                     // The grey prompt that shows the global value is not spoken; a hint, not a value, so what is typed is still read.
                     .accessibilityHint(RoomAccessibilityText.globalFallbackHint(
                         isEmpty: slot.excitationSlabInvAngstrom == nil,
@@ -708,6 +711,7 @@ struct PhaseMappingSections: View {
                 // The title string is the placeholder; without this VoiceOver names the field "Any rotation".
                 .accessibilityLabel("Parallel to matrix")
                 .accessibilityHint("A plane or direction parallel to the matrix's; empty allows any rotation")
+                .accessibilityIdentifier("phaseMapping.phase.relationship")
             }
             .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
                   + "to the matrix's, as an orientation relationship is written; "

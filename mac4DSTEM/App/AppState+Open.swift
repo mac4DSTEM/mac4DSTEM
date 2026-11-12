@@ -139,25 +139,32 @@ extension AppState {
     /// model after a refusal or an in-place replacement (review e2).
     @discardableResult
     func importCrystalModel(from url: URL) -> CrystalModel? {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
-            let text = try String(contentsOf: url, encoding: .utf8)
-            let baseName = url.deletingPathExtension().lastPathComponent
-            let model = try CIFModelImport.crystalModel(from: text, fileBaseName: baseName)
-            if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
-                acomSession.importedCrystalModels[index] = model
-            } else {
-                acomSession.importedCrystalModels.append(model)
-            }
-            acomSession.importedCIFSources[model.id] = PhaseSetupRecord.CIFSource(text: text, fileBaseName: baseName)
-            acomSession.modelSelection = .imported(model.id)
-            statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
-            return model
+            return try importCrystalModelOrThrow(from: url)
         } catch {
             present(error)
             return nil
         }
+    }
+
+    /// `importCrystalModel(from:)` without the modal: the error goes to the caller. The agent door's add_phase answers it
+    /// as a refusal, since no person is at the alert (mac4DSTEM#192).
+    @discardableResult
+    func importCrystalModelOrThrow(from url: URL) throws -> CrystalModel {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let model = try CIFModelImport.crystalModel(from: text, fileBaseName: baseName)
+        if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
+            acomSession.importedCrystalModels[index] = model
+        } else {
+            acomSession.importedCrystalModels.append(model)
+        }
+        acomSession.importedCIFSources[model.id] = PhaseSetupRecord.CIFSource(text: text, fileBaseName: baseName)
+        acomSession.modelSelection = .imported(model.id)
+        statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
+        return model
     }
     /// Deterministic in-memory dataset shared by UI automation, repeatable
     /// design walkthroughs, and the welcome screen's Try Demo Data path —
