@@ -75,13 +75,21 @@ final class CompiledModelCacheTests: XCTestCase {
     }
 
     /// The entries of `Caches/<bundle id>/com.apple.e5rt.e5bundlecache/<OS build>/`; 0 when the folder is absent.
-    private static func coreMLCacheEntryCount() -> Int {
-        let fm = FileManager.default
-        guard let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else { return 0 }
-        let root = caches
-            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.mac4dstem.mac4DSTEM", isDirectory: true)
-            .appendingPathComponent("com.apple.e5rt.e5bundlecache", isDirectory: true)
-        let builds = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        return builds.reduce(0) { $0 + ((try? fm.contentsOfDirectory(atPath: $1.path).count) ?? 0) }
+    private static func coreMLCacheEntryCount() -> Int { CoreMLTestCache.entries().count }
+
+    /// A test that compiles a model and loads it leaves nothing in Core ML's cache: the entry Core ML adds for the fresh
+    /// model is removed with the test's directory. Before, every run of the unit tests left its entries behind (#178).
+    func testAFreshlyCompiledModelLeavesNoEntryBehind() async throws {
+        let before = CoreMLTestCache.entries()
+        let cache = CompiledModelCache(directory: try TrainingTestSupport.tempDirectory(self))
+        let compiled = try await cache.compiledModel(forAsset: LearnedSwiftFixture.assetURL, sha256: sha)
+        let config = MLModelConfiguration()
+        config.computeUnits = .cpuOnly
+        _ = try MLModel(contentsOf: compiled, configuration: config)
+        let added = CoreMLTestCache.entries().subtracting(before)
+        print("Core ML cache entries a fresh compile and load added: \(added.count)")
+
+        CoreMLTestCache.removeEntries(addedSince: before)
+        XCTAssertEqual(CoreMLTestCache.entries(), before, "the test's own entries are still in Core ML's cache")
     }
 }
