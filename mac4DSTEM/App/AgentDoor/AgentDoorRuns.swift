@@ -55,6 +55,7 @@ extension Mac4DSTEMAgentDoor {
                 if let text = call.arguments[setting.parameter.name], let value = Double(text) { setting.apply(value, &params) }
             }
             state.diskDetection.diskParams = params
+            state.statusText = agentChangeLine("disk detection", call.arguments)
             var answer = diskSettings(of: state)
             if state.probeKernel == nil {
                 answer["note"] = "The settings are kept, but no disks are detected yet: this window has no probe kernel. "
