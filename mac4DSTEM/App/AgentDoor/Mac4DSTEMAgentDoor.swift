@@ -25,9 +25,7 @@ enum Mac4DSTEMAgentDoor {
     /// The app's one door.
     static let shared: AgentDoor = {
         let door = AgentDoor(appName: "mac4DSTEM", appVersion: FeedbackLinks.appVersion, preferredPort: port)
-        door.register(Mac4DSTEMAgentDoor.tools + Mac4DSTEMAgentDoor.runTools + Mac4DSTEMAgentDoor.kernelTools
-                      + Mac4DSTEMAgentDoor.scanMapTools + Mac4DSTEMAgentDoor.taskTools + Mac4DSTEMAgentDoor.folderTools
-                      + Mac4DSTEMAgentDoor.calibrationTools)
+        door.register(Mac4DSTEMAgentDoor.allTools)
         return door
     }()
 
@@ -66,6 +64,13 @@ enum Mac4DSTEMAgentDoor {
     }
 
     // MARK: Tools
+
+    /// Every tool the door registers, in the order an agent meets them (`AgentDoorCoverage` names them).
+    static var allTools: [AgentTool] {
+        tools + runTools + kernelTools
+            + scanMapTools + taskTools + folderTools
+            + calibrationTools
+    }
 
     static let tools: [AgentTool] = [
         AgentTool(name: "get_window", title: "Window state",
