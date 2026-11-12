@@ -59,7 +59,8 @@ extension Mac4DSTEMAgentDoor {
         },
         AgentTool(name: "export_result", title: "Export result",
                   summary: "Writes the displayed result into the Agent folder as the Export menu does: data (the numbers behind "
-                      + "the view, an EMD RealSlice .h5), bundle (every strain and orientation field of the session, one .h5) or "
+                      + "the view, an EMD RealSlice .h5; for the phase map, the phase label, verdict, distance, contrast and matched count of every "
+                      + "position), bundle (every strain and orientation field of the session, one .h5) or "
                       + "figure (the result and the pattern side by side, in the format Settings names). Needs \"Let agents save "
                       + "results there\"; never replaces a file. A long write answers at once; get_log says when it is done.",
                   input: .window,
@@ -117,10 +118,14 @@ extension Mac4DSTEMAgentDoor {
                 }
                 maps = bundle; fallback = state.exportBaseName + "_scientific_bundle"
             } else {
-                guard let map = state.productDataExportMap() else {
-                    return .refusal(status: 409, message: "This view has no scalar data to export.")
+                if let phaseFields = state.phaseMapDataExportMaps() {
+                    maps = phaseFields; fallback = state.exportBaseName + "_phase_map"
+                } else {
+                    guard let map = state.productDataExportMap() else {
+                        return .refusal(status: 409, message: "This view has no scalar data to export.")
+                    }
+                    maps = [map]; fallback = state.exportBaseName + "_" + String(map.kind.map { $0.isLetter || $0.isNumber ? $0 : "_" })
                 }
-                maps = [map]; fallback = state.exportBaseName + "_" + String(map.kind.map { $0.isLetter || $0.isNumber ? $0 : "_" })
             }
             let target: URL
             switch newAgentFolderTarget(call.arguments["name"], default: fallback, extension: "h5") {

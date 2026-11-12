@@ -111,13 +111,28 @@ extension Mac4DSTEMAgentDoor {
             case .restoreFittedOrigin:
                 state.restoreFittedOrigin()
             case .fitDistortionFromSpots:
-                if let blocker = state.spotDistortionBlocker { return .refusal(status: 409, message: blocker) }
+                if let blocker = state.spotDistortionBlocker {
+                    // The person's line names the Orientation picker; through the door the matrix crystal is set_acom's.
+                    let door = state.resolvedACOMModel == nil && state.hasCurrentBraggVectors
+                        ? " Through the door: set_acom phase_cif names the matrix crystal." : ""
+                    return .refusal(status: 409, message: blocker + door)
+                }
                 Task { await state.fitDistortionFromSpots() }
             case .applySpotDistortion:
                 guard state.spotDistortion.pending != nil else {
                     return .refusal(status: 409, message: "There is no spot distortion fit to apply (fit_distortion_from_spots).")
                 }
+                let before = state.calibrationSession.calibration.qPixelSize
                 state.applySpotDistortion()
+                guard state.spotDistortion.pending == nil else {
+                    return .refusal(status: 409, message: "The spot distortion was not applied; get_log says why.")
+                }
+                let after = state.calibrationSession.calibration
+                state.statusText = "An agent applied the spot distortion."
+                return .json(["applied": step.rawValue,
+                              "q_inv_angstrom_per_px_before": AgentJSON.number(before),
+                              "q_inv_angstrom_per_px_after": AgentJSON.number(after.qPixelSize),
+                              "note": "The Q pixel scale changed with the ellipse; vectors and maps computed before use the old scale."])
             case .manualEllipse:
                 guard let a = call.arguments["ellipse_a"].flatMap(Double.init),
                       let b = call.arguments["ellipse_b"].flatMap(Double.init) else {

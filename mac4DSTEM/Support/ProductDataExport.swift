@@ -10,6 +10,7 @@
 import AppKit
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 import Foundation
 import UniformTypeIdentifiers
 
@@ -18,6 +19,34 @@ extension AppState {
     /// nothing is shown. Panel-free so a test can read the exact payload.
     func productDataExportMap() -> ScalarResultMap? {
         currentScalarResultMapForPersistence()
+    }
+
+    /// The numbers behind the phase map on screen, one field each per scan position: the phase label (the index into
+    /// `phase_names`, -1 where no phase won), the verdict code, the winning mean distance and the margin over the best other
+    /// phase (Å⁻¹, NaN where none was scored) and the matched vector count. Nil unless the phase map is the product shown.
+    func phaseMapDataExportMaps() -> [ScalarResultMap]? {
+        guard resultPresentation.product?.kind == "phase_map", let map = phaseMapping.map,
+              map.width > 0, map.height > 0, map.results.count == map.width * map.height else { return nil }
+        let own = scanMapPersistenceMetadata(for: .phaseMapping)
+        let provenance = own.provenance.merging([
+            "phase_names": map.phaseNames.joined(separator: "\n"),
+            "matrix_phase_index": String(map.matrixPhaseIndex),
+            "verdict_codes": PhaseVerdict.allCases.map { "\($0.rawValue) \($0.displayName)" }.joined(separator: ", "),
+        ]) { _, new in new }
+        func field(_ kind: String, _ name: String, _ units: String, _ value: (PhaseVectorResult) -> Float) -> ScalarResultMap {
+            ScalarResultMap(width: map.width, height: map.height, pixels: map.results.map(value), kind: kind,
+                            displayName: name, valueUnits: units, pixelSizeRow: own.row, pixelSizeColumn: own.column,
+                            pixelUnits: own.units, provenance: provenance)
+        }
+        return [
+            field("phase_label", "Phase label", "phase index") {
+                ($0.verdict == .matrix || $0.verdict == .indexed) && $0.phaseIndex >= 0 ? Float($0.phaseIndex) : -1
+            },
+            field("phase_verdict", "Phase verdict", "verdict code") { Float($0.verdict.rawValue) },
+            field("phase_distance", "Phase mean distance", "Å⁻¹") { $0.score },
+            field("phase_contrast", "Phase contrast", "Å⁻¹") { $0.phaseContrast },
+            field("phase_matched", "Phase matched vectors", "count") { Float($0.matchedCount) },
+        ]
     }
 
     /// True when the product on screen is a colour image only (the button's disabled-help case).
