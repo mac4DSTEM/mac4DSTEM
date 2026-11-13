@@ -25,30 +25,15 @@ final class WorkspaceRecoveryTests: XCTestCase {
         XCTAssertNotEqual(first, renamed)
     }
 
-    /// A file the sandbox lets the app read but not write (a pick on a read-only volume, a DEBUG `--open` file) refuses
-    /// a read-write security-scoped bookmark with NSCocoaErrorDomain 256; the store then keeps a read-only one, so the
-    /// open is remembered instead of reporting "recent-file access could not be remembered".
-    func testBookmarkFallsBackToReadOnlyScopeWhenReadWriteIsRefused() throws {
-        let url = URL(fileURLWithPath: "/Volumes/ReadOnly/scan.h5")
+    /// A dataset is remembered with a read-only security-scoped bookmark and nothing else is asked for: a read-write
+    /// one makes the sandbox stamp quarantine and provenance attributes onto the data file (`._` files on exFAT, #321).
+    func testBookmarkIsReadOnlyAndNeverAsksForReadWrite() throws {
         var asked: [URL.BookmarkCreationOptions] = []
-        let data = try WorkspaceRecoveryStore.bookmark(for: url) { _, options in
-            asked.append(options)
-            guard options.contains(.securityScopeAllowOnlyReadAccess) else {
-                throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadUnknownError)
-            }
-            return Data([7])
+        let data = try WorkspaceRecoveryStore.bookmark(for: URL(fileURLWithPath: "/Volumes/SSD/086_STEM SI.dm4")) { _, options in
+            asked.append(options); return Data([7])
         }
         XCTAssertEqual(data, Data([7]))
-        XCTAssertEqual(asked, [[.withSecurityScope], [.withSecurityScope, .securityScopeAllowOnlyReadAccess]])
-    }
-
-    /// A writable file keeps its read-write grant: the read-only option is never asked for.
-    func testBookmarkStaysReadWriteWhenAllowed() throws {
-        var asked: [URL.BookmarkCreationOptions] = []
-        _ = try WorkspaceRecoveryStore.bookmark(for: URL(fileURLWithPath: "/tmp/a.h5")) { _, options in
-            asked.append(options); return Data([1])
-        }
-        XCTAssertEqual(asked, [[.withSecurityScope]])
+        XCTAssertEqual(asked, [[.withSecurityScope, .securityScopeAllowOnlyReadAccess]])
     }
 
     /// Both refused (no access at all): the error still reaches the caller.
