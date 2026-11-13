@@ -160,6 +160,11 @@ struct WorkspaceSidebar: View {
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
+        // mac4DSTEM#279: the row is a container to accessibility, so the List's own selection never reached VoiceOver or an
+        // AX client (AXPress answered success and did nothing). The row is a button that chooses its task, and says when it
+        // is the chosen one.
+        .accessibilityAddTraits(appState.navigation.analysisMode == mode ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { appState.selectTask(mode) }
     }
 
     private func taskUnmetCount(_ mode: AnalysisMode) -> Int {

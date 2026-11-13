@@ -397,6 +397,14 @@ private struct DatasetCommands: Commands {
             ForEach(WorkspaceArea.allCases) { area in
                 workspaceCommand(area, key: KeyEquivalent(area.shortcutDigit))
             }
+            // mac4DSTEM#279: the task inside a room, from the keyboard and through accessibility, as the rows above choose rooms.
+            Divider()
+            Button("Next Task") { if let mode = appState?.adjacentTask(1) { appState?.selectTask(mode) } }
+                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                .disabled(appState?.adjacentTask(1) == nil)
+            Button("Previous Task") { if let mode = appState?.adjacentTask(-1) { appState?.selectTask(mode) } }
+                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                .disabled(appState?.adjacentTask(-1) == nil)
         }
     }
 

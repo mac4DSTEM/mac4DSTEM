@@ -89,6 +89,23 @@ extension AppState {
         )
     }
 
+    /// The task `offset` rows from the selected one in this room's list, wrapping round; nil in a room with fewer than two
+    /// tasks. Workspace › Next Task and Previous Task (mac4DSTEM#279): a keyboard and VoiceOver way to change the task, beside
+    /// the Go to <room> items.
+    func adjacentTask(_ offset: Int) -> AnalysisMode? {
+        let area = navigation.workspaceArea
+        guard !isWorkspaceWithheld(area) else { return nil }
+        let modes = area.analysisModes
+        guard modes.count > 1, let index = modes.firstIndex(of: navigation.analysisMode) else { return nil }
+        let next = ((index + offset) % modes.count + modes.count) % modes.count
+        return modes[next]
+    }
+
+    /// Chooses a task as its sidebar row does: through `workspaceRoute`, the one path selection takes.
+    func selectTask(_ mode: AnalysisMode) {
+        workspaceRoute.wrappedValue = .task(mode)
+    }
+
     /// What still has to happen before the selected task may run — the same
     /// list that disables the primary action, so the two can never disagree.
     var unmetRequirements: [TaskPrerequisite] {
