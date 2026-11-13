@@ -83,13 +83,68 @@ build has no updater, because the store updates it and refuses an app that updat
   Updater.app) and the framework with the Developer ID, inside out, then the app again keeping its entitlements, and
   checks each one before notarization.
 
-**The key, once, on Paul's Mac.** After one `tools/release.sh` (or any build that resolves the packages into
-`build/SourcePackages`), run `build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It makes the EdDSA pair,
-keeps the private half in the login keychain and prints the public half, which replaces `SET-BEFORE-RELEASE` under
-`SUPublicEDKey` in `mac4DSTEM/Info-Direct.plist` (it is public; it may be committed and pasted). The private half never
-leaves the keychain: back it up with `generate_keys -x <file>` to a safe place outside every repo, because a lost key
-means no copy in the field can be updated again. Until the key is in, the updater stays off and `build-developer-id.sh`
-refuses to build a download.
+**The key.** `build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys` (there after one `tools/release.sh` or any
+build that resolves the packages into `build/SourcePackages`) makes the EdDSA pair, keeps the private half in the login
+keychain and prints the public half, which goes under `SUPublicEDKey` in `mac4DSTEM/Info-Direct.plist` (it is public; it
+may be committed and pasted). Back the private half up at once (Keys and backups, below). A lost key is not the end of
+updates: Sparkle accepts an update with a new key when the new app meets the old app's designated requirement
+(`SUUpdateValidator.m`: "Either DSA must be valid, or Apple Code Signing must be valid"), and ours is Xcode's default,
+which names the team (`certificate leaf[subject.OU] = 3B8SMSSAX4`), not the certificate. So a new key needs a release
+signed with a Developer ID of the same team, carrying the new public key, its feed entry signed with the new private
+key. Never change the key and the team in one release. Until a real key is in, the updater stays off and
+`build-developer-id.sh` refuses to build a download.
+
+## Keys and backups (#285)
+
+The release needs four secrets on Paul's Mac. None is in a repo, an issue, a chat, a log or a GitHub secret (the CI
+workflows sign nothing; the only Actions secret is release-please's app key).
+
+| Secret | Lives in | Used by | Made with |
+|---|---|---|---|
+| Developer ID Application: Paul Lobpreis (3B8SMSSAX4), certificate and private key | login keychain | `build-developer-id.sh`, `make-dmg.sh`, macEM `tools/release.sh` | Xcode > Settings > Apple Accounts, the Account Holder's Apple Account > Manage Certificates > + > Developer ID Application |
+| notarytool profile `macem-notary` | login keychain | `notarize.sh`, macEM `tools/release.sh` | `xcrun notarytool store-credentials macem-notary --key ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8 --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID"` |
+| Sparkle EdDSA private key | login keychain | `appcast.sh` (`sign_update`) | `generate_keys` (above) |
+| App Store Connect API key `.p8` | `~/.appstoreconnect/private_keys/`, `ASC_KEY_ID` and `ASC_ISSUER_ID` in `~/.zshrc` | store upload, the notary profile | App Store Connect > Users and Access > Integrations; Apple shows the file once |
+
+The store's Apple Distribution and Mac Installer Distribution certificates need nothing kept: Xcode signed in to the team
+creates them on the first `--store` run (`-allowProvisioningUpdates`).
+
+**Only the Account Holder** (the Apple Account that enrolled the membership; App Store Connect > Users and Access names
+it) can create a Developer ID certificate, in Xcode or on developer.apple.com. An Admin gets "This operation can only be
+performed by the Account Holder". A team may hold five Developer ID Application certificates at once.
+
+**Never revoke a Developer ID certificate that signed a published download.** Apple: an app signed with a revoked
+certificate "can no longer be installed nor launch if it's already installed". A certificate whose key is lost is left
+to expire; the apps it signed keep working.
+
+**Backup, the same day a secret is made, in two places outside every repo** (13 Nov 2026 the login keychain was reset
+and the only copies were lost):
+
+1. Export the Developer ID identity: Keychain Access > login > My Certificates > the Developer ID entry > File >
+   Export Items > Personal Information Exchange (.p12), with a strong password.
+2. Export the Sparkle key: `generate_keys -x <file>` (the file is the key itself).
+3. Copy the `.p8` from `~/.appstoreconnect/private_keys/`.
+4. Put the three files in one encrypted disk image (Disk Utility > File > New Image > Blank Image, encryption AES-256),
+   its password in the Passwords app. Keep one copy on the external disk and one in iCloud Drive; delete the loose
+   exported files.
+
+Restore on a new keychain: double-click the `.p12`; `generate_keys -f <file>`; copy the `.p8` back; store the notary
+profile again (table above).
+
+**Checks before a release needs them** (read-only, except the throwaway file in `$TMPDIR`). The first use of a new key
+by `codesign` or `sign_update` asks for the login password once: choose Always Allow.
+
+```sh
+security find-identity -v -p codesigning     # lists "Developer ID Application: Paul Lobpreis (3B8SMSSAX4)"
+xcrun notarytool history --keychain-profile macem-notary    # lists past submissions: the profile works
+build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -p   # equals SUPublicEDKey in Info-Direct.plist
+cp /usr/bin/true "$TMPDIR/signtest"
+codesign --force --sign "Developer ID Application: Paul Lobpreis (3B8SMSSAX4)" --options runtime --timestamp "$TMPDIR/signtest"
+codesign -dvv "$TMPDIR/signtest"            # Authority=Developer ID Application …, a Timestamp line
+build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update "$TMPDIR/signtest"   # prints sparkle:edSignature="…"
+build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update --verify "$TMPDIR/signtest" <the signature>
+codesign -d -r- /Applications/mac4DSTEM.app   # a website install: the requirement names the team, not a certificate
+```
 
 ## App Store package: `tools/release.sh --store`
 
@@ -178,7 +233,7 @@ pre-notarization ZIP.
 ## Notarize and staple
 
 Store credentials once with `xcrun notarytool store-credentials` (the scripts default to the profile name `macem-notary`;
-an Apple ID with an app-specific password works; a 403 "required agreement is missing" means the Developer Program License Agreement
+store it from the App Store Connect API key as in Keys and backups; a 403 "required agreement is missing" means the Developer Program License Agreement
 awaits acceptance at developer.apple.com/account), then:
 
 ```sh
