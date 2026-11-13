@@ -37,7 +37,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Releases
 
 App tags carry a `v` (`v5.2.0`); the kits and MacEMUI use bare versions (`0.9.0`). Each release's notes and assets are on the
-[GitHub releases page](https://github.com/mac4DSTEM/mac4DSTEM/releases) and in `CHANGELOG.md`; release-please opens the Release PR,
+[GitHub releases page](https://github.com/macEMSuite/mac4DSTEM/releases) and in `CHANGELOG.md`; release-please opens the Release PR,
 Paul merges it, the bot tags, and `tools/release.sh` builds the DMG from the tag (below).
 
 
