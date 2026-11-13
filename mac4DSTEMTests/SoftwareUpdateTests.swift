@@ -28,7 +28,7 @@ final class SoftwareUpdateTests: XCTestCase {
         var direct = try plist("mac4DSTEM/Info-Direct.plist")
         XCTAssertEqual(direct.removeValue(forKey: "SUFeedURL") as? String, "https://mac4dstem.com/appcast/mac4dstem.xml")
         let key = try XCTUnwrap(direct.removeValue(forKey: "SUPublicEDKey") as? String)
-        XCTAssertEqual(key, "dU+yajVjFHMCk3n1gU2yg9vdRWQuiZf8pqbHNgfCkz0=", "the public half of Paul's EdDSA key (made 2026-11-11)")
+        XCTAssertEqual(key, "j4qRIz2RC40tuHy7FRngpvq0OHuJWLjAT7v/Mtx49qE=", "the public half of Paul's EdDSA key (made 2026-11-13, #285)")
         XCTAssertEqual(direct.removeValue(forKey: "SUEnableInstallerLauncherService") as? Bool, true, "the sandboxed installer")
         XCTAssertEqual(direct.removeValue(forKey: "SUEnableSystemProfiling") as? Bool, false, "no system profile is sent")
         XCTAssertNil(direct["SUEnableAutomaticChecks"], "Sparkle asks the person before it checks by itself")
