@@ -89,7 +89,7 @@ Code copied from macTEM
 ================================================================================
 
 The EDS spectrum-image opening (`mac4DSTEM/Core/EDS/`) and the files whose header names macTEM are copied, whole or in part, from macTEM
-(https://github.com/macEMSuite/macTEM), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only: macTEM before v1.0.0
+(https://github.com/macEMSuite/macEM), Copyright (C) 2026 Paul Lobpreis, GPL-3.0-only: macTEM before v1.0.0
 (history squashed), published as tag v1.0.0, commit 91d4694ea44342b1dd18711d0ac94fc4b3c674f3. Its science is
 SpectroKit's (see the SpectroKit section above).
 
