@@ -48,9 +48,9 @@ item = f"""<?xml version="1.0" encoding="utf-8"?>
       <sparkle:version>{version}</sparkle:version>
       <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>{floor}</sparkle:minimumSystemVersion>
-      <sparkle:fullReleaseNotesLink>https://github.com/mac4DSTEM/mac4DSTEM/releases/tag/{tag}</sparkle:fullReleaseNotesLink>
+      <sparkle:fullReleaseNotesLink>https://github.com/macEMSuite/mac4DSTEM/releases/tag/{tag}</sparkle:fullReleaseNotesLink>
       <description sparkle:format="plain-text">{escape(notes)}</description>
-      <enclosure url="https://github.com/mac4DSTEM/mac4DSTEM/releases/download/{tag}/mac4DSTEM-{version}.dmg" type="application/octet-stream" {attributes}/>
+      <enclosure url="https://github.com/macEMSuite/mac4DSTEM/releases/download/{tag}/mac4DSTEM-{version}.dmg" type="application/octet-stream" {attributes}/>
     </item>
   </channel>
 </rss>
