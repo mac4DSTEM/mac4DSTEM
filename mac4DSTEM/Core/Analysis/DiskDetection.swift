@@ -747,7 +747,8 @@ package nonisolated struct BraggVectors: Sendable {
         }
         return BraggVectors(
             scanWidth: scanWidth, scanHeight: scanHeight, peaks: transformed,
-            detectionProvenance: detectionProvenance
+            detectionProvenance: detectionProvenance,
+            failedPatternCount: failedPatternCount   // an empty position stays a failed one after calibration (mac4DSTEM#302)
         )
     }
 

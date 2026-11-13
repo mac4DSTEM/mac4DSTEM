@@ -161,6 +161,17 @@ final class DiffractionPointerReadoutTests: XCTestCase {
         }
     }
 
+    /// mac4DSTEM#302: calibrating the vectors keeps the count of positions where detection failed, so whatever reads the
+    /// calibrated vectors can still tell a failed position from an empty one. Mutation: the count dropped from the rebuild -> red.
+    func testCalibratedVectorsKeepTheFailedPositionCount() throws {
+        let c = calibration(ellipse: (a: 1.1, b: 1.0, theta: 0.7))
+        let raw = BraggVectors(scanWidth: 2, scanHeight: 1, peaks: [[BraggPeak(x: 80, y: 70, intensity: 1)], []],
+                               failedPatternCount: 1)
+        let calibrated = raw.calibrated(with: c, referenceOrigin: (x: 64, y: 64))
+        XCTAssertNotEqual(calibrated.peaks[0][0].x, 80, "the ellipse was applied (not the unchanged vectors)")
+        XCTAssertEqual(calibrated.failedPatternCount, 1)
+    }
+
     // MARK: P5 the gates
 
     func testNoQWithoutAPhysicalQScaleButThePixelAndValueRemain() throws {
