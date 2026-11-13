@@ -489,6 +489,12 @@ extension AppState {
         // array. Resetting here keeps the panel from claiming residency that
         // belonged to the previous dataset.
         residency.reset()
+        // Every dataset is individual (mac4DSTEM#322, as #294): an EDS spectrum image attached with another file's cube
+        // does not stay under this one's name. A reopen of the same file (promote) keeps it; a GMS file attaches its own
+        // after the load (`attachGMSSpectrumImage`).
+        if hasSpectrumImage, let attached = spectroscopy.attachedCubePath, attached != sourceDescriptor.filePath {
+            detachSpectrumImage()
+        }
         loadedView.reset()
         sessionLoadSpecification = nil
         datasetSession.publishPreview(nil)
