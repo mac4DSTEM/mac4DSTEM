@@ -113,8 +113,8 @@ extension Mac4DSTEMAgentDoor {
             case .fitDistortionFromSpots:
                 if let blocker = state.spotDistortionBlocker {
                     // The person's line names the Orientation picker; through the door the matrix crystal is set_acom's.
-                    let door = state.resolvedACOMModel == nil && state.hasCurrentBraggVectors
-                        ? " Through the door: set_acom phase_cif names the matrix crystal." : ""
+                    let door = state.spotDistortionModel == nil && state.hasCurrentBraggVectors
+                        ? " Through the door: add_phase (the first phase is the matrix) or set_acom phase_cif names the matrix crystal." : ""
                     return .refusal(status: 409, message: blocker + door)
                 }
                 Task { await state.fitDistortionFromSpots() }

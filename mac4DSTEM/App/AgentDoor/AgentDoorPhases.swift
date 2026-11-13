@@ -43,7 +43,7 @@ extension Mac4DSTEMAgentDoor {
             }
             let model: CrystalModel
             do {
-                model = try state.importCrystalModelOrThrow(from: file)
+                model = try state.importCrystalModelOrThrow(from: file, selectsForOrientation: false)
             } catch {
                 return .refusal(status: 422, message: "\(file.lastPathComponent) is not a usable CIF: "
                     + ((error as? LocalizedError)?.errorDescription ?? error.localizedDescription))

@@ -137,10 +137,13 @@ extension AppState {
     /// Returns the model it parsed (nil on a refusal) so a caller adds exactly
     /// that model — never `importedCrystalModels.last`, which is another
     /// model after a refusal or an in-place replacement (review e2).
+    /// `selectsForOrientation` false is Phase mapping's Add Phase › From CIF: the model joins the imported list and the
+    /// Orientation task's crystal stays as it was (mac4DSTEM#312: adding a precipitate made it the crystal the distortion fit
+    /// and ACOM took for the matrix).
     @discardableResult
-    func importCrystalModel(from url: URL) -> CrystalModel? {
+    func importCrystalModel(from url: URL, selectsForOrientation: Bool = true) -> CrystalModel? {
         do {
-            return try importCrystalModelOrThrow(from: url)
+            return try importCrystalModelOrThrow(from: url, selectsForOrientation: selectsForOrientation)
         } catch {
             present(error)
             return nil
@@ -150,7 +153,7 @@ extension AppState {
     /// `importCrystalModel(from:)` without the modal: the error goes to the caller. The agent door's add_phase answers it
     /// as a refusal, since no person is at the alert (mac4DSTEM#192).
     @discardableResult
-    func importCrystalModelOrThrow(from url: URL) throws -> CrystalModel {
+    func importCrystalModelOrThrow(from url: URL, selectsForOrientation: Bool = true) throws -> CrystalModel {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         let text = try String(contentsOf: url, encoding: .utf8)
@@ -162,7 +165,7 @@ extension AppState {
             acomSession.importedCrystalModels.append(model)
         }
         acomSession.importedCIFSources[model.id] = PhaseSetupRecord.CIFSource(text: text, fileBaseName: baseName)
-        acomSession.modelSelection = .imported(model.id)
+        if selectsForOrientation { acomSession.modelSelection = .imported(model.id) }
         statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
         return model
     }

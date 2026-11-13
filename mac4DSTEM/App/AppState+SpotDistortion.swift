@@ -1,8 +1,9 @@
 //
 //  AppState+SpotDistortion.swift
 //  Role: "Fit Distortion from Spots" (mac4DSTEM#210). A scan of one crystal has no ring for Fit Detector Ellipse; with the
-//        matrix crystal known (the Orientation task's phase model) the matrix's own spots are the reference. The fit is
-//        DiffractoKit's `matrixSpotDistortion`; nothing is changed until the user applies it.
+//        matrix crystal known the matrix's own spots are the reference: Phase mapping's matrix when its list has one, else the
+//        Orientation task's crystal (mac4DSTEM#312). The fit is DiffractoKit's `matrixSpotDistortion`; nothing is changed until
+//        the user applies it.
 //
 
 import Foundation
@@ -20,13 +21,30 @@ extension AppState {
     /// The most scan positions the fit reads: the distortion is one property of the detector, and a few thousand patterns fix it.
     nonisolated static let spotDistortionMaximumPositions = 2_500
 
+    /// The crystal the fit measures the spots against (mac4DSTEM#312): Phase mapping's matrix whenever its list has one,
+    /// the Orientation task's crystal only when it has none. It read the Orientation task's crystal alone, and Add Phase ›
+    /// From CIF made every imported phase that crystal, so after the matrix and then a precipitate were added the fit took
+    /// the precipitate for the matrix (AA6060: stretch 1.08 at 17° on β″ against Al's 1.051 at 166°, Q moved by 7 %).
+    var spotDistortionModel: CrystalModel? {
+        if let matrix = phaseMapping.phases.first(where: \.isMatrix)?.model {
+            return matrix.isUsable && matrix.supportsOrientationMapping ? matrix : nil
+        }
+        return resolvedACOMModel
+    }
+
     /// Why the fit cannot run now, or nil. The button's help and the action's refusal are this one sentence.
     var spotDistortionBlocker: String? {
         if resultPresentation.braggVectors == nil { return "Needs Detect All Disks first." }
         if diskDetectionSettingsAreStale { return "Detection settings changed: run Detect All Disks again first." }
         if calibrationSession.calibration.hasEllipse { return "An ellipse correction is set: clear it first, the fit measures the uncorrected pattern." }
         if acomScaleSemantics.provenance == .exploratory { return "Needs the Q pixel scale first." }
-        if resolvedACOMModel == nil { return acomSession.modelSelectionIssue ?? "Needs the matrix crystal: choose it in Crystal Maps › Orientation." }
+        if phaseMapping.phases.contains(where: \.isMatrix), spotDistortionModel == nil {
+            return "Phase mapping's matrix cannot be used for the fit: mark another phase as the matrix."
+        }
+        if spotDistortionModel == nil {
+            return acomSession.modelSelectionIssue
+                ?? "Needs the matrix crystal: add it in Phase mapping, or choose it in Crystal Maps › Orientation."
+        }
         return nil
     }
 
@@ -53,7 +71,7 @@ extension AppState {
             presentComputeFailure(SimpleError("Cannot fit the distortion from spots. " + blocker))
             return
         }
-        guard let descriptor, let raw = resultPresentation.braggVectors, let model = resolvedACOMModel else { return }
+        guard let descriptor, let raw = resultPresentation.braggVectors, let model = spotDistortionModel else { return }
         let q = acomScaleSemantics.invAngstromPerPixel
         let calibrated = calibratedBraggVectors(raw, descriptor: descriptor)
         let origin = calibrated.origin.point
@@ -70,7 +88,7 @@ extension AppState {
         let kMax = q * Double(min(descriptor.qx, descriptor.qy)) / 2
         let structure = model.structure
         let epoch = datasetSession.epoch
-        let cancellation = beginCancellableOperation("Distortion from spots", status: "Fitting the distortion from the matrix spots…")
+        let cancellation = beginCancellableOperation("Distortion from spots", status: "Fitting the distortion from the spots of \(model.displayName)…")
         defer { finishCancellableOperation(cancellation) }
         let outcome = await Task.detached(priority: .userInitiated) { () -> (fit: MatrixSpotDistortion, firstShell: Double)? in
             guard let list = try? structure.kinematicReflections(kMax: kMax, retainingAll: false).kept, !list.isEmpty,
@@ -95,7 +113,7 @@ extension AppState {
         }
         guard fit.stretchRatio >= SpotDistortionFit.smallestStretchOffered else {
             spotDistortion.clear()
-            statusText = "Distortion from spots: none found (stretch \(CalibrationUnitConversion.displayNumber(fit.stretchRatio, digits: 4)), \(fit.pairCount) spots of \(model.displayName))"
+            statusText = "Distortion from spots (\(model.displayName)): none found (stretch \(CalibrationUnitConversion.displayNumber(fit.stretchRatio, digits: 4)), \(fit.pairCount) spots)"
             return
         }
         guard fit.isCredible else {
@@ -105,7 +123,7 @@ extension AppState {
             return
         }
         spotDistortion.record(fit)
-        statusText = "Distortion from spots ✓  stretch \(fit.summary()). Apply it in Prepare to correct."
+        statusText = "Distortion from spots (\(model.displayName)) ✓  stretch \(fit.summary()). Apply it in Prepare to correct."
     }
 
     /// The user's confirmation: the pending fit becomes the ellipse correction and the Q pixel scale that goes with it.
