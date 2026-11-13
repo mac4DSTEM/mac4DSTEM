@@ -93,6 +93,9 @@ package final class SpectroscopySession {
     package var registration: RegistrationRecordM2?
     /// The 4D file the registration was stated for: another cube in the window does not inherit the claim.
     package var registeredCubePath: String?
+    /// The 4D file whose open attached this spectrum image (a GMS joint attach), registered or not; nil for a spectrum
+    /// image opened on its own. A cube from another file starts without it (mac4DSTEM#322).
+    package var attachedCubePath: String?
     /// The newest pool request; a build that lands for an older one is dropped (the window bumps it).
     package var poolRequest = 0
     /// The build in flight, so a newer request can cancel it.
@@ -108,7 +111,7 @@ package final class SpectroscopySession {
         self.source = source
         selectedTool = .edx
         elements = []
-        registration = nil; registeredCubePath = nil
+        registration = nil; registeredCubePath = nil; attachedCubePath = nil
         poolTask?.cancel(); poolTask = nil
         poolRequest += 1
     }
@@ -117,7 +120,7 @@ package final class SpectroscopySession {
     package func close() {
         poolTask?.cancel(); poolTask = nil
         poolRequest += 1
-        registration = nil; registeredCubePath = nil
+        registration = nil; registeredCubePath = nil; attachedCubePath = nil
         source = nil
         selectedTool = .edx
         elements = []

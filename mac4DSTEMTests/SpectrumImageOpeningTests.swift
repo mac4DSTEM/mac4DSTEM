@@ -52,6 +52,38 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertEqual(state.spectroscopy.metadata?.pixelCount, 24)
     }
 
+    /// mac4DSTEM#322: a cube from another file starts without the EDS spectrum image the previous file's open attached
+    /// (090 with EDS, then 091 without, showed 090's maps under 091's name). Mutation: the detach in `activate` removed — red.
+    func testANewCubeDoesNotKeepThePreviousFilesEDS() async throws {
+        let state = AppState()
+        let descriptor = DatasetDescriptor(filePath: Self.dm4, datasetPath: "ImageList.4.ImageData.Data",
+                                           shape: [4, 6, 16, 16], dtypeDescription: "float32", chunkShape: [1, 1, 16, 16])
+        state.descriptor = descriptor
+        await state.attachGMSSpectrumImage(of: URL(fileURLWithPath: Self.dm4), descriptor: descriptor)
+        XCTAssertTrue(state.hasSpectrumImage)
+        XCTAssertEqual(state.spectroscopy.attachedCubePath, Self.dm4)
+
+        await state.openDemoFixture()   // another file's cube, with no EDS of its own
+        XCTAssertTrue(state.hasDataset)
+        XCTAssertFalse(state.hasSpectrumImage, "the previous file's EDS stayed under the new cube")
+        XCTAssertFalse(state.edx.hasImage, "the EDS room still shows the previous file's spectrum image")
+        XCTAssertNil(state.spectroscopy.attachedCubePath)
+    }
+
+    /// A reopen of the same file (promote, the demo opened again) keeps the spectrum image it attached.
+    /// Mutation: the path comparison dropped (detach on every activation) — red.
+    func testAReopenOfTheSameCubeKeepsItsEDS() async throws {
+        let state = AppState()
+        await state.openDemoFixture()
+        let index = try XCTUnwrap(try DM4Experiment.list(path: Self.dm4).first { $0.role == .diffraction }).index
+        let image = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(
+            path: Self.dm4, fourD: GMSFourDIdentity(objectIndex: index, scanWidth: 6, scanHeight: 4)))
+        state.attachSpectrumImage(image)
+        XCTAssertEqual(state.spectroscopy.attachedCubePath, state.descriptor?.filePath)
+        await state.openDemoFixture()
+        XCTAssertTrue(state.hasSpectrumImage)
+    }
+
     /// The shipped-behaviour change, through the open funnel: a Velox EMD opens as a spectrum image in a spectrum-only
     /// window with the Spectroscopy room selected, and no cube. The same funnel leaves a non-Velox file to the 4D open.
     /// Mutation: the `openAsSpectrumImageIfApplicable` line removed from `openFileAsync` — red.

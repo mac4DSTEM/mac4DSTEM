@@ -67,6 +67,7 @@ extension AppState {
     /// lands on the 4D cube's room as before and the Spectroscopy room is then one ⌘6 away.
     func attachSpectrumImage(_ source: any SpectrumImageSource) {
         spectroscopy.open(source)
+        spectroscopy.attachedCubePath = hasDataset ? descriptor?.filePath : nil
         wireEDS()
         edx.bind(source)
         // E1: the only registration the app states is the identity of a GMS joint attach (same Experiment ID and scan grid).
@@ -76,6 +77,12 @@ extension AppState {
         }
         wirePoolHooks()
         refreshSpectroscopyPools()
+    }
+
+    /// Lets go of the window's spectrum image: the EDS room drops its source and stops its runs, and the session forgets it.
+    func detachSpectrumImage() {
+        if edx.hasImage || edx.isOpening { edx.close() }
+        spectroscopy.close()
     }
 
     // MARK: Pools of the 4D scan (E1)
