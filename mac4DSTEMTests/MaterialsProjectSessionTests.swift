@@ -235,6 +235,8 @@ final class MaterialsProjectSessionTests: XCTestCase {
         XCTAssertEqual(state.phaseMapping.phases.map(\.model.id), [model.id])
         // First phase into an empty list becomes the matrix.
         XCTAssertEqual(state.phaseMapping.phases.first?.isMatrix, true)
+        // mac4DSTEM#312: a phase leaves the Orientation task's crystal as it was.
+        XCTAssertEqual(state.acomSession.modelSelection, CrystalModelSelection.none)
     }
 
     // MARK: - (f) canImport(outcome:) — pure, no network

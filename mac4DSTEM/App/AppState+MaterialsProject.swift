@@ -163,7 +163,8 @@ extension AppState {
         } else {
             acomSession.importedCrystalModels.append(model)
         }
-        acomSession.modelSelection = .imported(model.id)
+        // Added as a phase, the Orientation task's crystal stays as it was (mac4DSTEM#312).
+        if !addAsPhaseSlot { acomSession.modelSelection = .imported(model.id) }
         statusText = "Imported phase model \"\(model.displayName)\" from Materials Project"
         if addAsPhaseSlot {
             addPhaseMappingSlot(model)

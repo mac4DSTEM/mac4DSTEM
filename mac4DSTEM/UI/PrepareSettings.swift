@@ -313,7 +313,8 @@ struct PrepareSettings: View {
                 .accessibilityIdentifier("calibration.fitDistortionFromSpots")
                 .tooltip(appState.spotDistortionBlocker
                     ?? "Measures the detector's stretch on the matrix crystal's own spots: the predicted spots of the "
-                    + "Orientation task's crystal against the detected disks, by least squares. For a scan of one crystal, "
+                    + "matrix (Phase mapping's, else the Orientation task's crystal) against the detected disks, by least "
+                    + "squares. For a scan of one crystal, "
                     + "which has no ring for Fit Detector Ellipse. Nothing changes until you apply it.",
                     hint: "For a single-crystal scan without a ring")
             }

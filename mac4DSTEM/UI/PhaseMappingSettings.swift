@@ -494,7 +494,7 @@ struct PhaseMappingSections: View {
                 // list, which ACOM owns, so a single import serves both
                 // rooms; it returns the model it parsed (nil on a refusal),
                 // which is the one to add — never the list's `.last`.
-                if let model = appState.importCrystalModel(from: url) {
+                if let model = appState.importCrystalModel(from: url, selectsForOrientation: false) {
                     add(model)
                 }
             case .failure(let error):

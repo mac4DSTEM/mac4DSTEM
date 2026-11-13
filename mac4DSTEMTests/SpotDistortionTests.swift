@@ -96,6 +96,101 @@ final class SpotDistortionTests: XCTestCase {
                        EllipseCalibration.FitError.insufficientSignal.localizedDescription)
     }
 
+    /// mac4DSTEM#312: Phase mapping lists the matrix (Al) and then a precipitate, and the Orientation task's crystal is the
+    /// precipitate, as Add Phase › From CIF used to leave it. The fit must measure Al's spots, say so, and recover the planted
+    /// stretch. Planted: Al [001] turned 12°, stretched 1.0506 at 166.3° (the AA6060 scan's numbers), at every position of an
+    /// 8 x 8 demo crop at 0.03 Å⁻¹/px (Al's 200 and 220 on the detector). Red before the fix: the fit took the last phase's
+    /// crystal (β″) for the matrix. Break it by returning `resolvedACOMModel` from `spotDistortionModel`.
+    @MainActor
+    func testTheFitUsesPhaseMappingsMatrixNotTheLastAddedPhase() async throws {
+        let state = AppState()
+        var spec = LoadSpecification()
+        spec.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 8, width: 8)
+        await state.openDemoFixture(specification: spec)
+        let d = try XCTUnwrap(state.descriptor, state.statusText)
+        let q = 0.03
+        state.calibrationSession.calibration.qPixelSize = q
+        state.calibrationSession.calibration.qPixelUnits = "Å⁻¹"
+        state.calibrationSession.calibration.ellipseA = nil
+        state.calibrationSession.calibration.ellipseB = nil
+        state.calibrationSession.calibration.ellipseTheta = nil
+        state.calibrationSession.calibration.rotationRad = 0
+        state.navigation.analysisMode = .disks
+        _ = await state.runDiskDetection()   // the step the staleness check reads; its peaks are replaced below
+        let detected = try XCTUnwrap(state.resultPresentation.braggVectors, state.statusText)
+        let origin = state.calibratedBraggVectors(detected, descriptor: d).origin.point
+        XCTAssertEqual(state.acomScaleSemantics.invAngstromPerPixel, q, accuracy: 1e-9, "precondition: the planted Q scale")
+
+        let ratio = 1.0506, axis = 166.3, scale = 1 / ratio.squareRoot()
+        let first = 2 / 4.0495
+        var spots: [SIMD2<Double>] = []
+        for k in 0..<4 {
+            let angle = (12 + 90 * Double(k)) * .pi / 180
+            spots.append(SIMD2(first * cos(angle), first * sin(angle)))
+            spots.append(SIMD2(first * 2.0.squareRoot() * cos(angle + .pi / 4), first * 2.0.squareRoot() * sin(angle + .pi / 4)))
+        }
+        let peaks = [BraggPeak(x: origin.x, y: origin.y, intensity: 10)] + spots.map {
+            let u = stretched($0, ratio: ratio, axisDegrees: axis, scale: scale)
+            return BraggPeak(x: origin.x + Float(u.x / q), y: origin.y + Float(u.y / q), intensity: 1)
+        }
+        state.resultPresentation.setBraggVectors(BraggVectors(scanWidth: d.rx, scanHeight: d.ry,
+                                                              peaks: [[BraggPeak]](repeating: peaks, count: d.rx * d.ry)))
+
+        let al = try XCTUnwrap(CrystalModelLibrary.model(id: "al_fcc"))
+        let beta = CrystalModel(id: "preset_betaDoublePrime", displayName: "betaDoublePrime",
+                                structure: CrystalPresets.betaDoublePrime, symmetry: .monoclinic, source: .builtIn)
+        state.addPhaseMappingSlot(al)
+        state.addPhaseMappingSlot(beta)
+        state.acomSession.importedCrystalModels.append(beta)
+        state.acomSession.modelSelection = .imported(beta.id)
+        XCTAssertEqual(state.phaseMapping.phases.first(where: \.isMatrix)?.model.id, al.id, "precondition: the first phase is the matrix")
+
+        XCTAssertEqual(state.spotDistortionModel?.id, al.id)
+        XCTAssertNil(state.spotDistortionBlocker)
+        await state.fitDistortionFromSpots()
+        let fit = try XCTUnwrap(state.spotDistortion.pending, state.statusText)
+        XCTAssertTrue(state.statusText.contains("(\(al.displayName))"), "the status line names the matrix: \(state.statusText)")
+        XCTAssertFalse(state.statusText.contains(beta.displayName), state.statusText)
+        XCTAssertEqual(fit.stretchRatio, ratio, accuracy: 0.005, "the planted stretch")
+
+        // With no phase list the Orientation task's crystal is the one used.
+        state.phaseMapping.phases = []
+        XCTAssertEqual(state.spotDistortionModel?.id, beta.id)
+    }
+
+    /// mac4DSTEM#312: a CIF added as a phase joins the imported list and leaves the Orientation task's crystal as it was;
+    /// imported for the Orientation task it is still selected there.
+    @MainActor
+    func testAddingAPhaseFromACIFLeavesTheOrientationCrystal() throws {
+        let state = AppState()
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("gold-\(UUID().uuidString).cif")
+        try """
+        data_gold
+        _cell_length_a 4.078
+        _cell_length_b 4.078
+        _cell_length_c 4.078
+        _cell_angle_alpha 90
+        _cell_angle_beta 90
+        _cell_angle_gamma 90
+        loop_
+        _atom_site_label
+        _atom_site_type_symbol
+        _atom_site_fract_x
+        _atom_site_fract_y
+        _atom_site_fract_z
+        Au1 Au 0.0 0.0 0.0
+        Au2 Au 0.5 0.5 0.0
+        Au3 Au 0.5 0.0 0.5
+        Au4 Au 0.0 0.5 0.5
+        """.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let model = try XCTUnwrap(state.importCrystalModel(from: url, selectsForOrientation: false))
+        XCTAssertEqual(state.acomSession.importedCrystalModels.map(\.id), [model.id])
+        XCTAssertEqual(state.acomSession.modelSelection, .none, "adding a phase chose the Orientation task's crystal")
+        _ = try XCTUnwrap(state.importCrystalModel(from: url))
+        XCTAssertEqual(state.acomSession.modelSelection, .imported(model.id))
+    }
+
     /// Without disks, a crystal or a Q scale the action says why, and holds nothing.
     @MainActor
     func testWithoutItsInputsTheFitSaysWhatIsMissing() async throws {
