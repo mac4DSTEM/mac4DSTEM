@@ -49,7 +49,8 @@ this class of defect — a narrowed, not closed, blind spot per
 ## What it does, by subsystem
 
 **Workflow.** Seven workspaces that follow the data — **Prepare /
-Imaging / Bragg Disks / Crystal Maps / Reconstruction / Spectroscopy / Results** (`⌘1…⌘7`;
+Imaging / Bragg Disks / Crystal Maps / Reconstruction / Spectroscopy / Results** (`⌘1…⌘7`; a room's
+tasks by Workspace › Next Task and Previous Task, `⌥⌘↓` and `⌥⌘↑`;
 `App/ProductWorkflow.swift`'s `WorkspaceArea`; `UI/WorkspaceSettings.swift`
 picks each task's inspector controls). A window holds a 4D cube, an EDS spectrum
 image (`Session/SpectroscopySession.swift`), or both: `hasDataset` still means a
