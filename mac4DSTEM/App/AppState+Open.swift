@@ -545,6 +545,10 @@ extension AppState {
         strain.clear()
         diffractionGroups.clear()
         phaseMapping.clear()
+        // Every dataset is individual (mac4DSTEM#294): a new dataset starts with an empty phase list, so a list tuned for
+        // the last file (its phases, their excitation slabs) never runs on this one unasked. A session file of this
+        // dataset brings its own list back (`restorePhaseSetupFromLineage`, below).
+        phaseMapping.phases = []
         // Built from the phase map's OWN scan positions and this session's
         // calibration; neither survives a dataset change, so this dies with
         // the map that produced it, not on its own later trigger.

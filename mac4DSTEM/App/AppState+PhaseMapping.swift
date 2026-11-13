@@ -430,9 +430,9 @@ extension AppState {
     }
 
     /// After a sidecar's lineage is adopted: the standing phase-mapping run's phase list and settings are this
-    /// window's (#128), with the imported structures rebuilt from the CIF texts the session file carries. A window
-    /// that already holds a phase list keeps it (a list is about the specimen and is carried from cube to cube);
-    /// a setup that cannot be rebuilt whole is left out and the session log says why.
+    /// window's (#128), with the imported structures rebuilt from the CIF texts the session file carries. Opening a
+    /// dataset empties the phase list first (#294: every dataset is individual), so the guard below only keeps a list
+    /// entered after the open; a setup that cannot be rebuilt whole is left out and the session log says why.
     func restorePhaseSetupFromLineage() {
         guard let json = replay.lineage.activeNodes().last(where: { $0.kind == "phase_mapping" })?
             .parameters[PhaseSetupRecord.lineageKey] else { return }
