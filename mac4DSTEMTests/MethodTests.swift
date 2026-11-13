@@ -35,12 +35,11 @@ final class QuantificationMethodTests: XCTestCase {
 
     /// ADR 054's defaults, unchanged by the move into Core.
     /// Mutation: `estimator` default `.poissonMaximumLikelihood`, or `absorptionCorrection` default false — red.
-    func testDefaultsAreADR054sAndTheOldNameStillResolves() {
+    func testDefaultsAreADR054s() {
         let m = QuantificationMethod()
         XCTAssertEqual(m.estimator, .leastSquares)
         XCTAssertEqual(m.background, .empiricalWithAlEdge)
         XCTAssertEqual(m.kFactorSource, .computed)
-        XCTAssertEqual(QuantificationMethod.KFactorSource.brownPowell, .computed)
         XCTAssertTrue(m.absorptionCorrection)
         XCTAssertNil(m.thickness)
         XCTAssertTrue(m.isComplete, "a computed k needs nothing typed")
