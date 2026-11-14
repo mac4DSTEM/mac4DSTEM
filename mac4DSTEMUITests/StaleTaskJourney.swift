@@ -1,6 +1,6 @@
 // StaleTaskJourney: a real .h5 file opened at launch (`--open`), DPC run on it, then the origin calibrated in Prepare: the DPC task row
-// shows its stale glyph, found by its own identifier (`task.DPC.stale`). The file is a copy in the temporary folder, never the fixture
-// itself, so nothing the app writes beside it lands in the repository. Fixture: Fixtures/disk-scan.h5 (Fixtures/make_disk_scan.py).
+// shows its stale glyph, found by its own identifier (`task.DPC.stale`). The fixture is opened in place; the Debug app reads it
+// through its read-only exception, so nothing it could write lands in the repository. Fixture: Fixtures/disk-scan.h5 (make_disk_scan.py).
 
 import XCTest
 
@@ -8,18 +8,13 @@ final class StaleTaskJourney: Journey {
     private static let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .appendingPathComponent("Fixtures/disk-scan.h5")
 
-    /// A fresh copy of the fixture in its own temporary folder.
-    private func copyOfFixture() throws -> String {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("stale-task-journey-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let copy = folder.appendingPathComponent("disk-scan.h5")
-        try FileManager.default.copyItem(at: Self.fixture, to: copy)
-        addTeardownBlock { try? FileManager.default.removeItem(at: folder) }
-        return copy.path
-    }
+    /// The fixture itself, opened in place (#356). The runner is sandboxed: a copy in its temporary folder sits in its own container,
+    /// which the app may not read ("can't be read: Operation not permitted"). The Debug app reads the repository through its read-only
+    /// exception for "/", so it can't write anything beside the fixture either.
+    private func fixturePath() -> String { Self.fixture.path }
 
     func testDPCReadsStaleAfterTheOriginIsCalibrated() throws {
-        let path = try copyOfFixture()
+        let path = fixturePath()
         step("open disk-scan.h5 at launch") {
             launch(arguments: ["--open", path])
             waitForLoadingToEnd()

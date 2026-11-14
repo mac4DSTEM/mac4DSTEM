@@ -42,10 +42,21 @@ package nonisolated enum FileRouting {
         case .tiff: return .refused("\(name) is a TIFF image, not a 4D dataset.")
         case .mrc: return .refused("\(name) is an MRC image or stack, not a 4D dataset.")
         case .unknown:
+            // A file the app may not read sniffs as unknown too: say it can't be read, not that its format is wrong (#356).
+            if let reason = unreadableReason(path) {
+                return .refused("\(name) can't be read: \(reason). Open it with File › Open, which gives the app access to it.")
+            }
             if ext == "raw" { return .empad }
             if hasHDF5Signature(path) { return .hdf5 }
             return .refused("\(name) is not a format the app opens (or its extension and its first bytes disagree).")
         }
+    }
+
+    /// Why `path` cannot be opened for reading (the system's words, e.g. "Operation not permitted"), or nil when it can.
+    package static func unreadableReason(_ path: String) -> String? {
+        let fd = open(path, O_RDONLY)
+        guard fd < 0 else { close(fd); return nil }
+        return String(cString: strerror(errno))
     }
 
     private static func hasHDF5Signature(_ path: String) -> Bool {
