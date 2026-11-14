@@ -170,25 +170,27 @@ package nonisolated enum WorkspaceRecoveryStore {
     package static func saveRecovery(_ record: DatasetRecoveryRecord) { encode(record, key: recoveryKey) }
     package static func clearRecovery() { UserDefaults.standard.removeObject(forKey: recoveryKey) }
 
-    /// A read-write security-scoped bookmark, or a read-only one when the sandbox grants only read access. In the
-    /// sandbox a read-write bookmark fails (NSCocoaErrorDomain 256, "couldn't be opened") whenever the process may
-    /// read the file but not write it: a file the user picked on a READ-ONLY volume (a disk image, a read-only share),
-    /// and a DEBUG `--open` file, which Xcode's test-only `/` read exception lets the app read without any grant.
-    /// Measured 2026-11-05 in a sandboxed harness with this app's entitlements (#130): a read-only bookmark made
-    /// there resolves and reads in a new process. The read-write attempt stays first, so a writable file keeps a
-    /// writable grant.
+    /// A read-only security-scoped bookmark: the app reads a dataset and never writes it (results go to the session
+    /// sidecar, which has its own bookmark from a save panel).
+    ///
+    /// Read-only on purpose (#321): in the sandbox, making a READ-WRITE security-scoped bookmark stamps
+    /// `com.apple.quarantine` ("0082;…;mac4DSTEM;") and `com.apple.provenance` onto the data file, and on a volume
+    /// without extended attributes (exFAT, FAT) macOS writes a `._` AppleDouble file beside it. Measured 2026-11-13 in a
+    /// sandboxed Developer ID build on an exFAT image: the file had no attributes through open, read and the whole-cube
+    /// pass, and both appeared at this call; with `.securityScopeAllowOnlyReadAccess` nothing was written. A read-only
+    /// bookmark also covers the files the sandbox lets the app read but not write (a read-only volume, a DEBUG
+    /// `--open` file), where a read-write one fails with NSCocoaErrorDomain 256 (#130).
     package static func bookmark(
         for url: URL,
         make: (URL, URL.BookmarkCreationOptions) throws -> Data = { url, options in
             try url.bookmarkData(options: options, includingResourceValuesForKeys: [.nameKey], relativeTo: nil)
         }
     ) throws -> Data {
-        do {
-            return try make(url, [.withSecurityScope])
-        } catch {
-            return try make(url, [.withSecurityScope, .securityScopeAllowOnlyReadAccess])
-        }
+        try make(url, readOnlyOptions)
     }
+
+    /// The only options a dataset bookmark is made with.
+    package static let readOnlyOptions: URL.BookmarkCreationOptions = [.withSecurityScope, .securityScopeAllowOnlyReadAccess]
 
     package static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
         var stale = false
