@@ -5,7 +5,7 @@
 4D-STEM analysis on the Mac: virtual images, calibration, strain, orientation, phase and EDS spectrum images, worked
 on interactively instead of in scripts.
 
-mac4DSTEM is the companion to [macTEM](https://github.com/macEMSuite/macTEM). Both are free, open source and built for
+mac4DSTEM is the companion to [macEM](https://github.com/macEMSuite/macEM). Both are free, open source and built for
 Apple silicon.
 
 <p align="center">
