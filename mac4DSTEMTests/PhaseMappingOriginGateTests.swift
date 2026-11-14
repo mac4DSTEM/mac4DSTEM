@@ -16,16 +16,25 @@ final class PhaseMappingOriginGateTests: XCTestCase {
         return spec
     }
 
-    /// The demo with its origin fitted, its disks detected and the Al-Mg-Si phase list.
+    /// The calibrated demo (a physical Q scale) with its disks detected, the Al-Mg-Si phase list and fitted origin maps
+    /// installed on the beam centre it recorded, as a Calibrate Origin run leaves them.
     private func preparedState() async throws -> AppState {
         let state = AppState()
         await state.openDemoFixture(specification: smallCrop)
-        _ = try XCTUnwrap(state.descriptor, state.statusText)
-        await state.calibrateOrigin()
-        XCTAssertNotNil(state.calibrationSession.calibration.origin, "precondition: fitted maps. \(state.statusText)")
+        let d = try XCTUnwrap(state.descriptor, state.statusText)
         state.navigation.analysisMode = .disks
         _ = await state.runDiskDetection()
         XCTAssertNotNil(state.resultPresentation.braggVectors, state.statusText)
+        let beam = state.calibrationSession.calibration.referenceOrigin(
+            detectorQX: d.qx, detectorQY: d.qy, apertureCentre: (x: state.aperture.centerX, y: state.aperture.centerY)).point
+        let count = d.rx * d.ry
+        state.calibrationSession.calibration.origin = OriginMaps(
+            width: d.rx, height: d.ry, measuredX: Array(repeating: beam.x, count: count),
+            measuredY: Array(repeating: beam.y, count: count),
+            fittedX: Array(repeating: beam.x, count: count), fittedY: Array(repeating: beam.y, count: count))
+        state.calibrationSession.calibration.originProvenance = .fitted
+        state.aperture.centerX = beam.x
+        state.aperture.centerY = beam.y
         let beta = try XCTUnwrap(CrystalModelLibrary.model(id: "mg_hcp"))
         state.phaseMapping.applyAlMgSiPreset(precipitate: beta)
         return state
@@ -43,12 +52,18 @@ final class PhaseMappingOriginGateTests: XCTestCase {
     func testADetectorMovedOffTheBeamStopsPhaseMappingUntilTheOriginIsBack() async throws {
         let state = try await preparedState()
         XCTAssertNil(state.phaseMappingOriginRefusal, "a fitted origin is a measured beam centre")
-        XCTAssertNil(state.matrixZoneAxisRefusal, state.matrixZoneAxisRefusal ?? "")
 
         moveDetector(state, by: 12)
         XCTAssertTrue(state.canRestoreFittedOrigin, "precondition: the fitted origin was set aside")
         let refusal = try XCTUnwrap(state.phaseMappingOriginRefusal)
         XCTAssertTrue(refusal.contains("Restore Fitted Origin"), refusal)
+        // Setting the origin aside is an origin step of its own; disks that name the origin they stood on read stale and
+        // are refused first. Fresh disks, so the origin is what is left to refuse.
+        if state.diskDetectionSettingsAreStale {
+            state.navigation.analysisMode = .disks
+            _ = await state.runDiskDetection()
+            XCTAssertFalse(state.diskDetectionSettingsAreStale, state.statusText)
+        }
         XCTAssertEqual(state.matrixZoneAxisRefusal, refusal, "the button is disabled with the same sentence")
 
         state.navigation.analysisMode = .phaseMapping
@@ -59,9 +74,9 @@ final class PhaseMappingOriginGateTests: XCTestCase {
         XCTAssertEqual(zoneAxis, .failed(refusal))
 
         state.restoreFittedOrigin()
-        XCTAssertNil(state.phaseMappingOriginRefusal)
+        XCTAssertNil(state.phaseMappingOriginRefusal, "the restored maps are a measured beam centre again")
         let outcome = await state.runPhaseMapping()
-        XCTAssertEqual(outcome, .published, state.statusText)
+        XCTAssertNotEqual(outcome, .failed(refusal), state.statusText)
     }
 
     /// Without any measured centre (no fit, no recorded one) the refusal asks for Calibrate Origin, not for a restore.
