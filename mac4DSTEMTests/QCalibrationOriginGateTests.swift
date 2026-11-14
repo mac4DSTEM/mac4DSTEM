@@ -157,6 +157,22 @@ final class QCalibrationOriginGateTests: XCTestCase {
         XCTAssertTrue(summary.contains("positions"), "and how many positions it rests on: \(summary)")
     }
 
+    /// Diamond Si along [110] (#274): {111}, the forbidden {002} that double diffraction puts on the detector (planted 1 % above its
+    /// kinematic radius, as measured on the Si-SiGe scan) and {220}. Calibrate Q gives the kit {002} as a match-only shell and assigns
+    /// {111} at the planted scale. Mutation: drop `doubleDiffractionShells` from the call - another first shell or a refusal, red.
+    func testDiamond110RingsAreAssignedToTheirFirstShell() async throws {
+        let state = try await stateReadyToCalibrateQ()
+        install(residual: Self.probeRadius * 0.2, on: state)
+        state.acomSession.modelSelection = .library("si_diamond")
+        let a = 5.4309, deltaQ = 0.0205
+        let g = { (sumOfSquares: Double) in sumOfSquares.squareRoot() / a }
+        PlantedQCalibration.setRings(radiiPixels: [g(3), 1.01 * g(4), g(8)].map { $0 / deltaQ }, on: state)
+        await state.calibrateQFromCrystal()
+        XCTAssertEqual(state.qCalibration.estimate?.assignment?.label, "{111}", state.statusText)
+        let scale = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize, state.statusText)
+        XCTAssertEqual(scale, deltaQ, accuracy: 0.005 * deltaQ)
+    }
+
     /// The demo draws {110} at 45 degrees and {200} on the axes (a simple-cubic [001] zone, confirmed from the fixture's pixel
     /// centroids) at a 1 : 1.433 ratio. Against gold that ratio fits two starting shells equally well: {200} then {220} (1.414),
     /// and {220} then {400} (1.414). The estimator used to take the first ring for {111} and write a scale 22 % off; now it

@@ -87,27 +87,14 @@ extension AppState {
         }
         let crystalName = model.displayName
         let outcome = await Task.detached(priority: .userInitiated) { () -> KnownCrystalQCalibration.AssignedOutcome? in
-            // DISTINCT shell lengths. The reflection list returns every
-            // symmetry equivalent separately, all at the same |g|, so the
-            // "second shell" is the first length that DIFFERS — not
-            // `reflections[1]`, which is another equivalent of the first.
-            // Getting this wrong makes the self-check read 1.020 on healthy
-            // sim_Au against an expected 1.155 and fire on good data
-            // (measured, S13 E1).
-            let list = try? model.structure.kinematicReflections(kMax: 2.5)
-            var shells: [Double] = []
-            for length in (list?.kept.map(\.gLength) ?? []) where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
-                shells.append(length)
-            }
-            guard !shells.isEmpty else { return nil }
-            // One family name per shell, for "assigned to {200}".
-            let families = list?.families ?? []
-            let labels = shells.map { g in
-                families.first { abs($0.family.g / g - 1) < 1e-6 }.map { ShellAssignment.compactLabel($0.family.name) } ?? "shell \(shells.firstIndex(of: g).map { $0 + 1 } ?? 0)"
-            }
+            // DISTINCT shell lengths (every symmetry equivalent comes separately at the same |g|: the "second shell" is the first
+            // length that DIFFERS, measured S13 E1), one family name each, and the forbidden shells double diffraction reaches (#274).
+            guard let list = try? model.structure.kinematicReflections(kMax: 2.5) else { return nil }
+            let ring = KnownCrystalQCalibration.ringShells(list)
+            guard !ring.shells.isEmpty else { return nil }
             return KnownCrystalQCalibration.estimateAssigned(
-                bragg: calibrated.vectors, origin: calibrated.origin.point, shells: shells, labels: labels,
-                crystalName: crystalName, priorScale: priorScale)
+                bragg: calibrated.vectors, origin: calibrated.origin.point, shells: ring.shells, labels: ring.labels,
+                crystalName: crystalName, priorScale: priorScale, doubleDiffractionShells: ring.doubleDiffraction)
         }.value
         guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
