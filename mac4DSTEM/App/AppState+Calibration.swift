@@ -198,11 +198,6 @@ extension AppState {
         }
         let rms = maps.rmsResidual ?? 0
         statusText = "Origin from Bragg peaks ✓  fit RMS \(Num.fixed(Double(rms), 3)) px (\(fitFn.rawValue))"
-        // The positions the trimmed fit left out (no direct beam detected there, or a reflection taken for it): said, as the
-        // centre-of-mass route's Origin row says its excluded fraction.
-        if let excluded = maps.excludedFraction, excluded > 0 {
-            statusText += ", \(Num.fixed(Double(excluded) * 100, 1)) % of positions left out of the fit"
-        }
         var parameters = ["fit_function": fitFn.rawValue, "method": "bragg_peaks",
                           OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"]
         if let origin = calibrationSession.calibration.meanOrigin {
@@ -210,7 +205,6 @@ extension AppState {
             parameters["origin_y_px"] = String(origin.y)
         }
         if let r = maps.rmsResidual { parameters["fit_rms_px"] = String(r) }
-        if let excluded = maps.excludedFraction { parameters["excluded_fraction"] = String(excluded) }
         recordLineageRun(kind: "calibration_origin", parameters: parameters)
         if navigation.analysisMode == .disks { showBraggMap(vectors, descriptor: d) }
     }
