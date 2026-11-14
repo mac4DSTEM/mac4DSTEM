@@ -335,7 +335,34 @@ package nonisolated enum OriginCalibration {
         guard let fit = try? OriginFit.fitTrimmed(
             originRow: measuredX.map(Double.init), originColumn: measuredY.map(Double.init),
             rows: height, columns: width, model: model, trimSigma: Double(trimSigma), rounds: rounds) else { return empty }
-        return TrimmedFit(
+        return trimmedFit(fit)
+    }
+
+    /// `fitOriginTrimmed` for the calibration itself (#302): a fit the kit refuses (no position with a finite origin, a map
+    /// it can't read) is an error with the reason, not an empty fit that let the calibration go on with no surface and a NaN
+    /// residual. Too few positions for the surface is not refused: the kit fits their mean, as documented in `fitTrimmed`.
+    package nonisolated static func fitOriginTrimmedOrRefuse(measuredX: [Float], measuredY: [Float], width: Int, height: Int,
+                                                             fitFunction: OriginFitFunction, trimSigma: Float = 3,
+                                                             rounds: Int = 3) throws -> TrimmedFit {
+        let model: OriginFitModel
+        switch fitFunction {
+        case .constant: model = .constant
+        case .plane: model = .plane
+        case .parabola: model = .parabola
+        }
+        do {
+            return trimmedFit(try OriginFit.fitTrimmed(
+                originRow: measuredX.map(Double.init), originColumn: measuredY.map(Double.init),
+                rows: height, columns: width, model: model, trimSigma: Double(trimSigma), rounds: rounds))
+        } catch OriginFitError.underdetermined {
+            throw OriginFitRefusal("The origin could not be fitted: no scan position has a measured origin.")
+        } catch OriginFitError.invalidMap(let reason) {
+            throw OriginFitRefusal("The origin could not be fitted: \(reason)")
+        }
+    }
+
+    private nonisolated static func trimmedFit(_ fit: TrimmedOriginFit) -> TrimmedFit {
+        TrimmedFit(
             fittedX: fit.fittedRow.map(Float.init), fittedY: fit.fittedColumn.map(Float.init), kept: fit.kept,
             keptResidual: Float(fit.keptResidual), fullScanResidual: Float(fit.fullScanResidual))
     }
@@ -409,9 +436,9 @@ package nonisolated enum OriginCalibration {
             measuredX[index] = measured[2 * index]
             measuredY[index] = measured[2 * index + 1]
         }
-        let fitted = fitOriginTrimmed(measuredX: measuredX, measuredY: measuredY,
-                                      width: d.rx, height: d.ry,
-                                      fitFunction: fitFunction)
+        let fitted = try fitOriginTrimmedOrRefuse(measuredX: measuredX, measuredY: measuredY,
+                                                  width: d.rx, height: d.ry,
+                                                  fitFunction: fitFunction)
         guard cancellation?.isCancelled != true else { return nil }
         // A disclosure must never cost the calibration it describes: an error
         // here (a GPU hiccup, an unreadable pattern) leaves the quantity unread.
@@ -852,4 +879,11 @@ extension OriginCalibration {
                           fittedX: fit.fittedColumn.map(Float.init), fittedY: fit.fittedRow.map(Float.init),
                           measuredByFriedel: false)
     }
+}
+
+/// The origin fit the kit refused, with its reason (#302).
+package nonisolated struct OriginFitRefusal: LocalizedError, Equatable {
+    package let message: String
+    package init(_ message: String) { self.message = message }
+    package var errorDescription: String? { message }
 }
