@@ -56,13 +56,19 @@ package nonisolated final class TrainingSampleBuilder: @unchecked Sendable {
         guard pattern.qy == qy, pattern.qx == qx else { return [] }
         var crop = [Float](repeating: 0, count: S * S)
         var out: [TrainingSample] = []
+        // The dose scale inference uses (D098, #301): a detector covered by several windows scales the native pattern once,
+        // from its whole maximum; one window keeps the per-frame rule. Each window scaled from its own maximum trained the
+        // model on other inputs than it runs on.
+        let countScale: Float? = windows.count > 1
+            ? pattern.pixels.withUnsafeBufferPointer { LearnedDiskDetector.nativeCountScale(pattern: $0.baseAddress!, count: $0.count) }
+            : nil
         for win in windows {
             pattern.pixels.withUnsafeBufferPointer {
                 LearnedDiskDetector.window(of: $0.baseAddress!, qy: qy, qx: qx, row0: win.row0, col0: win.col0, into: &crop)
             }
             _ = BraggDetector.fillNonFinite(&crop, rows: S, columns: S)
             let corr = crop.withUnsafeBufferPointer { detector.correlation(pattern: $0.baseAddress!, params: params) }
-            let inputs = LearnedDiskDetector.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw)
+            let inputs = LearnedDiskDetector.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw, countScale: countScale)
             out.append(TrainingSample(position: position, inputs: inputs,
                                       centres: Self.centres(centres, inWindowAt: win.row0, win.col0)))
         }
