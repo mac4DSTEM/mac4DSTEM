@@ -113,7 +113,6 @@ package nonisolated enum KnownCrystalQCalibration {
         return (shells, labels, doubleDiffraction)
     }
 
-
     // MARK: - Why there are no thresholds here (after Gate B)
     //
     // An earlier attempt shipped three — `maximumShellConsistency = 0.07`,
