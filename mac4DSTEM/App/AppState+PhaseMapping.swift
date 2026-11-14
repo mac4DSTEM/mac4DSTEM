@@ -42,7 +42,14 @@ extension AppState {
         guard phaseMapping.runRefusal == nil else { return nil }
         let names = phaseMapping.phases.map(\.model.displayName)
         let ids = phaseMapping.phases.map(\.model.id)
+        // A typed relationship stands for its variants in the matrix (#342): one pair as a paper writes it, the rest from the
+        // matrix's symmetry about its zone axis.
+        let matrixSlot = phaseMapping.phases.first { $0.isMatrix }
         return phaseMapping.phases.map { slot in
+            let typed = slot.isMatrix ? [] : slot.orientationRelationships
+            let relationships = matrixSlot.map {
+                OrientationRelationshipVariants.expanded(typed, matrix: $0.model.structure, matrixZone: $0.zoneAxis)
+            } ?? typed
             let shared = names.filter { $0 == slot.model.displayName }.count > 1
             let sharedID = ids.filter { $0 == slot.model.id }.count > 1
             return PhaseDefinition(
@@ -51,7 +58,7 @@ extension AppState {
                 crystal: slot.model.structure,
                 role: slot.isMatrix ? .matrix : .candidate,
                 zoneAxes: [slot.zoneAxis],
-                orientationRelationships: slot.isMatrix ? [] : slot.orientationRelationships,
+                orientationRelationships: relationships,
                 excitationSlabInvAngstrom: slot.excitationSlabInvAngstrom
             )
         }
@@ -653,6 +660,17 @@ extension AppState {
             .map { "\($0.model.displayName): \($0.orientationRelationshipText)" }
         if !orientationStatements.isEmpty {
             out["orientation_relationships"] = orientationStatements.joined(separator: " | ")
+            // The variants the run used: the typed pairs and the matrix's symmetry images of them (#342).
+            if let matrixSlot = phaseMapping.phases.first(where: { $0.isMatrix }) {
+                out["orientation_relationship_variants"] = phaseMapping.phases
+                    .filter { !$0.isMatrix && !$0.orientationRelationshipText.isEmpty }
+                    .map { slot in
+                        let pairs = OrientationRelationshipVariants.expanded(slot.orientationRelationships,
+                                                                             matrix: matrixSlot.model.structure, matrixZone: matrixSlot.zoneAxis)
+                        return "\(slot.model.displayName): " + pairs.map(OrientationRelationshipVariants.text).joined(separator: ", ")
+                    }
+                    .joined(separator: " | ")
+            }
         }
         for (index, name) in map.phaseNames.enumerated() {
             let counts = map.phaseCounts

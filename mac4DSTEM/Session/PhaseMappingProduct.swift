@@ -73,6 +73,8 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
     package var signature: String {
         "\(model.id)|\(model.contentFingerprint)|\(isMatrix ? "m" : "c")|\(u),\(v),\(w)"
             + "|\(orientationRelationshipText)|\(excitationSlabInvAngstrom.map { String($0) } ?? "global")"
+            // A typed relationship stands for its variants since #342: a map made before reads stale.
+            + (orientationRelationshipText.isEmpty ? "" : "|variants")
     }
 
     package init(model: CrystalModel, isMatrix: Bool, u: Int, v: Int, w: Int,
