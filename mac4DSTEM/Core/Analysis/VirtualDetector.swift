@@ -387,10 +387,8 @@ package nonisolated enum VirtualDetector {
         maximumTileRows: Int?, cancellation: AnalysisCancellationToken?, progress: (@Sendable (Double) -> Void)?
     ) async throws -> FloatImage {
         guard cancellation?.isCancelled != true else { throw CancellationError() }
-        guard let geometry else {
-            progress?(1)
-            return FloatImage(width: d.rx, height: d.ry, pixels: [Float](repeating: 0, count: d.ry * d.rx))
-        }
+        // A detector that covers no detector pixel is refused (#302): an all-zero image looked like a real, dark one.
+        guard let geometry else { throw VirtualDetectorRefusal.noDetectorPixel }
         let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
         let image = try await VirtualImaging.image(
             of: source, geometry: geometry, path: .cpu,
@@ -577,5 +575,15 @@ package nonisolated enum VirtualDetector {
                 if passesInner && r2 < rOut2 { mask[y * qx + x] = 1 }
             }
         }
+    }
+}
+
+/// Why a virtual image is not computed.
+package nonisolated enum VirtualDetectorRefusal: LocalizedError, Equatable {
+    /// The shape selects no pixel of the detector (outside it, or an annulus whose inner radius reaches its outer).
+    case noDetectorPixel
+
+    package var errorDescription: String? {
+        "The virtual detector covers no detector pixel. Move it onto the pattern or make it larger."
     }
 }

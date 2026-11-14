@@ -104,7 +104,7 @@ final class CuboCallSiteTests: XCTestCase {
 
     /// Mutation: swap the kit geometry's row and column (centerRow: cx) — every off-centre shape lands on the wrong
     /// pixels of a 6 x 9 detector. Mutation: drop the lower clamp of the rectangle — the kit refuses the negative bound
-    /// and the call throws. Mutation: send the degenerate shapes to the kit instead of answering a zero image — it throws.
+    /// and the call throws. Mutation: send the degenerate shapes to the kit instead of refusing them — the kit's own error, not the refusal.
     func testVirtualImagesAreTheDefinitionOnANonSquareDetector() async throws {
         let (source, data, d) = try await planted()
         let cx: Float = 6.3, cy: Float = 1.7   // column, row: deliberately not the centre, and cx > cy
@@ -137,7 +137,8 @@ final class CuboCallSiteTests: XCTestCase {
             return r2 > 0 && r2 < 2.5 * 2.5
         }
         XCTAssertEqual(run.pixels, runExpected)
-        // The app answers a selection of nothing with a zero image and a completed progress, and never reaches the kit.
+        // A selection of nothing is refused, never sent to the kit and never answered with a zero image that reads as a
+        // dark one (#302).
         let nothing: [DetectorShape] = [
             .point(x: 9, y: 0), .point(x: 0, y: 6), .point(x: -1, y: 0),
             .annulus(centerX: 4, centerY: 3, inner: 3, outer: 2), .annulus(centerX: 4, centerY: 3, inner: 2, outer: 2),
@@ -145,11 +146,12 @@ final class CuboCallSiteTests: XCTestCase {
             .circle(centerX: 4, centerY: 3, radius: -2), .circle(centerX: .nan, centerY: 3, radius: 2),
         ]
         for shape in nothing {
-            nonisolated(unsafe) var ticks: [Double] = []
-            let image = try await VirtualDetector.tiledImage(data: data, descriptor: d, shape: shape,
-                                                             progress: { ticks.append($0) })
-            XCTAssertEqual(image.pixels, [Float](repeating: 0, count: Self.ry * Self.rx), "\(shape) selects nothing")
-            XCTAssertEqual(ticks, [1], "\(shape): a finished run reports completion once")
+            do {
+                _ = try await VirtualDetector.tiledImage(data: data, descriptor: d, shape: shape)
+                XCTFail("\(shape) selects nothing and must be refused")
+            } catch {
+                XCTAssertEqual(error as? VirtualDetectorRefusal, .noDetectorPixel, "\(shape)")
+            }
         }
     }
 
