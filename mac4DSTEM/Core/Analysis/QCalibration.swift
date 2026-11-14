@@ -7,7 +7,9 @@
 //
 
 import Foundation
+import DiffractoCore
 import DiffractoGeometry
+import DiffractoScattering
 
 /// What the estimator's second shell measured, when one could be read.
 ///
@@ -79,6 +81,38 @@ package nonisolated struct QCalibrationEstimate: Sendable {
 }
 
 package nonisolated enum KnownCrystalQCalibration {
+    /// What a crystal's rings are assigned to (#274): its distinct shells above the structure-factor cut (|g|, Å⁻¹, ascending), one
+    /// family name each, and apart from them the kinematically forbidden shells double diffraction reaches, g = g₁ + g₂ with g₁ and g₂
+    /// both above the cut (diamond-cubic {002} and {222} along [110], hcp (0001)). The kit matches those to a later ring only, never
+    /// the first, and keeps them out of its shell window, so a zone that doesn't show them is assigned as before (DiffractoKit 0.16.0).
+    /// Lattice-centring absences are never among them: a sum of two reflections that obey the centring condition obeys it too, so fcc
+    /// and bcc have none. Only forbidden shells up to the `searchShells`-th kept shell are looked for (the kit reads fewer).
+    package static func ringShells(_ list: KinematicReflectionList, searchShells: Int = 12)
+        -> (shells: [Double], labels: [String], doubleDiffraction: [Double]) {
+        func distinct(_ lengths: [Double]) -> [Double] {
+            var out: [Double] = []
+            for length in lengths.sorted() where out.last.map({ length > $0 * (1 + 1e-6) }) ?? true { out.append(length) }
+            return out
+        }
+        let shells = distinct(list.kept.map(\.reflection.gLength))
+        let labels = shells.map { g in
+            list.families.first { abs($0.family.g / g - 1) < 1e-6 }.map { ShellAssignment.compactLabel($0.family.name) }
+                ?? "shell \(shells.firstIndex(of: g).map { $0 + 1 } ?? 0)"
+        }
+        guard let reach = shells.prefix(searchShells).last else { return (shells, labels, []) }
+        let allowed = Set(list.kept.map(\.reflection.hkl))
+        var reached: [Double] = []
+        for r in list.all where r.structureFactor.magnitude <= list.cut && r.reflection.gLength <= reach * (1 + 1e-6) {
+            let g = r.reflection.hkl
+            if allowed.contains(where: { a in allowed.contains(MillerIndex(g.h - a.h, g.k - a.k, g.l - a.l)) }) {
+                reached.append(r.reflection.gLength)
+            }
+        }
+        // A forbidden length equal to a kept shell's is that shell already: matching it adds nothing.
+        let doubleDiffraction = distinct(reached).filter { g in !shells.contains { abs($0 / g - 1) < 1e-6 } }
+        return (shells, labels, doubleDiffraction)
+    }
+
 
     // MARK: - Why there are no thresholds here (after Gate B)
     //
@@ -185,7 +219,7 @@ package nonisolated enum KnownCrystalQCalibration {
     /// second ring matched is the check. Nil when no radius is usable (the caller's "no shell" sentence).
     package static func estimateAssigned(
         bragg: BraggVectors, origin: (x: Float, y: Float), shells: [Double], labels: [String], crystalName: String,
-        priorScale: Double?, minimumRadiusPixels: Float = 2
+        priorScale: Double?, minimumRadiusPixels: Float = 2, doubleDiffractionShells: [Double] = []
     ) -> AssignedOutcome? {
         let radii = bragg.peaks.map { peaks in
             peaks.map { peak -> Double in
@@ -195,7 +229,8 @@ package nonisolated enum KnownCrystalQCalibration {
         }
         guard let named = ShellAssignment.assignNamingCandidates(radiiPerPosition: radii, shellLengths: shells, labels: labels,
                                                                  crystalName: crystalName, priorScale: priorScale,
-                                                                 minimumRadiusPixels: Double(minimumRadiusPixels)) else { return nil }
+                                                                 minimumRadiusPixels: Double(minimumRadiusPixels),
+                                                                 doubleDiffractionShells: doubleDiffractionShells) else { return nil }
         switch named.outcome {
         case .refused(let sentence):
             // Two first rings fit and predict different scales (or the two readings disagree). As with the equal-ratio tie, the scale is
@@ -361,10 +396,11 @@ package nonisolated enum ShellAssignment {
     /// - Returns: nil when no position holds a radius above `minimumRadiusPixels`.
     package static func assign(
         radiiPerPosition: [[Double]], shellLengths: [Double], labels: [String]? = nil, crystalName: String = "the crystal",
-        priorScale: Double? = nil, minimumRadiusPixels: Double = 2
+        priorScale: Double? = nil, minimumRadiusPixels: Double = 2, doubleDiffractionShells: [Double] = []
     ) -> Outcome? {
         assignNamingCandidates(radiiPerPosition: radiiPerPosition, shellLengths: shellLengths, labels: labels, crystalName: crystalName,
-                               priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels)?.outcome
+                               priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels,
+                               doubleDiffractionShells: doubleDiffractionShells)?.outcome
     }
 
     /// `assign`, and for a refusal between two first rings their labels (the kit's `ambiguous`: both fit at different predictions;
@@ -372,12 +408,13 @@ package nonisolated enum ShellAssignment {
     /// "no shell matches".
     package static func assignNamingCandidates(
         radiiPerPosition: [[Double]], shellLengths: [Double], labels: [String]? = nil, crystalName: String = "the crystal",
-        priorScale: Double? = nil, minimumRadiusPixels: Double = 2
+        priorScale: Double? = nil, minimumRadiusPixels: Double = 2, doubleDiffractionShells: [Double] = []
     ) -> (outcome: Outcome, candidates: [String])? {
         do {
             guard let found = try LinearScale.assign(
                 radiiPerPosition: radiiPerPosition, shellLengths: shellLengths, labels: labels, crystalName: crystalName,
-                priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels) else { return nil }
+                priorScale: priorScale, minimumRadiusPixels: minimumRadiusPixels,
+                doubleDiffractionShells: doubleDiffractionShells) else { return nil }
             return (.assigned(Assigned(
                 shellIndex: found.shellIndex, label: found.label, referenceRadiusInvAngstrom: found.referenceRadiusInvAngstrom,
                 nextShellInvAngstrom: found.nextShellInvAngstrom, observedRadiiPixels: found.observedRadiiPixels,
