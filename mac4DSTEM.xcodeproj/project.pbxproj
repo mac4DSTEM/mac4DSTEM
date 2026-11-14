@@ -160,6 +160,7 @@
 				Core/Crystal/MaterialsProjectImport.swift,
 				Core/Crystal/OrientationMatcher.swift,
 				Core/Crystal/OrientationPlan.swift,
+				Core/Crystal/OrientationRelationshipVariants.swift,
 				Core/Crystal/PhaseMappingScan.swift,
 				Core/Crystal/PhaseMapPresentation.swift,
 				Core/Data/BraggVectorEMDTypes.swift,
