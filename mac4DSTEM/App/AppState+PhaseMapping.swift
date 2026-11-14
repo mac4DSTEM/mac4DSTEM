@@ -162,7 +162,7 @@ extension AppState {
         // enforced here too: a caller that skips the button (replay, a test)
         // must not get the silent all-"not indexed" map the owner got on an
         // uncalibrated cube (drive 2026-09-24).
-        if let refusal = phaseMappingQScaleRefusal {
+        if let refusal = phaseMappingQScaleRefusal ?? phaseMappingOriginRefusal {
             statusText = refusal
             return .failed(refusal)
         }
@@ -694,6 +694,25 @@ extension AppState {
             + "peaks in detector pixels, so without it every position reads not indexed."
     }
 
+    /// Why the phase-mapping runs (Map Phases, Find Matrix Zone Axis) refuse the origin, or nil: they match vector LENGTHS
+    /// in Å⁻¹, so the vectors must be centred on a measured beam centre (fitted maps or a recorded one), the same rule Q from a
+    /// crystal applies (`SessionGates.reciprocalMetrologyRefusal`). mac4DSTEM#338: two dark-field detectors placed on spots
+    /// set the fitted origin aside (`updateAperture`), the vectors were re-centred 18 px off the beam on the second spot, and
+    /// Thronsen A read 26 of 2009 vectors on the matrix and θ′ face-on everywhere, with nothing said.
+    var phaseMappingOriginRefusal: String? {
+        guard let d = descriptor else { return nil }
+        let origin = calibrationSession.calibration.referenceOrigin(
+            detectorQX: d.qx, detectorQY: d.qy, apertureCentre: (x: aperture.centerX, y: aperture.centerY))
+        guard !origin.kind.isMeasuredBeamCentre else { return nil }
+        if canRestoreFittedOrigin {
+            return "Phase mapping needs the measured beam centre, and it was set aside when the virtual detector was moved "
+                + "off it: the vectors would be centred on the detector, not on the beam. Restore Fitted Origin in "
+                + "Calibration, or run Calibrate Origin."
+        }
+        return "Phase mapping needs a measured beam centre: without one the vectors would be centred on the virtual "
+            + "detector's position, not on the beam. Run Calibrate Origin first."
+    }
+
     /// The sentence strain, ACOM and q from crystal refuse stale disks with,
     /// for the two phase-mapping runs (mac4DSTEM#69). Disks restored without
     /// a recipe read stale too, through `diskDetectionSettingsAreStale`.
@@ -711,7 +730,7 @@ extension AppState {
             return "Detect Bragg disks first — this fits the axis to the peaks disk detection found."
         }
         if diskDetectionSettingsAreStale { return Self.matrixZoneAxisStaleDisksRefusal }
-        return phaseMappingQScaleRefusal
+        return phaseMappingQScaleRefusal ?? phaseMappingOriginRefusal
     }
 
     /// Why the zone-axis ranking on the panel belongs to an earlier Q scale,
@@ -764,8 +783,9 @@ extension AppState {
         }
         // Without a physical Q scale the sweep compares Å⁻¹ references with
         // pixel vectors through the exploratory slider value, and every axis
-        // reads "at chance" (drive 2026-09-24) — refuse and say why instead.
-        if let refusal = phaseMappingQScaleRefusal {
+        // reads "at chance" (drive 2026-09-24) — refuse and say why instead. An origin on the detector instead of the beam
+        // reads at chance too (mac4DSTEM#338).
+        if let refusal = phaseMappingQScaleRefusal ?? phaseMappingOriginRefusal {
             statusText = refusal
             return .failed(refusal)
         }

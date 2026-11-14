@@ -135,6 +135,7 @@ extension Mac4DSTEMAgentDoor {
             "settings": settings,
             "on_this_detector": onDetector,
             "q_scale_refusal": AgentJSON.orNull(state.phaseMappingQScaleRefusal),
+            "origin_refusal": AgentJSON.orNull(state.phaseMappingOriginRefusal),
             "run_refusal": AgentJSON.orNull(product.runRefusal),
             "last_run": phaseMappingLastRun(of: state),
             "zone_axis_fits": product.zoneAxisFits.map { fit in
