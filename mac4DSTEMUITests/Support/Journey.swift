@@ -23,7 +23,10 @@ class Journey: XCTestCase {
         // -NSTreatUnknownArgumentsAsOpen NO (macTEM's launcher does the same): AppKit otherwise turns the path after `--open` into an
         // open-documents event instead of a plain launch, and SwiftUI then shows no window (an .h5 path: 0 windows, 2026-10-30).
         // `--open <path>` is read by the app itself, never by AppKit.
-        a.launchArguments = ["--ui-testing", "-NSTreatUnknownArgumentsAsOpen", "NO"] + extra
+        // -ApplePersistenceIgnoreState YES (#347): a launch the test killed leaves saved windows, and the next launch restored them into
+        // nothing (0 windows, the app frontmost and "Disabled"). The app's own `UITestingLaunch.resetSavedState` deletes the saved state,
+        // but on macOS 27 the launch still logged `hasPersistentStateToRestore=1`: AppKit's own switch is what makes it ignore that state.
+        a.launchArguments = ["--ui-testing", "-NSTreatUnknownArgumentsAsOpen", "NO", "-ApplePersistenceIgnoreState", "YES"] + extra
         a.launch()
         a.activate()
         XCTAssertTrue(a.windows.firstMatch.waitForExistence(timeout: 20),
