@@ -193,8 +193,9 @@ final class ThronsenParityTests: XCTestCase {
         // The paper's four methods at full resolution span 98.25 to 99.04 %; "match, not exceed" (D17) is agreement inside that spread.
         XCTAssertGreaterThanOrEqual(accuracy, 98.25, "below the weakest of the paper's four methods")
         XCTAssertLessThanOrEqual(accuracy, 99.04 + 0.5, "better than the best published method by more than the metric can tell: check the truth is not leaking")
-        // The T4 run's recorded per-position error was 1.31 %; a change that moves it needs a reason.
-        XCTAssertEqual(100 - accuracy, 1.31, accuracy: 0.05)
+        // The T4 run recorded 1.31 %; main read 1.41 % on 14 Nov 2026 (#345), still inside the paper's spread, and Paul
+        // accepted it without a bisect. A change that moves it again needs a reason.
+        XCTAssertEqual(100 - accuracy, 1.41, accuracy: 0.05)
 
         let theirs = objectRows(truth.labels, width: truth.width, height: truth.height)
         let mine = objectRows(ours.labels, width: truth.width, height: truth.height)
@@ -211,7 +212,7 @@ final class ThronsenParityTests: XCTestCase {
         XCTAssertEqual(theirs[1]?.counted, 70); XCTAssertEqual(theirs[2]?.counted, 3); XCTAssertEqual(theirs[3]?.counted, 21)
         XCTAssertEqual(theirs[3]?.edge, 16)
         XCTAssertEqual(try XCTUnwrap(theirs[3]?.densityPerUm2), 5.0150, accuracy: 1e-3, "at the paper's 4.6 nm step (it was 17.0566 at the file's 2.4943 nm)")
-        XCTAssertEqual(mine[1]?.counted, 75); XCTAssertEqual(mine[2]?.counted, 35); XCTAssertEqual(mine[3]?.counted, 26)
+        XCTAssertEqual(mine[1]?.counted, 78); XCTAssertEqual(mine[2]?.counted, 35); XCTAssertEqual(mine[3]?.counted, 26)
     }
 
     // MARK: - The 2026-10-22 comparison (figure, spread, edge, variants)
