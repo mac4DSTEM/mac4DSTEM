@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+@testable import mac4DSTEM
 
 /// mac4DSTEM#138: the origin from the Bragg peaks when a reflection is brighter than the direct beam (the Si/SiGe case),
 /// where the brightest peak is the reflection and the centre of mass sits between the two. Planted peaks: a direct beam
@@ -61,6 +62,26 @@ final class BraggPeakOriginTests: XCTestCase {
         XCTAssertThrowsError(try OriginCalibration.fromBraggPeaks(empty, qy: 32, qx: 32)) { error in
             XCTAssertEqual(error as? BraggPeakOriginError, .noPeaks)
             XCTAssertNotNil((error as? LocalizedError)?.errorDescription)
+        }
+    }
+    /// mac4DSTEM#338, the hand-off: the vectors Phase mapping and Find Matrix Zone Axis receive
+    /// (`BraggVectors.calibrated(with:referenceOrigin:)` on these maps, about their mean, as `calibratedBraggVectors` does)
+    /// are the planted lattice about the reference origin at every position, as a perfect centre-of-mass origin gives.
+    func testPhaseMappingReceivesThePlantedLatticeWithTheBraggPeakOrigin() throws {
+        let raw = Self.vectors()
+        var calibration = Calibration()
+        calibration.origin = try OriginCalibration.fromBraggPeaks(raw, qy: Self.qy, qx: Self.qx)
+        let reference = try XCTUnwrap(calibration.meanOrigin)
+        let calibrated = raw.calibrated(with: calibration, referenceOrigin: reference)
+        for r in 0..<Self.rows {
+            for c in 0..<Self.columns {
+                let k = r * Self.columns + c, beam = Self.beam(r, c)
+                XCTAssertEqual(calibrated.peaks[k].count, raw.peaks[k].count)
+                for (got, planted) in zip(calibrated.peaks[k], raw.peaks[k]) {
+                    XCTAssertEqual(got.x - reference.x, planted.x - beam.x, accuracy: 2e-3, "position (\(r), \(c))")
+                    XCTAssertEqual(got.y - reference.y, planted.y - beam.y, accuracy: 2e-3, "position (\(r), \(c))")
+                }
+            }
         }
     }
 }
