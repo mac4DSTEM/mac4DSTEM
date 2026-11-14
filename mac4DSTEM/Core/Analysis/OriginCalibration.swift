@@ -820,14 +820,21 @@ package enum BraggPeakOriginError: LocalizedError, Equatable {
 
 extension OriginCalibration {
     /// The origin from the detected Bragg peaks, opt-in beside the centre-of-mass and Friedel methods: py4DSTEM's
-    /// `BraggVectors.measure_origin` with a distance score and `fit_origin` (CuboKit's `BraggOrigin`), with the centre
-    /// guess from the symmetry of the peak map (`BraggOrigin.symmetryCenterGuess`, a mac4DSTEM variant). For crystals whose
-    /// strong reflections pull the centre of mass off the beam: on py4DSTEM's Si/SiGe tutorial cube the centre of mass lands
+    /// `BraggVectors.measure_origin` with a distance score (CuboKit's `BraggOrigin.measure`), with the centre guess from the
+    /// symmetry of the peak map (`BraggOrigin.symmetryCenterGuess`, a mac4DSTEM variant). For crystals whose strong
+    /// reflections pull the centre of mass off the direct beam: on py4DSTEM's Si/SiGe tutorial cube the centre of mass lands
     /// about 10 px from the direct beam, the Bragg-peak origin within 0.2 px RMS.
     ///
+    /// The surface is the SAME fit the centre-of-mass route uses (`fitOriginTrimmed`: `fitFunction`, positions more than
+    /// 3 robust deviations off it left out; py4DSTEM's `fit_origin(robust=True)` in spirit), so the two routes differ only in
+    /// how each position is measured (mac4DSTEM#338). A position whose direct beam was not detected measures its nearest
+    /// reflection, a whole g away; with an ordinary least-squares plane a small patch of such positions tilted the surface
+    /// under every other position (6 % of a planted scan moved it by 3 px; on Thronsen A the plain plane stood up to 0.5 px
+    /// off the centre-of-mass one).
+    ///
     /// `vectors` are the raw (uncalibrated) peaks of a full-scan detection on a `qy × qx` detector. The measured maps hold
-    /// the chosen peak per position (the guess where a position has none); the fitted maps are the `fitFunction` surface
-    /// over the positions with a peak.
+    /// the chosen peak per position (the guess where a position has none); the fitted maps are the surface over the
+    /// positions with a peak that the trim kept, and `originValidity` says which those were.
     package nonisolated static func fromBraggPeaks(_ vectors: BraggVectors, qy: Int, qx: Int,
                                                    fitFunction: OriginFitFunction = .plane) throws -> OriginMaps {
         let rows = vectors.scanHeight, columns = vectors.scanWidth
@@ -840,16 +847,22 @@ extension OriginCalibration {
             throw BraggPeakOriginError.noPeaks
         }
         let measured = try BraggOrigin.measure(kit, detectorRows: qy, detectorColumns: qx, centerGuess: guess, score: .distance)
-        let model: OriginFitModel
-        switch fitFunction {
-        case .constant: model = .constant
-        case .plane: model = .plane
-        case .parabola: model = .parabola
+        let measuredX = measured.column.map(Float.init), measuredY = measured.row.map(Float.init)
+        // A position without peaks holds the guess, which is no measurement: it stays out of the fit (NaN is unusable there).
+        let fitted = fitOriginTrimmed(
+            measuredX: measuredX.indices.map { measured.found[$0] ? measuredX[$0] : .nan },
+            measuredY: measuredY.indices.map { measured.found[$0] ? measuredY[$0] : .nan },
+            width: columns, height: rows, fitFunction: fitFunction)
+        guard fitted.fittedX.count == measuredX.count, fitted.fittedX.allSatisfy(\.isFinite),
+              fitted.fittedY.allSatisfy(\.isFinite) else {
+            throw BraggPeakOriginError.noPeaks
         }
-        let fit = try BraggOrigin.fit(measured, model: model)
         return OriginMaps(width: columns, height: rows,
-                          measuredX: measured.column.map(Float.init), measuredY: measured.row.map(Float.init),
-                          fittedX: fit.fittedColumn.map(Float.init), fittedY: fit.fittedRow.map(Float.init),
+                          measuredX: measuredX, measuredY: measuredY,
+                          fittedX: fitted.fittedX, fittedY: fitted.fittedY,
+                          excludedFraction: fitted.excludedFraction,
+                          robustResidual: fitted.keptResidual.isFinite ? fitted.keptResidual : nil,
+                          originValidity: fitted.kept,
                           measuredByFriedel: false)
     }
 }
